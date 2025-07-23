@@ -71,6 +71,8 @@ x-datahub-system-update-service: &datahub-system-update-service
     ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+  labels:
+    datahub_setup_job: true
 
 x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   <<: *datahub-system-update-service
@@ -106,6 +108,7 @@ x-datahub-gms-service: &datahub-gms-service
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     THEME_V2_DEFAULT: ${THEME_V2_DEFAULT:-true}
+    METADATA_SERVICE_AUTH_ENABLED: ${METADATA_SERVICE_AUTH_ENABLED:-true}
   healthcheck:
     test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
     start_period: 90s
@@ -137,10 +140,6 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
-    AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
-    AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
-    AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
-    AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
@@ -196,11 +195,15 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
+  ports:
+    - 9090:9090
+    - 5009:5009
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   environment:
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
   volumes:
     - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
     - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
@@ -225,6 +228,10 @@ services:
         condition: service_completed_successfully
       kafka-setup:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
     profiles:
@@ -366,7 +373,19 @@ services:
     profiles:
       - debug
       - debug-backend
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-aws:
+    <<: *datahub-gms-service-dev
+    profiles:
       - debug-backend-aws
+    environment:
+      <<: *datahub-gms-dev-env
+      AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+      AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+      AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
     depends_on:
       system-update-debug:
         condition: service_completed_successfully

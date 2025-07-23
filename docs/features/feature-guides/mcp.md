@@ -30,9 +30,15 @@ Seamlessly integrates with AI-native tools like Cursor, Windsurf, Claude Desktop
 
 For folks on DataHub Cloud v0.3.12+, you can use our hosted MCP server endpoint.
 
-:::note
+:::info
 
 The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. For DataHub Core and older versions of DataHub Cloud, you'll need to [self-host the MCP server](#self-hosted-mcp-server-usage).
+
+:::
+
+:::note Streamable HTTP Only
+
+There are two [transports types](https://modelcontextprotocol.io/docs/concepts/transports) for remote MCP servers: streamable HTTP and server-sent events (SSE). SSE has been deprecated in favor of streamable HTTP, so DataHub only supports the newer streamable HTTP transport. Some older MCP clients (e.g. chatgpt.com) may still only support SSE. For those cases, you'll need to use something like [mcp-remote](https://github.com/geelen/mcp-remote) to bridge the gap.
 
 :::
 
@@ -139,7 +145,7 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
   "mcpServers": {
     "datahub": {
       "command": "<full-path-to-uvx>",  // e.g. /Users/hsheth/.local/bin/uvx
-      "args": ["mcp-server-datahub"],
+      "args": ["mcp-server-datahub@latest"],
       "env": {
         "DATAHUB_GMS_URL": "<your-datahub-url>",
         "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
@@ -162,7 +168,7 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
   "mcpServers": {
     "datahub": {
       "command": "uvx",
-      "args": ["mcp-server-datahub"],
+      "args": ["mcp-server-datahub@latest"],
       "env": {
         "DATAHUB_GMS_URL": "<your-datahub-url>",
         "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
@@ -182,9 +188,21 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
 For other AI tools, you'll typically need to provide the following configuration:
 
 - Command: `uvx`
-- Args: `mcp-server-datahub`
+- Args: `mcp-server-datahub@latest`
 - Env:
   - `DATAHUB_GMS_URL`: `<your-datahub-url>`
   - `DATAHUB_GMS_TOKEN`: `<your-datahub-token>`
 
 </details>
+
+### Troubleshooting
+
+#### `spawn uvx ENOENT`
+
+The full stack trace might look like this:
+
+```
+2025-04-08T19:58:16.593Z [datahub] [error] spawn uvx ENOENT {"stack":"Error: spawn uvx ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)"}
+```
+
+Solution: Replace the `uvx` bit of the command with the output of `which uvx`.

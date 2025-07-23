@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
 )
 from datahub.telemetry import telemetry
+from datahub.upgrade import upgrade
 from datahub.utilities.urns.urn import Urn
 
 log = logging.getLogger(__name__)
@@ -119,6 +120,7 @@ def _get_type_from_urn(urn: str) -> str:
     help="When enabled, will not delete (hard/soft) the previous entities.",
 )
 @telemetry.with_telemetry()
+@upgrade.check_upgrade
 def dataplatform2instance(
     instance: str,
     platform: str,

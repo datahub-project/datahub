@@ -408,7 +408,7 @@ def test_structured_property_search(
             extraFilters=[
                 {
                     "field": to_es_filter_name(dataset_property_name),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ]
@@ -439,7 +439,7 @@ def test_structured_property_search(
                     "field": to_es_filter_name(
                         field_property_name, namespace="io.datahubproject.test"
                     ),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ],
@@ -454,7 +454,7 @@ def test_structured_property_search(
             extraFilters=[
                 {
                     "field": to_es_filter_name(dataset_property_name),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ],
@@ -641,7 +641,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
             extraFilters=[
                 {
                     "field": to_es_filter_name(property_name=dataset_property_name),
-                    "negated": "false",
+                    "negated": False,
                     "condition": "EXISTS",
                 }
             ]
@@ -663,7 +663,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
                 extraFilters=[
                     {
                         "field": to_es_filter_name(property_name=dataset_property_name),
-                        "negated": "false",
+                        "negated": False,
                         "condition": "EXISTS",
                     }
                 ]
@@ -724,7 +724,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
                 extraFilters=[
                     {
                         "field": to_es_filter_name(qualified_name=qualified_name),
-                        "negated": "false",
+                        "negated": False,
                         "condition": "EXISTS",
                     }
                 ]

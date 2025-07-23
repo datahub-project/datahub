@@ -458,6 +458,16 @@ public class Constants {
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
+  // Template
+  public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
+  public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageTemplateProperties";
+
+  // Module
+  public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
+  public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageModuleProperties";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
@@ -514,6 +524,10 @@ public class Constants {
   public static final String MDC_CHANGE_TYPE = "changeType";
 
   public static final String RESTLI_SUCCESS = "success";
+
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // EntityPrivilegesResolver
+  public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 
   private Constants() {}
 }

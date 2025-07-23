@@ -1,21 +1,21 @@
 [
   {
     "request": {
-      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2Cdataset1EntityV3%2CPROD%29",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetSingle1EntityV3%2CPROD%29",
       "description": "Remove test dataset 1",
       "method": "delete"
     }
   },
   {
     "request": {
-      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2Cdataset2EntityV3%2CPROD%29",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetSingle2EntityV3%2CPROD%29",
       "description": "Remove test dataset 2",
       "method": "delete"
     }
   },
   {
     "request": {
-      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2Cdataset3EntityV3%2CPROD%29",
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetSingle3EntityV3%2CPROD%29",
       "description": "Remove test dataset 3",
       "method": "delete"
     }
@@ -45,11 +45,11 @@
       "description": "Create 3 datasets",
       "json": [
         {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset1EntityV3,PROD)",
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
           "datasetProperties": {
             "value": {
-              "name": "dataset1EntityV3",
-              "qualifiedName": "entities.dataset1EntityV3",
+              "name": "datasetSingle1EntityV3",
+              "qualifiedName": "entities.datasetSingle1EntityV3",
               "customProperties": {},
               "tags": []
             }
@@ -61,11 +61,11 @@
           }
         },
         {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset2EntityV3,PROD)",
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle2EntityV3,PROD)",
           "datasetProperties": {
             "value": {
-              "name": "dataset2EntityV3",
-              "qualifiedName": "entities.dataset2EntityV3",
+              "name": "datasetSingle2EntityV3",
+              "qualifiedName": "entities.datasetSingle2EntityV3",
               "customProperties": {},
               "tags": []
             }
@@ -77,11 +77,11 @@
           }
         },
         {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset3EntityV3,PROD)",
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle3EntityV3,PROD)",
           "datasetProperties": {
             "value": {
-              "name": "dataset3EntityV3",
-              "qualifiedName": "entities.dataset3EntityV3",
+              "name": "datasetSingle3EntityV3",
+              "qualifiedName": "entities.datasetSingle3EntityV3",
               "customProperties": {},
               "tags": []
             }
@@ -101,7 +101,7 @@
       "params": {
         "pitKeepAlive": "1m",
         "count": "1",
-        "query": "qualifiedName:entities\\.dataset*",
+        "query": "qualifiedName:entities\\.datasetSingle*",
         "sortCriteria": "urn"
       },
       "description": "Generic scroll",
@@ -118,11 +118,11 @@
       "json": {
         "entities": [
           {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset1EntityV3,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle1EntityV3,PROD)",
             "datasetProperties": {
               "value": {
-                "name": "dataset1EntityV3",
-                "qualifiedName": "entities.dataset1EntityV3",
+                "name": "datasetSingle1EntityV3",
+                "qualifiedName": "entities.datasetSingle1EntityV3",
                 "customProperties": {},
                 "tags": []
               }
@@ -139,7 +139,7 @@
       "params": {
         "pitKeepAlive": "1m",
         "count": "1",
-        "query": "qualifiedName:entities\\.dataset*",
+        "query": "qualifiedName:entities\\.datasetSingle*",
         "sortCriteria": "urn",
         "sortOrder": "DESCENDING"
       },
@@ -152,11 +152,11 @@
       "json": {
         "entities": [
           {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,dataset3EntityV3,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetSingle3EntityV3,PROD)",
             "datasetProperties": {
               "value": {
-                "name": "dataset3EntityV3",
-                "qualifiedName": "entities.dataset3EntityV3",
+                "name": "datasetSingle3EntityV3",
+                "qualifiedName": "entities.datasetSingle3EntityV3",
                 "customProperties": {},
                 "tags": []
               }

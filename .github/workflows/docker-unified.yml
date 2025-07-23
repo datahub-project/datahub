@@ -65,12 +65,14 @@ jobs:
       integrations_service_change: "false"
       datahub_executor_change: "false"
 
-      run_publish_images: ${{ steps.run-publish-images.outputs.run_publish_images}}
-
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
       test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
       use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
+      uv_cache_key: ${{ steps.uv-cache-key.outputs.uv_cache_key }}
+      uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
+      yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
+      yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -105,7 +107,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name != 'pull_request')
+               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -149,6 +151,24 @@ jobs:
             # publishing is currently only supported via depot
           fi
 
+      - name: Compute UV Cache Key
+        id: uv-cache-key
+        run: |
+          echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
+            './datahub-actions/pyproject.toml',
+            './datahub-actions/setup.py',
+            './smoke-test/requirements.txt',
+            './smoke-test/pyproject.toml',
+            './metadata-ingestion/pyproject.toml',
+            './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
+          echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Yarn Cache Key
+        id: yarn-cache-key
+        run: |
+          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
+
   smoke_test_lint:
     name: Lint on smoke tests
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
@@ -163,17 +183,21 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Run lint on smoke test
         run: |
@@ -200,17 +224,17 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
       - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -256,14 +280,14 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   scan_images:
     permissions:
@@ -289,7 +313,7 @@ jobs:
           echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@0.32.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -365,6 +389,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    env:
+      # TODO Chakru: Review if required
+      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
+      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
         if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
@@ -377,19 +405,18 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
       - uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
@@ -512,18 +539,19 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   deploy_datahub_head:
     name: Deploy to Datahub HEAD

@@ -60,7 +60,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
       @Nonnull AuditStamp auditStamp) {
     return AspectsBatchImpl.builder()
         .mcps(mcps, auditStamp, opContext.getRetrieverContext())
-        .build();
+        .build(opContext);
   }
 
   @Override

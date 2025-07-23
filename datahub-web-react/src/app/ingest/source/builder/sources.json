@@ -355,5 +355,13 @@
         "displayName": "Grafana",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/grafana/",
         "recipe": "source:\n    type: \"grafana\"\n    config:\n        url: \"https://grafana.company.com:443\"\n        service_account_token: token\n        verify_ssl: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:preset",
+        "name": "preset",
+        "displayName": "Preset",
+        "description": "Import Charts and Dashboards from Preset",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/preset/",
+        "recipe": "source:\n  type: preset\n  config:\n    # Coordinates\n    connect_uri: Preset workspace URL\n    manager_uri: https://api.app.preset.io\n\n    # Credentials\n    api_key: Preset API Key\n    api_secret: Preset API Secret"
     }
 ]

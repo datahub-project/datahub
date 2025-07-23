@@ -57,7 +57,11 @@ jobs:
           "annadoesdesign",
           "jmacryl",
           "esteban",
-          "anthonyburdi"
+          "anthonyburdi",
+          "ligfx",
+          "ksrinath",
+          "bryanprosser-acryl",
+          "Alex23Hub"
           ]'),
           github.actor
           )

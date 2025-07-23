@@ -841,19 +841,23 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRD" : "Alternative Prod spelling",
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
       "SANDBOX" : "Designates sandbox fabrics",
+      "SBX" : "Alternative spelling for sandbox",
+      "SIT" : "System Integration Testing",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
+      "TST" : "Alternative Test spelling",
       "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
@@ -5596,9 +5600,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
+                                    "symbols" : [ "EQUALS", "STARTS_WITH", "NOT_EQUALS" ],
                                     "symbolDocs" : {
                                       "EQUALS" : "Whether the field matches the value",
+                                      "NOT_EQUALS" : "Whether the field does not match the value",
                                       "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },
@@ -5611,6 +5616,11 @@
                           } ]
                         },
                         "doc" : "Filter to apply privileges to",
+                        "optional" : true
+                      }, {
+                        "name" : "privilegeConstraints",
+                        "type" : "PolicyMatchFilter",
+                        "doc" : "Constraints around what sub-resources operations are allowed to modify, i.e. NOT_EQUALS - cannot modify a particular defined tag, EQUALS - can only modify a particular defined tag, STARTS_WITH - can only modify a tag starting with xyz",
                         "optional" : true
                       } ]
                     },
@@ -6180,6 +6190,12 @@
       "type" : "boolean",
       "doc" : "Include only latest versions in version sets, default true",
       "default" : true,
+      "optional" : true
+    }, {
+      "name" : "fieldConfiguration",
+      "type" : "string",
+      "doc" : "Which fieldConfiguration should be applied. The possible values\nare defined in the configuration file `search_config.yaml`",
+      "default" : "default",
       "optional" : true
     } ]
   }, {

@@ -3,11 +3,11 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
@@ -73,7 +73,10 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
-    this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
+    this.customizedQueryHandler =
+        CustomizedQueryHandler.builder(
+                searchConfiguration.getSearch().getCustom(), customSearchConfiguration)
+            .build();
     _defaultAutocompleteFields =
         Stream.concat(
                 fieldSpecs.stream()
@@ -148,8 +151,17 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
     baseQuery.filter(filterQuery);
 
+    // Apply field configuration to autocomplete fields
+    List<Pair<String, String>> baseAutocompleteFields = getAutocompleteFields(field);
+    List<Pair<String, String>> configuredFields =
+        customizedQueryHandler.applyAutocompleteFieldConfiguration(
+            baseAutocompleteFields,
+            customizedQueryHandler.resolveFieldConfiguration(
+                opContext.getSearchContext().getSearchFlags(),
+                CustomConfiguration::getAutoCompleteFieldConfigDefault));
+
     // Add autocomplete query
-    baseQuery.should(getQuery(opContext.getObjectMapper(), customAutocompleteConfig, input, field));
+    baseQuery.should(getQuery(opContext, customAutocompleteConfig, configuredFields, input));
 
     // Apply default filters
     BoolQueryBuilder queryWithDefaultFilters =
@@ -177,33 +189,92 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));
 
-    // wire inner non-scored query
-    searchSourceBuilder.highlighter(
-        field == null || field.isEmpty() ? highlights : getHighlights(opContext, List.of(field)));
+    // Apply highlight field configuration
+    HighlightBuilder highlightBuilder =
+        buildConfiguredHighlights(
+            opContext,
+            field,
+            customizedQueryHandler.resolveFieldConfiguration(
+                opContext.getSearchContext().getSearchFlags(),
+                CustomConfiguration::getAutoCompleteFieldConfigDefault));
+    if (highlightBuilder != null) {
+      searchSourceBuilder.highlighter(highlightBuilder);
+    }
+
     searchRequest.source(searchSourceBuilder);
     return searchRequest;
   }
 
+  // Helper method to build highlights with field configuration
+  private HighlightBuilder buildConfiguredHighlights(
+      @Nonnull OperationContext opContext,
+      @Nullable String field,
+      @Nullable String fieldConfigLabel) {
+
+    // Check if highlighting is enabled for this configuration
+    if (!customizedQueryHandler.isHighlightingEnabled(fieldConfigLabel)) {
+      return null;
+    }
+
+    // Determine base highlight fields
+    Set<String> baseHighlightFields;
+    if (field != null && !field.isEmpty()) {
+      baseHighlightFields = Set.of(field);
+    } else {
+      // Get default highlight fields from autocomplete fields
+      baseHighlightFields =
+          _defaultAutocompleteFields.stream().map(Pair::getLeft).collect(Collectors.toSet());
+    }
+
+    // Apply field configuration
+    HighlightConfigurationResult configResult =
+        customizedQueryHandler.getHighlightFieldConfiguration(
+            baseHighlightFields, fieldConfigLabel);
+
+    if (configResult.getFieldsToHighlight().isEmpty()) {
+      // If no fields after configuration, use the base implementation with defaults
+      return getDefaultHighlights(opContext);
+    }
+
+    // Build highlights with configured fields
+    return buildHighlightsWithSelectiveExpansion(
+        opContext,
+        configResult.getFieldsToHighlight(),
+        configResult.getExplicitlyConfiguredFields());
+  }
+
   private BoolQueryBuilder getQuery(
-      @Nonnull ObjectMapper objectMapper,
+      @Nonnull OperationContext operationContext,
       @Nullable AutocompleteConfiguration customAutocompleteConfig,
       @Nonnull String query,
       @Nullable String field) {
-    return getQuery(objectMapper, customAutocompleteConfig, getAutocompleteFields(field), query);
+    return getQuery(
+        operationContext, customAutocompleteConfig, getAutocompleteFields(field), query);
   }
 
   public BoolQueryBuilder getQuery(
-      @Nonnull ObjectMapper objectMapper,
+      @Nonnull OperationContext operationContext,
       @Nullable AutocompleteConfiguration customAutocompleteConfig,
-      List<Pair<String, String>> autocompleteFields,
+      List<Pair<String, String>> baseFields,
       @Nonnull String query) {
+
+    // Apply field configuration
+    List<Pair<String, String>> configuredFields =
+        customizedQueryHandler.applyAutocompleteFieldConfiguration(
+            baseFields,
+            customizedQueryHandler.resolveFieldConfiguration(
+                operationContext.getSearchContext().getSearchFlags(),
+                CustomConfiguration::getAutoCompleteFieldConfigDefault));
 
     BoolQueryBuilder finalQuery =
         Optional.ofNullable(customAutocompleteConfig)
-            .flatMap(cac -> CustomizedQueryHandler.boolQueryBuilder(objectMapper, cac, query))
+            .flatMap(
+                cac ->
+                    CustomizedQueryHandler.boolQueryBuilder(
+                        operationContext.getObjectMapper(), cac, query))
             .orElse(QueryBuilders.boolQuery());
 
-    getAutocompleteQuery(customAutocompleteConfig, autocompleteFields, query)
+    getAutocompleteQuery(customAutocompleteConfig, configuredFields, query)
         .ifPresent(finalQuery::should);
 
     if (!finalQuery.should().isEmpty()) {
@@ -276,6 +347,10 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   @Override
   protected Stream<String> highlightFieldExpansion(
       @Nonnull OperationContext opContext, @Nonnull String fieldName) {
+    if (fieldName.endsWith(".*")) {
+      return Stream.of(fieldName);
+    }
+
     return Stream.concat(
         Stream.of(fieldName, fieldName + ".*", fieldName + ".ngram", fieldName + ".delimited"),
         Stream.of(ESUtils.toKeywordField(fieldName, false, opContext.getAspectRetriever())));

@@ -214,6 +214,7 @@ These privileges are to view & modify any entity within DataHub.
 | Delete                             | Allow actor to delete this entity.                                                         |
 | Create Entity                      | Allow actor to create an entity if it doesn't exist.                                       |
 | Entity Exists                      | Allow actor to determine whether the entity exists.                                        |
+| Execute Entity                     | Allow actor to execute entity ingestion.                                                   |
 | Get Timeline API[^3]               | Allow actor to use the GET Timeline API.                                                   |
 | Get Entity + Relationships API[^3] | Allow actor to use the GET Entity and Relationships API.                                   |
 | Get Aspect/Entity Count APIs[^3]   | Allow actor to use the GET Aspect/Entity Count APIs.                                       |
@@ -320,13 +321,84 @@ These privileges are not generalizable.
 
 ## Coming Soon
 
-The DataHub team is hard at work trying to improve the Policies feature. We are planning on building out the following:
+### Experimental
 
-- Hide edit action buttons on Entity pages to reflect user privileges
+Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
-Under consideration
+Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
+option is `privilegeConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
+it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
+a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
+to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
-- Ability to define Metadata Policies against multiple resources scoped to particular "Containers" (e.g. A "schema", "database", or "collection")
+Example JSON of a policy with constraints:
+
+```json
+{
+  "actors": {
+    "resourceOwners": false,
+    "groups": [],
+    "allGroups": false,
+    "allUsers": false,
+    "users": ["urn:li:corpuser:ryan@email.com"]
+  },
+  "lastUpdatedTimestamp": 0,
+  "privileges": ["EDIT_ENTITY_TAGS", "EDIT_DATASET_COL_TAGS"],
+  "editable": true,
+  "displayName": "Ryan Policy",
+  "resources": {
+    "filter": { "criteria": [] },
+    "allResources": false,
+    "privilegeConstraints": {
+      "criteria": [
+        {
+          "field": "URN",
+          "condition": "EQUALS",
+          "values": ["urn:li:tag:PII", "urn:li:tag:Business Critical"]
+        }
+      ]
+    }
+  },
+  "description": "",
+  "state": "ACTIVE",
+  "type": "METADATA"
+}
+```
+
+```graphql
+mutation {
+  createPolicy(
+    input: {
+      type: METADATA
+      name: "my-policy"
+      state: ACTIVE
+      description: "My policy"
+      privileges: ["EDIT_ENTITY_TAGS"]
+      actors: {
+        allUsers: true
+        users: []
+        groups: []
+        resourceOwners: true
+        allGroups: true
+      }
+      resources: {
+        allResources: true
+        resources: []
+        filter: { criteria: [] }
+        policyConstraints: {
+          criteria: [
+            {
+              field: "URN"
+              values: ["urn:li:tag:PII", "urn:li:tag:Business Critical"]
+              condition: EQUALS
+            }
+          ]
+        }
+      }
+    }
+  )
+}
+```
 
 ## Feedback / Questions / Concerns
 

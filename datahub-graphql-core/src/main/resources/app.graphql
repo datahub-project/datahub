@@ -22,6 +22,11 @@ extend type Query {
   Fetch the global settings related to the docs propagation feature.
   """
   docPropagationSettings: DocPropagationSettings
+
+  """
+  Global settings related to the home page for an instance
+  """
+  globalHomePageSettings: GlobalHomePageSettings
 }
 
 extend type Mutation {
@@ -37,6 +42,11 @@ extend type Mutation {
   updateDocPropagationSettings(
     input: UpdateDocPropagationSettingsInput!
   ): Boolean!
+
+  """
+  Update the applications settings.
+  """
+  updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 }
 
 """
@@ -172,6 +182,16 @@ type PlatformPrivileges {
   Whether the user can view the manage structured properties page.
   """
   viewStructuredPropertiesPage: Boolean!
+
+  """
+  Whether the user can manage applications.
+  """
+  manageApplications: Boolean!
+
+  """
+  Whether the user can manage platform features.
+  """
+  manageFeatures: Boolean!
 }
 
 """
@@ -372,6 +392,11 @@ type ApplicationConfig {
   Whether to show the application sidebar section even when empty
   """
   showSidebarSectionWhenEmpty: Boolean
+
+  """
+  Whether to show the application in the navigation sidebar
+  """
+  showApplicationInNavigation: Boolean
 }
 
 """
@@ -717,6 +742,31 @@ type FeatureFlagsConfig {
   If enabled, show the expand more button (>>) in the lineage graph
   """
   showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed home page
+  """
+  showHomePageRedesign: Boolean!
+
+  """
+  Whether product updates on the sidebar is enabled. Will go to oss.
+  """
+  showProductUpdates: Boolean!
+
+  """
+  Enables the redesign of the lineage v2 graph
+  """
+  lineageGraphV3: Boolean!
+
+  """
+  Enables logical models feature
+  """
+  logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
 }
 
 """
@@ -739,6 +789,16 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update global applications settings.
+"""
+input UpdateApplicationsSettingsInput {
+  """
+  Whether the Applications feature is enabled
+  """
+  enabled: Boolean
 }
 
 """
@@ -783,4 +843,14 @@ type ThemeConfig {
   The optional custom theme ID to determine which theme config we use in the frontend
   """
   themeId: String
+}
+
+"""
+Global settings related to the home page for an instance
+"""
+type GlobalHomePageSettings {
+  """
+  The default page template for the home page for this instance
+  """
+  defaultTemplate: DataHubPageTemplate
 }

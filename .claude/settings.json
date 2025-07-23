@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr view:*)",
+      "Bash(git diff:*)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(sed:*)",
+      "Bash(find:*)",
+      "Bash(rg:*)",
+      "WebFetch(domain:docs.datahub.com)",
+      "Bash(mypy:*)",
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(python -m mypy:*)",
+      "Bash(python -m ruff:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(yarn format:*)",
+      "Bash(yarn lint:*)",
+      "Bash(yarn type-check:*)",
+      "Bash(yarn test:*)",
+      "Bash(yarn generate:*)",
+      "Bash(./gradlew :datahub-web-react:yarnLintFix)",
+      "Bash(./gradlew :datahub-web-react:yarnLint)"
+    ],
+    "deny": []
+  }
+}

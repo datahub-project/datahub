@@ -38,8 +38,9 @@ public class ESBulkProcessor implements Closeable {
   private static final String ES_REINDEX_SUCCESS_METRIC = "reindex_success";
   private static final String ES_REINDEX_FAILED_METRIC = "reindex_failed";
 
-  public static ESBulkProcessor.ESBulkProcessorBuilder builder(RestHighLevelClient searchClient) {
-    return hiddenBuilder().searchClient(searchClient);
+  public static ESBulkProcessor.ESBulkProcessorBuilder builder(
+      RestHighLevelClient searchClient, MetricUtils metricUtils) {
+    return hiddenBuilder().metricUtils(metricUtils).searchClient(searchClient);
   }
 
   @NonNull private final RestHighLevelClient searchClient;
@@ -56,6 +57,8 @@ public class ESBulkProcessor implements Closeable {
   @Getter(AccessLevel.NONE)
   private final BulkProcessor bulkProcessor;
 
+  private final MetricUtils metricUtils;
+
   private ESBulkProcessor(
       @NonNull RestHighLevelClient searchClient,
       @NonNull Boolean async,
@@ -66,7 +69,8 @@ public class ESBulkProcessor implements Closeable {
       Long retryInterval,
       TimeValue defaultTimeout,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
-      BulkProcessor ignored) {
+      BulkProcessor ignored,
+      MetricUtils metricUtils) {
     this.searchClient = searchClient;
     this.async = async;
     this.batchDelete = batchDelete;
@@ -77,10 +81,11 @@ public class ESBulkProcessor implements Closeable {
     this.defaultTimeout = defaultTimeout;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     this.bulkProcessor = async ? toAsyncBulkProcessor() : toBulkProcessor();
+    this.metricUtils = metricUtils;
   }
 
   public ESBulkProcessor add(DocWriteRequest<?> request) {
-    MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc();
+    if (metricUtils != null) metricUtils.increment(this.getClass(), ES_WRITES_METRIC, 1);
     bulkProcessor.add(request);
     log.info(
         "Added request id: {}, operation type: {}, index: {}",
@@ -110,11 +115,13 @@ public class ESBulkProcessor implements Closeable {
     try {
       final BulkByScrollResponse updateResponse =
           searchClient.updateByQuery(updateByQuery, RequestOptions.DEFAULT);
-      MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(updateResponse.getTotal());
+      if (metricUtils != null)
+        metricUtils.increment(this.getClass(), ES_WRITES_METRIC, updateResponse.getTotal());
       return Optional.of(updateResponse);
     } catch (Exception e) {
       log.error("ERROR: Failed to update by query. See stacktrace for a more detailed error:", e);
-      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_UPDATE_EXCEPTION_METRIC, e);
+      if (metricUtils != null)
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_UPDATE_EXCEPTION_METRIC, e);
     }
 
     return Optional.empty();
@@ -140,11 +147,13 @@ public class ESBulkProcessor implements Closeable {
       // perform delete after local flush
       final BulkByScrollResponse deleteResponse =
           searchClient.deleteByQuery(deleteByQueryRequest, RequestOptions.DEFAULT);
-      MetricUtils.counter(this.getClass(), ES_WRITES_METRIC).inc(deleteResponse.getTotal());
+      if (metricUtils != null)
+        metricUtils.increment(this.getClass(), ES_WRITES_METRIC, deleteResponse.getTotal());
       return Optional.of(deleteResponse);
     } catch (Exception e) {
       log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:", e);
-      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
+      if (metricUtils != null)
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_DELETE_EXCEPTION_METRIC, e);
     }
 
     return Optional.empty();
@@ -174,13 +183,14 @@ public class ESBulkProcessor implements Closeable {
       bulkProcessor.flush();
       TaskSubmissionResponse resp =
           searchClient.submitDeleteByQueryTask(deleteByQueryRequest, RequestOptions.DEFAULT);
-      MetricUtils.counter(this.getClass(), ES_BATCHES_METRIC).inc();
+      if (metricUtils != null) metricUtils.increment(this.getClass(), ES_BATCHES_METRIC, 1);
       return Optional.of(resp);
     } catch (Exception e) {
       log.error(
           "ERROR: Failed to submit a delete by query task. See stacktrace for a more detailed error:",
           e);
-      MetricUtils.exceptionCounter(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
+      if (metricUtils != null)
+        metricUtils.exceptionIncrement(ESBulkProcessor.class, ES_SUBMIT_DELETE_EXCEPTION_METRIC, e);
     }
     return Optional.empty();
   }
@@ -196,7 +206,7 @@ public class ESBulkProcessor implements Closeable {
                 throw new RuntimeException(e);
               }
             },
-            BulkListener.getInstance(writeRequestRefreshPolicy))
+            BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has other
@@ -211,7 +221,7 @@ public class ESBulkProcessor implements Closeable {
             (request, bulkListener) -> {
               searchClient.bulkAsync(request, RequestOptions.DEFAULT, bulkListener);
             },
-            BulkListener.getInstance(writeRequestRefreshPolicy))
+            BulkListener.getInstance(writeRequestRefreshPolicy, metricUtils))
         .setBulkActions(bulkRequestsLimit)
         .setFlushInterval(TimeValue.timeValueSeconds(bulkFlushPeriod))
         // This retry is ONLY for "resource constraints", i.e. 429 errors (each request has other

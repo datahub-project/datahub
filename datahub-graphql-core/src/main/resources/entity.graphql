@@ -390,6 +390,11 @@ type ERModelRelationshipProperties {
   relationshipFieldMappings: [RelationshipFieldMapping!]
 
   """
+  Cardinality of the ERModelRelationship
+  """
+  cardinality: ERModelRelationshipCardinality!
+
+  """
   Created timestamp millis associated with the ERModelRelationship
   """
   createdTime: Long
@@ -398,6 +403,31 @@ type ERModelRelationshipProperties {
   Created actor urn associated with the ERModelRelationship
   """
   createdActor: Entity
+}
+
+"""
+The Cardinality of the ERModelRelationship
+"""
+enum ERModelRelationshipCardinality {
+  """
+  One to One
+  """
+  ONE_ONE
+
+  """
+  One to Many
+  """
+  ONE_N
+
+  """
+  Many to One
+  """
+  N_ONE
+
+  """
+  Many to Many
+  """
+  N_N
 }
 
 """
@@ -767,6 +797,11 @@ type Mutation {
   Update the View-related settings for a user.
   """
   updateCorpUserViewsSettings(input: UpdateCorpUserViewsSettingsInput!): Boolean
+
+  """
+  Update the HomePage-related settings for a user.
+  """
+  updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
 
   """
   Update a user setting
@@ -1297,6 +1332,16 @@ enum EntityType {
   An application
   """
   APPLICATION
+
+  """
+  An DataHub Page Template
+  """
+  DATAHUB_PAGE_TEMPLATE
+
+  """
+  An DataHub Page Module
+  """
+  DATAHUB_PAGE_MODULE
 }
 
 """
@@ -4188,6 +4233,11 @@ type CorpUserSettings {
   Settings related to the DataHub Views feature
   """
   views: CorpUserViewsSettings
+
+  """
+  Settings related to the home page for a user
+  """
+  homePage: CorpUserHomePageSettings
 }
 
 """
@@ -4214,6 +4264,21 @@ type CorpUserViewsSettings {
   The default view for the User.
   """
   defaultView: DataHubView
+}
+
+"""
+Settings related to the home page for a user
+"""
+type CorpUserHomePageSettings {
+  """
+  The default page template for the User.
+  """
+  pageTemplate: DataHubPageTemplate
+
+  """
+  List of urns of the announcements dismissed by the User.
+  """
+  dismissedAnnouncementUrns: [String]
 }
 
 """
@@ -5304,6 +5369,10 @@ input ERModelRelationshipPropertiesInput {
   Details about the ERModelRelationship
   """
   relationshipFieldmappings: [RelationshipFieldMappingInput!]
+  """
+  optional field to store cardinality of the ERModelRelationship
+  """
+  erModelRelationshipCardinality: ERModelRelationshipCardinality
   """
   optional flag about the ERModelRelationship is getting create
   """
@@ -9459,6 +9528,11 @@ type ResourceFilter {
   Whether of not to apply the filter to all resources of the type
   """
   filter: PolicyMatchFilter
+
+  """
+  Constraints on what subresources can be acted upon
+  """
+  privilegeConstraints: PolicyMatchFilter
 }
 
 """
@@ -9580,6 +9654,10 @@ enum PolicyMatchCondition {
   Whether the field value starts with the value
   """
   STARTS_WITH
+  """
+  Whether the field does not match the value
+  """
+  NOT_EQUALS
 }
 
 """
@@ -9609,6 +9687,11 @@ input ResourceFilterInput {
   Whether of not to apply the filter to all resources of the type
   """
   filter: PolicyMatchFilterInput
+
+  """
+  Constraints on what subresources can be acted upon
+  """
+  privilegeConstraints: PolicyMatchFilterInput
 }
 
 """
@@ -12408,6 +12491,21 @@ input UpdateCorpUserViewsSettingsInput {
 }
 
 """
+Input required to update a user's home page settings.
+"""
+input UpdateUserHomePageSettingsInput {
+  """
+  The URN of the page template to be rendered on the home page for the user.
+  """
+  pageTemplate: String
+
+  """
+  The list of urns of announcement posts dismissed by the user.
+  """
+  newDismissedAnnouncements: [String]
+}
+
+"""
 Information required to render an embedded version of an asset
 """
 type Embed {
@@ -12500,6 +12598,11 @@ type QueryProperties {
   An Audit Stamp corresponding to the creation of this resource
   """
   created: AuditStamp!
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp!
 
   """
   An Audit Stamp corresponding to the update of this resource
