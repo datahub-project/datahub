@@ -40,8 +40,10 @@ const DragHandle = styled.div<{ $isDragging?: boolean }>`
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`
-    margin: 0 8px 8px 8px;
+    margin: 0 0 8px 8px;
     overflow-y: auto;
+    padding-right: 5px;
+    scrollbar-gutter: stable;
     height: ${({ $hasViewAll }) => ($hasViewAll ? '226px' : '238px')};
 `;
 
