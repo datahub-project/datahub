@@ -88,6 +88,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.aspect.AspectTestUtils;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -132,7 +133,23 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected T_RS _retentionService;
 
   static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
-  protected OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+  // Enhanced OperationContext with test plugins integrated at the registry level
+  protected OperationContext opContext =
+      TestOperationContexts.systemContext(
+          null,
+          null,
+          null,
+          () ->
+              AspectTestUtils.enhanceRegistryWithTestPlugins(
+                  TestOperationContexts.defaultEntityRegistry()),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null);
+
   protected final EntityRegistry _testEntityRegistry = opContext.getEntityRegistry();
   protected OperationContext userContext =
       TestOperationContexts.userContextNoSearchAuthorization(_testEntityRegistry);
@@ -2994,6 +3011,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     final OperationContext testContext =
         TestOperationContexts.Builder.builder()
             .systemTelemetryContextSupplier(() -> null) // mocked
+            .entityRegistrySupplier(
+                () ->
+                    AspectTestUtils.enhanceRegistryWithTestPlugins(
+                        TestOperationContexts.defaultEntityRegistry()))
             .buildSystemContext();
 
     try (MockedStatic<Span> mockedStatic = Mockito.mockStatic(Span.class)) {
