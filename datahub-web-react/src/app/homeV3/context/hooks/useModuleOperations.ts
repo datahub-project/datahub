@@ -8,9 +8,15 @@ import {
     validateModuleMoveConstraints,
 } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
+import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
+import {
+    PageModuleFragment,
+    PageTemplateFragment,
+    useDeletePageModuleMutation,
+    useUpsertPageModuleMutation,
+} from '@graphql/template.generated';
 import { EntityType, PageModuleScope } from '@types';
 
 // Helper types for shared operations
@@ -87,7 +93,7 @@ const validateAddModuleInput = (input: AddModuleInput): string | null => {
 };
 
 const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
-    if (!input.moduleUrn) {
+    if (!input.module.urn) {
         return 'Module URN is required for removal';
     }
     if (!input.position) {
@@ -157,6 +163,7 @@ export function useModuleOperations(
     originalModuleData: PageModuleFragment | null,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
+    const [deletePageModule] = useDeletePageModuleMutation();
 
     // Create context object to avoid passing many parameters
     const context: TemplateUpdateContext = useMemo(
@@ -259,7 +266,7 @@ export function useModuleOperations(
                 return;
             }
 
-            const { moduleUrn, position } = input;
+            const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
 
             if (!templateToUpdate) {
@@ -269,15 +276,24 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, moduleUrn, position);
+            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position);
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove module');
+
+            // Delete module if necessary
+            // Only do not delete a module when removing a global module from personal template OR module is a default
+            const shouldNotDeleteModule =
+                (!context.isEditingGlobalTemplate && module.properties.visibility.scope === PageModuleScope.Global) ||
+                DEFAULT_MODULE_URNS.includes(module.urn);
+            if (!shouldNotDeleteModule) {
+                deletePageModule({ variables: { input: { urn: module.urn } } });
+            }
         },
-        [context, removeModuleFromTemplate],
+        [context, removeModuleFromTemplate, deletePageModule],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
