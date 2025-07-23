@@ -71,7 +71,8 @@ export function useDragAndDrop() {
             // Check if we're dropping in the same position
             if (
                 draggedData.position.rowIndex === droppableData.rowIndex &&
-                draggedData.position.moduleIndex === droppableData.moduleIndex
+                draggedData.position.moduleIndex === droppableData.moduleIndex &&
+                !droppableData.insertNewRow
             ) {
                 return;
             }

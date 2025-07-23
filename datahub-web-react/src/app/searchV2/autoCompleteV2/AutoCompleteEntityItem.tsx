@@ -18,11 +18,12 @@ import { Entity, MatchedField } from '@src/types.generated';
 
 const Container = styled.div<{
     $navigateOnlyOnNameClick?: boolean;
+    $padding?: string;
 }>`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    padding: 8px 13px 8px 8px;
+    padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
 
     ${(props) =>
         !props.$navigateOnlyOnNameClick &&
@@ -99,6 +100,11 @@ interface EntityAutocompleteItemProps {
     variant?: EntityItemVariant;
     customDetailsRenderer?: (entity: Entity) => void;
     navigateOnlyOnNameClick?: boolean;
+
+    hideSubtitle?: boolean;
+    hideMatches?: boolean;
+
+    padding?: string;
 }
 
 export default function AutoCompleteEntityItem({
@@ -109,6 +115,9 @@ export default function AutoCompleteEntityItem({
     variant,
     customDetailsRenderer,
     navigateOnlyOnNameClick,
+    hideSubtitle,
+    hideMatches,
+    padding,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -143,7 +152,7 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick}>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding}>
             <ContentContainer>
                 <IconContainer $variant={variant}>
                     <EntityIcon entity={entity} siblings={siblings} />
@@ -159,20 +168,24 @@ export default function AutoCompleteEntityItem({
                         <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
                     </HoverEntityTooltip>
 
-                    <EntitySubtitle
-                        entity={entity}
-                        color={variantProps?.subtitleColor}
-                        colorLevel={variantProps?.subtitleColorLevel}
-                    />
+                    {!hideSubtitle && (
+                        <EntitySubtitle
+                            entity={entity}
+                            color={variantProps?.subtitleColor}
+                            colorLevel={variantProps?.subtitleColorLevel}
+                        />
+                    )}
 
-                    <Matches
-                        matchedFields={matchedFields}
-                        entity={entity}
-                        query={query}
-                        displayName={displayName}
-                        color={variantProps?.matchColor}
-                        colorLevel={variantProps?.matchColorLevel}
-                    />
+                    {!hideMatches && (
+                        <Matches
+                            matchedFields={matchedFields}
+                            entity={entity}
+                            query={query}
+                            displayName={displayName}
+                            color={variantProps?.matchColor}
+                            colorLevel={variantProps?.matchColorLevel}
+                        />
+                    )}
                 </DescriptionContainer>
             </ContentContainer>
 
