@@ -744,6 +744,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null,
                     ),
                 );
 
@@ -791,6 +792,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null,
                     ),
                 );
 
@@ -838,6 +840,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null,
                     ),
                 );
 
@@ -887,6 +890,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null,
                     ),
                 );
 
@@ -939,6 +943,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null,
                     ),
                 );
 
