@@ -113,7 +113,10 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
             <ConfirmationModal
                 isOpen={!!domainToRemove}
                 handleClose={() => setDomainToRemove(undefined)}
-                handleConfirm={() => removeDomain(domainToRemove)}
+                handleConfirm={() => {
+                    removeDomain(domainToRemove);
+                    setDomainToRemove(undefined);
+                }}
                 modalTitle="Confirm Domain Removal"
                 modalText="Are you sure you want to remove this domain?"
             />

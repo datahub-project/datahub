@@ -159,21 +159,20 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             open
             onCancel={onCloseModal}
             width={700}
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" onClick={onCloseModal} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        id={CREATE_POST_BUTTON_ID}
-                        data-testid={!editData ? 'create-post-button' : 'update-post-button'}
-                        onClick={!editData ? onCreatePost : onUpdatePost}
-                        disabled={!createButtonEnabled}
-                    >
-                        {!editData ? 'Create' : 'Update'}
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: !editData ? 'Create' : 'Update',
+                    onClick: !editData ? onCreatePost : onUpdatePost,
+                    variant: 'filled',
+                    disabled: !createButtonEnabled,
+                    buttonDataTestId: !editData ? 'create-post-button' : 'update-post-button',
+                },
+            ]}
         >
             <CreatePostForm
                 setCreateButtonEnabled={setCreateButtonEnabled}

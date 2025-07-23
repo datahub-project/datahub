@@ -1,12 +1,10 @@
-import { Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { SearchSelect } from '@app/entity/shared/components/styled/search/SearchSelect';
 import { EntityAndType } from '@app/entity/shared/types';
 import ClickOutside from '@app/shared/ClickOutside';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 import { EntityType } from '@types';
 
@@ -74,21 +72,21 @@ export const SearchSelectModal = ({
                 width={MODAL_WIDTH_PX}
                 open
                 onCancel={onCancelSelect}
-                footer={
-                    <ModalButtonContainer>
-                        <Button onClick={onCancel} variant="text" color="gray">
-                            Cancel
-                        </Button>
-                        <Button
-                            id="continueButton"
-                            data-testid="search-select-continue-button"
-                            onClick={() => onContinue(selectedEntities.map((entity) => entity.urn))}
-                            disabled={selectedEntities.length === 0}
-                        >
-                            {continueText || 'Done'}
-                        </Button>
-                    </ModalButtonContainer>
-                }
+                buttons={[
+                    {
+                        text: 'Cancel',
+                        variant: 'text',
+                        onClick: () => onCancel?.(),
+                    },
+                    {
+                        text: continueText || 'Done',
+                        onClick: () => onContinue(selectedEntities.map((entity) => entity.urn)),
+                        variant: 'filled',
+                        disabled: selectedEntities.length === 0,
+                        buttonDataTestId: 'search-select-continue-button',
+                        id: 'continueButton',
+                    },
+                ]}
             >
                 <SearchSelect
                     fixedEntityTypes={fixedEntityTypes}

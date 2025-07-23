@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tag as CustomTag, Empty, Form, Modal, Select, Typography, message } from 'antd';
+import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -16,7 +16,7 @@ import CreateTagModal from '@app/shared/tags/CreateTagModal';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
 
 import {
@@ -470,21 +470,21 @@ export default function EditTagTermsModal({
             title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
             open={open}
             onCancel={onCloseModal}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={onCloseModal} color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        id="addTagButton"
-                        data-testid="add-tag-term-from-modal-btn"
-                        onClick={onOk}
-                        disabled={urns.length === 0 || disableAction}
-                    >
-                        Add
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onCloseModal,
+                },
+                {
+                    text: 'Add',
+                    id: 'addTagButton',
+                    buttonDataTestId: 'add-tag-term-from-modal-btn',
+                    variant: 'filled',
+                    disabled: urns.length === 0 || disableAction,
+                    onClick: onOk,
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <Form component={false}>
