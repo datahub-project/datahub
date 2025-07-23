@@ -1,9 +1,11 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+    loadHomePageRedesignFromLocalStorage,
+    useShowHomePageRedesign,
+} from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useAppConfig } from '@app/useAppConfig';
-
-import { loadHomePageRedesignFromLocalStorage, useShowHomePageRedesign } from '../useShowHomePageRedesign';
 
 // Mock useAppConfig
 vi.mock('@app/useAppConfig', () => ({
