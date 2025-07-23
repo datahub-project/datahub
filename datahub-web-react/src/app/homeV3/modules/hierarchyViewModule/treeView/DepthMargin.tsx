@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 const DepthMarginContainer = styled.div<{ $depth: number }>`
-    margin-left: calc(8px * ${(props) => props.$depth});
+    margin-left: calc(16px * ${(props) => props.$depth});
 `;
 
 interface Props {
