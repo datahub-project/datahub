@@ -23,6 +23,13 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Ma
 
 export const DEFAULT_MODULE_ICON = 'Database';
 
+// keep this in sync with PageModuleService.java
+export const DEFAULT_MODULE_URNS = [
+    'urn:li:dataHubPageModule:your_assets',
+    'urn:li:dataHubPageModule:your_subscriptions',
+    'urn:li:dataHubPageModule:top_domains',
+];
+
 export const CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Link,
     DataHubPageModuleType.RichText,
