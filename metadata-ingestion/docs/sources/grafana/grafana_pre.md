@@ -84,10 +84,10 @@ source:
     service_account_token: "your_token"
 
     # Lineage extraction (default: true)
-    extract_lineage: true
+    include_lineage: true
 
     # Column-level lineage from SQL queries (default: true)
-    # Only applicable when extract_lineage is true
+    # Only applicable when include_lineage is true
     include_column_lineage: true
 
     # Platform mappings for lineage extraction
@@ -107,4 +107,4 @@ source:
 - **Platform mapping**: Maps Grafana data sources to their actual platforms for accurate lineage
 - **SQL parsing**: Supports parsing of SQL queries for detailed lineage extraction
 
-**Performance Note:** Lineage extraction can be disabled (`extract_lineage: false`) to improve ingestion performance when lineage information is not needed.
+**Performance Note:** Lineage extraction can be disabled (`include_lineage: false`) to improve ingestion performance when lineage information is not needed.
