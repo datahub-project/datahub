@@ -639,7 +639,7 @@ def test_drop_duplicate_sources() -> None:
     config = DBTCoreConfig.parse_obj(create_base_dbt_config())
     source: DBTCoreSource = DBTCoreSource(config, ctx)
 
-    result_nodes = source._drop_duplicate_sources(original_nodes)
+    result_nodes: List[DBTNode] = source._drop_duplicate_sources(original_nodes)
 
     # Verify source was dropped (only 2 nodes remain)
     assert len(result_nodes) == 2
