@@ -14,6 +14,23 @@ from pydantic import BaseModel, Field
 
 from datahub.emitter.mcp_builder import ContainerKey
 
+# Grafana-specific type definitions for better type safety
+GrafanaQueryTarget = Dict[
+    str, Any
+]  # Query targets: refId, expr/query, datasource, hide, etc.
+GrafanaFieldConfig = Dict[
+    str, Any
+]  # Field config: defaults, overrides, display settings
+GrafanaTransformation = Dict[str, Any]  # Transformations: id, options
+
+
+class DatasourceRef(BaseModel):
+    """Reference to a Grafana datasource."""
+
+    type: Optional[str] = None  # Datasource type (prometheus, mysql, postgres, etc.)
+    uid: Optional[str] = None  # Datasource unique identifier
+    name: Optional[str] = None  # Datasource display name
+
 
 class Panel(BaseModel):
     """Represents a Grafana dashboard panel."""
@@ -22,10 +39,16 @@ class Panel(BaseModel):
     title: str
     description: str = ""
     type: Optional[str]
-    targets: List[Dict[str, Any]] = Field(default_factory=list)
-    datasource: Optional[Dict[str, Any]] = None
-    field_config: Dict[str, Any] = Field(default_factory=dict, alias="fieldConfig")
-    transformations: List[Dict[str, Any]] = Field(default_factory=list)
+    # Query targets - each contains refId (A,B,C...), query/expr, datasource ref, etc.
+    query_targets: List[GrafanaQueryTarget] = Field(
+        default_factory=list, alias="targets"
+    )
+    # Datasource reference - contains type, uid, name
+    datasource_ref: Optional[DatasourceRef] = Field(default=None, alias="datasource")
+    # Field configuration - display settings, defaults, overrides
+    field_config: GrafanaFieldConfig = Field(default_factory=dict, alias="fieldConfig")
+    # Data transformations - each contains id and transformation-specific options
+    transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
 
 class Dashboard(BaseModel):

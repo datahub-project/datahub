@@ -8,7 +8,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.grafana.grafana_config import PlatformConnectionConfig
-from datahub.ingestion.source.grafana.models import Panel
+from datahub.ingestion.source.grafana.models import (
+    DatasourceRef,
+    GrafanaQueryTarget,
+    Panel,
+)
 from datahub.ingestion.source.grafana.report import GrafanaSourceReport
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
@@ -51,11 +55,11 @@ class LineageExtractor:
         self, panel: Panel
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Extract lineage information from a panel."""
-        if not panel.datasource:
+        if not panel.datasource_ref:
             return None
 
-        ds_type, ds_uid = self._extract_datasource_info(panel.datasource)
-        raw_sql = self._extract_raw_sql(panel.targets)
+        ds_type, ds_uid = self._extract_datasource_info(panel.datasource_ref)
+        raw_sql = self._extract_raw_sql(panel.query_targets)
         ds_urn = self._build_dataset_urn(ds_type, ds_uid, panel.id)
 
         # Handle platform-specific lineage
@@ -74,13 +78,17 @@ class LineageExtractor:
 
         return None
 
-    def _extract_datasource_info(self, datasource: Dict) -> Tuple[str, str]:
+    def _extract_datasource_info(
+        self, datasource_ref: "DatasourceRef"
+    ) -> Tuple[str, str]:
         """Extract datasource type and UID."""
-        return datasource.get("type", "unknown"), datasource.get("uid", "unknown")
+        return datasource_ref.type or "unknown", datasource_ref.uid or "unknown"
 
-    def _extract_raw_sql(self, targets: List[Dict]) -> Optional[str]:
-        """Extract raw SQL from panel targets."""
-        for target in targets:
+    def _extract_raw_sql(
+        self, query_targets: List["GrafanaQueryTarget"]
+    ) -> Optional[str]:
+        """Extract raw SQL from panel query targets."""
+        for target in query_targets:
             if target.get("rawSql"):
                 return target["rawSql"]
         return None

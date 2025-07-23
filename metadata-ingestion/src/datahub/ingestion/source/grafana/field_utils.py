@@ -76,9 +76,9 @@ def extract_raw_sql_fields(
     platform_instance = None
     schema_aware = False
 
-    if panel and panel.datasource and connection_to_platform_map:
-        ds_type = panel.datasource.get("type", "unknown")
-        ds_uid = panel.datasource.get("uid", "unknown")
+    if panel and panel.datasource_ref and connection_to_platform_map:
+        ds_type = panel.datasource_ref.type or "unknown"
+        ds_uid = panel.datasource_ref.uid or "unknown"
 
         # Try to find mapping by datasource UID first, then by type
         platform_config = connection_to_platform_map.get(
@@ -210,7 +210,7 @@ def extract_fields_from_panel(
     fields = []
     fields.extend(
         extract_fields_from_targets(
-            panel.targets, panel, connection_to_platform_map, graph, report
+            panel.query_targets, panel, connection_to_platform_map, graph, report
         )
     )
     fields.extend(get_fields_from_field_config(panel.field_config))

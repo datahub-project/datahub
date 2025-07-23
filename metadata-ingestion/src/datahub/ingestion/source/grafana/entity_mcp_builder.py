@@ -71,9 +71,9 @@ def build_chart_mcps(
 
     # Get input datasets
     input_datasets = []
-    if panel.datasource:
-        ds_type = panel.datasource.get("type", "unknown")
-        ds_uid = panel.datasource.get("uid", "unknown")
+    if panel.datasource_ref:
+        ds_type = panel.datasource_ref.type or "unknown"
+        ds_uid = panel.datasource_ref.uid or "unknown"
 
         # Add Grafana dataset
         dataset_name = f"{ds_type}.{ds_uid}.{panel.id}"
@@ -208,9 +208,9 @@ def _build_custom_properties(panel: Panel) -> Dict[str, str]:
     if panel.type:
         props["type"] = panel.type
 
-    if panel.datasource:
-        props["datasourceType"] = panel.datasource.get("type", "")
-        props["datasourceUid"] = panel.datasource.get("uid", "")
+    if panel.datasource_ref:
+        props["datasourceType"] = panel.datasource_ref.type or ""
+        props["datasourceUid"] = panel.datasource_ref.uid or ""
 
     for key in [
         "description",
@@ -223,8 +223,8 @@ def _build_custom_properties(panel: Panel) -> Dict[str, str]:
         if value:
             props[key] = str(value)
 
-    if panel.targets:
-        props["targetsCount"] = str(len(panel.targets))
+    if panel.query_targets:
+        props["targetsCount"] = str(len(panel.query_targets))
 
     return props
 

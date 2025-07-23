@@ -24,7 +24,7 @@ def test_panel_basic():
     assert panel.title == "Test Panel"
     assert panel.description == "Test Description"
     assert panel.type == "graph"
-    assert len(panel.targets) == 0
+    assert len(panel.query_targets) == 0
 
 
 def test_panel_with_datasource():
@@ -35,7 +35,8 @@ def test_panel_with_datasource():
     }
 
     panel = Panel.parse_obj(panel_data)
-    assert panel.datasource == {"type": "postgres", "uid": "abc123"}
+    assert panel.datasource_ref.type == "postgres"
+    assert panel.datasource_ref.uid == "abc123"
 
 
 def test_dashboard_basic():

@@ -61,7 +61,7 @@ def test_build_custom_properties():
     assert props["datasourceType"] == "mysql"
     assert props["datasourceUid"] == "test_uid"
     assert props["description"] == "Test Description"
-    assert props["queryCount"] == "1"
+    assert props["targetsCount"] == "1"
 
 
 def test_build_dashboard_properties(mock_dashboard):

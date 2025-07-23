@@ -474,12 +474,12 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self, panel: Panel, dashboard_uid: str, ingest_tags: bool
     ) -> Iterable[MetadataWorkUnit]:
         """Process dataset metadata for a panel"""
-        if not panel.datasource:
+        if not panel.datasource_ref:
             self.report.report_datasource_warning()
             return
 
-        ds_type = panel.datasource.get("type", "unknown")
-        ds_uid = panel.datasource.get("uid", "unknown")
+        ds_type = panel.datasource_ref.type or "unknown"
+        ds_uid = panel.datasource_ref.uid or "unknown"
 
         # Track datasource warnings for unknown types
         if ds_type == "unknown" or ds_uid == "unknown":
