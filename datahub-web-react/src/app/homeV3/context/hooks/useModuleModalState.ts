@@ -21,12 +21,20 @@ export function useModuleModalState(): ModuleModalState {
         setInitialState(null);
     }, []);
 
-    const openToEdit = useCallback((moduleTypeToEdit: DataHubPageModuleType, currentData: PageModuleFragment) => {
-        setModuleType(moduleTypeToEdit);
-        setIsEditing(true);
-        setInitialState(currentData);
-        setIsOpen(true);
-    }, []);
+    const openToEdit = useCallback(
+        (
+            moduleTypeToEdit: DataHubPageModuleType,
+            currentData: PageModuleFragment,
+            currentPosition: ModulePositionInput,
+        ) => {
+            setModuleType(moduleTypeToEdit);
+            setIsEditing(true);
+            setInitialState(currentData);
+            setPosition(currentPosition);
+            setIsOpen(true);
+        },
+        [],
+    );
 
     const close = useCallback(() => {
         setModuleType(null);

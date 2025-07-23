@@ -186,6 +186,7 @@ describe('PageTemplateContext', () => {
                 mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
                 false,
+                null,
             );
         });
 
@@ -285,6 +286,7 @@ describe('PageTemplateContext', () => {
                 mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
                 false,
+                null,
             );
         });
 
