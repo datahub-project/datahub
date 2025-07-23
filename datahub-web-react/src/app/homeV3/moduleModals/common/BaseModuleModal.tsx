@@ -15,6 +15,7 @@ interface Props {
     subtitle?: string;
     onUpsert: () => void;
     width?: string;
+    maxWidth?: string;
     submitButtonProps?: Partial<ModalButton>;
 }
 
@@ -24,6 +25,7 @@ export default function BaseModuleModal({
     children,
     onUpsert,
     width,
+    maxWidth,
     submitButtonProps,
 }: React.PropsWithChildren<Props>) {
     const {
@@ -57,7 +59,7 @@ export default function BaseModuleModal({
             maskClosable={false} // to avoid accidental clicks that closes the modal
             bodyStyle={modalBodyStyles}
             width={width || '90%'}
-            style={{ maxWidth: 1100 }}
+            style={{ maxWidth: maxWidth ?? 1100 }}
         >
             {children}
         </Modal>
