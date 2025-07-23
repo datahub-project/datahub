@@ -65,13 +65,13 @@ describe('useLoader hook', () => {
             };
             mockGet.mockReturnValue(mockMetadata);
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockGet).toHaveBeenCalledWith(mockParentValue);
         });
 
         it('should use maxNumberOfChildrenToLoad from context', () => {
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockLoadChildren).toHaveBeenCalledWith({
                 parentValue: mockParentValue,
@@ -89,7 +89,7 @@ describe('useLoader hook', () => {
             };
             mockGet.mockReturnValue(mockMetadata);
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockLoadChildren).toHaveBeenCalledWith({
                 parentValue: mockParentValue,
@@ -106,7 +106,7 @@ describe('useLoader hook', () => {
                 total: 5,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 mockChildrenNodes,
@@ -123,7 +123,7 @@ describe('useLoader hook', () => {
 
     describe('related entities loading', () => {
         it('should not call loadRelatedEntities when undefined', () => {
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockLoadRelatedEntities).not.toHaveBeenCalled();
         });
@@ -142,7 +142,7 @@ describe('useLoader hook', () => {
                 total: 5,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockLoadRelatedEntities).toHaveBeenCalledWith({
                 parentValue: mockParentValue,
@@ -160,7 +160,7 @@ describe('useLoader hook', () => {
                 total: 5,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockLoadRelatedEntities).toHaveBeenCalledWith({
                 parentValue: mockParentValue,
@@ -177,7 +177,7 @@ describe('useLoader hook', () => {
                 total: 5,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockLoadRelatedEntities).toHaveBeenCalledWith({
                 parentValue: mockParentValue,
@@ -196,7 +196,7 @@ describe('useLoader hook', () => {
                 total: 2,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockOnLoad).not.toHaveBeenCalled();
         });
@@ -214,7 +214,7 @@ describe('useLoader hook', () => {
                 total: 3,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockOnLoad).not.toHaveBeenCalled();
         });
@@ -235,7 +235,7 @@ describe('useLoader hook', () => {
                 total: 3,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 [...mockChildrenNodes, ...mockRelatedNodes],
@@ -275,7 +275,7 @@ describe('useLoader hook', () => {
                 total: 9, // new total
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 [...mockChildrenNodes, ...mockRelatedNodes],
@@ -307,7 +307,7 @@ describe('useLoader hook', () => {
                 total: 3,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 [...mockChildrenNodes, ...mockRelatedNodes],
@@ -330,7 +330,7 @@ describe('useLoader hook', () => {
                 total: undefined, // no total provided
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 mockChildrenNodes,
@@ -362,7 +362,7 @@ describe('useLoader hook', () => {
                 total: 2,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 [...mockChildrenNodes, ...mockRelatedNodes],
@@ -384,7 +384,7 @@ describe('useLoader hook', () => {
                 total: 0,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, mockLoadRelatedEntities, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 [], // should default to empty array
@@ -402,7 +402,7 @@ describe('useLoader hook', () => {
                 total: 0,
             });
 
-            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             expect(mockOnLoad).toHaveBeenCalledWith(
                 [],
@@ -417,7 +417,7 @@ describe('useLoader hook', () => {
         });
 
         it('should re-trigger effect when dependencies change', () => {
-            const { rerender } = renderHook(({ parentValue }) => useLoader(parentValue, mockLoadChildren, undefined), {
+            const { rerender } = renderHook(({ parentValue }) => useLoader(parentValue, mockLoadChildren, undefined, undefined), {
                 initialProps: { parentValue: mockParentValue },
             });
 
@@ -447,7 +447,7 @@ describe('useLoader hook', () => {
                 total: 1,
             });
 
-            const { rerender } = renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined));
+            const { rerender } = renderHook(() => useLoader(mockParentValue, mockLoadChildren, undefined, undefined));
 
             // Should not call onLoad yet
             expect(mockOnLoad).not.toHaveBeenCalled();
