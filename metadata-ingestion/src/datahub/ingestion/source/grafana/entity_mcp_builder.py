@@ -224,7 +224,7 @@ def _build_custom_properties(panel: Panel) -> Dict[str, str]:
             props[key] = str(value)
 
     if panel.targets:
-        props["queryCount"] = str(len(panel.targets))
+        props["targetsCount"] = str(len(panel.targets))
 
     return props
 

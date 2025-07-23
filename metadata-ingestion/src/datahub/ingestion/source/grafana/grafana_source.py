@@ -158,7 +158,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
 
         # Initialize lineage extractor with graph
         self.lineage_extractor = None
-        if self.config.extract_lineage:
+        if self.config.include_lineage:
             self.lineage_extractor = LineageExtractor(
                 platform=self.config.platform,
                 platform_instance=self.config.platform_instance,
@@ -388,7 +388,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
                 )
 
         # Process lineage extraction
-        if self.config.extract_lineage and self.lineage_extractor:
+        if self.config.include_lineage and self.lineage_extractor:
             with self.report.new_stage(LINEAGE_EXTRACTION):
                 for panel in dashboard.panels:
                     # Process lineage

@@ -8,9 +8,6 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -84,8 +81,7 @@ class GrafanaSourceConfig(
         default=True, description="Whether to ingest dashboard ownership information"
     )
 
-    # Lineage configuration
-    extract_lineage: bool = Field(
+    include_lineage: bool = Field(
         default=True,
         description="Whether to extract lineage between charts and data sources. "
         "When enabled, the source will parse SQL queries and datasource configurations "
@@ -94,7 +90,7 @@ class GrafanaSourceConfig(
     include_column_lineage: bool = Field(
         default=True,
         description="Whether to extract column-level lineage from SQL queries. "
-        "Only applicable when extract_lineage is enabled.",
+        "Only applicable when include_lineage is enabled.",
     )
 
     # Platform connection mappings
@@ -102,7 +98,6 @@ class GrafanaSourceConfig(
         default_factory=dict,
         description="Map of Grafana datasource types/UIDs to platform connection configs for lineage extraction",
     )
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("url", allow_reuse=True)
     def remove_trailing_slash(cls, v):

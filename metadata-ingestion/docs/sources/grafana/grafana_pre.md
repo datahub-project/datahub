@@ -16,7 +16,6 @@ The connector supports extracting metadata from any Grafana instance accessible 
 
 For optimal lineage extraction from SQL-based data sources:
 
-- Queries should be well-formed and complete
 - Database/schema information should be properly configured in the connection settings
 - The platform mapping (`connection_to_platform_map`) should be configured to match your data sources
 
