@@ -45,6 +45,22 @@ import java.util.List;
  *       checks, etc.)
  * </ul>
  *
+ * <h2>Plugin Factory Merging</h2>
+ *
+ * <p>This utility relies on {@link com.linkedin.metadata.aspect.plugins.PluginFactory#merge} to
+ * combine the base registry's plugin factory with test-specific validators. The merge process
+ * includes all plugins from the base registry first (unless disabled by the test factory), then
+ * adds the essential test validators. This ensures existing registry behavior is preserved while
+ * adding necessary test infrastructure.
+ *
+ * <p>The test factory can selectively disable specific plugins from the base registry by providing
+ * matching disabled configurations, but typically it just adds essential validators without
+ * conflicts.
+ *
+ * <p>For complete details on merge behavior, including duplicate resolution logic, plugin ordering,
+ * and configuration handling, see the documentation on {@link
+ * com.linkedin.metadata.aspect.plugins.PluginFactory#merge}.
+ *
  * <h2>Usage Pattern</h2>
  *
  * <pre>{@code
