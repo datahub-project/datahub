@@ -75,23 +75,23 @@ describe('useModuleModalState', () => {
 
     it('should set edit state module on openToEdit()', () => {
         const { result } = renderHook(() => useModuleModalState());
-        act(() => result.current.openToEdit(TYPE, mockModule));
+        act(() => result.current.openToEdit(TYPE, mockModule, POS1));
         expect(result.current.isOpen).toBe(true);
         expect(result.current.moduleType).toBe(TYPE);
         expect(result.current.isEditing).toBe(true);
         expect(result.current.initialState).toBe(mockModule);
-        expect(result.current.position).toBeNull();
+        expect(result.current.position).toEqual(POS1);
     });
 
     it('should update to latest args on consecutive openToEdit()', () => {
         const { result } = renderHook(() => useModuleModalState());
-        act(() => result.current.openToEdit(TYPE, mockModule));
-        act(() => result.current.openToEdit(TYPE2, anotherMockModule));
+        act(() => result.current.openToEdit(TYPE, mockModule, POS1));
+        act(() => result.current.openToEdit(TYPE2, anotherMockModule, POS2));
         expect(result.current.isOpen).toBe(true);
         expect(result.current.moduleType).toBe(TYPE2);
         expect(result.current.isEditing).toBe(true);
         expect(result.current.initialState).toBe(anotherMockModule);
-        expect(result.current.position).toBeNull();
+        expect(result.current.position).toEqual(POS2);
     });
 
     it('should reset state after open() then close()', () => {
@@ -107,7 +107,7 @@ describe('useModuleModalState', () => {
 
     it('should reset state after openToEdit() then close()', () => {
         const { result } = renderHook(() => useModuleModalState());
-        act(() => result.current.openToEdit(TYPE, mockModule));
+        act(() => result.current.openToEdit(TYPE, mockModule, POS1));
         act(() => result.current.close());
         expect(result.current.isOpen).toBe(false);
         expect(result.current.moduleType).toBeNull();
@@ -118,7 +118,7 @@ describe('useModuleModalState', () => {
 
     it('should reset edit state on open() after openToEdit()', () => {
         const { result } = renderHook(() => useModuleModalState());
-        act(() => result.current.openToEdit(TYPE, mockModule));
+        act(() => result.current.openToEdit(TYPE, mockModule, POS1));
         act(() => result.current.open(TYPE2, POS2));
         expect(result.current.isOpen).toBe(true);
         expect(result.current.moduleType).toBe(TYPE2);
@@ -131,18 +131,18 @@ describe('useModuleModalState', () => {
         const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
         expect(result.current.position).toEqual(POS1);
-        act(() => result.current.openToEdit(TYPE, mockModule));
+        act(() => result.current.openToEdit(TYPE, mockModule, POS1));
         expect(result.current.position).toEqual(POS1);
         act(() => result.current.open(TYPE, POS2));
         expect(result.current.position).toEqual(POS2);
-        act(() => result.current.openToEdit(TYPE2, mockModule));
+        act(() => result.current.openToEdit(TYPE2, mockModule, POS2));
         expect(result.current.position).toEqual(POS2);
     });
 
     it('should fully reset all state after a complex sequence and close()', () => {
         const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
-        act(() => result.current.openToEdit(TYPE2, mockModule));
+        act(() => result.current.openToEdit(TYPE2, mockModule, POS2));
         act(() => result.current.open(TYPE, POS2));
         act(() => result.current.close());
         expect(result.current.isOpen).toBe(false);
@@ -167,9 +167,9 @@ describe('useModuleModalState', () => {
     it('should retain latest initialState and position after successive edits', () => {
         const { result } = renderHook(() => useModuleModalState());
         act(() => result.current.open(TYPE, POS1));
-        act(() => result.current.openToEdit(TYPE, mockModule));
-        act(() => result.current.openToEdit(TYPE, anotherMockModule));
+        act(() => result.current.openToEdit(TYPE, mockModule, POS1));
+        act(() => result.current.openToEdit(TYPE, anotherMockModule, POS3));
         expect(result.current.initialState).toBe(anotherMockModule);
-        expect(result.current.position).toEqual(POS1);
+        expect(result.current.position).toEqual(POS3);
     });
 });
