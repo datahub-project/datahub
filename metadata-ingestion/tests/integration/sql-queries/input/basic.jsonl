@@ -1,7 +1,7 @@
-{"query": "SELECT * FROM snowflake.db.users", "timestamp": 1609459200, "user": "john.doe", "upstream_tables": ["snowflake.db.users"]}
-{"query": "INSERT INTO snowflake.db.orders SELECT user_id, product_id, order_date FROM snowflake.db.temp_orders", "timestamp": 1609459260, "user": "jane.smith", "upstream_tables": ["snowflake.db.temp_orders"], "downstream_tables": ["snowflake.db.orders"]}
-{"query": "CREATE VIEW snowflake.db.user_summary AS SELECT u.id, u.name, COUNT(o.id) as order_count FROM snowflake.db.users u LEFT JOIN snowflake.db.orders o ON u.id = o.user_id GROUP BY u.id, u.name", "timestamp": 1609459320, "user": "admin", "upstream_tables": ["snowflake.db.users", "snowflake.db.orders"], "downstream_tables": ["snowflake.db.user_summary"]}
-{"query": "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT DISTINCT user_id FROM snowflake.db.sessions WHERE session_date >= '2021-01-01')", "timestamp": 1609459380, "user": "system", "upstream_tables": ["snowflake.db.sessions"], "downstream_tables": ["snowflake.db.users"]}
+{"query": "SELECT * FROM snowflake.db.users", "timestamp": 1609459200, "user": "john.doe"}
+{"query": "INSERT INTO snowflake.db.orders SELECT user_id, product_id, order_date FROM snowflake.db.temp_orders", "timestamp": 1609459260, "user": "jane.smith"}
+{"query": "CREATE VIEW snowflake.db.user_summary AS SELECT u.id, u.name, COUNT(o.id) as order_count FROM snowflake.db.users u LEFT JOIN snowflake.db.orders o ON u.id = o.user_id GROUP BY u.id, u.name", "timestamp": 1609459320, "user": "admin"}
+{"query": "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT DISTINCT user_id FROM snowflake.db.sessions WHERE session_date >= '2021-01-01')", "timestamp": 1609459380, "user": "system"}
 {"query": "SELECT id, name FROM snowflake.db.users WHERE active = true", "timestamp": 1609459440, "user": "analyst"}
 {"query": "SELECT COUNT(*) FROM snowflake.db.orders", "timestamp": 1609459500, "user": "reporter"}
 {"query": "INSERT INTO snowflake.db.audit_log SELECT 'user_login', user_id, CURRENT_TIMESTAMP FROM snowflake.db.sessions WHERE session_date = CURRENT_DATE", "timestamp": 1609459560, "user": "etl_job"}
