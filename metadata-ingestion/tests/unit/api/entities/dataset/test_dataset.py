@@ -40,7 +40,6 @@ def test_dataset_from_datahub() -> None:
         urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)",
     )
 
-    print(dataset)
     assert (
         dataset.urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,CustomerAnalytics,PROD)"
