@@ -32,8 +32,8 @@ export default function ModuleMenu({ module, position }: Props) {
     } = usePageTemplateContext();
 
     const handleEditModule = useCallback(() => {
-        openToEdit(type, module);
-    }, [module, openToEdit, type]);
+        openToEdit(type, module, position);
+    }, [module, openToEdit, type, position]);
 
     const handleRemove = useCallback(() => {
         removeModule({

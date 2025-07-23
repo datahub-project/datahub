@@ -42,6 +42,12 @@ const HeaderContainer = styled.div<{ hasChildren: boolean }>`
     flex-direction: column;
 `;
 
+const TitleRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 const ButtonsContainer = styled.div`
     display: flex;
     gap: 16px;
@@ -59,6 +65,7 @@ export interface ModalProps {
     buttons: ModalButton[];
     title: string;
     subtitle?: string;
+    titlePill?: React.ReactNode;
     children?: React.ReactNode;
     onCancel: () => void;
     dataTestId?: string;
@@ -68,6 +75,7 @@ export function Modal({
     buttons,
     title,
     subtitle,
+    titlePill,
     children,
     onCancel,
     dataTestId,
@@ -83,9 +91,12 @@ export function Modal({
             data-testid={dataTestId}
             title={
                 <HeaderContainer hasChildren={!!children}>
-                    <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
-                        {title}
-                    </Heading>
+                    <TitleRow>
+                        <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">
+                            {title}
+                        </Heading>
+                        {titlePill}
+                    </TitleRow>
                     {!!subtitle && (
                         <Text type="span" color="gray" colorLevel={1700} weight="medium">
                             {subtitle}

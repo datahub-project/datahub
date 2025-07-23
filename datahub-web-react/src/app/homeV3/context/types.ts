@@ -30,7 +30,11 @@ export interface ModuleModalState {
     close: () => void;
     isEditing: boolean;
     initialState: PageModuleFragment | null;
-    openToEdit: (moduleType: DataHubPageModuleType, currentData: PageModuleFragment) => void;
+    openToEdit: (
+        moduleType: DataHubPageModuleType,
+        currentData: PageModuleFragment,
+        currentPosition: ModulePositionInput,
+    ) => void;
 }
 
 export interface MoveModuleInput {

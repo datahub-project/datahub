@@ -48,6 +48,7 @@ export const PageTemplateProvider = ({
         removeModuleFromTemplate,
         upsertTemplate,
         moduleModalState.isEditing,
+        moduleModalState.initialState,
     );
 
     const value = useMemo(

@@ -79,13 +79,13 @@ export const StyledIcon = styled(Icon)`
 export const LoaderContainer = styled.div`
     display: flex;
     height: 100%;
-    min-height: 200px;
+    height: 200px;
 `;
 
 export const EmptyContainer = styled.div`
     display: flex;
-    height: 50%;
     width: 100%;
+    height: 200px;
     justify-content: center;
     align-items: center;
 `;

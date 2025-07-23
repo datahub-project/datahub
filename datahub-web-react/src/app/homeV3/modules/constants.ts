@@ -1,7 +1,5 @@
 import { IconNames } from '@components';
 
-import { ModuleInfo } from '@app/homeV3/modules/types';
-
 import { DataHubPageModuleType } from '@types';
 
 // TODO: remove these description once descriptions in modules are implemented
@@ -25,46 +23,6 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Ma
 
 export const DEFAULT_MODULE_ICON = 'Database';
 
-export const DEFAULT_MODULE_YOUR_ASSETS: ModuleInfo = {
-    type: DataHubPageModuleType.OwnedAssets,
-    name: 'Your Assets',
-    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.OwnedAssets),
-    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.OwnedAssets) ?? DEFAULT_MODULE_ICON,
-    key: 'default_module_your_assets',
-};
-
-export const DEFAULT_MODULE_TOP_DOMAINS: ModuleInfo = {
-    type: DataHubPageModuleType.Domains,
-    name: 'Domains',
-    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.Domains),
-    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.Domains) ?? DEFAULT_MODULE_ICON,
-    key: 'default_module_top_domains',
-};
-
-export const DEFAULT_MODULE_LINK: ModuleInfo = {
-    type: DataHubPageModuleType.Link,
-    name: 'Quick Link',
-    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.Link),
-    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.Link) ?? DEFAULT_MODULE_ICON,
-    key: 'default_module_quick_link',
-};
-
-export const CUSTOM_LARGE_MODULE_ASSET_COLLECTION: ModuleInfo = {
-    type: DataHubPageModuleType.AssetCollection,
-    name: 'Asset Collection',
-    description: MODULE_TYPE_TO_DESCRIPTION.get(DataHubPageModuleType.AssetCollection),
-    icon: MODULE_TYPE_TO_ICON.get(DataHubPageModuleType.AssetCollection) ?? DEFAULT_MODULE_ICON,
-    key: 'custom_large_module_asset_collection',
-};
-
-export const DEFAULT_MODULES: ModuleInfo[] = [
-    DEFAULT_MODULE_YOUR_ASSETS,
-    DEFAULT_MODULE_TOP_DOMAINS,
-    CUSTOM_LARGE_MODULE_ASSET_COLLECTION,
-    // Links isn't supported yet
-    // DEFAULT_MODULE_LINK,
-];
-
 // keep this in sync with PageModuleService.java
 export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_assets',
@@ -72,10 +30,11 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:top_domains',
 ];
 
-export const ADD_MODULE_MENU_SECTION_CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
+export const CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Link,
     DataHubPageModuleType.RichText,
     DataHubPageModuleType.Hierarchy,
+    DataHubPageModuleType.AssetCollection,
 ];
 
 export const ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
