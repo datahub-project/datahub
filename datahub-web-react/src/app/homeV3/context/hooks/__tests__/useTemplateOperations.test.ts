@@ -774,7 +774,7 @@ describe('useTemplateOperations', () => {
             expect(mockUpdateUserHomePageSettings).toHaveBeenCalledWith({
                 variables: {
                     input: {
-                        pageTemplate: null,
+                        removePageTemplate: true,
                     },
                 },
             });
@@ -803,7 +803,7 @@ describe('useTemplateOperations', () => {
             expect(mockUpdateUserHomePageSettings).toHaveBeenCalledWith({
                 variables: {
                     input: {
-                        pageTemplate: null,
+                        removePageTemplate: true,
                     },
                 },
             });

@@ -199,7 +199,7 @@ export function useTemplateOperations(setPersonalTemplate: (template: PageTempla
         updateUserHomePageSettings({
             variables: {
                 input: {
-                    pageTemplate: null,
+                    removePageTemplate: true,
                 },
             },
         });
