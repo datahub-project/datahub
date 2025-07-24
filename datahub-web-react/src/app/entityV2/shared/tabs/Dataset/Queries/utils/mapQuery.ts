@@ -18,7 +18,7 @@ export function mapQuery({ queryEntity, entityUrn, siblingUrn, poweredEntity }: 
         query: queryEntity.properties?.statement?.value || '',
         lastRun: queryEntity?.usageFeatures?.lastExecutedAt,
         createdTime: queryEntity?.properties?.created?.time,
-        createdBy: queryEntity?.properties?.createdOn?.actor as CorpUser,
+        createdBy: queryEntity?.properties?.createdOn?.actor,
         usedBy: (queryEntity?.usageFeatures?.topUsersLast30Days || []) as CorpUser[],
         runsPercentileLast30days: queryEntity?.usageFeatures?.runsPercentileLast30days,
         columns: queryEntity.subjects

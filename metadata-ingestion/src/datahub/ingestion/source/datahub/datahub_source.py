@@ -6,7 +6,9 @@ from typing import Dict, Iterable, List, Optional
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
 @support_status(SupportStatus.TESTING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 class DataHubSource(StatefulIngestionSourceBase):
     platform: str = "datahub"
 

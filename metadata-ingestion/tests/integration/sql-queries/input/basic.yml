@@ -1,0 +1,19 @@
+source:
+  type: sql-queries
+  config:
+    query_file: ./input/basic.jsonl
+    platform: snowflake
+    use_schema_resolver: false
+    usage:
+      # Values to match timestamps in input queries file (Jan 1, 2021)
+      start_time: 2021-01-01T00:00:00Z
+      end_time: 2021-01-02T00:00:00Z
+      bucket_duration: DAY
+
+sink:
+  type: file
+  config:
+    filename: ./output.json
+
+datahub_api:
+  server: http://localhost:8080

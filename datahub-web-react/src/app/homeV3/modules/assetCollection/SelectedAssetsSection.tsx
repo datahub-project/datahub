@@ -8,7 +8,7 @@ import VerticalDragAndDrop from '@app/homeV3/modules/assetCollection/dragAndDrop
 import { EmptyContainer, StyledIcon } from '@app/homeV3/styledComponents';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
-import { Entity } from '@types';
+import { DataHubPageModuleType, Entity } from '@types';
 
 const SelectedAssetsContainer = styled.div`
     display: flex;
@@ -79,7 +79,12 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
             .map((urn) => entitiesMap[urn])
             .filter(Boolean)
             .map((entity) => (
-                <DraggableEntityItem key={entity.urn} entity={entity} customDetailsRenderer={renderRemoveAsset} />
+                <DraggableEntityItem
+                    key={entity.urn}
+                    entity={entity}
+                    customDetailsRenderer={renderRemoveAsset}
+                    moduleType={DataHubPageModuleType.AssetCollection}
+                />
             ));
     } else {
         content = (

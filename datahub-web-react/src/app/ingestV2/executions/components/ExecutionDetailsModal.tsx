@@ -105,6 +105,9 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 selectedTab={selectedTab}
                 onChange={(tab) => setSelectedTab(tab as TabType)}
                 getCurrentUrl={() => window.location.pathname}
+                scrollToTopOnChange
+                maxHeight="80vh"
+                stickyHeader
                 addPaddingLeft
             />
         </Modal>

@@ -24,6 +24,7 @@
       "Bash(yarn generate:*)",
       "Bash(./gradlew :datahub-web-react:yarnLintFix)",
       "Bash(./gradlew :datahub-web-react:yarnLint)",
+      "Bash(./gradlew :metadata-ingestion:capabilitySummary)",
       "Bash(./gradlew:*)",
       "Bash(git add:*)",
       "Bash(git checkout:*)",

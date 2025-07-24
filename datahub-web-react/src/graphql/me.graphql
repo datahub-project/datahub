@@ -86,6 +86,7 @@ query getMe {
             viewStructuredPropertiesPage
             manageApplications
             manageFeatures
+            manageHomePageTemplates
             manageDocumentationForms
             viewDocumentationFormsPage
             manageOrganizationDisplayPreferences

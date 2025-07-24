@@ -108,6 +108,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageApplications(
                 ApplicationAuthorizationUtils.canManageApplications(context));
             platformPrivileges.setManageFeatures(AuthorizationUtils.canManageFeatures(context));
+            platformPrivileges.setManageHomePageTemplates(
+                AuthorizationUtils.canManageHomePageTemplates(context));
             platformPrivileges.setManageDocumentationForms(
                 AuthorizationUtils.canManageForms(context));
             platformPrivileges.setViewDocumentationFormsPage(

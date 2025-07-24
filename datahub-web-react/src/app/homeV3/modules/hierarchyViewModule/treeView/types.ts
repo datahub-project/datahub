@@ -74,6 +74,8 @@ export interface TreeViewContextProviderProps {
     expandedValues?: string[];
     // Called when expanding state changed (`values` is the full list of expanded values)
     updateExpandedValues?: (values: string[]) => void;
+    // Called when node was expanded
+    onExpand?: (node: TreeNode) => void;
 
     // SELECTION
     // If enabled it shows checkboxes next to nodes and enables selecting

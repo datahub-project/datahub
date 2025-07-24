@@ -230,6 +230,11 @@ type PlatformPrivileges {
   manageFeatures: Boolean!
 
   """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
+
+  """
   Whether the user can create, edit, and assign documentation forms.
   """
   manageDocumentationForms: Boolean!

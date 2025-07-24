@@ -1497,9 +1497,17 @@ class DatahubGEProfiler:
                 logger.error(
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
+            if platform == DATABRICKS:
+                # TODO: Review logic for BigQuery as well, probably project.dataset.table should be quoted there as well
+                quoted_name = ".".join(
+                    batch.engine.dialect.identifier_preparer.quote(part)
+                    for part in name_parts
+                )
+                batch._table = sa.text(quoted_name)
+                logger.debug(f"Setting quoted table name to be {batch._table}")
             # If we only have two parts that means the project_id is missing from the table name and we add it
             # Temp tables has 3 parts while normal tables only has 2 parts
-            if len(str(batch._table).split(".")) == 2:
+            elif len(str(batch._table).split(".")) == 2:
                 batch._table = sa.text(f"{name_parts[0]}.{str(batch._table)}")
                 logger.debug(f"Setting table name to be {batch._table}")
 

@@ -16,6 +16,11 @@ const Container = styled.div`
     flex-direction: column;
     justify-content: center;
     align-items: center;
+
+    p {
+        text-align: justify;
+        text-align-last: center;
+    }
 `;
 
 const IconWrapper = styled.div`

@@ -69,6 +69,8 @@ class BIContainerSubTypes(StrEnum):
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
     MODE_COLLECTION = "Collection"
+    GRAFANA_FOLDER = "Folder"
+    GRAFANA_DASHBOARD = "Dashboard"
 
 
 class FlowContainerSubTypes(StrEnum):

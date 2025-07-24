@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Dict, List, Union
+from typing import Dict, List, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -552,7 +552,7 @@ def test_include_database_name(include_database_name: str, expected: bool) -> No
     assert config.include_database_name is expected
 
 
-def test_extract_dbt_entities():
+def test_extract_dbt_entities() -> None:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     config = DBTCoreConfig(
         manifest_path="tests/unit/dbt/artifacts/manifest.json",
@@ -564,3 +564,97 @@ def test_extract_dbt_entities():
     config.include_database_name = False
     source = DBTCoreSource(config, ctx)
     assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
+
+
+def test_drop_duplicate_sources() -> None:
+    class SharedDBTNodeFields(TypedDict, total=False):
+        database: str
+        schema: str
+        alias: None
+        comment: str
+        raw_code: None
+        dbt_adapter: str
+        dbt_file_path: None
+        dbt_package_name: str
+        max_loaded_at: None
+        catalog_type: None
+        missing_from_catalog: bool
+        owner: None
+        compiled_code: None
+
+    # Create 3 nodes: model, duplicate source, and another model that references the source
+    shared_fields: SharedDBTNodeFields = {
+        "database": "test_db",
+        "schema": "test_schema",
+        "alias": None,
+        "comment": "",
+        "raw_code": None,
+        "dbt_adapter": "postgres",
+        "dbt_file_path": None,
+        "dbt_package_name": "package",
+        "max_loaded_at": None,
+        "catalog_type": None,
+        "missing_from_catalog": False,
+        "owner": None,
+        "compiled_code": None,
+    }
+
+    model_node = DBTNode(
+        **shared_fields,
+        name="shared_table",
+        description="A model",
+        language="sql",
+        dbt_name="model.package.shared_table",
+        node_type="model",
+        materialization="table",
+    )
+
+    duplicate_source = DBTNode(
+        **shared_fields,
+        name="shared_table",  # Same warehouse name as model
+        description="A source with same name as model",
+        language=None,
+        dbt_name="source.package.external_source.shared_table",
+        node_type="source",
+        materialization=None,
+    )
+
+    referencing_model = DBTNode(
+        **shared_fields,
+        name="downstream_table",
+        description="A model that references the source",
+        language="sql",
+        dbt_name="model.package.downstream_table",
+        node_type="model",
+        materialization="table",
+        upstream_nodes=[
+            "source.package.external_source.shared_table"
+        ],  # References the source
+    )
+
+    original_nodes = [model_node, duplicate_source, referencing_model]
+
+    # Test the method
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig.parse_obj(create_base_dbt_config())
+    source: DBTCoreSource = DBTCoreSource(config, ctx)
+
+    result_nodes: List[DBTNode] = source._drop_duplicate_sources(original_nodes)
+
+    # Verify source was dropped (only 2 nodes remain)
+    assert len(result_nodes) == 2
+    node_types = [node.node_type for node in result_nodes]
+    assert "source" not in node_types
+    assert node_types.count("model") == 2
+
+    # Verify reference was updated
+    downstream_node = next(
+        node
+        for node in result_nodes
+        if node.dbt_name == "model.package.downstream_table"
+    )
+    assert downstream_node.upstream_nodes == ["model.package.shared_table"]
+
+    # Verify report counters
+    assert source.report.duplicate_sources_dropped == 1
+    assert source.report.duplicate_sources_references_updated == 1

@@ -40,14 +40,6 @@ fragment query on QueryEntity {
                 ...ActorWithDisplayName
             }
         }
-        createdOn {
-            time
-            actor {
-                urn
-                type
-                ...entityDisplayNameFields
-            }
-        }
         lastModified {
             time
             actor

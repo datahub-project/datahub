@@ -13,6 +13,8 @@ export interface Column<T> {
     sorter?: ((a: T, b: T) => number) | boolean;
     alignment?: AlignmentOptions;
     tooltipTitle?: string;
+    onCellClick?: (record: T) => void;
+    cellWrapper?: (content: React.ReactNode, record: T) => React.ReactNode;
 }
 
 export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {

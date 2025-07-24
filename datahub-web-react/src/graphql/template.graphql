@@ -44,6 +44,7 @@ fragment PageModule on DataHubPageModule {
             hierarchyViewParams {
                 assetUrns
                 showRelatedEntities
+                relatedEntitiesFilterJson
             }
         }
     }
