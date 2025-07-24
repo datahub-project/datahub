@@ -8,11 +8,11 @@ import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
-const DragIcon = styled(Icon)<{ isDragging: boolean }>`
+export const DragIcon = styled(Icon)<{ isDragging: boolean }>`
     cursor: ${(props) => (props.isDragging ? 'grabbing' : 'grab')};
     display: none;
     position: absolute;
-    left: 2px;
+    left: 0px;
     top: 50%;
     transform: translateY(-50%);
 `;
