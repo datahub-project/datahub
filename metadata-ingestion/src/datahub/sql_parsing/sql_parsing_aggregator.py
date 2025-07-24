@@ -49,6 +49,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    DialectOrStr,
     _parse_statement,
     get_query_fingerprint,
     try_format_query,
@@ -109,6 +110,7 @@ class ObservedQuery:
     default_schema: Optional[str] = None
     query_hash: Optional[str] = None
     usage_multiplier: int = 1
+    override_dialect: Optional[DialectOrStr] = None
 
     # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
@@ -833,6 +835,7 @@ class SqlParsingAggregator(Closeable):
             session_id=session_id,
             timestamp=observed.timestamp,
             user=observed.user,
+            override_dialect=observed.override_dialect,
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
@@ -1167,6 +1170,7 @@ class SqlParsingAggregator(Closeable):
         session_id: str = _MISSING_SESSION_ID,
         timestamp: Optional[datetime] = None,
         user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
+        override_dialect: Optional[DialectOrStr] = None,
     ) -> SqlParsingResult:
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
@@ -1174,6 +1178,7 @@ class SqlParsingAggregator(Closeable):
                 schema_resolver=schema_resolver,
                 default_db=default_db,
                 default_schema=default_schema,
+                override_dialect=override_dialect,
             )
         self.report.num_sql_parsed += 1
 
