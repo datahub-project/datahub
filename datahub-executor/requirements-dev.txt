@@ -12,7 +12,7 @@
     #   acryl-datahub-actions
     #   acryl-datahub-executor
     #   acryl-executor
-acryl-datahub-actions==0.1.4
+acryl-datahub-actions==0.2.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -1431,6 +1431,7 @@ tenacity==8.5.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-actions
     #   acryl-datahub-executor
     #   streamlit
 terminado==0.18.1

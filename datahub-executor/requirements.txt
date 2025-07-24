@@ -8,7 +8,7 @@
     #   acryl-datahub-actions
     #   acryl-datahub-executor
     #   acryl-executor
-acryl-datahub-actions==0.1.4
+acryl-datahub-actions==0.2.1
     # via acryl-datahub-executor
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
@@ -930,7 +930,9 @@ tableschema==1.21.0
 tabulate==0.9.0
     # via acryl-datahub
 tenacity==8.5.0
-    # via acryl-datahub-executor
+    # via
+    #   acryl-datahub-actions
+    #   acryl-datahub-executor
 terminado==0.18.1
     # via
     #   jupyter-server
