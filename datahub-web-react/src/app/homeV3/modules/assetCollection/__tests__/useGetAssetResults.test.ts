@@ -60,7 +60,7 @@ describe('useGetAssetResults', () => {
                 input: {
                     query: searchQuery,
                     start: 0,
-                    count: 10,
+                    count: 20,
                     orFilters: mockOrFilters,
                     searchFlags: { skipCache: true },
                 },

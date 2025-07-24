@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import ModuleModalMapper from '@app/homeV3/moduleModals/ModuleModalMapper';
-import useModulesAvailableToAdd from '@app/homeV3/modules/hooks/useModulesAvailableToAdd';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import DragAndDropProvider from '@app/homeV3/template/components/DragAndDropProvider';
 import TemplateGrid from '@app/homeV3/template/components/TemplateGrid';
@@ -35,19 +34,14 @@ function Template({ className }: Props) {
     );
     const hasRows = useMemo(() => !!rows.length, [rows.length]);
     const wrappedRows = useMemo(() => wrapRows(rows), [rows]);
-    const modulesAvailableToAdd = useModulesAvailableToAdd();
 
     return (
         <Wrapper className={className}>
             <DragAndDropProvider>
-                <TemplateGrid wrappedRows={wrappedRows} modulesAvailableToAdd={modulesAvailableToAdd} />
+                <TemplateGrid wrappedRows={wrappedRows} />
             </DragAndDropProvider>
 
-            <StyledAddModulesButton
-                orientation="horizontal"
-                $hasRows={hasRows}
-                modulesAvailableToAdd={modulesAvailableToAdd}
-            />
+            <StyledAddModulesButton orientation="horizontal" $hasRows={hasRows} />
             <ModuleModalMapper />
         </Wrapper>
     );

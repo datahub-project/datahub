@@ -60,3 +60,7 @@ mutation upsertPageModule($input: UpsertPageModuleInput!) {
         urn
     }
 }
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
+}

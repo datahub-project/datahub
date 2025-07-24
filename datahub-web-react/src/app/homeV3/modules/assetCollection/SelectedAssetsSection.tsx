@@ -1,8 +1,10 @@
 import { Text } from '@components';
-import React from 'react';
+import { isEqual } from 'lodash';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import EntityItem from '@app/homeV3/module/components/EntityItem';
+import DraggableEntityItem from '@app/homeV3/modules/assetCollection/dragAndDrop/DraggableEntityItem';
+import VerticalDragAndDrop from '@app/homeV3/modules/assetCollection/dragAndDrop/VerticalDragAndDrop';
 import { EmptyContainer, StyledIcon } from '@app/homeV3/styledComponents';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
@@ -15,13 +17,41 @@ const SelectedAssetsContainer = styled.div`
     height: 100%;
 `;
 
+const ResultsContainer = styled.div`
+    margin: 0 -12px 0 -8px;
+    height: 100%;
+`;
+
 type Props = {
     selectedAssetUrns: string[];
     setSelectedAssetUrns: React.Dispatch<React.SetStateAction<string[]>>;
 };
 
 const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
-    const { entities, loading } = useGetEntities(selectedAssetUrns);
+    const [orderedUrns, setOrderedUrns] = useState(selectedAssetUrns);
+
+    useEffect(() => {
+        if (!isEqual(selectedAssetUrns, orderedUrns)) {
+            setOrderedUrns(selectedAssetUrns);
+        }
+    }, [orderedUrns, selectedAssetUrns]);
+
+    const onChangeOrder = (urns: string[]) => {
+        setOrderedUrns(urns);
+        setSelectedAssetUrns(urns);
+    };
+
+    // To prevent refetch on only order change
+    const stableUrns = useMemo(() => [...selectedAssetUrns].sort(), [selectedAssetUrns]);
+    const { entities } = useGetEntities(stableUrns);
+
+    const entitiesMap = useMemo(() => {
+        const map: Record<string, Entity> = {};
+        entities.forEach((entity) => {
+            map[entity.urn] = entity;
+        });
+        return map;
+    }, [entities]);
 
     const handleRemoveAsset = (entity: Entity) => {
         const newUrns = selectedAssetUrns.filter((urn) => !(entity.urn === urn));
@@ -44,16 +74,14 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     };
 
     let content;
-    if (entities && entities.length > 0) {
-        content = entities.map((entity) => (
-            <EntityItem
-                entity={entity}
-                key={entity.urn}
-                customDetailsRenderer={renderRemoveAsset}
-                navigateOnlyOnNameClick
-            />
-        ));
-    } else if (!loading && entities.length === 0) {
+    if (selectedAssetUrns.length > 0) {
+        content = selectedAssetUrns
+            .map((urn) => entitiesMap[urn])
+            .filter(Boolean)
+            .map((entity) => (
+                <DraggableEntityItem key={entity.urn} entity={entity} customDetailsRenderer={renderRemoveAsset} />
+            ));
+    } else {
         content = (
             <EmptyContainer>
                 <Text color="gray">No assets selected.</Text>
@@ -66,7 +94,9 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
             <Text color="gray" weight="bold">
                 Selected Assets
             </Text>
-            {content}
+            <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>
+                <ResultsContainer>{content}</ResultsContainer>
+            </VerticalDragAndDrop>
         </SelectedAssetsContainer>
     );
 };

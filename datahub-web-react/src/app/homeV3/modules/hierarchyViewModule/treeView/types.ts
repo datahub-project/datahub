@@ -51,6 +51,7 @@ export interface TreeViewContextType {
     explicitlyUnselectChildren?: boolean;
     explicitlySelectParent?: boolean;
     explicitlyUnselectParent?: boolean;
+    enableIntermediateSelectState?: boolean;
 
     // Async loading of children
     // -------------------------------------------------
@@ -91,6 +92,8 @@ export interface TreeViewContextProviderProps {
     explicitlySelectParent?: boolean;
     // If enabled it prevents unselecting of parent if any its children were unselected
     explicitlyUnselectParent?: boolean;
+    // If enabled it shows intermediate state of checkbox when the current node is not selected but it has selected nested nodes
+    enableIntermediateSelectState?: boolean;
 
     // Optional custom renderer of nodes
     renderNodeLabel?: (props: TreeNodeProps) => React.ReactNode;

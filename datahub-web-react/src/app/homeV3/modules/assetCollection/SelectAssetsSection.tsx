@@ -24,6 +24,10 @@ const ItemDetailsContainer = styled.div`
     align-items: center;
 `;
 
+const ResultsContainer = styled.div`
+    margin: 0 -16px 0 -8px;
+`;
+
 type Props = {
     selectedAssetUrns: string[];
     setSelectedAssetUrns: React.Dispatch<React.SetStateAction<string[]>>;
@@ -92,7 +96,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 appliedFilters={appliedFilters}
                 updateFieldFilters={updateFieldFilters}
             />
-            {content}
+            <ResultsContainer>{content}</ResultsContainer>
         </AssetsSection>
     );
 };

@@ -7,7 +7,7 @@ interface Props {
 
 export default function ModuleName({ text }: Props) {
     return (
-        <Text color="gray" colorLevel={600} size="xl" weight="bold" lineHeight="sm">
+        <Text color="gray" colorLevel={600} size="lg" weight="bold" lineHeight="sm">
             {text}
         </Text>
     );

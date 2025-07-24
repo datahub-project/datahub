@@ -36,6 +36,12 @@ export const HoverEntityTooltip = ({
         return <>{children}</>;
     }
 
+    const clampToViewportWidth = (value: number | string) => {
+        // defensive programming in case HoverEntityTooltip ever starts allowing
+        // maxWidth as a string.
+        return `min(100vw, ${value}${typeof value === 'number' ? 'px' : ''})`;
+    };
+
     return (
         <HoverEntityTooltipContext.Provider value={{ entityCount }}>
             <Tooltip
@@ -43,7 +49,7 @@ export const HoverEntityTooltip = ({
                 open={canOpen ? undefined : false}
                 color="white"
                 placement={placement || 'bottom'}
-                overlayStyle={{ minWidth: width, maxWidth, zIndex: 1100 }}
+                overlayStyle={{ minWidth: width, maxWidth: clampToViewportWidth(maxWidth), zIndex: 1100 }}
                 overlayInnerStyle={{ padding: 20, borderRadius: 20, overflow: 'hidden', position: 'relative' }}
                 title={entityRegistry.renderPreview(entity.type, PreviewType.HOVER_CARD, entity)}
                 zIndex={1000}

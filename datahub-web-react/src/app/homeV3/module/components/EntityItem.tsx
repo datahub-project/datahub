@@ -13,8 +13,9 @@ const StyledLink = styled(Link)`
 
 interface Props {
     entity: Entity;
-    customDetailsRenderer?: (entity: Entity) => void;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
+    dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
     hideMatches?: boolean;
     padding?: string;
@@ -24,6 +25,7 @@ export default function EntityItem({
     entity,
     customDetailsRenderer,
     navigateOnlyOnNameClick = false,
+    dragIconRenderer,
     hideSubtitle,
     hideMatches,
     padding,
@@ -41,6 +43,7 @@ export default function EntityItem({
                     hideMatches={hideMatches}
                     padding={padding}
                     navigateOnlyOnNameClick
+                    dragIconRenderer={dragIconRenderer}
                 />
             ) : (
                 <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
@@ -51,6 +54,7 @@ export default function EntityItem({
                         hideMatches={hideMatches}
                         padding={padding}
                         customDetailsRenderer={customDetailsRenderer}
+                        dragIconRenderer={dragIconRenderer}
                     />
                 </StyledLink>
             )}

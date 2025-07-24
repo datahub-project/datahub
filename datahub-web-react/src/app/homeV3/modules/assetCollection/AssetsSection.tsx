@@ -9,7 +9,7 @@ import SelectedAssetsSection from '@app/homeV3/modules/assetCollection/SelectedA
 const Container = styled.div`
     display: flex;
     width: 100%;
-    gap: 16px;
+    gap: 8px;
 `;
 
 const LeftSection = styled.div`

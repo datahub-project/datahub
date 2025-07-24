@@ -138,7 +138,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId } = render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -149,19 +149,19 @@ describe('PageTemplateContext', () => {
             expect(getByTestId('is-editing-global')).toHaveTextContent('false');
         });
 
-        it('should call useTemplateState with correct parameters', () => {
+        it('should call useTemplateState without parameters', () => {
             render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
 
-            expect(mockUseTemplateState).toHaveBeenCalledWith(mockPersonalTemplate, mockGlobalTemplate);
+            expect(mockUseTemplateState).toHaveBeenCalledWith();
         });
 
         it('should call useTemplateOperations', () => {
             render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -171,7 +171,7 @@ describe('PageTemplateContext', () => {
 
         it('should call useModuleOperations with correct parameters', () => {
             render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -186,6 +186,7 @@ describe('PageTemplateContext', () => {
                 mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
                 false,
+                null,
             );
         });
 
@@ -213,7 +214,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId } = render(
-                <PageTemplateProvider personalTemplate={null} globalTemplate={null}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -247,7 +248,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId } = render(
-                <PageTemplateProvider personalTemplate={undefined} globalTemplate={undefined}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -270,7 +271,7 @@ describe('PageTemplateContext', () => {
             });
 
             render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
@@ -285,6 +286,7 @@ describe('PageTemplateContext', () => {
                 mockRemoveModuleFromTemplate,
                 mockUpsertTemplate,
                 false,
+                null,
             );
         });
 
@@ -295,7 +297,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId, rerender } = render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -304,7 +306,7 @@ describe('PageTemplateContext', () => {
 
             // Rerender with same props
             rerender(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -316,11 +318,7 @@ describe('PageTemplateContext', () => {
     describe('usePageTemplateContext', () => {
         it('should return context when used within provider', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => (
-                    <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
-                        {children}
-                    </PageTemplateProvider>
-                ),
+                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
             });
 
             expect(result.current.personalTemplate).toBe(mockPersonalTemplate);
@@ -351,11 +349,7 @@ describe('PageTemplateContext', () => {
 
         it('should provide working addModule function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => (
-                    <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
-                        {children}
-                    </PageTemplateProvider>
-                ),
+                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
             });
 
             const moduleInput = {
@@ -384,11 +378,7 @@ describe('PageTemplateContext', () => {
 
         it('should provide working upsertModule function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => (
-                    <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
-                        {children}
-                    </PageTemplateProvider>
-                ),
+                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
             });
 
             const upsertModuleInput = {
@@ -411,11 +401,7 @@ describe('PageTemplateContext', () => {
 
         it('should provide working setIsEditingGlobalTemplate function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => (
-                    <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
-                        {children}
-                    </PageTemplateProvider>
-                ),
+                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
             });
 
             act(() => {
@@ -427,11 +413,7 @@ describe('PageTemplateContext', () => {
 
         it('should provide working setTemplate function', () => {
             const { result } = renderHook(() => usePageTemplateContext(), {
-                wrapper: ({ children }) => (
-                    <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
-                        {children}
-                    </PageTemplateProvider>
-                ),
+                wrapper: ({ children }) => <PageTemplateProvider>{children}</PageTemplateProvider>,
             });
 
             const newTemplate: PageTemplateFragment = {
@@ -460,7 +442,7 @@ describe('PageTemplateContext', () => {
             };
 
             const { getByTestId, rerender } = render(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );
@@ -478,7 +460,7 @@ describe('PageTemplateContext', () => {
             });
 
             rerender(
-                <PageTemplateProvider personalTemplate={mockPersonalTemplate} globalTemplate={mockGlobalTemplate}>
+                <PageTemplateProvider>
                     <TestComponent />
                 </PageTemplateProvider>,
             );

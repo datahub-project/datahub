@@ -25,6 +25,7 @@ export default function TreeViewContextProvider({
     explicitlyUnselectChildren,
     explicitlySelectParent,
     explicitlyUnselectParent,
+    enableIntermediateSelectState,
     numberOfChildrenToLoad = DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD,
 }: React.PropsWithChildren<TreeViewContextProviderProps>) {
     const [internalExpandedValues, setInternalExpandedValues] = useState<string[]>(expandedValues ?? []);
@@ -261,6 +262,7 @@ export default function TreeViewContextProvider({
                 explicitlyUnselectChildren,
                 explicitlySelectParent,
                 explicitlyUnselectParent,
+                enableIntermediateSelectState,
 
                 // Async loading of children
                 getIsChildrenLoading,

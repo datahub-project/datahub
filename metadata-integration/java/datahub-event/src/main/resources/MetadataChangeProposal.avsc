@@ -172,6 +172,46 @@
         "type" : [ "null", "string" ],
         "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
         "default" : null
+      }, {
+        "name" : "aspectCreated",
+        "type" : [ "null", {
+          "type" : "record",
+          "name" : "AuditStamp",
+          "namespace" : "com.linkedin.pegasus2avro.common",
+          "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+          "fields" : [ {
+            "name" : "time",
+            "type" : "long",
+            "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+          }, {
+            "name" : "actor",
+            "type" : "string",
+            "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change.",
+            "java" : {
+              "class" : "com.linkedin.pegasus2avro.common.urn.Urn"
+            }
+          }, {
+            "name" : "impersonator",
+            "type" : [ "null", "string" ],
+            "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+            "default" : null,
+            "java" : {
+              "class" : "com.linkedin.pegasus2avro.common.urn.Urn"
+            }
+          }, {
+            "name" : "message",
+            "type" : [ "null", "string" ],
+            "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+            "default" : null
+          } ]
+        } ],
+        "doc" : "When the aspect was initially created and who created it, detected by version 0 -> 1 change",
+        "default" : null
+      }, {
+        "name" : "aspectModified",
+        "type" : [ "null", "com.linkedin.pegasus2avro.common.AuditStamp" ],
+        "doc" : "When the aspect was last modified and the actor that performed the modification",
+        "default" : null
       } ],
       "Aspect" : {
         "name" : "systemMetadata"

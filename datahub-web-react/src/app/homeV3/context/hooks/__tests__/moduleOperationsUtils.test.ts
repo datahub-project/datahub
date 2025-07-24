@@ -218,6 +218,7 @@ describe('Module Operations Utility Functions', () => {
         const module1 = createMockModule('Module 1', 'urn:li:module:1');
         const module2 = createMockModule('Module 2', 'urn:li:module:2');
         const module3 = createMockModule('Module 3', 'urn:li:module:3');
+        const module4 = createMockModule('Module 4', 'urn:li:module:4');
 
         it('should allow move when target row has space', () => {
             const template = createMockTemplate([
@@ -231,16 +232,17 @@ describe('Module Operations Utility Functions', () => {
             expect(result).toBeNull();
         });
 
-        it('should prevent move when target row is full and dragging from different row', () => {
+        it('should allow move when moving module into a full row', () => {
             const template = createMockTemplate([
                 { modules: [module1, module2, module3] }, // Full row (3 modules)
+                { modules: [module4] },
             ]);
             const fromPosition: ModulePositionInput = { rowIndex: 1, moduleIndex: 0 };
             const toPosition: ModulePositionInput = { rowIndex: 0, moduleIndex: 3 };
 
             const result = validateModuleMoveConstraints(template, fromPosition, toPosition);
 
-            expect(result).toBe('Cannot move module: Target row already has maximum number of modules');
+            expect(result).toBeNull();
         });
 
         it('should allow move within same row even when full', () => {
