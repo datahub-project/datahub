@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { getFieldMetricTypeReadableLabel } from '@app/entity/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 
@@ -55,10 +55,12 @@ const DEFAULT_PROGRESS_REPORT: ProgressReport = {
  * Tracks the progress of the upsert operation in the progress report.
  * Captures the successful and errored assertions in the progress report, along with the error messages.
  */
-export const useUpsertBulkFieldAssertions = () => {
+export const useBulkCreateFieldAssertions = () => {
     const [upsertFieldAssertionMonitorMutation] = useUpsertDatasetFieldAssertionMonitorMutation();
 
     const [progressReport, setProgressReport] = useState<ProgressReport>(DEFAULT_PROGRESS_REPORT);
+    const progressReportRef = useRef<ProgressReport>(progressReport);
+    progressReportRef.current = progressReport;
 
     const upsertBulkFieldAssertions = (assertionSpec: BulkFieldAssertionSpec) => {
         // 1. Build the upsert inputs
@@ -142,7 +144,7 @@ export const useUpsertBulkFieldAssertions = () => {
         });
 
         // 4. Return the progress report
-        return progressReport;
+        return progressReportRef.current;
     };
 
     return {

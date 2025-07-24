@@ -1,7 +1,7 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { Button, Text } from '@components';
 import { Divider, Typography } from 'antd';
-import { Info } from 'phosphor-react';
+import { Info, Lightbulb } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -102,6 +102,16 @@ const ActualVsExpectedText = styled.div``;
 
 const ContextRow = styled.div``;
 
+const HorizontalRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    .ant-typography {
+        margin-bottom: 0;
+    }
+`;
+
 const ExpectedText = styled.div``;
 
 const PlatformRow = styled.div``;
@@ -143,6 +153,12 @@ const VerticalDivider = styled.span`
     vertical-align: middle;
 `;
 
+const OpenNoteButton = styled(Button)`
+    display: inline-block;
+    color: inherit;
+    font-weight: bold;
+`;
+
 type Props = {
     assertion: Assertion;
     monitor?: Monitor;
@@ -151,6 +167,7 @@ type Props = {
     onClickProfileButton?: () => void;
     resultStatusType?: ResultStatusType;
     refetchResults?: () => Promise<unknown>;
+    openAssertionNote?: () => void;
 };
 
 const RawValueTooltipTitle = ({ value }: { value?: string }) => {
@@ -167,6 +184,7 @@ export const AssertionResultPopoverContent = ({
     resultStatusType,
     onClickProfileButton,
     refetchResults,
+    openAssertionNote,
 }: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
 
@@ -212,6 +230,9 @@ export const AssertionResultPopoverContent = ({
     );
     const showAnomalyFeedback = isFeedbackEnabled && resultStatusType !== ResultStatusType.LATEST;
     const showUndoFeedbackAction = isMissedAlarm || isFalseAlarm;
+
+    const hasNote = !!assertion.info?.note;
+    const showNote = hasNote && runResultType !== AssertionResultType.Success;
 
     const { isActionProcessing, onToggleAnomaly, onRetrainAsNewNormal, retrainModal } = useAssertionFeedbackActions({
         assertion,
@@ -382,6 +403,25 @@ export const AssertionResultPopoverContent = ({
                 </>
             ) : null}
 
+            {showNote && (
+                <>
+                    <ThinDivider />
+                    <HorizontalRow>
+                        <Lightbulb size={16} color={colors.primary[500]} />
+                        <Typography.Paragraph style={{ color: colors.primary[500] }}>
+                            Visit the{' '}
+                            {openAssertionNote ? (
+                                <OpenNoteButton variant="link" onClick={openAssertionNote}>
+                                    Notes tab
+                                </OpenNoteButton>
+                            ) : (
+                                <b>&apos;Notes&apos; tab</b>
+                            )}{' '}
+                            for troubleshooting tips.
+                        </Typography.Paragraph>
+                    </HorizontalRow>
+                </>
+            )}
             {showAnomalyFeedback && (
                 <>
                     <ThinDivider />

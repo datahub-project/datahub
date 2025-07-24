@@ -3,11 +3,11 @@ import React from 'react';
 import { AssertionSettings } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/AssertionSettings';
 import { AssertionSettingsLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsLoading';
 
-import { Assertion, Entity, Monitor } from '@types';
+import { Assertion, Entity, Maybe, Monitor } from '@types';
 
 type Props = {
     loading: boolean;
-    assertion?: Assertion;
+    assertion: Maybe<Assertion>;
     entity: Entity;
     monitor?: Monitor;
     editable?: boolean;
@@ -26,11 +26,11 @@ export const AssertionSettingsTab = ({
 }: Props) => {
     return (
         <>
-            {loading ? (
+            {loading || !assertion ? (
                 <AssertionSettingsLoading />
             ) : (
                 <AssertionSettings
-                    assertion={assertion as Assertion}
+                    assertion={assertion}
                     entity={entity}
                     refetch={refetch}
                     monitor={monitor}

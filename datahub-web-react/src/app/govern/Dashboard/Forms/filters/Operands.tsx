@@ -32,7 +32,8 @@ const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, d
 
             {operands.map((operand, index) => (
                 <>
-                    {!isLogicalPredicate(operand) && (
+                    {/* TODO: deprecate isLogicalPredicate and use the discriminator instead */}
+                    {!isLogicalPredicate(operand) && operand.type === 'property' && (
                         <Condition
                             selectedPredicate={operand}
                             onChangePredicate={(pred) => onUpdatePredicate(pred, index)}
@@ -46,7 +47,7 @@ const Operands = ({ operands, onChangeOperands, onDeletePredicate, properties, d
             ))}
             {operands.map((operand, index) => (
                 <>
-                    {isLogicalPredicate(operand) && (
+                    {isLogicalPredicate(operand) && operand.type === 'logical' && (
                         <QueryBuilder
                             selectedPredicate={operand as LogicalPredicate}
                             onChangePredicate={(pred) => onUpdatePredicate(pred, index)}

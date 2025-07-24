@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -29,10 +29,11 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    collapsable?: boolean;
 };
 
 export const FreshnessInfrenceAdjuster = (props: Props) => {
-    const { state, updateState, disabled } = props;
+    const { state, updateState, disabled, collapsable } = props;
 
     const { inferenceSettings } = state;
     const { sensitivity, exclusionWindows, trainingDataLookbackWindowDays } = inferenceSettings || {};
@@ -40,10 +41,10 @@ export const FreshnessInfrenceAdjuster = (props: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
     if (!onlineSmartAssertionsEnabled) return null;
 
-    return (
-        <Row>
-            {/* Title */}
-            <Typography.Title level={5}>Inference Settings</Typography.Title>
+    const inferenceContent = (
+        <>
+            {/* Title - only show if not collapsable since Collapse will have its own title */}
+            {!collapsable && <Typography.Title level={5}>AI Model Tuning</Typography.Title>}
 
             {/* Sensitivity */}
             <InferenceSensitivityAdjuster
@@ -80,6 +81,20 @@ export const FreshnessInfrenceAdjuster = (props: Props) => {
                     });
                 }}
             />
+        </>
+    );
+
+    return (
+        <Row style={collapsable ? { marginBottom: 12 } : {}}>
+            {collapsable ? (
+                <Collapse>
+                    <Collapse.Panel header="AI Model Tuning" key="ai-model-tuning">
+                        {inferenceContent}
+                    </Collapse.Panel>
+                </Collapse>
+            ) : (
+                inferenceContent
+            )}
         </Row>
     );
 };

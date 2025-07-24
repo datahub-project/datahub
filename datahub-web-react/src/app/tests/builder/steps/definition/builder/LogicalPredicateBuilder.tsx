@@ -36,7 +36,8 @@ const OperandContainer = styled.div`
     margin-left: 8px;
 `;
 
-export const EMPTY_PROPERTY_PREDICATE = {
+export const EMPTY_PROPERTY_PREDICATE: PropertyPredicate = {
+    type: 'property',
     property: undefined,
     operator: undefined,
     values: undefined,
@@ -59,6 +60,7 @@ export const convertToLogicalPredicate = (predicate: LogicalPredicate | Property
     // If we have a property predicate, simply convert to a basic logical predicate.
     if (!isLogicalPredicate(predicate)) {
         return {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: [predicate],
         };
@@ -87,24 +89,25 @@ export const LogicalPredicateBuilder = ({
 
     const onAddPropertyPredicate = () => {
         const newOperands = [...operands, EMPTY_PROPERTY_PREDICATE];
-        onChangePredicate({ operator, operands: newOperands });
+        onChangePredicate({ type: 'logical', operator, operands: newOperands });
     };
 
     const onAddLogicalPredicate = (op: LogicalOperatorType) => {
-        const newPredicate = {
+        const newPredicate: LogicalPredicate = {
+            type: 'logical',
             operator: op,
             operands: [],
         };
         const newOperands = [...operands, newPredicate];
-        onChangePredicate({ operator, operands: newOperands });
+        onChangePredicate({ type: 'logical', operator, operands: newOperands });
     };
 
     const onChangeOperator = (newOperator) => {
-        onChangePredicate({ operator: newOperator, operands });
+        onChangePredicate({ type: 'logical', operator: newOperator, operands });
     };
 
     const onChangeOperands = (ops) => {
-        onChangePredicate({ operator, operands: ops });
+        onChangePredicate({ type: 'logical', operator, operands: ops });
     };
 
     const canAddOperand = operands.length < (options?.maxPredicates || MAX_PREDICATES);

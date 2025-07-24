@@ -25,7 +25,7 @@ export const AssertionProfileDrawer = ({
     refetch,
 }: Props) => {
     return (
-        <Drawer width={600} placement="right" closable={false} visible bodyStyle={{ padding: 0 }} onClose={closeDrawer}>
+        <Drawer width={620} placement="right" closable={false} visible bodyStyle={{ padding: 0 }} onClose={closeDrawer}>
             <AssertionProfile
                 urn={urn}
                 entity={entity}

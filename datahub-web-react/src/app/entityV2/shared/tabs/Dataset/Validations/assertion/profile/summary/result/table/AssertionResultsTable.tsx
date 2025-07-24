@@ -32,12 +32,13 @@ const ShowMoreButton = styled.div`
 type Props = {
     assertion: Assertion;
     monitor?: Monitor;
+    openAssertionNote: () => void;
 };
 
 const DEFAULT_FETCH_COUNT = 25;
 const INITIAL_VISIBLE_COUNT = 3;
 
-export const AssertionResultsTable = ({ assertion, monitor }: Props) => {
+export const AssertionResultsTable = ({ assertion, monitor, openAssertionNote }: Props) => {
     const [count, setCount] = useState(INITIAL_VISIBLE_COUNT);
     const { data, loading, refetch } = useGetAssertionRunsQuery({
         variables: {
@@ -66,6 +67,7 @@ export const AssertionResultsTable = ({ assertion, monitor }: Props) => {
                     monitor={monitor}
                     run={run as AssertionRunEvent}
                     refetchResults={refetch}
+                    openAssertionNote={openAssertionNote}
                 />
             ),
             key: run.timestampMillis,

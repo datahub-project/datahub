@@ -32,12 +32,12 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
     const logicalPredicate = convertToLogicalPredicate(selectedPredicate);
     const { operator } = logicalPredicate;
 
-    const operands = useMemo(() => {
+    const operands: (PropertyPredicate | LogicalPredicate)[] = useMemo(() => {
         if (logicalPredicate) {
             // Filter out undefined values
             if (logicalPredicate.operands && logicalPredicate.operands.some((item) => item === undefined)) {
                 const newOperands = logicalPredicate.operands.filter((item) => item !== undefined);
-                onChangePredicate({ operator, operands: newOperands });
+                onChangePredicate({ type: 'logical', operator, operands: newOperands });
                 return newOperands;
             }
             return logicalPredicate.operands;
@@ -46,25 +46,26 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
     }, [logicalPredicate, onChangePredicate, operator]);
 
     const onAddPropertyPredicate = () => {
-        const newOperands = [...operands, EMPTY_PROPERTY_PREDICATE];
-        onChangePredicate({ operator, operands: newOperands });
+        const newOperands: (PropertyPredicate | LogicalPredicate)[] = [...operands, EMPTY_PROPERTY_PREDICATE];
+        onChangePredicate({ type: 'logical', operator, operands: newOperands });
     };
 
     const onAddLogicalPredicate = () => {
-        const newPredicate = {
+        const newPredicate: LogicalPredicate = {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: [],
         };
         const newOperands = [...operands, newPredicate];
-        onChangePredicate({ operator, operands: newOperands });
+        onChangePredicate({ type: 'logical', operator, operands: newOperands });
     };
 
     const onChangeOperator = (newOperator) => {
-        onChangePredicate({ operator: newOperator, operands });
+        onChangePredicate({ type: 'logical', operator: newOperator, operands });
     };
 
     const onChangeOperands = (ops) => {
-        onChangePredicate({ operator, operands: ops });
+        onChangePredicate({ type: 'logical', operator, operands: ops });
     };
 
     const onDeletePredicate = () => {
@@ -105,7 +106,7 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
                         onDeletePredicate={onDeletePredicate}
                         onChangeOperator={onChangeOperator}
                         index={index}
-                        operator={logicalPredicate.operator}
+                        operator={operator}
                     />
                 }
                 showArrow={operands.length > 0}

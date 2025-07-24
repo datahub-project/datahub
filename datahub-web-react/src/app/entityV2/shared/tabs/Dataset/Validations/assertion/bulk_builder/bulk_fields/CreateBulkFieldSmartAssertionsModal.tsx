@@ -8,8 +8,8 @@ import { CreateBulkFieldSmartAssertionsForm } from '@app/entityV2/shared/tabs/Da
 import { CreateBulkFieldSmartAssertionsProgress } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/CreateBulkFieldSmartAssertionsProgress';
 import {
     BulkFieldAssertionSpec,
-    useUpsertBulkFieldAssertions,
-} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/useUpsertBulkFieldAssertions';
+    useBulkCreateFieldAssertions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/useBulkCreateFieldAssertions';
 
 const TitleWrapper = styled.div({
     display: 'flex',
@@ -26,7 +26,7 @@ type Props = {
 };
 
 export const CreateBulkFieldSmartAssertionsModal = ({ entityUrn, open, onClose, onSuccess, columns }: Props) => {
-    const { progressReport, upsertBulkFieldAssertions } = useUpsertBulkFieldAssertions();
+    const { progressReport, upsertBulkFieldAssertions } = useBulkCreateFieldAssertions();
 
     const [stage, setStage] = useState<'configuration' | 'submitted'>('configuration');
 

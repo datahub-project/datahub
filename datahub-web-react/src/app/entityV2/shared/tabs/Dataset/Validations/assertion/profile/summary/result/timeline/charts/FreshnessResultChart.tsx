@@ -47,6 +47,7 @@ type Props = {
     };
     renderHeader?: (title?: string) => JSX.Element;
     refreshData?: () => Promise<unknown>;
+    openAssertionNote?: () => void;
 };
 /**
  * Specifically for freshness assertions.
@@ -54,10 +55,11 @@ type Props = {
 export const FreshnessResultChart = ({
     data,
     timeRange,
-    exclusionWindows,
     chartDimensions,
     renderHeader,
     refreshData,
+    openAssertionNote,
+    exclusionWindows,
 }: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
 
@@ -302,6 +304,7 @@ export const FreshnessResultChart = ({
                                                     monitor={data.context.monitor}
                                                     run={dataPoint.relatedRunEvent}
                                                     refetchResults={refreshData}
+                                                    openAssertionNote={openAssertionNote}
                                                 />
                                             }
                                             showArrow={false}

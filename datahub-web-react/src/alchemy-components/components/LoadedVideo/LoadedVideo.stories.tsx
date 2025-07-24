@@ -13,10 +13,10 @@ import {
     StoryContainer,
     StoryDescription,
     StoryTitle,
-    VIDEO_WIDTH,
     VideoContainer,
     VideoPlayerContainer,
 } from '@src/alchemy-components/components/LoadedVideo/LoadedVideo.components';
+import { VIDEO_WIDTH } from '@src/alchemy-components/components/LoadedVideo/constants';
 
 const SAMPLE_VIDEO_URL = 'https://www.sample-videos.com/video321/mp4/720/big_buck_bunny_720p_1mb.mp4';
 

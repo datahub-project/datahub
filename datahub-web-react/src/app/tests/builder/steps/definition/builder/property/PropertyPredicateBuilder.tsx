@@ -98,14 +98,16 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
     }, [selectedPredicate, properties, setBuilderType]);
 
     const onChangeProperty = (propertyId?: string) => {
-        const newPredicate = {
+        const newPredicate: PropertyPredicate = {
+            type: 'property',
             property: propertyId,
         };
         onChangePredicate(newPredicate);
     };
 
     const onChangeOperator = (operatorId?: string) => {
-        const newPredicate = {
+        const newPredicate: PropertyPredicate = {
+            type: 'property',
             ...selectedPredicate,
             operator: operatorId,
             values: undefined,
@@ -114,7 +116,8 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
     };
 
     const onChangeValues = (values?: string[]) => {
-        const newPredicate = {
+        const newPredicate: PropertyPredicate = {
+            type: 'property',
             ...selectedPredicate,
             values,
         };

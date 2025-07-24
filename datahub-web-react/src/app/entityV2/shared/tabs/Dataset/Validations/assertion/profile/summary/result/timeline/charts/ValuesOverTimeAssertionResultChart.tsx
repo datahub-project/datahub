@@ -50,6 +50,7 @@ type Props = {
     };
     renderHeader?: (title?: string) => JSX.Element;
     refreshData?: () => Promise<unknown>;
+    openAssertionNote?: () => void;
 };
 
 const CHART_AXIS_LEFT_WIDTH = 32;
@@ -75,6 +76,7 @@ export const ValuesOverTimeAssertionResultChart = ({
     chartDimensions,
     renderHeader,
     refreshData,
+    openAssertionNote,
 }: Props) => {
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
     const rawDataPoints = data.dataPoints;
@@ -367,6 +369,7 @@ export const ValuesOverTimeAssertionResultChart = ({
                                             monitor={data.context.monitor}
                                             run={dataPoint.relatedRunEvent}
                                             refetchResults={refreshData}
+                                            openAssertionNote={openAssertionNote}
                                         />
                                     }
                                     showArrow={false}

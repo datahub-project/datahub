@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import { Divider } from 'antd';
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -41,7 +41,8 @@ const StyledDivider = styled(Divider)`
 `;
 
 type Props = {
-    defaultSelectedTab: string;
+    selectedTab: string;
+    setSelectedTab: (tab: string) => void;
     tabs: {
         key: string;
         label: React.ReactNode;
@@ -51,8 +52,7 @@ type Props = {
     }[];
 };
 
-export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
-    const [selectedTab, setSelectedTab] = useState<string>(defaultSelectedTab);
+export const AssertionTabs = ({ selectedTab, setSelectedTab, tabs }: Props) => {
     return (
         <>
             {tabs.length > 1 && (

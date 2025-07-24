@@ -8332,6 +8332,11 @@ type AssertionInfo {
   description: String
 
   """
+  An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
+  """
+  note: String
+
+  """
   URL where assertion details are available
   """
   externalUrl: String

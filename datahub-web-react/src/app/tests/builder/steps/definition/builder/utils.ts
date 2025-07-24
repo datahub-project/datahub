@@ -23,7 +23,11 @@ export const getOperatorDisplayName = (operator: LogicalOperatorType) => {
  */
 export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate) => {
     const logicalPredicate = predicate as LogicalPredicate;
-    return (logicalPredicate.operator && LOGICAL_OPERATORS.has(logicalPredicate.operator)) || false;
+    return (
+        logicalPredicate.type === 'logical' &&
+        logicalPredicate.operator &&
+        LOGICAL_OPERATORS.has(logicalPredicate.operator)
+    );
 };
 
 /**
@@ -96,7 +100,15 @@ export const convertLogicalPredicateToTestPredicate = (
             };
         }
         default:
-            return predicate as Predicate;
+            if (predicate.type === 'property') {
+                const result: Predicate = {
+                    property: predicate.property || '',
+                    operator: predicate.operator,
+                    values: predicate.values,
+                };
+                return result;
+            }
+            return predicate as unknown as Predicate;
     }
 };
 
@@ -114,6 +126,7 @@ export const convertTestPredicateToLogicalPredicate = (
     if (Array.isArray(predicate)) {
         const predicates = predicate;
         return {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: predicates.map((pred) => convertTestPredicateToLogicalPredicate(pred)),
         };
@@ -121,6 +134,7 @@ export const convertTestPredicateToLogicalPredicate = (
     if (AND in predicate) {
         const andPredicate = predicate as AndPredicate;
         return {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: Array.isArray(andPredicate.and)
                 ? andPredicate.and.map((pred) => convertTestPredicateToLogicalPredicate(pred))
@@ -130,6 +144,7 @@ export const convertTestPredicateToLogicalPredicate = (
     if (OR in predicate) {
         const orPredicate = predicate as OrPredicate;
         return {
+            type: 'logical',
             operator: LogicalOperatorType.OR,
             operands: Array.isArray(orPredicate.or)
                 ? orPredicate.or.map((pred) => convertTestPredicateToLogicalPredicate(pred))
@@ -139,6 +154,7 @@ export const convertTestPredicateToLogicalPredicate = (
     if (NOT in predicate) {
         const notPredicate = predicate as NotPredicate;
         return {
+            type: 'logical',
             operator: LogicalOperatorType.NOT,
             operands: Array.isArray(notPredicate.not)
                 ? notPredicate.not.map((pred) => convertTestPredicateToLogicalPredicate(pred))
@@ -146,7 +162,10 @@ export const convertTestPredicateToLogicalPredicate = (
         };
     }
     // Builder Property Predicate -- These happen to be exactly the same.
-    return predicate as PropertyPredicate;
+    return {
+        type: 'property',
+        ...predicate,
+    };
 };
 
 function mapOperator(operator: string): FilterOperator {

@@ -20,7 +20,7 @@ import {
     getColumnAndMetricOptions,
     useGetValidChangedRowsFields,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/CreateBulkFieldSmartAssertionsForm.utils';
-import { BulkFieldAssertionSpec } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/useUpsertBulkFieldAssertions';
+import { BulkFieldAssertionSpec } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/useBulkCreateFieldAssertions';
 
 import { AssertionActionsInput, CronSchedule, DatasetFieldAssertionSourceType, FreshnessFieldSpecInput } from '@types';
 

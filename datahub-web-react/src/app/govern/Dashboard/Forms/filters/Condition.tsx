@@ -38,14 +38,16 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
     const valueOptions = (property && selectedPredicate && getValueOptions(property, selectedPredicate)) || undefined;
 
     const handlePropertyChange = (propertyId?: string) => {
-        const newPredicate = {
+        const newPredicate: PropertyPredicate = {
+            type: 'property',
             property: propertyId,
         };
         onChangePredicate(newPredicate);
     };
 
     const handleOperatorChange = (operatorId: string) => {
-        const newPredicate = {
+        const newPredicate: PropertyPredicate = {
+            type: 'property',
             ...selectedPredicate,
             operator: operatorId,
             values: undefined,
@@ -54,7 +56,8 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
     };
 
     const handleValuesChange = (values: string[]) => {
-        const newPredicate = {
+        const newPredicate: PropertyPredicate = {
+            type: 'property',
             ...selectedPredicate,
             values,
         };

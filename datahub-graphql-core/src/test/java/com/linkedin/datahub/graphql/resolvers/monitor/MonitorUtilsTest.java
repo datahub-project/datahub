@@ -2,6 +2,8 @@ package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersInput;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
+import com.linkedin.datahub.graphql.generated.DatasetFreshnessAssertionParametersInput;
+import com.linkedin.datahub.graphql.generated.DatasetFreshnessSourceType;
 import com.linkedin.datahub.graphql.generated.DatasetSchemaAssertionParametersInput;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import org.testng.Assert;
@@ -22,5 +24,20 @@ public class MonitorUtilsTest {
     Assert.assertEquals(
         result.getDatasetSchemaParameters().getSourceType(),
         com.linkedin.monitor.DatasetSchemaSourceType.DATAHUB_SCHEMA);
+  }
+
+  @Test
+  public void createFreshnessAssertionWithNoAuditLog() {
+    AssertionEvaluationParametersInput testInput = new AssertionEvaluationParametersInput();
+    testInput.setType(AssertionEvaluationParametersType.DATASET_FRESHNESS);
+    testInput.setDatasetFreshnessParameters(
+        DatasetFreshnessAssertionParametersInput.builder()
+            .setSourceType(DatasetFreshnessSourceType.AUDIT_LOG)
+            .build());
+    AssertionEvaluationParameters result =
+        MonitorUtils.createAssertionEvaluationParameters(testInput);
+    Assert.assertEquals(
+        result.getType(), com.linkedin.monitor.AssertionEvaluationParametersType.DATASET_FRESHNESS);
+    Assert.assertNotNull(result.getDatasetFreshnessParameters().getAuditLog());
   }
 }

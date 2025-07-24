@@ -1,18 +1,59 @@
-import { LogicalOperatorType } from '@app/tests/builder/steps/definition/builder/types';
+import {
+    LogicalOperatorType,
+    LogicalPredicate,
+    PropertyPredicate,
+} from '@app/tests/builder/steps/definition/builder/types';
 import {
     convertLogicalPredicateToOrFilters,
     convertLogicalPredicateToTestPredicate,
     convertTestPredicateToLogicalPredicate,
     isLogicalPredicate,
 } from '@app/tests/builder/steps/definition/builder/utils';
+import { AndPredicate, NotPredicate, OrPredicate, Predicate, TestPredicate } from '@app/tests/types';
 
-const FULL_PROPERTY_PREDICATE = {
+const convertPropertyToTestPredicate = (predicate: PropertyPredicate): Predicate => {
+    return {
+        property: predicate.property ?? '',
+        operator: predicate.operator,
+        values: predicate.values,
+    };
+};
+const deepConvertPropertyToTestPredicate = (
+    predicate,
+): AndPredicate | OrPredicate | NotPredicate | TestPredicate[] | Predicate => {
+    if (predicate.property) {
+        return convertPropertyToTestPredicate(predicate);
+    }
+    if (predicate.and) {
+        return {
+            and: predicate.and.map(deepConvertPropertyToTestPredicate),
+        };
+    }
+    if (predicate.or) {
+        return {
+            or: predicate.or.map(deepConvertPropertyToTestPredicate),
+        };
+    }
+    if (predicate.not) {
+        return {
+            not: deepConvertPropertyToTestPredicate(predicate.not),
+        };
+    }
+    if (Array.isArray(predicate)) {
+        return predicate.map(deepConvertPropertyToTestPredicate);
+    }
+    throw new Error('Invalid predicate');
+};
+
+const FULL_PROPERTY_PREDICATE: PropertyPredicate = {
+    type: 'property',
     property: 'test',
     operator: 'equals',
     values: ['dataset1'],
 };
 
-const PARTIAL_PROPERTY_PREDICATE = {
+const PARTIAL_PROPERTY_PREDICATE: PropertyPredicate = {
+    type: 'property',
     property: 'test',
 };
 
@@ -27,7 +68,8 @@ const AND_PREDICATE = {
     ],
 };
 
-const TRANSFORMED_AND_PREDICATE = {
+const TRANSFORMED_AND_PREDICATE: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.AND,
     operands: [
         {
@@ -50,7 +92,8 @@ const OR_PREDICATE = {
     ],
 };
 
-const TRANSFORMED_OR_PREDICATE = {
+const TRANSFORMED_OR_PREDICATE: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.OR,
     operands: [
         {
@@ -68,7 +111,8 @@ const NOT_PREDICATE_1 = {
     },
 };
 
-const TRANSFORMED_NOT_PREDICATE_1 = {
+const TRANSFORMED_NOT_PREDICATE_1: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.NOT,
     operands: [{ ...FULL_PROPERTY_PREDICATE }],
 };
@@ -88,7 +132,8 @@ const NOT_PREDICATE_2 = {
     ],
 };
 
-const TRANSFORMED_NOT_PREDICATE_2 = {
+const TRANSFORMED_NOT_PREDICATE_2: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.NOT,
     operands: [
         {
@@ -109,7 +154,8 @@ const LIST_PREDICATE = [
     },
 ];
 
-const TRANSFORMED_LIST_PREDICATE = {
+const TRANSFORMED_LIST_PREDICATE: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.AND,
     operands: [
         {
@@ -166,13 +212,16 @@ const COMPLEX_PREDICATE = [
     },
 ];
 
-const TRANSFORMED_COMPLEX_PREDICATE = {
+const TRANSFORMED_COMPLEX_PREDICATE: LogicalPredicate = {
+    type: 'logical',
     operator: LogicalOperatorType.AND,
     operands: [
         {
+            type: 'logical',
             operator: LogicalOperatorType.AND,
             operands: [
                 {
+                    type: 'property',
                     property: 'test1',
                     operator: 'equals',
                     values: ['value'],
@@ -180,17 +229,21 @@ const TRANSFORMED_COMPLEX_PREDICATE = {
             ],
         },
         {
+            type: 'logical',
             operator: LogicalOperatorType.OR,
             operands: [
                 {
+                    type: 'property',
                     property: 'test1',
                     operator: 'equals',
                     values: ['value'],
                 },
                 {
+                    type: 'logical',
                     operator: LogicalOperatorType.NOT,
                     operands: [
                         {
+                            type: 'property',
                             property: 'test1',
                             operator: 'equals',
                             values: ['value'],
@@ -200,12 +253,15 @@ const TRANSFORMED_COMPLEX_PREDICATE = {
             ],
         },
         {
+            type: 'logical',
             operator: LogicalOperatorType.NOT,
             operands: [
                 {
+                    type: 'logical',
                     operator: LogicalOperatorType.AND,
                     operands: [
                         {
+                            type: 'property',
                             property: 'test2',
                             operator: 'equals',
                             values: ['value'],
@@ -215,6 +271,7 @@ const TRANSFORMED_COMPLEX_PREDICATE = {
             ],
         },
         {
+            type: 'property',
             property: 'property',
             operator: 'exists',
         },
@@ -273,29 +330,36 @@ describe('utils', () => {
         it('test is logical predicate', () => {
             expect(
                 isLogicalPredicate({
+                    type: 'logical',
                     operator: LogicalOperatorType.AND,
                     operands: [],
                 }),
             ).toEqual(true);
             expect(
                 isLogicalPredicate({
+                    type: 'logical',
                     operator: LogicalOperatorType.OR,
+                    operands: [],
                 }),
             ).toEqual(true);
             expect(
                 isLogicalPredicate({
+                    type: 'logical',
                     operator: LogicalOperatorType.NOT,
+                    operands: [],
                 }),
             ).toEqual(true);
         });
         it('test is not logical predicate', () => {
             expect(
                 isLogicalPredicate({
+                    type: 'property',
                     operator: 'exists',
                 }),
             ).toEqual(false);
             expect(
                 isLogicalPredicate({
+                    type: 'property',
                     property: 'dataset.description',
                 }),
             ).toEqual(false);
@@ -304,25 +368,37 @@ describe('utils', () => {
 
     describe('convertTestPredicateToLogicalPredicate', () => {
         it('convert property predicate', () => {
-            expect(convertTestPredicateToLogicalPredicate(FULL_PROPERTY_PREDICATE)).toEqual(FULL_PROPERTY_PREDICATE);
+            expect(
+                convertTestPredicateToLogicalPredicate(convertPropertyToTestPredicate(FULL_PROPERTY_PREDICATE)),
+            ).toEqual(FULL_PROPERTY_PREDICATE);
         });
         it('convert partial property predicate', () => {
-            expect(convertTestPredicateToLogicalPredicate(PARTIAL_PROPERTY_PREDICATE)).toEqual(
-                PARTIAL_PROPERTY_PREDICATE,
-            );
+            expect(
+                convertTestPredicateToLogicalPredicate(convertPropertyToTestPredicate(PARTIAL_PROPERTY_PREDICATE)),
+            ).toEqual(PARTIAL_PROPERTY_PREDICATE);
         });
         it('convert AND predicate', () => {
-            expect(convertTestPredicateToLogicalPredicate(AND_PREDICATE)).toEqual(TRANSFORMED_AND_PREDICATE);
+            expect(convertTestPredicateToLogicalPredicate(deepConvertPropertyToTestPredicate(AND_PREDICATE))).toEqual(
+                TRANSFORMED_AND_PREDICATE,
+            );
         });
         it('convert OR predicate', () => {
-            expect(convertTestPredicateToLogicalPredicate(OR_PREDICATE)).toEqual(TRANSFORMED_OR_PREDICATE);
+            expect(convertTestPredicateToLogicalPredicate(deepConvertPropertyToTestPredicate(OR_PREDICATE))).toEqual(
+                TRANSFORMED_OR_PREDICATE,
+            );
         });
         it('convert NOT predicate', () => {
-            expect(convertTestPredicateToLogicalPredicate(NOT_PREDICATE_1)).toEqual(TRANSFORMED_NOT_PREDICATE_1);
-            expect(convertTestPredicateToLogicalPredicate(NOT_PREDICATE_2)).toEqual(TRANSFORMED_NOT_PREDICATE_2);
+            expect(convertTestPredicateToLogicalPredicate(deepConvertPropertyToTestPredicate(NOT_PREDICATE_1))).toEqual(
+                TRANSFORMED_NOT_PREDICATE_1,
+            );
+            expect(convertTestPredicateToLogicalPredicate(deepConvertPropertyToTestPredicate(NOT_PREDICATE_2))).toEqual(
+                TRANSFORMED_NOT_PREDICATE_2,
+            );
         });
         it('convert list predicate', () => {
-            expect(convertTestPredicateToLogicalPredicate(LIST_PREDICATE)).toEqual(TRANSFORMED_LIST_PREDICATE);
+            expect(convertTestPredicateToLogicalPredicate(deepConvertPropertyToTestPredicate(LIST_PREDICATE))).toEqual(
+                TRANSFORMED_LIST_PREDICATE,
+            );
         });
         it('convert complex predicate', () => {
             expect(convertTestPredicateToLogicalPredicate(COMPLEX_PREDICATE)).toEqual(TRANSFORMED_COMPLEX_PREDICATE);
@@ -331,28 +407,40 @@ describe('utils', () => {
 
     describe('convertLogicalPredicateToTestPredicate', () => {
         it('convert property predicate', () => {
-            expect(convertLogicalPredicateToTestPredicate(FULL_PROPERTY_PREDICATE)).toEqual(FULL_PROPERTY_PREDICATE);
+            expect(convertLogicalPredicateToTestPredicate(FULL_PROPERTY_PREDICATE)).toEqual({
+                property: FULL_PROPERTY_PREDICATE.property,
+                operator: FULL_PROPERTY_PREDICATE.operator,
+                values: FULL_PROPERTY_PREDICATE.values,
+            });
         });
         it('convert partial property predicate', () => {
-            expect(convertLogicalPredicateToTestPredicate(PARTIAL_PROPERTY_PREDICATE)).toEqual(
-                PARTIAL_PROPERTY_PREDICATE,
-            );
+            expect(convertLogicalPredicateToTestPredicate(PARTIAL_PROPERTY_PREDICATE)).toEqual({
+                property: PARTIAL_PROPERTY_PREDICATE.property,
+                operator: PARTIAL_PROPERTY_PREDICATE.operator,
+                values: PARTIAL_PROPERTY_PREDICATE.values,
+            });
         });
         it('convert AND predicate', () => {
-            expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_AND_PREDICATE)).toEqual(AND_PREDICATE);
+            expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_AND_PREDICATE)).toEqual(
+                deepConvertPropertyToTestPredicate(AND_PREDICATE),
+            );
         });
         it('convert OR predicate', () => {
-            expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_OR_PREDICATE)).toEqual(OR_PREDICATE);
+            expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_OR_PREDICATE)).toEqual(
+                deepConvertPropertyToTestPredicate(OR_PREDICATE),
+            );
         });
         it('convert NOT predicate', () => {
             expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_NOT_PREDICATE_1)).toEqual(
-                INVERSE_TRANSFORMED_NOT_PREDICATE_1,
+                deepConvertPropertyToTestPredicate(INVERSE_TRANSFORMED_NOT_PREDICATE_1),
             );
-            expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_NOT_PREDICATE_2)).toEqual(NOT_PREDICATE_2);
+            expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_NOT_PREDICATE_2)).toEqual(
+                deepConvertPropertyToTestPredicate(NOT_PREDICATE_2),
+            );
         });
         it('convert list predicate', () => {
             expect(convertLogicalPredicateToTestPredicate(TRANSFORMED_LIST_PREDICATE)).toEqual({
-                and: LIST_PREDICATE,
+                and: deepConvertPropertyToTestPredicate(LIST_PREDICATE),
             });
         });
         it('convert complex predicate', () => {
@@ -362,15 +450,18 @@ describe('utils', () => {
         });
     });
 
-    const BASIC_AND_LOGICAL_PREDICATE = {
+    const BASIC_AND_LOGICAL_PREDICATE: LogicalPredicate = {
+        type: 'logical',
         operator: LogicalOperatorType.AND,
         operands: [
             {
+                type: 'property',
                 property: 'test',
                 operator: 'equals',
                 values: ['dataset1'],
             },
             {
+                type: 'property',
                 property: 'test2',
                 operator: 'equals',
                 values: ['dataset2'],
@@ -387,15 +478,18 @@ describe('utils', () => {
         },
     ];
 
-    const BASIC_OR_LOGICAL_PREDICATE = {
+    const BASIC_OR_LOGICAL_PREDICATE: LogicalPredicate = {
+        type: 'logical',
         operator: LogicalOperatorType.OR,
         operands: [
             {
+                type: 'property',
                 property: 'test',
                 operator: 'equals',
                 values: ['dataset1'],
             },
             {
+                type: 'property',
                 property: 'test2',
                 operator: 'equals',
                 values: ['dataset2'],
@@ -412,15 +506,18 @@ describe('utils', () => {
         },
     ];
 
-    const BASIC_NOT_LOGICAL_PREDICATE = {
+    const BASIC_NOT_LOGICAL_PREDICATE: LogicalPredicate = {
+        type: 'logical',
         operator: LogicalOperatorType.NOT,
         operands: [
             {
+                type: 'property',
                 property: 'test',
                 operator: 'equals',
                 values: ['dataset1'],
             },
             {
+                type: 'property',
                 property: 'test2',
                 operator: 'equals',
                 values: ['dataset2'],
@@ -437,23 +534,28 @@ describe('utils', () => {
         },
     ];
 
-    const NESTED_LOGICAL_PREDICATE = {
+    const NESTED_LOGICAL_PREDICATE: LogicalPredicate = {
+        type: 'logical',
         operator: LogicalOperatorType.OR,
         operands: [
             {
+                type: 'property',
                 property: 'test1',
                 operator: 'equals',
                 values: ['dataset1'],
             },
             {
+                type: 'logical',
                 operator: LogicalOperatorType.AND,
                 operands: [
                     {
+                        type: 'property',
                         property: 'test2',
                         operator: 'equals',
                         values: ['dataset2'],
                     },
                     {
+                        type: 'property',
                         property: 'test3',
                         operator: 'equals',
                         values: ['dataset3'],
@@ -461,22 +563,27 @@ describe('utils', () => {
                 ],
             },
             {
+                type: 'logical',
                 operator: LogicalOperatorType.OR,
                 operands: [
                     {
+                        type: 'property',
                         property: 'test4',
                         operator: 'equals',
                         values: ['dataset4'],
                     },
                     {
+                        type: 'logical',
                         operator: LogicalOperatorType.NOT,
                         operands: [
                             {
+                                type: 'property',
                                 property: 'test5',
                                 operator: 'equals',
                                 values: ['dataset5'],
                             },
                             {
+                                type: 'property',
                                 property: 'test6',
                                 operator: 'equals',
                                 values: ['dataset6'],

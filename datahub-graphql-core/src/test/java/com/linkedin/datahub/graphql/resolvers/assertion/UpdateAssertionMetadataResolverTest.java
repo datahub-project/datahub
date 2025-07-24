@@ -10,11 +10,13 @@ import com.linkedin.assertion.AssertionAction;
 import com.linkedin.assertion.AssertionActionArray;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionType;
 import com.linkedin.assertion.FreshnessAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionSchedule;
 import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -41,9 +43,17 @@ public class UpdateAssertionMetadataResolverTest {
 
   private static final String TEST_DESCRIPTION = "This is a new description";
 
+  private static final String TEST_NOTE_CONTENT = "This is a test note content";
+  private static final AssertionNote TEST_NOTE =
+      new AssertionNote()
+          .setContent(TEST_NOTE_CONTENT)
+          .setLastModified(
+              new AuditStamp().setTime(0L).setActor(UrnUtils.getUrn("urn:li:corpuser:test")));
+
   private static final UpdateAssertionMetadataInput TEST_INPUT =
       new UpdateAssertionMetadataInput(
           TEST_DESCRIPTION,
+          TEST_NOTE_CONTENT,
           new AssertionActionsInput(
               ImmutableList.of(new AssertionActionInput(AssertionActionType.RESOLVE_INCIDENT)),
               ImmutableList.of(new AssertionActionInput(AssertionActionType.RAISE_INCIDENT))));
@@ -80,7 +90,8 @@ public class UpdateAssertionMetadataResolverTest {
   public void testGetSuccess() throws Exception {
     // Update resolver
     AssertionService mockService = initMockService();
-    UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
+    UpdateAssertionMetadataResolver resolver =
+        new UpdateAssertionMetadataResolver(mockService, () -> 0L);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -101,7 +112,8 @@ public class UpdateAssertionMetadataResolverTest {
             any(OperationContext.class),
             Mockito.eq(TEST_ASSERTION_URN),
             Mockito.eq(TEST_ASSERTION_ACTIONS),
-            Mockito.eq(TEST_DESCRIPTION));
+            Mockito.eq(TEST_DESCRIPTION),
+            Mockito.eq(TEST_NOTE));
   }
 
   @Test
@@ -155,7 +167,11 @@ public class UpdateAssertionMetadataResolverTest {
     Mockito.doThrow(RuntimeException.class)
         .when(mockService)
         .updateAssertionMetadata(
-            any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+            any(OperationContext.class),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any(),
+            Mockito.any());
 
     UpdateAssertionMetadataResolver resolver = new UpdateAssertionMetadataResolver(mockService);
 

@@ -249,6 +249,10 @@ public class AssertionMapper {
     if (gmsAssertionInfo.hasDescription()) {
       assertionInfo.setDescription(gmsAssertionInfo.getDescription());
     }
+    // Note
+    if (gmsAssertionInfo.hasNote()) {
+      assertionInfo.setNote(gmsAssertionInfo.getNote().getContent());
+    }
     // FRESHNESS Assertions
     if (gmsAssertionInfo.hasFreshnessAssertion()) {
       FreshnessAssertionInfo freshnessAssertionInfo =

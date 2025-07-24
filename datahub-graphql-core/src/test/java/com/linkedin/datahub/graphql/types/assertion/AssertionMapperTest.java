@@ -4,6 +4,7 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -22,6 +23,7 @@ import com.linkedin.assertion.FreshnessAssertionType;
 import com.linkedin.assertion.FreshnessCronSchedule;
 import com.linkedin.assertion.SchemaAssertionCompatibility;
 import com.linkedin.assertion.SchemaAssertionInfo;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
@@ -372,6 +374,13 @@ public class AssertionMapperTest {
     info.setType(AssertionType.CUSTOM);
     info.setExternalUrl(new Url("https://xyz.com"));
     info.setDescription("Description of custom assertion");
+    info.setNote(
+        new AssertionNote()
+            .setContent("Note of custom assertion")
+            .setLastModified(
+                new AuditStamp()
+                    .setTime(0L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test_user"))));
     CustomAssertionInfo customAssertionInfo = new CustomAssertionInfo();
     customAssertionInfo.setType("Custom Type 1");
     customAssertionInfo.setEntity(

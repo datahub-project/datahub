@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Collapse, Typography } from 'antd';
 import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import styled from 'styled-components';
 
@@ -32,6 +32,7 @@ type Props = {
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     onSave?: () => void;
+    collapsable?: boolean;
 };
 
 export interface VolumeInferenceAdjusterHandle {
@@ -39,7 +40,7 @@ export interface VolumeInferenceAdjusterHandle {
 }
 
 export const VolumeInferenceAdjuster = forwardRef<VolumeInferenceAdjusterHandle, Props>((props, ref) => {
-    const { state, updateState, disabled } = props;
+    const { state, updateState, disabled, collapsable } = props;
     const futurePredictionsRef = useRef<VolumeInferenceAdjusterHandle>(null);
 
     const { inferenceSettings, schedule } = state;
@@ -58,15 +59,10 @@ export const VolumeInferenceAdjuster = forwardRef<VolumeInferenceAdjusterHandle,
 
     if (!onlineSmartAssertionsEnabled) return null;
 
-    return (
-        <Row>
-            {/* Title */}
-            <Typography.Title level={5}>Inference Settings</Typography.Title>
-
-            {/* Future Predictions - Only show in edit mode */}
-            {state.assertion?.urn && (
-                <FuturePredictionsList state={state} ref={futurePredictionsRef} onSave={props.onSave} />
-            )}
+    const inferenceContent = (
+        <>
+            {/* Title - only show if not collapsable since Collapse will have its own title */}
+            {!collapsable && <Typography.Title level={5}>AI Model Tuning</Typography.Title>}
 
             {/* Sensitivity */}
             <InferenceSensitivityAdjuster
@@ -100,8 +96,27 @@ export const VolumeInferenceAdjuster = forwardRef<VolumeInferenceAdjusterHandle,
                     });
                 }}
             />
+        </>
+    );
 
-            {/* Schedule */}
+    return (
+        <Row style={collapsable ? { marginBottom: 0, marginTop: 0 } : {}}>
+            {/* Future Predictions - Only show in edit mode, always outside the accordion */}
+            {state.assertion?.urn && (
+                <FuturePredictionsList state={state} ref={futurePredictionsRef} onSave={props.onSave} />
+            )}
+
+            {collapsable ? (
+                <Collapse>
+                    <Collapse.Panel header="AI Model Tuning" key="ai-model-tuning">
+                        {inferenceContent}
+                    </Collapse.Panel>
+                </Collapse>
+            ) : (
+                inferenceContent
+            )}
+
+            {/* Schedule - always outside the accordion */}
             <EvaluationScheduleBuilder
                 value={schedule}
                 assertionType={AssertionType.Volume}
