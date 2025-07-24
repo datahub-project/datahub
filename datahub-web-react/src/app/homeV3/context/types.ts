@@ -60,4 +60,5 @@ export type PageTemplateContextState = {
     moduleModalState: ModuleModalState;
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
+    resetTemplateToDefault: () => void;
 };
