@@ -29,6 +29,9 @@ x-datahub-integrations-service: &datahub-integrations-service
 x-datahub-integrations-service-dev: &datahub-integrations-service-dev
   <<: *datahub-integrations-service
   image: ${DATAHUB_INTEGRATIONS_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-integrations-service}:${DATAHUB_INTEGRATIONS_VERSION:-debug}
+  ports:
+    - ${DATAHUB_MAPPED_INTEGRATIONS_PORT:-9003}:9003
+    - ${DATAHUB_MAPPED_INTEGRATIONS_DEBUG_PORT:-5004}:5004
   environment:
     PYTHONPATH: "/metadata-ingestion/src:/datahub-integrations-service/src:$${PYTHONPATH}"
     EXTRA_UVICORN_ARGS: "--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
@@ -69,6 +72,9 @@ x-datahub-executor: &datahub-executor
 x-datahub-executor-dev: &datahub-executor-dev
   <<: *datahub-executor
   image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-debug}
+  ports:
+    - ${DATAHUB_MAPPED_EXECUTOR_PORT:-9004}:9004
+    - ${DATAHUB_MAPPED_EXECUTOR_DEBUG_PORT:-5005}:5005
   environment:
     <<: *datahub-executor-env
     PYTHONPATH: "/metadata-ingestion/src:/datahub-executor/src/datahub_executor:$${PYTHONPATH}"

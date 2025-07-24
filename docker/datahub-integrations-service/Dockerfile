@@ -192,6 +192,7 @@ FROM build AS dev-install
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
+ENV DEBUGPY_ENABLED=true
 
 FROM ${APP_ENV}-install AS final
 

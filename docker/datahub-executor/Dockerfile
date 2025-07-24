@@ -193,6 +193,7 @@ FROM build AS dev-install
 
 ENV PYTHONPATH="/metadata-ingestion/src:/datahub-executor/src/datahub_executor:${PYTHONPATH}"
 ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_executor --reload-dir /metadata-ingestion/src"
+ENV DEBUGPY_ENABLED=true
 
 FROM ${APP_ENV}-install AS final
 

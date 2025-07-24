@@ -146,7 +146,8 @@ ext {
 
     // only for debug variants of quickstart to enable <variant>Reload tasks.
     // The actual service name needs the profile to be appended,  <container-name>-<profile>
-    // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
+    // This list only contains modules that can be reloaded via the reloadTask. Python services support hot reload. 
+    // To re-run setup tasks, quickstart* needs to be used.
     moduleToContainer = [
         ':metadata-service:war': 'datahub-gms',
         ':datahub-frontend': 'frontend',

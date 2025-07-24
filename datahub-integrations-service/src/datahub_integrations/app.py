@@ -46,3 +46,13 @@ else:
 ROOT_DIR = pathlib.Path(__file__).parent / "../.."
 STATIC_ASSETS_DIR = ROOT_DIR / "static"
 EXTERNAL_STATIC_PATH = f"{DATAHUB_FRONTEND_URL}/integrations/static"
+
+# Remote debugging setup
+if os.environ.get("DEBUGPY_ENABLED", "").lower() == "true":
+    import debugpy
+
+    debug_port = int(os.environ.get("INTEGRATIONS_DEBUG_PORT", "5004"))
+    debug_host = "0.0.0.0"
+
+    print(f"🔧 Starting remote debugger on {debug_host}:{debug_port}")
+    debugpy.listen((debug_host, debug_port))

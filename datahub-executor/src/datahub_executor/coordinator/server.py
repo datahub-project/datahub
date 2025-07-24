@@ -90,3 +90,13 @@ start_scheduler(graph, sighandler)
 
 # Start the ingestion pipeline consumer
 start_ingestion_pipeline(graph, discovery, sighandler)
+
+# Remote debugging setup
+if os.environ.get("DEBUGPY_ENABLED", "").lower() == "true":
+    import debugpy
+
+    debug_port = int(os.environ.get("EXECUTOR_DEBUG_PORT", "5005"))
+    debug_host = "0.0.0.0"
+
+    print(f"🔧 Starting remote debugger on {debug_host}:{debug_port}")
+    debugpy.listen((debug_host, debug_port))
