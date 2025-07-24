@@ -433,13 +433,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 and "odbc_connect" in engine.url.query
             ):
                 # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
-                database = re.search(
+                match = re.search(
                     r"DATABASE=([^;]*);",
                     urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
                     flags=re.IGNORECASE,
                 )
-                if database and database.group(1):
-                    database = database.group(1)
+                if match and match.group(1):
+                    database = match.group(1)
 
             return database
 
