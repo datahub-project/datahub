@@ -52,7 +52,7 @@ export default function ModuleMenu({ module, position }: Props) {
         e.stopPropagation();
     }, []);
 
-    const menuItemStyle = { fontSize: '14px', padding: '5 16px' };
+    const menuItemStyle = { fontSize: '14px', padding: '5px 16px' };
 
     return (
         <DropdownWrapper onClick={handleMenuClick}>

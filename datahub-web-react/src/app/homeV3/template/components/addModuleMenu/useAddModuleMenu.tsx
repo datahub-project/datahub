@@ -190,7 +190,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
 
         items.push({
             key: 'customLargeModulesGroup',
-            label: <GroupItem title="Default by DataHub" />,
+            label: <GroupItem title="Default" />,
             type: 'group',
             children: [yourAssets, domains],
         });
@@ -212,7 +212,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     <MenuItem
                         icon="Database"
                         title="Home Defaults"
-                        description="Your organizations curated widgets"
+                        description="Modules created for your organization"
                         hasChildren
                     />
                 ),
