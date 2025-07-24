@@ -161,10 +161,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
-            current_db if current_db else self.database,
+            current_db if (current_db and self.database) else self.database,
             uri_opts=uri_opts,
         )
         if self.use_odbc:
+            if self.uri_args and current_db:
+                self.uri_args.update({"database": current_db})
+
             uri = (
                 f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
                 if self.uri_args
@@ -955,7 +958,12 @@ class SQLServerSource(SQLAlchemySource):
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        if self.config.database and self.config.database != "":
+        if (
+            self.config.database
+            and self.config.database != ""
+            or self.config.sqlalchemy_uri
+            and self.config.sqlalchemy_uri != ""
+        ):
             inspector = inspect(engine)
             yield inspector
         else:

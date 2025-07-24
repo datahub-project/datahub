@@ -415,6 +415,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_db_name(self, inspector: Inspector) -> str:
         engine = inspector.engine
+        database = ""
 
         try:
             if (
@@ -423,7 +424,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 and hasattr(engine.url, "database")
                 and engine.url.database
             ):
-                return str(engine.url.database).strip('"')
+                database = str(engine.url.database).strip('"')
 
             if (
                 engine
@@ -438,9 +439,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     flags=re.IGNORECASE,
                 )
                 if database and database.group(1):
-                    return database.group(1)
+                    database = database.group(1)
 
-            return ""
+            return database
 
         except Exception as e:
             raise RuntimeError(

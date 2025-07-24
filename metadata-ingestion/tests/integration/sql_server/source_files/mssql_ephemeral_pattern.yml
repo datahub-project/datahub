@@ -12,9 +12,9 @@ source:
     convert_urns_to_lowercase: true
     temporary_tables_pattern:
       - ".*Ephemeral.*"
-    schema_pattern:
+    database_pattern:
       deny:
-        - .*John.*
+        - .*@.*
 
 sink:
   type: file

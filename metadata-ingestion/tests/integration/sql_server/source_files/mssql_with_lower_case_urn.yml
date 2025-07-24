@@ -10,9 +10,6 @@ source:
     database_pattern:
       deny:
         - .*@.*
-    schema_pattern:
-      deny:
-        - .*John.*
     # use_odbc: True
     # uri_args:
     #   driver: "ODBC Driver 17 for SQL Server"

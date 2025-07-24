@@ -10,9 +10,6 @@ source:
     database_pattern:
       deny:
         - .*@.*
-    schema_pattern:
-      deny:
-        - .*John.*
 
 sink:
   type: file
