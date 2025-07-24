@@ -12,10 +12,11 @@ import {
     VideoContainer,
 } from '@src/app/onboarding/WelcomeToDataHubModal.components';
 
+import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.png';
+
 const SLIDE_DURATION_MS = 10000;
 const DATAHUB_DOCS_URL = 'https://docs.datahub.com/docs/category/features';
 const WELCOME_TO_DATAHUB_MODAL_TITLE = 'Welcome to DataHub';
-const WELCOME_MODAL_HOME_SCREENSHOT_PATH = '/src/images/welcome-modal-home-screenshot.png';
 
 interface VideoSources {
     search: string;
@@ -456,7 +457,7 @@ export const WelcomeToDataHubModal = () => {
                         Explore our comprehensive documentation or jump right in and start discovering your data.
                     </Heading>
                     <LoadedImage
-                        src={WELCOME_MODAL_HOME_SCREENSHOT_PATH}
+                        src={welcomeModalHomeScreenshot}
                         alt={WELCOME_TO_DATAHUB_MODAL_TITLE}
                         width={MODAL_IMAGE_WIDTH}
                     />
