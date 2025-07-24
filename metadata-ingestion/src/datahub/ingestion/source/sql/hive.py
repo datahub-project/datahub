@@ -267,7 +267,7 @@ class HiveStorageLineage:
         Returns tuple of (urn, platform) if successful, None otherwise.
         """
 
-        platform_instance = None
+        platform_instance = self.config.storage_platform_instance
         storage_info = StoragePathParser.parse_storage_location(storage_location)
         if not storage_info:
             logger.debug(f"Could not parse storage location: {storage_location}")
@@ -277,10 +277,7 @@ class HiveStorageLineage:
         platform_name = StoragePathParser.get_platform_name(platform)
 
         if self.convert_urns_to_lowercase:
-            platform_name = platform_name.lower()
             path = path.lower()
-            if self.config.storage_platform_instance:
-                platform_instance = self.config.storage_platform_instance.lower()
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
@@ -398,10 +395,7 @@ class HiveStorageLineage:
         platform_name = StoragePathParser.get_platform_name(platform)
 
         if self.convert_urns_to_lowercase:
-            platform_name = platform_name.lower()
             path = path.lower()
-            if self.config.storage_platform_instance:
-                platform_instance = self.config.storage_platform_instance.lower()
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
@@ -474,8 +468,6 @@ class HiveStorageLineage:
             MetadataWorkUnit containing the lineage MCP if successful
         """
 
-        platform_instance = None
-
         if not self.config.emit_storage_lineage:
             return
 
@@ -493,13 +485,10 @@ class HiveStorageLineage:
         storage_urn, storage_platform = storage_info
         self.report.report_location_scanned()
 
-        if self.config.storage_platform_instance:
-            platform_instance = self.config.storage_platform_instance.lower()
-
         # Create storage dataset entity
         yield from self.get_storage_dataset_mcp(
             storage_location=storage_location,
-            platform_instance=platform_instance,
+            platform_instance=self.config.storage_platform_instance,
             schema_metadata=dataset_schema,
         )
 
