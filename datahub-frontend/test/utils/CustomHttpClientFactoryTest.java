@@ -66,7 +66,7 @@ class CustomHttpClientFactoryTest {
         CustomHttpClientFactory.createSslContext(
             truststorePath.toString(), TRUSTSTORE_PASSWORD, TRUSTSTORE_TYPE);
     assertNotNull(context);
-    assertEquals("TLSv1.2", context.getProtocol());
+    assertEquals("TLS", context.getProtocol());
   }
 
   @Test
