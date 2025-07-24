@@ -220,6 +220,7 @@ import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructu
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
+import com.linkedin.datahub.graphql.resolvers.template.DeletePageTemplateResolver;
 import com.linkedin.datahub.graphql.resolvers.template.UpsertPageTemplateResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
@@ -1380,6 +1381,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
               .dataFetcher(
                   "upsertPageTemplate", new UpsertPageTemplateResolver(this.pageTemplateService))
+              .dataFetcher(
+                  "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
               .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
