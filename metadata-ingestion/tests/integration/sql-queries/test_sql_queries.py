@@ -10,6 +10,12 @@ from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
+# Ignore dynamic timestamp fields that change on every test run
+IGNORE_PATHS = [
+    # Ignore auditStamp timestamps in upstreamLineage aspects
+    r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+]
+
 
 def check_mockserver_health():
     """Custom health check for MockServer using /health endpoint."""
@@ -46,6 +52,22 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
             "input/basic-with-schema-resolver.yml",
             "golden/basic-with-schema-resolver.json",
         ),
+        (
+            "input/session-temp-tables.yml",
+            "golden/session-temp-tables.json",
+        ),
+        (
+            "input/query-deduplication.yml",
+            "golden/query-deduplication.json",
+        ),
+        (
+            "input/explicit-lineage.yml",
+            "golden/explicit-lineage.json",
+        ),
+        (
+            "input/hex-origin.yml",
+            "golden/hex-origin.json",
+        ),
     ],
 )
 def test_sql_queries_ingestion(tmp_path, pytestconfig, recipe_file, golden_file):
@@ -71,6 +93,7 @@ def test_sql_queries_ingestion(tmp_path, pytestconfig, recipe_file, golden_file)
                 pytestconfig,
                 output_path="./output.json",
                 golden_path=golden_file,
+                ignore_paths=IGNORE_PATHS,
             )
         finally:
             # Clean up output file if it exists

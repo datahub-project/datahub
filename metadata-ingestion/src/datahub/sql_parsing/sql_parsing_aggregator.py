@@ -192,6 +192,7 @@ class QueryMetadata:
             source=models.QuerySourceClass.SYSTEM,
             created=self.make_created_audit_stamp(),
             lastModified=self.make_last_modified_audit_stamp(),
+            origin=self.origin.urn() if self.origin else None,
         )
 
 
