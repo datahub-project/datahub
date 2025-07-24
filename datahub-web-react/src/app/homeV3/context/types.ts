@@ -22,6 +22,7 @@ export interface RemoveModuleInput {
     module: PageModuleFragment;
     position: ModulePositionInput;
 }
+
 export interface ModuleModalState {
     isOpen: boolean;
     moduleType: DataHubPageModuleType | null;
