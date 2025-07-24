@@ -1,10 +1,12 @@
 import pathlib
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, List, Union
 
 from freezegun import freeze_time
 
-from datahub.api.entities.dataset.dataset import Dataset
+from datahub.api.entities.dataset.dataset import Dataset, Ownership
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.metadata.schema_classes import MetadataChangeProposalClass
 from datahub.testing.mce_helpers import check_goldens_stream
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
@@ -18,7 +20,7 @@ def test_dataset_from_yaml() -> None:
 
     datasets: Iterable[Dataset] = Dataset.from_yaml(str(example_dataset_file))
 
-    mcps = []
+    mcps: List[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]] = []
 
     for dataset in datasets:
         mcps.extend(dataset.generate_mcp())
@@ -62,5 +64,6 @@ def test_dataset_from_datahub() -> None:
 
     assert dataset.owners is not None
     assert len(dataset.owners) == 1
+    assert isinstance(dataset.owners[0], Ownership), "Expected an Ownership object"
     assert dataset.owners[0].id == "urn:li:corpuser:jsmith"
     assert dataset.owners[0].type == "urn:li:ownershipType:dataSteward"
