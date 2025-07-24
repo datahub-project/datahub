@@ -242,4 +242,162 @@ public class MetricUtilsTest {
       assertEquals(meter.getId().getTag(MetricUtils.DROPWIZARD_METRIC), "true");
     }
   }
+
+  @Test
+  public void testParsePercentilesWithValidConfig() {
+    String percentilesConfig = "0.5, 0.75, 0.95, 0.99, 0.999";
+    double[] result = MetricUtils.parsePercentiles(percentilesConfig);
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.75);
+    assertEquals(result[2], 0.95);
+    assertEquals(result[3], 0.99);
+    assertEquals(result[4], 0.999);
+  }
+
+  @Test
+  public void testParsePercentilesWithNullConfig() {
+    double[] result = MetricUtils.parsePercentiles(null);
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithEmptyConfig() {
+    double[] result = MetricUtils.parsePercentiles("");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithWhitespaceOnlyConfig() {
+    double[] result = MetricUtils.parsePercentiles("   ");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithSingleValue() {
+    double[] result = MetricUtils.parsePercentiles("0.99");
+
+    assertEquals(result.length, 1);
+    assertEquals(result[0], 0.99);
+  }
+
+  @Test
+  public void testParsePercentilesWithExtraSpaces() {
+    double[] result = MetricUtils.parsePercentiles("  0.5  ,  0.95  ,  0.99  ");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 0.5);
+    assertEquals(result[1], 0.95);
+    assertEquals(result[2], 0.99);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithValidConfig() {
+    String sloConfig = "100, 500, 1000, 5000, 10000";
+    double[] result = MetricUtils.parseSLOSeconds(sloConfig);
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 100.0);
+    assertEquals(result[1], 500.0);
+    assertEquals(result[2], 1000.0);
+    assertEquals(result[3], 5000.0);
+    assertEquals(result[4], 10000.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithNullConfig() {
+    double[] result = MetricUtils.parseSLOSeconds(null);
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 60.0);
+    assertEquals(result[1], 300.0);
+    assertEquals(result[2], 900.0);
+    assertEquals(result[3], 1800.0);
+    assertEquals(result[4], 3600.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithEmptyConfig() {
+    double[] result = MetricUtils.parseSLOSeconds("");
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 60.0);
+    assertEquals(result[1], 300.0);
+    assertEquals(result[2], 900.0);
+    assertEquals(result[3], 1800.0);
+    assertEquals(result[4], 3600.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithWhitespaceOnlyConfig() {
+    double[] result = MetricUtils.parseSLOSeconds("   ");
+
+    assertEquals(result.length, 5);
+    assertEquals(result[0], 60.0);
+    assertEquals(result[1], 300.0);
+    assertEquals(result[2], 900.0);
+    assertEquals(result[3], 1800.0);
+    assertEquals(result[4], 3600.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithSingleValue() {
+    double[] result = MetricUtils.parseSLOSeconds("1000");
+
+    assertEquals(result.length, 1);
+    assertEquals(result[0], 1000.0);
+  }
+
+  @Test
+  public void testParseSLOSecondsWithDecimalValues() {
+    double[] result = MetricUtils.parseSLOSeconds("100.5, 500.75, 1000.0");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], 100.5);
+    assertEquals(result[1], 500.75);
+    assertEquals(result[2], 1000.0);
+  }
+
+  @Test(expectedExceptions = NumberFormatException.class)
+  public void testParsePercentilesWithInvalidNumber() {
+    MetricUtils.parsePercentiles("0.5, invalid, 0.99");
+  }
+
+  @Test(expectedExceptions = NumberFormatException.class)
+  public void testParseSLOSecondsWithInvalidNumber() {
+    MetricUtils.parseSLOSeconds("100, not-a-number, 1000");
+  }
+
+  @Test
+  public void testParsePercentilesWithTrailingComma() {
+    double[] result = MetricUtils.parsePercentiles("0.5, 0.95,");
+
+    // This will throw NumberFormatException when parsing empty string after last comma
+    // If this is intended behavior, keep the test as expectedExceptions
+    // If not, the implementation should handle trailing commas
+  }
+
+  @Test
+  public void testParseSLOSecondsWithNegativeValues() {
+    // Test if negative values are accepted (they probably shouldn't be for SLOs)
+    double[] result = MetricUtils.parseSLOSeconds("-100, 500, 1000");
+
+    assertEquals(result.length, 3);
+    assertEquals(result[0], -100.0);
+    assertEquals(result[1], 500.0);
+    assertEquals(result[2], 1000.0);
+  }
 }

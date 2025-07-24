@@ -5,6 +5,7 @@ import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,11 +59,28 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils ->
-                  metricUtils.histogram(
-                      this.getClass(),
-                      "kafkaLag",
-                      System.currentTimeMillis() - consumerRecord.timestamp()));
+              metricUtils -> {
+                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+
+                // Dropwizard legacy
+                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
+
+                // Micrometer with tags
+                // TODO: include priority level when available
+                metricUtils
+                    .getRegistry()
+                    .ifPresent(
+                        meterRegistry -> {
+                          meterRegistry
+                              .timer(
+                                  MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                                  "topic",
+                                  consumerRecord.topic(),
+                                  "consumer.group",
+                                  consumerGroupId)
+                              .record(Duration.ofMillis(queueTimeMs));
+                        });
+              });
       final R record = consumerRecord.value();
       log.debug(
           "Got event consumer: {} key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
@@ -133,25 +151,23 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
 
           // Process with each hook
           for (H hook : this.hooks) {
+            final String hookName = hook.getClass().getSimpleName();
+
             systemOperationContext.withSpan(
-                hook.getClass().getSimpleName(),
+                hookName,
                 () -> {
                   log.debug(
-                      "Invoking hook {} for event: {}",
-                      hook.getClass().getSimpleName(),
-                      getEventDisplayString(event));
+                      "Invoking hook {} for event: {}", hookName, getEventDisplayString(event));
                   try {
                     hook.invoke(event);
+                    updateMetrics(hookName, event);
                   } catch (Exception e) {
                     // Just skip this hook and continue - "at most once" processing
                     systemOperationContext
                         .getMetricUtils()
                         .ifPresent(
                             metricUtils ->
-                                metricUtils.increment(
-                                    this.getClass(),
-                                    hook.getClass().getSimpleName() + "_failure",
-                                    1));
+                                metricUtils.increment(this.getClass(), hookName + "_failure", 1));
                     log.error(
                         "Failed to execute hook with name {}",
                         hook.getClass().getCanonicalName(),
@@ -166,8 +182,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                 Stream.concat(
                         Stream.of(
                             MetricUtils.DROPWIZARD_NAME,
-                            MetricUtils.name(
-                                this.getClass(), hook.getClass().getSimpleName() + "_latency")),
+                            MetricUtils.name(this.getClass(), hookName + "_latency")),
                         loggingAttributes.stream())
                     .toArray(String[]::new));
           }
@@ -228,4 +243,12 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
    * @return Display string
    */
   protected abstract String getEventDisplayString(E event);
+
+  /**
+   * Optionally update metrics
+   *
+   * @param hookName name of the hook
+   * @param event the event processed by the hook
+   */
+  protected void updateMetrics(String hookName, E event) {}
 }

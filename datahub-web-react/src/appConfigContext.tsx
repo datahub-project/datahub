@@ -84,6 +84,7 @@ export const DEFAULT_APP_CONFIG = {
         showProductUpdates: false,
         lineageGraphV3: false,
         logicalModelsEnabled: false,
+        showHomepageUserRole: false,
     },
     chromeExtensionConfig: {
         enabled: false,

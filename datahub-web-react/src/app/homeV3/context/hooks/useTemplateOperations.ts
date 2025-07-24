@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
@@ -86,17 +87,20 @@ export function useTemplateOperations() {
                         modules: [module],
                     });
                 } else {
-                    const row = { ...newRows[rowIndex] };
-                    const newModules = [...(row.modules || [])];
+                    const rowModules = newRows[rowIndex]?.modules || [];
+                    // Find index to insert
+                    let moduleIndex: number;
 
-                    if (position.rowSide === 'left') {
-                        newModules.unshift(module);
+                    if (position.moduleIndex !== undefined) {
+                        moduleIndex = position.moduleIndex;
+                    } else if (position.rowSide === 'left') {
+                        moduleIndex = 0;
                     } else {
-                        newModules.push(module);
+                        moduleIndex = rowModules.length;
                     }
 
-                    row.modules = newModules;
-                    newRows[rowIndex] = row;
+                    // Insert module into the rows at given position
+                    newRows = insertModuleIntoRows(newRows, module, { ...position, moduleIndex }, rowIndex);
                 }
             }
 
