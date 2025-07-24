@@ -81,8 +81,8 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 
 @dataclass
 class SqlQueriesSourceReport(SourceReport, IngestionStageReport):
-    num_queries_parsed: int = 0
-    num_queries_parse_failures: int = 0
+    num_entries_processed: int = 0
+    num_entries_failed: int = 0
     num_queries_aggregator_failures: int = 0
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
@@ -191,12 +191,14 @@ class SqlQueriesSource(Source):
                 try:
                     query_dict = json.loads(line, strict=False)
                     entry = QueryEntry.create(query_dict, config=self.config)
-                    self.report.num_queries_parsed += 1
-                    if self.report.num_queries_parsed % 1000 == 0:
-                        logger.info(f"Parsed {self.report.num_queries_parsed} queries")
+                    self.report.num_entries_processed += 1
+                    if self.report.num_entries_processed % 1000 == 0:
+                        logger.info(
+                            f"Processed {self.report.num_entries_processed} query entries"
+                        )
                     yield entry
                 except Exception as e:
-                    self.report.num_queries_parse_failures += 1
+                    self.report.num_entries_failed += 1
                     self.report.warning(
                         title="Error processing query",
                         message="Query skipped due to parsing error",
