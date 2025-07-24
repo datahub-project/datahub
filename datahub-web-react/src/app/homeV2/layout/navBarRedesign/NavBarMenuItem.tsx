@@ -128,8 +128,8 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
     const history = useHistory();
 
     const onClick = () => {
+        if (item.onClick) item.onClick();
         if (item.link) return history.push(item.link);
-        if (item.onClick) return item.onClick();
         return null;
     };
 
