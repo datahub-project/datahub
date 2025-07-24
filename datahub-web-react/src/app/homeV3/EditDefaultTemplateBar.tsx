@@ -21,14 +21,13 @@ const Warning = styled.div`
 export default function EditDefaultTemplateBar() {
     const { setIsEditingGlobalTemplate, isEditingGlobalTemplate } = usePageTemplateContext();
 
-    // TODO: also hide this if you don't have permissions - CH-510
     if (!isEditingGlobalTemplate) return null;
 
     return (
         <ActionsBar>
             <Warning>
                 <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
-                <span>Editing default user view</span>
+                <span>Editing Organization Default Home</span>
             </Warning>
             <Button onClick={() => setIsEditingGlobalTemplate(false)}>Done</Button>
         </ActionsBar>

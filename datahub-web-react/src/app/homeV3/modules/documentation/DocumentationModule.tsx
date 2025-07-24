@@ -7,6 +7,7 @@ import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 
 const StyledEditor = styled(Editor)`
     border: none;
+    padding: 8px;
     &&& {
         .remirror-editor {
             padding: 0;
