@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-14T09:20:09.632850+00:00",
+  "generated_at": "2025-07-24T13:24:05.751563+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -49,6 +49,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Supported for S3 tables",
           "subtype_modifier": [
+            "View",
             "Table"
           ],
           "supported": true
@@ -95,6 +96,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Supported for S3 tables",
           "subtype_modifier": [
+            "View",
             "Table"
           ],
           "supported": true
@@ -305,7 +307,8 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -463,6 +466,12 @@
     "datahub": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -595,6 +604,12 @@
     },
     "delta-lake": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -919,6 +934,14 @@
     "glue": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Support via the `emit_s3_lineage` config field",
           "subtype_modifier": null,
@@ -1055,6 +1078,14 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Supported by default",
+          "subtype_modifier": [
+            "Project"
+          ],
           "supported": true
         },
         {
@@ -1434,6 +1465,15 @@
     "looker": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Model",
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
           "subtype_modifier": null,
@@ -1489,6 +1529,14 @@
     },
     "lookml": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Project"
+          ],
+          "supported": true
+        },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
@@ -1712,6 +1760,14 @@
     },
     "mongodb": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -2511,7 +2567,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -2591,7 +2649,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Folder",
+            "S3 bucket"
+          ],
           "supported": true
         },
         {
