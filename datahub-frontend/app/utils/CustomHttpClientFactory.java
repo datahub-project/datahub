@@ -66,7 +66,7 @@ public class CustomHttpClientFactory {
     TrustManagerFactory tmf =
         TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
     tmf.init(trustStore);
-    SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+    SSLContext sslContext = SSLContext.getInstance("TLS");
     sslContext.init(null, tmf.getTrustManagers(), null);
     return sslContext;
   }
