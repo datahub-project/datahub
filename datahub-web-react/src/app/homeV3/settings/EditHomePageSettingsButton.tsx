@@ -1,7 +1,8 @@
 import { Button, Dropdown, colors } from '@components';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -42,12 +43,19 @@ export default function EditHomePageSettingsButton() {
 
     const [showConfirmResetModal, setShowConfirmResetModal] = useState(false);
 
-    if (isEditingGlobalTemplate || (!canEditDefaultTemplate && !isOnPersonalTemplate)) return null;
+    const startGlobalTemplateEdit = useCallback(() => {
+        setIsEditingGlobalTemplate(true);
+        analytics.event({
+            type: EventType.HomePageTemplateGlobalTemplateEditingStart,
+        });
+    }, [setIsEditingGlobalTemplate]);
 
     const handleResetToDefault = () => {
         resetTemplateToDefault();
         setShowConfirmResetModal(false);
     };
+
+    if (isEditingGlobalTemplate || (!canEditDefaultTemplate && !isOnPersonalTemplate)) return null;
 
     const menu = {
         items: [
@@ -60,7 +68,7 @@ export default function EditHomePageSettingsButton() {
                               color: colors.gray[600],
                               fontSize: '14px',
                           },
-                          onClick: () => setIsEditingGlobalTemplate(true),
+                          onClick: startGlobalTemplateEdit,
                       },
                   ]
                 : []),
