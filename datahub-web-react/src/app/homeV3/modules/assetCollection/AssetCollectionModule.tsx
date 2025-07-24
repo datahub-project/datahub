@@ -6,7 +6,7 @@ import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
 
-import { Entity } from '@types';
+import { DataHubPageModuleType, Entity } from '@types';
 
 const AssetCollectionModule = (props: ModuleProps) => {
     const assetUrns =
@@ -27,7 +27,13 @@ const AssetCollectionModule = (props: ModuleProps) => {
             ) : (
                 entities
                     .filter((entity): entity is Entity => entity !== null)
-                    .map((entity) => <EntityItem entity={entity} key={entity?.urn} />)
+                    .map((entity) => (
+                        <EntityItem
+                            entity={entity}
+                            key={entity?.urn}
+                            moduleType={DataHubPageModuleType.AssetCollection}
+                        />
+                    ))
             )}
         </LargeModule>
     );

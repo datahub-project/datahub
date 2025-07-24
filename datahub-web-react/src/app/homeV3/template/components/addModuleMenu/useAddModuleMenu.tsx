@@ -5,11 +5,11 @@ import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dro
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { LARGE_MODULE_TYPES, SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
 import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/components/ModuleMenuItem';
+import { getCustomGlobalModules } from '@app/homeV3/template/components/addModuleMenu/utils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment } from '@graphql/template.generated';
@@ -37,15 +37,12 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
-export default function useAddModuleMenu(
-    modulesAvailableToAdd: ModulesAvailableToAdd,
-    position: ModulePositionInput,
-    closeMenu: () => void,
-) {
+export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const {
         addModule,
         moduleModalState: { open: openModal },
         template,
+        globalTemplate,
     } = usePageTemplateContext();
 
     const isLargeModuleRow =
@@ -82,9 +79,18 @@ export default function useAddModuleMenu(
         const items: MenuProps['items'] = [];
 
         const quickLink = {
-            title: 'Quick Link',
+            name: 'Quick Link',
             key: 'quick-link',
-            label: <MenuItem description="Choose links that are important" title="Quick Link" icon="LinkSimple" />,
+            label: (
+                <MenuItem
+                    description="Choose links that are important"
+                    title="Quick Link"
+                    icon="LinkSimple"
+                    isDisabled={isLargeModuleRow}
+                    isSmallModule
+                />
+            ),
+
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
@@ -92,50 +98,34 @@ export default function useAddModuleMenu(
         };
 
         const documentation = {
-            title: 'Documentation',
+            name: 'Documentation',
             key: 'documentation',
-            label: <MenuItem description="Pin docs for your DataHub users" title="Documentation" icon="TextT" />,
+            label: (
+                <MenuItem
+                    description="Pin docs for your DataHub users"
+                    title="Documentation"
+                    icon="TextT"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
             disabled: isSmallModuleRow,
         };
 
-        items.push({
-            key: 'customModulesGroup',
-            label: <GroupItem title="Custom" />,
-            type: 'group',
-            children: [quickLink, documentation],
-        });
-
-        const yourAssets = {
-            title: 'Your Assets',
-            key: 'your-assets',
-            label: <MenuItem description="Assets the current user owns" title="Your Assets" icon="Database" />,
-            onClick: () => {
-                handleAddExistingModule(YOUR_ASSETS_MODULE);
-            },
-            disabled: isSmallModuleRow,
-        };
-
-        const domains = {
-            title: 'Domains',
-            key: 'domains',
-            label: <MenuItem description="Most used domains in your organization" title="Domains" icon="Globe" />,
-            onClick: () => {
-                handleAddExistingModule(DOMAINS_MODULE);
-            },
-            disabled: isSmallModuleRow,
-        };
-
         const assetCollection = {
-            title: 'Asset Collection',
+            name: 'Collection',
             key: 'asset-collection',
             label: (
                 <MenuItem
                     description="A curated list of assets of your choosing"
-                    title="Asset Collection"
+                    title="Collection"
                     icon="Stack"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
                 />
             ),
             onClick: () => {
@@ -144,47 +134,115 @@ export default function useAddModuleMenu(
             disabled: isSmallModuleRow,
         };
 
+        const hierarchyView = {
+            title: 'Hierarchy',
+            key: 'hierarchyView',
+            label: <MenuItem description="Top down view of assets" title="Hierarchy" icon="Globe" />,
+            onClick: () => {
+                handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
+            },
+        };
+
         items.push({
-            key: 'customLargeModulesGroup',
-            label: <GroupItem title="Custom Large" />,
+            key: 'customModulesGroup',
+            label: <GroupItem title="Create Your Own" />,
             type: 'group',
-            children: [yourAssets, domains, assetCollection],
+            children: [quickLink, assetCollection, documentation, hierarchyView],
         });
 
-        // Add admin created modules if available
-        if (modulesAvailableToAdd.adminCreatedModules.length) {
-            const adminModuleItems = modulesAvailableToAdd.adminCreatedModules.map((module) => ({
-                title: module.properties.name,
+        const yourAssets = {
+            name: 'Your Assets',
+            key: 'your-assets',
+            label: (
+                <MenuItem
+                    description="Assets the current user owns"
+                    title="Your Assets"
+                    icon="Database"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
+            onClick: () => {
+                handleAddExistingModule(YOUR_ASSETS_MODULE);
+            },
+            disabled: isSmallModuleRow,
+        };
+
+        const domains = {
+            name: 'Domains',
+            key: 'domains',
+            label: (
+                <MenuItem
+                    description="Most used domains in your organization"
+                    title="Domains"
+                    icon="Globe"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
+            onClick: () => {
+                handleAddExistingModule(DOMAINS_MODULE);
+            },
+            disabled: isSmallModuleRow,
+        };
+
+        items.push({
+            key: 'customLargeModulesGroup',
+            label: <GroupItem title="Default" />,
+            type: 'group',
+            children: [yourAssets, domains],
+        });
+
+        // Add global custom modules if available
+        const customGlobalModules: PageModuleFragment[] = getCustomGlobalModules(globalTemplate);
+        if (customGlobalModules.length > 0) {
+            const adminModuleItems = customGlobalModules.map((module) => ({
+                name: module.properties.name,
                 key: module.urn,
-                label: <ModuleMenuItem module={convertModuleToModuleInfo(module)} />,
+                label: (
+                    <ModuleMenuItem
+                        module={convertModuleToModuleInfo(module)}
+                        isDisabled={
+                            (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
+                            (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow)
+                        }
+                        isSmallModule={SMALL_MODULE_TYPES.includes(module.properties.type)}
+                    />
+                ),
                 onClick: () => handleAddExistingModule(module),
+                disabled:
+                    (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
+                    (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow),
             }));
 
-            items.push({
+            const homeDefaults = {
                 key: 'adminCreatedModulesGroup',
-                title: 'Admin Created Widgets',
+                name: 'Home Defaults',
                 label: (
                     <MenuItem
                         icon="Database"
-                        title="Admin Created Widgets"
-                        description="Your organizations data products"
+                        title="Home Defaults"
+                        description="Modules created for your organization"
                         hasChildren
                     />
                 ),
                 expandIcon: <></>, // hide the default expand icon
                 popupClassName: RESET_DROPDOWN_MENU_STYLES_CLASSNAME, // reset styles of submenu
                 children: adminModuleItems,
+            };
+
+            items.push({
+                key: 'sharedModulesGroup',
+                label: <GroupItem title="Shared" />,
+                type: 'group',
+                children: [homeDefaults],
             });
         }
 
         return { items };
-    }, [
-        isLargeModuleRow,
-        isSmallModuleRow,
-        modulesAvailableToAdd.adminCreatedModules,
-        handleOpenCreateModuleModal,
-        handleAddExistingModule,
-    ]);
+    }, [isLargeModuleRow, isSmallModuleRow, globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule]);
 
     return menu;
 }

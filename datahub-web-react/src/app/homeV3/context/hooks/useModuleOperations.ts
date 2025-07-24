@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import {
     calculateAdjustedRowIndex,
     insertModuleIntoRows,
@@ -8,9 +9,15 @@ import {
     validateModuleMoveConstraints,
 } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
+import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
+import {
+    PageModuleFragment,
+    PageTemplateFragment,
+    useDeletePageModuleMutation,
+    useUpsertPageModuleMutation,
+} from '@graphql/template.generated';
 import { EntityType, PageModuleScope } from '@types';
 
 // Helper types for shared operations
@@ -87,7 +94,7 @@ const validateAddModuleInput = (input: AddModuleInput): string | null => {
 };
 
 const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
-    if (!input.moduleUrn) {
+    if (!input.module.urn) {
         return 'Module URN is required for removal';
     }
     if (!input.position) {
@@ -154,8 +161,10 @@ export function useModuleOperations(
         personalTemplate: PageTemplateFragment | null,
     ) => Promise<any>,
     isEditingModule: boolean,
+    originalModuleData: PageModuleFragment | null,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
+    const [deletePageModule] = useDeletePageModuleMutation();
 
     // Create context object to avoid passing many parameters
     const context: TemplateUpdateContext = useMemo(
@@ -243,6 +252,13 @@ export function useModuleOperations(
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'add module');
+
+            analytics.event({
+                type: EventType.HomePageTemplateModuleAdd,
+                templateUrn: templateToUpdate.urn,
+                moduleType: module.properties.type,
+                isPersonal,
+            });
         },
         [context, isEditingModule, updateTemplateWithModule],
     );
@@ -258,7 +274,7 @@ export function useModuleOperations(
                 return;
             }
 
-            const { moduleUrn, position } = input;
+            const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
 
             if (!templateToUpdate) {
@@ -268,15 +284,30 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, moduleUrn, position);
+            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position);
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove module');
+
+            // Delete module if necessary
+            // Only do not delete a module when removing a global module from personal template OR module is a default
+            const shouldNotDeleteModule =
+                (!context.isEditingGlobalTemplate && module.properties.visibility.scope === PageModuleScope.Global) ||
+                DEFAULT_MODULE_URNS.includes(module.urn);
+            if (!shouldNotDeleteModule) {
+                deletePageModule({ variables: { input: { urn: module.urn } } });
+            }
+            analytics.event({
+                type: EventType.HomePageTemplateModuleDelete,
+                templateUrn: templateToUpdate.urn,
+                moduleType: module.properties.type,
+                isPersonal,
+            });
         },
-        [context, removeModuleFromTemplate],
+        [context, removeModuleFromTemplate, deletePageModule],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
@@ -293,13 +324,28 @@ export function useModuleOperations(
             const defaultScope = isEditingGlobalTemplate ? PageModuleScope.Global : PageModuleScope.Personal;
             const { name, type, scope = defaultScope, params = {}, position, urn } = input;
 
+            // Check if we need to create a new module instead of editing the original
+            // This happens when:
+            // 1. We're editing an existing module (have urn and originalModuleData)
+            // 2. The original module has Global scope
+            // 3. We're not editing the global template
+            const isEditingGlobalModuleInPersonalTemplate =
+                isEditingModule &&
+                originalModuleData &&
+                originalModuleData.properties.visibility.scope === PageModuleScope.Global &&
+                !isEditingGlobalTemplate;
+
+            // If we're editing a global module in personal template, create new module instead
+            const shouldCreateNewModule = isEditingGlobalModuleInPersonalTemplate;
+            const moduleUrnToUse = shouldCreateNewModule ? undefined : urn;
+
             // Create the module first
             const moduleInput = {
                 name: name.trim(),
                 type,
                 scope,
                 params,
-                urn,
+                urn: moduleUrnToUse, // Don't pass urn if creating new module
             };
 
             upsertPageModuleMutation({
@@ -325,18 +371,69 @@ export function useModuleOperations(
                         },
                     };
 
-                    // Now add the module to the template
-                    addModule({
-                        module: moduleFragment,
-                        position,
+                    const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
+
+                    analytics.event({
+                        type: moduleInput.urn
+                            ? EventType.HomePageTemplateModuleUpdate
+                            : EventType.HomePageTemplateModuleCreate,
+                        templateUrn: templateToUpdate?.urn ?? '',
+                        moduleType: moduleFragment.properties.type,
+                        isPersonal,
                     });
+
+                    // If we created a new module to replace a global one, remove the old module first
+                    if (shouldCreateNewModule && originalModuleData) {
+                        if (!templateToUpdate) {
+                            console.error('No template provided to update');
+                            message.error('No template available to update');
+                            return;
+                        }
+
+                        // Remove the original global module and add the new personal module
+                        let updatedTemplate = removeModuleFromTemplate(
+                            templateToUpdate,
+                            originalModuleData.urn,
+                            position,
+                        );
+
+                        if (updatedTemplate) {
+                            updatedTemplate = updateTemplateWithModule(
+                                updatedTemplate,
+                                moduleFragment,
+                                position,
+                                false,
+                            );
+
+                            // Update local state immediately for optimistic UI
+                            updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
+
+                            // Persist changes
+                            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replace global module');
+                        }
+                    } else {
+                        // Normal flow: add the module to the template
+                        addModule({
+                            module: moduleFragment,
+                            position,
+                        });
+                    }
                 })
                 .catch((error) => {
                     console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
                     message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                 });
         },
-        [upsertPageModuleMutation, addModule, isEditingModule, isEditingGlobalTemplate],
+        [
+            upsertPageModuleMutation,
+            addModule,
+            isEditingModule,
+            isEditingGlobalTemplate,
+            originalModuleData,
+            context,
+            removeModuleFromTemplate,
+            updateTemplateWithModule,
+        ],
     );
 
     // Simplified move module function with extracted validation and orchestration
@@ -387,6 +484,12 @@ export function useModuleOperations(
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'move module');
+
+            analytics.event({
+                type: EventType.HomePageTemplateModuleMove,
+                templateUrn: templateToUpdate.urn,
+                isPersonal,
+            });
         },
         [context, moveModuleInTemplate],
     );

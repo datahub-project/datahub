@@ -41,6 +41,11 @@ fragment PageModule on DataHubPageModule {
                 imageUrl
                 description
             }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+                relatedEntitiesFilterJson
+            }
         }
     }
 }
@@ -55,4 +60,8 @@ mutation upsertPageModule($input: UpsertPageModuleInput!) {
     upsertPageModule(input: $input) {
         urn
     }
+}
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
 }

@@ -25,6 +25,8 @@ vi.mock('@components', () => ({
             {icon}
         </div>
     )),
+    Tooltip: (props: any) => <span {...props} />,
+    Text: (props: any) => <p {...props} />,
     colors: {
         gray: {
             600: '#4B5563',
@@ -66,23 +68,23 @@ describe('ModuleMenu', () => {
         // Check that menu items are rendered
         expect(screen.getByText('Edit')).toBeInTheDocument();
         // expect(screen.getByText('Duplicate')).toBeInTheDocument();
-        expect(screen.getByText('Delete')).toBeInTheDocument();
+        expect(screen.getByText('Remove')).toBeInTheDocument();
     });
 
-    it('should call removeModule when delete is clicked', () => {
+    it('should call removeModule when remove is clicked', () => {
         render(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        // Click the remove option
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called with correct parameters
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:test',
+            module: mockModule,
             position: mockPosition,
         });
     });
@@ -110,27 +112,27 @@ describe('ModuleMenu', () => {
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        // Click the remove option
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called with correct parameters
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:domains',
+            module: differentModule,
             position: differentPosition,
         });
     });
 
-    it('should render delete option with red color', () => {
+    it('should render remove option with red color', () => {
         render(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Check that delete option has red color styling
-        const deleteButton = screen.getByText('Delete');
-        expect(deleteButton).toBeInTheDocument();
+        // Check that remove option has red color styling
+        const removeButton = screen.getByText('Remove');
+        expect(removeButton).toBeInTheDocument();
         // Note: Testing exact color styles in this test setup is challenging, but the component should work
     });
 
@@ -147,13 +149,13 @@ describe('ModuleMenu', () => {
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        // Click the remove option
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called with moduleIndex
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:test',
+            module: mockModule,
             position: positionWithModuleIndex,
         });
     });
@@ -176,13 +178,13 @@ describe('ModuleMenu', () => {
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        // Click the remove option
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called with correct URN
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:veryLongName',
+            module: moduleWithLongName,
             position: mockPosition,
         });
     });
@@ -199,13 +201,13 @@ describe('ModuleMenu', () => {
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        // Click the remove option
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called with minimal position
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:test',
+            module: mockModule,
             position: minimalPosition,
         });
     });
@@ -228,13 +230,13 @@ describe('ModuleMenu', () => {
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
+        // Click the remove option
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called with special character URN
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:test-module_with.special+chars',
+            module: moduleWithSpecialChars,
             position: mockPosition,
         });
     });
@@ -261,23 +263,23 @@ describe('ModuleMenu', () => {
         expect(mockRemoveModule).not.toHaveBeenCalled();
     });
 
-    it('should handle multiple rapid clicks on delete', () => {
+    it('should handle multiple rapid clicks on remove', () => {
         render(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
         fireEvent.click(menuButton);
 
-        // Click the delete option multiple times rapidly
-        const deleteButton = screen.getByText('Delete');
-        fireEvent.click(deleteButton);
-        fireEvent.click(deleteButton);
-        fireEvent.click(deleteButton);
+        // Click the remove option multiple times rapidly
+        const removeButton = screen.getByText('Remove');
+        fireEvent.click(removeButton);
+        fireEvent.click(removeButton);
+        fireEvent.click(removeButton);
 
         // Verify that removeModule was called multiple times (as expected)
         expect(mockRemoveModule).toHaveBeenCalledTimes(3);
         expect(mockRemoveModule).toHaveBeenCalledWith({
-            moduleUrn: 'urn:li:dataHubPageModule:test',
+            module: mockModule,
             position: mockPosition,
         });
     });

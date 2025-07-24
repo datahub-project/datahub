@@ -21,7 +21,7 @@ export default function useGetAssetResults({ searchQuery, appliedFilters }: Prop
             input: {
                 query: searchQuery || '*',
                 start: 0,
-                count: 10,
+                count: 20,
                 orFilters,
                 searchFlags: {
                     skipCache: true,
