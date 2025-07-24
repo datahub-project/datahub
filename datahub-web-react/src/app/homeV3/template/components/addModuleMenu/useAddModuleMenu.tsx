@@ -116,11 +116,38 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             disabled: isSmallModuleRow,
         };
 
+        const assetCollection = {
+            name: 'Collection',
+            key: 'asset-collection',
+            label: (
+                <MenuItem
+                    description="A curated list of assets of your choosing"
+                    title="Collection"
+                    icon="Stack"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+            onClick: () => {
+                handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
+            },
+            disabled: isSmallModuleRow,
+        };
+
+        const hierarchyView = {
+            title: 'Hierarchy',
+            key: 'hierarchyView',
+            label: <MenuItem description="Top down view of assets" title="Hierarchy" icon="Globe" />,
+            onClick: () => {
+                handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
+            },
+        };
+
         items.push({
             key: 'customModulesGroup',
-            label: <GroupItem title="Custom" />,
+            label: <GroupItem title="Create Your Own" />,
             type: 'group',
-            children: [quickLink, documentation],
+            children: [quickLink, assetCollection, documentation, hierarchyView],
         });
 
         const yourAssets = {
@@ -161,40 +188,11 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             disabled: isSmallModuleRow,
         };
 
-        const assetCollection = {
-            name: 'Asset Collection',
-            key: 'asset-collection',
-            label: (
-                <MenuItem
-                    description="A curated list of assets of your choosing"
-                    title="Asset Collection"
-                    icon="Stack"
-                    isDisabled={isSmallModuleRow}
-                    isSmallModule={false}
-                />
-            ),
-            onClick: () => {
-                handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
-            },
-            disabled: isSmallModuleRow,
-        };
-
-        const hierarchyView = {
-            title: 'Hierarchy View',
-            key: 'hierarchyView',
-            label: (
-                <MenuItem description="Most used domains in your organization" title="Hierarchy View" icon="Globe" />
-            ),
-            onClick: () => {
-                handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
-            },
-        };
-
         items.push({
             key: 'customLargeModulesGroup',
-            label: <GroupItem title="Custom Large" />,
+            label: <GroupItem title="Default" />,
             type: 'group',
-            children: [yourAssets, domains, assetCollection, hierarchyView],
+            children: [yourAssets, domains],
         });
 
         // Add global custom modules if available
@@ -207,20 +205,27 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 onClick: () => handleAddExistingModule(module),
             }));
 
-            items.push({
+            const homeDefaults = {
                 key: 'adminCreatedModulesGroup',
-                title: 'Admin Created Widgets',
+                title: 'Home Defaults',
                 label: (
                     <MenuItem
                         icon="Database"
-                        title="Admin Created Widgets"
-                        description="Your organizations data products"
+                        title="Home Defaults"
+                        description="Modules created for your organization"
                         hasChildren
                     />
                 ),
                 expandIcon: <></>, // hide the default expand icon
                 popupClassName: RESET_DROPDOWN_MENU_STYLES_CLASSNAME, // reset styles of submenu
                 children: adminModuleItems,
+            };
+
+            items.push({
+                key: 'sharedModulesGroup',
+                label: <GroupItem title="Shared" />,
+                type: 'group',
+                children: [homeDefaults],
             });
         }
 

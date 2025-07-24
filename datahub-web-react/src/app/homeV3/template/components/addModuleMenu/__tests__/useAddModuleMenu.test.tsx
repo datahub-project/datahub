@@ -118,31 +118,33 @@ describe('useAddModuleMenu', () => {
         return [];
     }
 
-    it('should return menu items with hardcoded custom modules when no global template custom modules exist', () => {
+    it('should return menu items with correct structure when no global template custom modules exist', () => {
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
 
         const { items } = result.current;
         expect(items).toHaveLength(2);
 
-        // Check Custom group
+        // Check "Create Your Own" group
         expect(items?.[0]).toHaveProperty('key', 'customModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[0]?.children).toHaveLength(2);
+        expect(items?.[0]?.children).toHaveLength(4);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[0]?.children?.[0]).toHaveProperty('key', 'quick-link');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[0]?.children?.[1]).toHaveProperty('key', 'documentation');
+        expect(items?.[0]?.children?.[1]).toHaveProperty('key', 'asset-collection');
+        // @ts-expect-error SubMenuItem should have children
+        expect(items?.[0]?.children?.[2]).toHaveProperty('key', 'documentation');
+        // @ts-expect-error SubMenuItem should have children
+        expect(items?.[0]?.children?.[3]).toHaveProperty('key', 'hierarchyView');
 
-        // Check Custom Large group
+        // Check "Default by DataHub" group
         expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children).toHaveLength(4);
+        expect(items?.[1]?.children).toHaveLength(2);
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
         // @ts-expect-error SubMenuItem should have children
         expect(items?.[1]?.children?.[1]).toHaveProperty('key', 'domains');
-        // @ts-expect-error SubMenuItem should have children
-        expect(items?.[1]?.children?.[2]).toHaveProperty('key', 'asset-collection');
     });
 
     it('should include admin created modules when available in global template', () => {
@@ -164,14 +166,16 @@ describe('useAddModuleMenu', () => {
         const { items } = result.current;
         expect(items).toHaveLength(3);
 
-        // Check Admin Created Widgets group
-        expect(items?.[2]).toHaveProperty('key', 'adminCreatedModulesGroup');
+        // Check "Shared" group contains home defaults
+        expect(items?.[2]).toHaveProperty('key', 'sharedModulesGroup');
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[2]?.children).toHaveLength(2);
+        expect(items?.[2]?.children).toHaveLength(1);
         // @ts-expect-error SubMenuItem should have children
-        expect(items?.[2]?.children?.[0]).toHaveProperty('key', 'urn:li:dataHubPageModule:admin1');
-        // @ts-expect-error SubMenuItem should have children
-        expect(items?.[2]?.children?.[1]).toHaveProperty('key', 'urn:li:dataHubPageModule:admin2');
+        const homeDefaults = items?.[2]?.children?.[0];
+        expect(homeDefaults).toHaveProperty('key', 'adminCreatedModulesGroup');
+        expect(homeDefaults?.children).toHaveLength(2);
+        expect(homeDefaults?.children?.[0]).toHaveProperty('key', 'urn:li:dataHubPageModule:admin1');
+        expect(homeDefaults?.children?.[1]).toHaveProperty('key', 'urn:li:dataHubPageModule:admin2');
     });
 
     it('should call addModule and closeMenu when Your Assets is clicked', () => {
@@ -230,8 +234,10 @@ describe('useAddModuleMenu', () => {
 
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
 
+        // Navigate to admin module: items[2] -> children[0] (homeDefaults) -> children[0] (first admin module)
         // @ts-expect-error SubMenuItem should have children
-        const adminModuleItem = result.current?.items?.[2]?.children?.[0];
+        const homeDefaults = result.current?.items?.[2]?.children?.[0];
+        const adminModuleItem = homeDefaults?.children?.[0];
         adminModuleItem.onClick?.({} as any); // simulate click
 
         expect(mockAddModule).toHaveBeenCalledWith({
@@ -257,16 +263,17 @@ describe('useAddModuleMenu', () => {
 
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
 
-        const adminGroup = result.current?.items?.[2];
-        expect(adminGroup).toHaveProperty('expandIcon');
-        expect(adminGroup).toHaveProperty('popupClassName');
+        // @ts-expect-error SubMenuItem should have children
+        const homeDefaults = result.current?.items?.[2]?.children?.[0];
+        expect(homeDefaults).toHaveProperty('expandIcon');
+        expect(homeDefaults).toHaveProperty('popupClassName');
     });
 
     it('should open module modal when Asset Collection is clicked', () => {
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
-        const customLargeChildren = getChildren(result.current.items?.[1]);
-        // Third child is Asset Collection
-        const assetCollectionItem = customLargeChildren[2];
+        const customChildren = getChildren(result.current.items?.[0]);
+        // Second child is Asset Collection (index 1)
+        const assetCollectionItem = customChildren[1];
         assetCollectionItem.onClick?.({} as any);
 
         expect(mockOpenModal).toHaveBeenCalledWith(DataHubPageModuleType.AssetCollection, mockPosition);
@@ -275,8 +282,8 @@ describe('useAddModuleMenu', () => {
 
     it('should not call addModule when Asset Collection is clicked', () => {
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
-        const customLargeChildren = getChildren(result.current.items?.[1]);
-        const assetCollectionItem = customLargeChildren[2];
+        const customChildren = getChildren(result.current.items?.[0]);
+        const assetCollectionItem = customChildren[1];
         assetCollectionItem.onClick?.({} as any);
 
         expect(mockAddModule).not.toHaveBeenCalledWith(
@@ -291,8 +298,8 @@ describe('useAddModuleMenu', () => {
 
     it('should not open modal when Your Assets is clicked', () => {
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
-        const customLargeChildren = getChildren(result.current.items?.[1]);
-        const yourAssetsItem = customLargeChildren[0];
+        const defaultChildren = getChildren(result.current.items?.[1]);
+        const yourAssetsItem = defaultChildren[0];
         yourAssetsItem.onClick?.({} as any);
 
         expect(mockOpenModal).not.toHaveBeenCalled();
@@ -311,10 +318,20 @@ describe('useAddModuleMenu', () => {
     it('should open module modal when Documentation is clicked', () => {
         const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
         const customChildren = getChildren(result.current.items?.[0]);
-        const documentationItem = customChildren[1];
+        const documentationItem = customChildren[2];
         documentationItem.onClick?.({} as any);
 
         expect(mockOpenModal).toHaveBeenCalledWith(DataHubPageModuleType.RichText, mockPosition);
+        expect(mockCloseMenu).toHaveBeenCalled();
+    });
+
+    it('should open module modal when Hierarchy is clicked', () => {
+        const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
+        const customChildren = getChildren(result.current.items?.[0]);
+        const hierarchyItem = customChildren[3];
+        hierarchyItem.onClick?.({} as any);
+
+        expect(mockOpenModal).toHaveBeenCalledWith(DataHubPageModuleType.Hierarchy, mockPosition);
         expect(mockCloseMenu).toHaveBeenCalled();
     });
 });

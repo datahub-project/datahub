@@ -1,7 +1,8 @@
-import { AppstoreOutlined, FileOutlined, FolderOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, FolderOutlined, UnlockOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react';
 import * as React from 'react';
 
+import AccessManagement from '@app/entity/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ContainerEntitiesTab } from '@app/entityV2/container/ContainerEntitiesTab';
 import ContainerSummaryTab from '@app/entityV2/container/ContainerSummaryTab';
@@ -27,6 +28,7 @@ import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/Docume
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { GetContainerQuery, useGetContainerQuery } from '@graphql/container.generated';
 import { Container, EntityType, SearchResult } from '@types';
@@ -83,6 +85,8 @@ export class ContainerEntity implements Entity<Container> {
 
     useEntityQuery = useGetContainerQuery;
 
+    appconfig = useAppConfig;
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
@@ -116,6 +120,20 @@ export class ContainerEntity implements Entity<Container> {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: ListBullets,
+                },
+                {
+                    name: 'Access',
+                    component: AccessManagement,
+                    icon: UnlockOutlined,
+                    display: {
+                        visible: (_, container: GetContainerQuery) => {
+                            return (
+                                this.appconfig().config.featureFlags.showAccessManagement &&
+                                !!container?.container?.access
+                            );
+                        },
+                        enabled: (_, _2) => true,
+                    },
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
