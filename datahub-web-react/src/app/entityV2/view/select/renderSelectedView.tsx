@@ -89,13 +89,13 @@ const SelectButtonContainer = styled.div`
 
 const CloseButtonContainer = styled.div`
     position: absolute;
-    top: 0px;
-    right: 0px;
+    top: -10px;
+    right: -5px;
     background-color: ${ANTD_GRAY[1]};
+    display: flex;
     align-items: center;
     border-radius: 100%;
     padding: 5px;
-    cursor: pointer;
 `;
 
 const CloseIconStyle = styled(CloseIcon)`
@@ -112,12 +112,17 @@ type Props = {
     selectedViewName: string;
     isShowNavBarRedesign?: boolean;
     onClear: () => void;
+    onClick?: () => void;
 };
 
-export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onClear }: Props) => {
+export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onClear, onClick }: Props) => {
     return (
         <SelectButtonContainer>
-            <SelectButton $selectedViewName={selectedViewName} $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <SelectButton
+                $selectedViewName={selectedViewName}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+                onClick={() => onClick?.()}
+            >
                 <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
                     <ViewLabel data-testid="views-icon">
                         {selectedViewName || <StyledViewIcon $isShowNavBarRedesign={isShowNavBarRedesign} />}

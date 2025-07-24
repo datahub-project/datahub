@@ -50,12 +50,13 @@ export const Checkbox = ({
             ) : null}
             <CheckboxBase
                 onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
                     if (!isDisabled) {
                         setChecked(!checked);
                         setIsChecked?.(!checked);
                         onCheckboxChange?.();
                     }
-                    e.stopPropagation();
                 }}
             >
                 <StyledCheckbox

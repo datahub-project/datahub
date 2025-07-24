@@ -23,6 +23,13 @@ interface Props {
     report: StructuredReportType;
 }
 
+export function hasSomethingToShow(report: StructuredReportType): boolean {
+    const warnings = report.items.filter((item) => item.level === StructuredReportItemLevel.WARN);
+    const errors = report.items.filter((item) => item.level === StructuredReportItemLevel.ERROR);
+    const infos = report.items.filter((item) => item.level === StructuredReportItemLevel.INFO);
+    return warnings.length > 0 || errors.length > 0 || infos.length > 0;
+}
+
 export function StructuredReport({ report }: Props) {
     if (!report.items.length) {
         return null;
@@ -34,7 +41,12 @@ export function StructuredReport({ report }: Props) {
     return (
         <Container>
             {errors.length ? (
-                <StructuredReportItemList items={errors} color={ERROR_COLOR} icon={CloseCircleOutlined} />
+                <StructuredReportItemList
+                    items={errors}
+                    color={ERROR_COLOR}
+                    icon={CloseCircleOutlined}
+                    defaultActiveKey="0"
+                />
             ) : null}
             {warnings.length ? (
                 <StructuredReportItemList items={warnings} color={WARNING_COLOR} icon={ExclamationCircleOutlined} />

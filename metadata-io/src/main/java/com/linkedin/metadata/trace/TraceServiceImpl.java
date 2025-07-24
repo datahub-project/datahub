@@ -69,6 +69,15 @@ public class TraceServiceImpl implements TraceService {
     this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
   }
 
+  @Nullable
+  public static Long extractTraceIdEpochMillis(@Nullable SystemMetadata systemMetadata) {
+    String traceId = extractTraceId(systemMetadata);
+    if (traceId != null) {
+      return TraceIdGenerator.getTimestampMillis(traceId);
+    }
+    return null;
+  }
+
   @Nonnull
   @Override
   public Map<Urn, Map<String, TraceStatus>> trace(

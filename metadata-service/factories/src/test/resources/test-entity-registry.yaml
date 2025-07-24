@@ -30,3 +30,15 @@ entities:
       - dataTypeInfo
       - institutionalMemory
       - status
+  - name: dataHubPageModule
+    doc: A module within a DataHub page.
+    category: core
+    keyAspect: dataHubPageModuleKey
+    aspects:
+      - dataHubPageModuleProperties
+  - name: dataHubPageTemplate
+    doc: A template for a DataHub page.
+    category: core
+    keyAspect: dataHubPageTemplateKey
+    aspects:
+      - dataHubPageTemplateProperties

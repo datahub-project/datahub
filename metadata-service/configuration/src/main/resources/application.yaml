@@ -128,6 +128,13 @@ datahub:
       maxRetries: ${DATAHUB_GMS_OPENAPI_CLIENT_MAX_RETRIES:3}
       backOffMillis: ${DATAHUB_GMS_OPENAPI_CLIENT_BACK_OFF_MILLIS:1000}
 
+  metrics:
+    # measures the time from request to post-MCL hook
+    hookLatency:
+      percentiles: ${DATAHUB_METRICS_HOOK_LATENCY_PERCENTILES:0.5,0.95,0.99,0.999}
+      slo: ${DATAHUB_METRICS_HOOK_LATENCY_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
+      maxExpectedValue: ${DATAHUB_METRICS_HOOK_LATENCY_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
+
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
   retention:
@@ -291,6 +298,14 @@ elasticsearch:
     keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:#{null}}
     keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:#{null}}
     keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:#{null}}
+  bulkDelete:
+    batchSize: ${ES_BULK_DELETE_BATCH_SIZE:5000}
+    slices: ${ES_BULK_DELETE_SLICES:auto}
+    pollInterval: ${ES_BULK_DELETE_POLL_INTERVAL:30}
+    pollIntervalUnit: ${ES_BULK_DELETE_POLL_UNIT:SECONDS}
+    timeout: ${ES_BULK_DELETE_TIMEOUT:30}
+    timeoutUnit: ${ES_BULK_DELETE_TIMEOUT_UNIT:MINUTES}
+    numRetries: ${ES_BULK_DELETE_NUM_RETRIES:3}
   bulkProcessor:
     async: ${ES_BULK_ASYNC:true}
     requestsLimit: ${ES_BULK_REQUESTS_LIMIT:1000}
@@ -403,6 +418,10 @@ kafka:
       aspectsToDrop: ${KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP:}
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+    metrics:
+      percentiles: ${KAFKA_CONSUMER_PERCENTILES:0.5,0.95,0.99,0.999}
+      slo: ${KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
+      maxExpectedValue: ${KAFKA_CONSUMER_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 
   # Consumer Pool - Used for Our Events API
   consumerPool:
@@ -719,6 +738,9 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
+  removeQueryEdges:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_ENABLED:true}
+    numRetries: ${BOOTSTRAP_SYSTEM_UPDATE_REMOVE_QUERY_EDGES_RETRIES:20}
   migrateProcessInstanceEdges:
     enabled: ${MIGRATE_PROCESS_INSTANCE_EDGES_ENABLED:false}
     batchSize: ${MIGRATE_PROCESS_INSTANCE_EDGES_BATCH_SIZE:1000}
@@ -739,6 +761,7 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_BATCH_SIZE:1000}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PURGE_LEGACY_EXECUTORS_REPROCESS:false}
+
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
   writeEnabled: ${ENABLE_STRUCTURED_PROPERTIES_WRITE:true} # write structured property values
@@ -774,56 +797,36 @@ featureFlags:
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
-  showAcrylInfo: ${SHOW_ACRYL_INFO:false}
-  # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
-  erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false}
-  # Enable Join Tables Feature and show within Dataset view as Relations
-  nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true}
-  # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
-  schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true}
-  # Enables fetching for schema field entities from the database when we hydrate them on schema fields
-  businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false}
-  # Enables business attribute entity which can be associated with field of dataset
-  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true}
-  # Enables the Data Contracts feature (Tab) in the UI
-  alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false}
-  # Enables alternate MCP validation flow
-  themeV2Enabled: ${THEME_V2_ENABLED:true}
-  # Acryl only! Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be true for this to have any effect.
-  themeV2Default: ${THEME_V2_DEFAULT:true}
-  # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
-  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true}
-  # Acryl only! Allows theme v2 to be toggled on / off by users.
-  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:true}
-  # Enables links to schema field-level lineage on lineage explorer and columns tab
-  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true}
-  # If turned on, schema field lineage will always fetch ghost entities
-  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false}
-  # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
-  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false}
-  # Enables the ability to edit the dataset name in the UI
-  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true}
-  # If turned on, show the manage structured properties button on the govern dropdown
-  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false}
-  # Enables entity versioning APIs, validators, and side effects
-  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false}
-  # If turned on, dbt sources will not be shown in lineage
-  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true}
-  # If turned on, show the newly designed nav bar in the V2 experience
-  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true}
-  # If turned on, show the auto complete results in the search bar
-  showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false}
-  # If turned on, the "has siblings" filter will be visible in search results page
-  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false}
-  # If turned on, show the redesigned search bar's autocomplete
-  showManageTags: ${SHOW_MANAGE_TAGS:true}
-  # If turned on, allow users to manage tags in the UI
-  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true}
-  # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
-  showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true}
-  # If turned on, show the re-designed home page
-  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false}
-  # If turned on, show the expand more button (>>) in the lineage graph
+  showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
+  erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
+  nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
+  schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
+  businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
+  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
+  alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
+  themeV2Enabled: ${THEME_V2_ENABLED:true} # Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be false for this to have any effect.
+  themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
+  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
+  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:false} # Enables links to schema field-level lineage on lineage explorer and columns tab
+  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
+  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
+  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
+  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
+  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
+  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
+  showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
+  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
+  showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
+  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
+  showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   # SaaS-only features
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false}
   # If turned on, the bulk form by question view will be shown by default from the task center
@@ -878,15 +881,9 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true}
   # If turned on, show the default external links on the entity page
   showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false}
-  # If turned on, the "Created At" filter will be visible in search results page
-  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false}
   # If turned on, show the re-designed Ingestion page
   # If turned on, show the expand more button (>>) in the lineage graph
   formsNotificationsEnabled: ${FORMS_NOTIFICATIONS_ENABLED:false}
-  # Whether to show notification settings for compliance forms
-  showProductUpdates: ${SHOW_PRODUCT_UPDATES:false}
-  # Whether to show product updates on app sidebar. Will go to OSS.
-  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}
   # Enables the redesign of the lineage v2 graph
   viewIngestionSourcePrivilegesEnabled: ${VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED:false}
   # Enables getting to the ingestion source page if you have permission to view any ingestion sources

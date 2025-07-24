@@ -151,6 +151,16 @@
                 "type" : "string",
                 "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
                 "optional" : true
+              }, {
+                "name" : "aspectCreated",
+                "type" : "com.linkedin.common.AuditStamp",
+                "doc" : "When the aspect was initially created and who created it, detected by version 0 -> 1 change",
+                "optional" : true
+              }, {
+                "name" : "aspectModified",
+                "type" : "com.linkedin.common.AuditStamp",
+                "doc" : "When the aspect was last modified and the actor that performed the modification",
+                "optional" : true
               } ],
               "Aspect" : {
                 "name" : "systemMetadata"

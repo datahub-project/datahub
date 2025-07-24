@@ -9,7 +9,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
+import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';
@@ -509,7 +509,7 @@ export const SearchBar = ({
                     </StyledAutoComplete>
                     {viewsEnabled && (
                         <ViewSelectContainer id={V2_SEARCH_BAR_VIEWS}>
-                            <ViewSelect />
+                            <ViewSelectButtonWithPopover />
                         </ViewSelectContainer>
                     )}
                 </AutoCompleteContainer>

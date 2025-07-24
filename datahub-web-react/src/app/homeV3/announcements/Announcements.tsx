@@ -7,7 +7,7 @@ import { useGetAnnouncementsForUser } from '@app/homeV3/announcements/useGetAnno
 const AnnouncementsContainer = styled.div`
     display: flex;
     flex-direction: column;
-    padding: 0;
+    padding: 0 42px;
     gap: 8px;
 `;
 

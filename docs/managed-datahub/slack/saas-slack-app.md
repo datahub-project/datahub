@@ -77,15 +77,15 @@ If you choose to `Mark as Resolved` the message will update in-place, and you wi
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_incidents_2.png" />
 </p>
 
-## @DataHub Slack Bot
+## @DataHub AI in Slack
 
 :::info
 
-As of DataHub Cloud v0.3.12, the DataHub Slack bot is in **private beta**. Reach out to your DataHub Cloud representative to get access.
+As of DataHub Cloud v0.3.12, the @DataHub AI command is in **private beta**. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
-With the DataHub Slack bot, you can mention @DataHub in any channel and ask it questions about your metadata.
+With the DataHub AI in Slack, you can mention @DataHub in any channel and ask it questions about your metadata.
 
 Key capabilities include:
 
@@ -97,10 +97,10 @@ Key capabilities include:
 
 :::warning Permissions
 
-The current version of the DataHub Slack bot assumes that all users have read permissions to all assets. A future version of the Slack bot will support more granular permissions.
+The current version of the @DataHub AI in Slack assumes that all users have read permissions for all assets. A future version will support more granular permissions.
 
 :::
 
 <p align="center">
-    <img width="60%" alt="Chat experience in Slack with the @DataHub bot." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_1.png" />
+    <img width="60%" alt="Chat experience in Slack with @DataHub AI." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_1.png" />
 </p>

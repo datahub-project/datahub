@@ -221,6 +221,7 @@ public class PatchItemImpl implements PatchMCP {
         // generate default
         systemMetadata(null);
       }
+      this.systemMetadata = SystemMetadataUtils.setAspectModified(this.systemMetadata, auditStamp);
 
       return new PatchItemImpl(
           this.urn,

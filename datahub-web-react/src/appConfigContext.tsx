@@ -128,6 +128,8 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showProductUpdates: false,
         formsNotificationsEnabled: false,
         lineageGraphV3: false,
+        logicalModelsEnabled: false,
+        showHomepageUserRole: false,
         viewIngestionSourcePrivilegesEnabled: false,
         showHomePageRedesign: false,
     },

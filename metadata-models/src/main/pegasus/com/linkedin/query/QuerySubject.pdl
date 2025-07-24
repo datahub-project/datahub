@@ -11,10 +11,6 @@ record QuerySubject {
   /**
    * An entity which is the subject of a query.
    */
-  @Relationship = {
-    "name": "IsAssociatedWith",
-    "entityTypes": [ "dataset", "schemaField" ]
-  }
   @Searchable = {
     "fieldName": "entities",
     "fieldType": "URN",

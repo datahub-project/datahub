@@ -170,7 +170,7 @@ class DbtTestConfig:
             },
         ),
         DbtTestConfig(
-            "dbt-column-meta-mapping",  # this also tests snapshot support
+            "dbt-column-meta-mapping",  # this also tests snapshot support and meta nested mapping
             "dbt_test_column_meta_mapping.json",
             "dbt_test_column_meta_mapping_golden.json",
             catalog_file="sample_dbt_catalog_1.json",
@@ -178,6 +178,43 @@ class DbtTestConfig:
             sources_file="sample_dbt_sources_1.json",
             source_config_modifiers={
                 "enable_meta_mapping": True,
+                "meta_mapping": {
+                    "data_governance_nested.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test_nested"},
+                    },
+                    "owner": {
+                        "match": "^@(.*)",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "business_owner": {
+                        "match": ".*",
+                        "operation": "add_owner",
+                        "config": {"owner_type": "user"},
+                    },
+                    "has_pii": {
+                        "match": True,
+                        "operation": "add_tag",
+                        "config": {"tag": "has_pii_test"},
+                    },
+                    "int_property": {
+                        "match": 1,
+                        "operation": "add_tag",
+                        "config": {"tag": "int_meta_property"},
+                    },
+                    "double_property": {
+                        "match": 2.5,
+                        "operation": "add_term",
+                        "config": {"term": "double_meta_property"},
+                    },
+                    "data_governance.team_owner": {
+                        "match": "Finance",
+                        "operation": "add_term",
+                        "config": {"term": "Finance_test"},
+                    },
+                },
                 "column_meta_mapping": {
                     "terms": {
                         "match": ".*",
@@ -193,6 +230,11 @@ class DbtTestConfig:
                         "match": ".*",
                         "operation": "add_term",
                         "config": {"term": "maturity_{{ $match }}"},
+                    },
+                    "governance.pii_category": {
+                        "match": ".*",
+                        "operation": "add_term",
+                        "config": {"term": "pii_category_{{ $match }}"},
                     },
                 },
                 "entities_enabled": {

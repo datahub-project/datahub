@@ -10,10 +10,12 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
+import com.linkedin.metadata.trace.TraceServiceImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -100,5 +102,29 @@ public class MCLKafkaListener
         event.hasAspectName() ? event.getAspectName() : null,
         event.hasEntityType() ? event.getEntityType() : null,
         event.hasChangeType() ? event.getChangeType() : null);
+  }
+
+  @Override
+  protected void updateMetrics(String hookName, MetadataChangeLog event) {
+    systemOperationContext
+        .getMetricUtils()
+        .ifPresent(
+            metricUtils -> {
+              Long requestEpochMillis =
+                  TraceServiceImpl.extractTraceIdEpochMillis(event.getSystemMetadata());
+              if (requestEpochMillis != null) {
+                long queueTimeMs = System.currentTimeMillis() - requestEpochMillis;
+
+                // request
+                metricUtils
+                    .getRegistry()
+                    .ifPresent(
+                        meterRegistry -> {
+                          meterRegistry
+                              .timer(MetricUtils.DATAHUB_REQUEST_HOOK_QUEUE_TIME, "hook", hookName)
+                              .record(Duration.ofMillis(queueTimeMs));
+                        });
+              }
+            });
   }
 }

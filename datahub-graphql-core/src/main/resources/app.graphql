@@ -1563,6 +1563,16 @@ type FeatureFlagsConfig {
   lineageGraphV3: Boolean!
 
   """
+  Enables logical models feature
+  """
+  logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
+
+  """
   If enabled, allow on-demand creation of smart assertions.
   """
   onlineSmartAssertionsEnabled: Boolean!

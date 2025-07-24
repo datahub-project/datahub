@@ -1,5 +1,7 @@
 namespace com.linkedin.mxe
 
+import com.linkedin.common.AuditStamp
+
 /**
  * Metadata associated with each metadata change that is processed by the system
  */
@@ -48,4 +50,14 @@ record SystemMetadata {
   *    a string in the case where a different aspect versioning scheme is later adopted.
   */
   version: optional string
+
+  /**
+  * When the aspect was initially created and who created it, detected by version 0 -> 1 change
+  */
+  aspectCreated: optional AuditStamp
+
+  /**
+  * When the aspect was last modified and the actor that performed the modification
+  */
+  aspectModified: optional AuditStamp
 }

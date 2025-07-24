@@ -55,12 +55,13 @@ interface Props {
     item: StructuredReportLogEntry;
     color: string;
     icon?: React.ComponentType<any>;
+    defaultActiveKey?: string;
 }
 
-export function StructuredReportItem({ item, color, icon }: Props) {
+export function StructuredReportItem({ item, color, icon, defaultActiveKey }: Props) {
     const Icon = icon;
     return (
-        <StyledCollapse color={color}>
+        <StyledCollapse color={color} defaultActiveKey={defaultActiveKey}>
             <Collapse.Panel
                 header={
                     <Item>

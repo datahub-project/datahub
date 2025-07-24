@@ -24,6 +24,7 @@ import com.linkedin.metadata.boot.steps.IngestStructuredPropertyExtensionsStep;
 import com.linkedin.metadata.boot.steps.IngestionMetadataTestResultsActionStep;
 import com.linkedin.metadata.boot.steps.MigrateAssertionsSummaryStep;
 import com.linkedin.metadata.boot.steps.MigrateFreshnessAssertionCronToSinceTheLastCheck;
+import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
 import com.linkedin.metadata.boot.steps.MigrateIncidentsSummaryStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
@@ -158,6 +159,8 @@ public class BootstrapManagerFactory {
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
+    final MigrateHomePageLinksStep migrateHomePageLinksStep =
+        new MigrateHomePageLinksStep(_entityService, _entitySearchService);
     final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
@@ -218,6 +221,10 @@ public class BootstrapManagerFactory {
       finalSteps.add(
           new IngestionMetadataTestResultsActionStep(
               _entityService, integrationsService, forwardingActionConfiguration));
+    }
+
+    if (_configurationProvider.getFeatureFlags().isShowHomePageRedesign()) {
+      finalSteps.add(migrateHomePageLinksStep);
     }
 
     return new BootstrapManager(finalSteps);

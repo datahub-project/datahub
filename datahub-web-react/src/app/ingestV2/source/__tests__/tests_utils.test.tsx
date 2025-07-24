@@ -15,6 +15,8 @@ import {
     capitalizeMonthsAndDays,
     formatTimezone,
     getEntitiesIngestedByType,
+    getIngestionContents,
+    getOtherIngestionContents,
     getSortInput,
     getSourceStatus,
     getTotalEntitiesIngested,
@@ -409,6 +411,430 @@ describe('getSourceStatus', () => {
         const source = createSource(urn, [createExecutionRequest({ result: undefined })]);
         const result = getSourceStatus(source, new Set(), new Set());
         expect(result).toBe(EXECUTION_REQUEST_STATUS_PENDING);
+    });
+});
+
+describe('getIngestionContents', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getIngestionContents({} as Partial<ExecutionRequestResult>);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when aspects_by_subtypes is empty', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('processes dataset subtypes with lineage information correctly', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        container: {
+                            containerProperties: 156,
+                            container: 117,
+                        },
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                upstreamLineage: 5,
+                                datasetProfile: 10,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 10,
+                                datasetProfile: 20,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'Table',
+                count: 10,
+                percent: '50%',
+            },
+            {
+                title: 'View',
+                count: 20,
+                percent: '50%',
+            },
+        ]);
+    });
+
+    test('filters out subtypes with 0% lineage', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                upstreamLineage: 0,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 5,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'View',
+                count: 20,
+                percent: '25%',
+            },
+        ]);
+    });
+
+    test('filters out subtypes with status count of 0', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 0,
+                                upstreamLineage: 5,
+                            },
+                            View: {
+                                status: 20,
+                                upstreamLineage: 10,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'View',
+                count: 20,
+                percent: '50%',
+            },
+        ]);
+    });
+
+    test('handles missing upstreamLineage property', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                // upstreamLineage is missing
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('handles missing status property', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                // status is missing
+                                upstreamLineage: 5,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('calculates percentage correctly and rounds to nearest integer', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 7,
+                                upstreamLineage: 2, // 2/7 = 28.57...% rounds to 29%
+                            },
+                            View: {
+                                status: 3,
+                                upstreamLineage: 1, // 1/3 = 33.33...% rounds to 33%
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                title: 'Table',
+                count: 7,
+                percent: '29%',
+            },
+            {
+                title: 'View',
+                count: 3,
+                percent: '33%',
+            },
+        ]);
+    });
+});
+
+describe('getOtherIngestionContents', () => {
+    test('returns null when structured report is not available', () => {
+        const result = getOtherIngestionContents({} as Partial<ExecutionRequestResult>);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when aspects_by_subtypes is empty', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toBeNull();
+    });
+
+    test('processes multiple dataset subtypes and aggregates profiling and usage entries', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                datasetProfile: 5,
+                                datasetUsageStatistics: 3,
+                            },
+                            View: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 13, // 5 + 8
+                percent: '43%', // (13 / 30) * 100 = 43.33...% rounds to 43%
+            },
+            {
+                type: 'Usage',
+                count: 15, // 3 + 12
+                percent: '50%', // (15 / 30) * 100 = 50%
+            },
+        ]);
+    });
+
+    test('filters out subtypes with zero profiling and usage counts', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                datasetProfile: 0,
+                                datasetUsageStatistics: 0,
+                            },
+                            View: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 8,
+                percent: '27%', // (8 / 30) * 100 = 26.66...% rounds to 27%
+            },
+            {
+                type: 'Usage',
+                count: 12,
+                percent: '40%', // (12 / 30) * 100 = 40%
+            },
+        ]);
+    });
+
+    test('filters out subtypes with zero status count', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 0,
+                                datasetProfile: 5,
+                                datasetUsageStatistics: 3,
+                            },
+                            View: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 8,
+                percent: '40%', // (8 / 20) * 100 = 40%
+            },
+            {
+                type: 'Usage',
+                count: 12,
+                percent: '60%', // (12 / 20) * 100 = 60%
+            },
+        ]);
+    });
+
+    test('handles missing datasetProfile and datasetUsageStatistics properties', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 10,
+                                // datasetProfile and datasetUsageStatistics are missing
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                count: 0,
+                percent: '0%',
+                type: 'Usage',
+            },
+        ]);
+    });
+
+    test('ignores non-dataset entity types', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        container: {
+                            Container: {
+                                status: 10,
+                                datasetProfile: 5,
+                                datasetUsageStatistics: 3,
+                            },
+                        },
+                        dataset: {
+                            Table: {
+                                status: 20,
+                                datasetProfile: 8,
+                                datasetUsageStatistics: 12,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 8,
+                percent: '40%', // (8 / 20) * 100 = 40%
+            },
+            {
+                type: 'Usage',
+                count: 12,
+                percent: '60%', // (12 / 20) * 100 = 60%
+            },
+        ]);
+    });
+
+    test('calculates percentage correctly and rounds to nearest integer', () => {
+        const structuredReport = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 7,
+                                datasetProfile: 2, // 2/7 = 28.57...% rounds to 29%
+                                datasetUsageStatistics: 1, // 1/7 = 14.28...% rounds to 14%
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getOtherIngestionContents(mockExecutionRequestResult(structuredReport));
+        expect(result).toEqual([
+            {
+                type: 'Profiling',
+                count: 2,
+                percent: '29%',
+            },
+            {
+                type: 'Usage',
+                count: 1,
+                percent: '14%',
+            },
+        ]);
     });
 });
 

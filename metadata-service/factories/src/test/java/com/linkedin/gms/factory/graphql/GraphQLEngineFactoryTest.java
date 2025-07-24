@@ -16,7 +16,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
-import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
@@ -29,6 +28,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlySearchedSource;
 import com.linkedin.metadata.recommendation.candidatesource.RecentlyViewedSource;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.service.*;
 import com.linkedin.metadata.test.TestEngine;
@@ -277,11 +277,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockBean
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
-
-  @MockBean
-  @Qualifier("baseElasticSearchComponents")
-  private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
-      baseElasticSearchComponents;
 
   @MockBean
   @Qualifier("queryEngine")
@@ -540,6 +535,9 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
 
   @org.springframework.context.annotation.Configuration
   static class TestConfig {
+
+    @MockBean(name = "settingsBuilder")
+    public SettingsBuilder settingsBuilder;
 
     @Bean
     public SpringStandardPluginConfiguration springStandardPluginConfiguration() {

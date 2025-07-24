@@ -61,8 +61,10 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
 
                       Map<String, Object> systemMetadata =
                           entry.getValue().getSystemMetadata() != null
-                              ? objectMapper.convertValue(
-                                  entry.getValue().getSystemMetadata(), new TypeReference<>() {})
+                              ? objectMapper.readValue(
+                                  RecordUtils.toJsonString(entry.getValue().getSystemMetadata())
+                                      .getBytes(StandardCharsets.UTF_8),
+                                  new TypeReference<>() {})
                               : null;
                       Map<String, Object> auditStamp =
                           entry.getValue().getAuditStamp() != null

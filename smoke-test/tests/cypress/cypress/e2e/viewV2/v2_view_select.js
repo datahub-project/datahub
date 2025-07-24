@@ -21,7 +21,7 @@ describe("view select", () => {
     cy.ensureElementPresent("#browse-v2");
     // Create a View from the select
     cy.clickOptionWithTestId("views-icon");
-    cy.ensureElementPresent(".select-view-icon");
+    cy.ensureElementWithTestIdPresent("views-type-select");
     cy.clickOptionWithTestId("AddOutlinedIcon");
     cy.ensureElementPresent('[data-testid="view-name-input"]');
     cy.enterTextInTestId("view-name-input", viewName);
@@ -50,7 +50,7 @@ describe("view select", () => {
 
     // Now edit the view
     cy.clickOptionWithTestId("views-icon");
-    cy.ensureElementPresent(".select-view-icon");
+    cy.ensureElementWithTestIdPresent("views-type-select");
     openViewEditDropDownAndClickId("view-dropdown-edit");
     cy.clickOptionWithTestId("view-name-input").clear().type(newViewName);
 
@@ -70,13 +70,13 @@ describe("view select", () => {
     cy.clickOptionWithId("#v2-search-bar-views");
     cy.get('[data-testid="CloseIcon"]').last().click({ force: true });
     cy.clickOptionWithTestId("views-icon");
-    cy.ensureElementPresent(".select-view-icon");
+    cy.ensureElementWithTestIdPresent("views-type-select");
     openViewEditDropDownAndClickId("view-dropdown-remove-user-default");
 
     // Now delete the View
     cy.clickOptionWithId("#v2-search-bar-views");
     cy.clickOptionWithTestId("views-icon");
-    cy.ensureElementPresent(".select-view-icon");
+    cy.ensureElementWithTestIdPresent("views-type-select");
     openViewEditDropDownAndClickId("view-dropdown-delete");
     cy.clickOptionWithText("Yes");
 

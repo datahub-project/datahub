@@ -303,6 +303,118 @@ export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
+export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+
+    if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
+        return null;
+    }
+
+    let totalStatusCount = 0;
+    let totalDatasetProfileCount = 0;
+    let totalDatasetUsageStatisticsCount = 0;
+
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now - we have not decided on the design for non dataset entity types
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([_, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const dataSetProfileCount = (aspects as any)?.datasetProfile || 0;
+            const dataSetUsageStatisticsCount = (aspects as any)?.datasetUsageStatistics || 0;
+
+            totalStatusCount += statusCount;
+            totalDatasetProfileCount += dataSetProfileCount;
+            totalDatasetUsageStatisticsCount += dataSetUsageStatisticsCount;
+        });
+    });
+
+    if (totalStatusCount === 0) {
+        return null;
+    }
+
+    const result: Array<{ type: string; count: number; percent: string }> = [];
+
+    if (totalDatasetProfileCount > 0) {
+        const datasetProfilePercent = `${((totalDatasetProfileCount / totalStatusCount) * 100).toFixed(0)}%`;
+        result.push({
+            type: 'Profiling',
+            count: totalDatasetProfileCount,
+            percent: datasetProfilePercent,
+        });
+    }
+
+    if (totalDatasetUsageStatisticsCount > 0) {
+        const datasetUsageStatisticsPercent = `${((totalDatasetUsageStatisticsCount / totalStatusCount) * 100).toFixed(0)}%`;
+        result.push({
+            type: 'Usage',
+            count: totalDatasetUsageStatisticsCount,
+            percent: datasetUsageStatisticsPercent,
+        });
+    } else {
+        result.push({
+            type: 'Usage',
+            count: 0,
+            percent: '0%',
+        });
+    }
+
+    if (result.length === 0) {
+        return null;
+    }
+
+    return result;
+};
+
+export const getIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+
+    if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
+        return null;
+    }
+
+    const result: Array<{ title: string; count: number; percent: string }> = [];
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now - we have not decided on the design for non dataset entity types
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([subtype, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            const upstreamLineage = (aspects as any)?.upstreamLineage || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const percent = `${((upstreamLineage / statusCount) * 100).toFixed(0)}%`;
+            if (percent === '0%') {
+                return;
+            }
+            result.push({
+                title: subtype,
+                count: statusCount,
+                percent,
+            });
+        });
+    });
+    if (result.length === 0) {
+        return null;
+    }
+
+    return result;
+};
+
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
     if (!result) {
         return undefined;

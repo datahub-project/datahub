@@ -32,6 +32,7 @@ def stateful_pipeline_config(include_tables: bool) -> PipelineConfig:
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                 include_tables=include_tables,
                 incremental_lineage=False,
+                use_queries_v2=False,
                 stateful_ingestion=StatefulStaleMetadataRemovalConfig.parse_obj(
                     {
                         "enabled": True,

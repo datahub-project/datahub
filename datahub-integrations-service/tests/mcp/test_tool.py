@@ -84,6 +84,6 @@ def test_tools_from_fastmcp() -> None:
 
     with pytest.raises(
         ToolRunError,
-        match=re.compile(r"validation errors for call[\S\s]*filter", re.MULTILINE),
+        match=re.compile(r"validation error for call[\S\s]*filter", re.MULTILINE),
     ):
         search_tool.run({"query": "test", "filter": []})

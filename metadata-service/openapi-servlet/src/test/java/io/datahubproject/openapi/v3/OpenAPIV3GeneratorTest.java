@@ -233,16 +233,18 @@ public class OpenAPIV3GeneratorTest {
     Schema customProperties = properties.get("customProperties");
     assertNull(datasetPropertiesSchema.getRequired()); // not required due to defaults
     assertNull(customProperties.getNullable());
-    assertEquals(customProperties.getType(), "object");
     assertEquals(
-        customProperties.getTypes(),
-        Set.of("object")); // it is however still not optional, therefore null is not allowed
+        customProperties.getType(),
+        "object"); // it is however still not optional, therefore null is not allowed
 
     // Assert non-required properties are nullable
     Schema name = properties.get("name");
     assertNull(name.getNullable());
-    assertEquals(name.getType(), "string");
-    assertEquals(name.getTypes(), Set.of("string", "null"));
+    assertNull(name.getType());
+    assertNull(name.getTypes());
+    assertEquals(name.getOneOf().size(), 2);
+    assertTrue(name.getOneOf().stream().anyMatch(s -> "string".equals(((Schema<?>) s).getType())));
+    assertTrue(name.getOneOf().stream().anyMatch(s -> "null".equals(((Schema<?>) s).getType())));
 
     // Assert non-required $ref properties are replaced by nullable { anyOf: [ $ref ] } objects
     Schema created = properties.get("created");
@@ -297,8 +299,8 @@ public class OpenAPIV3GeneratorTest {
 
     Schema titleSchema = properties.get("title");
     assertNull(titleSchema.getNullable());
-    assertEquals(titleSchema.getTypes(), Set.of("string")); // null is not allowed
-    assertEquals(titleSchema.getType(), "string");
+    assertEquals(titleSchema.getType(), "string"); // null is not allowed
+    assertNull(titleSchema.getTypes());
 
     Schema changeAuditStampsSchema = properties.get("changeAuditStamps");
     assertNull(changeAuditStampsSchema.getNullable());

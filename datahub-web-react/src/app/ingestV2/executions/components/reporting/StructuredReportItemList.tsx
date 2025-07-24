@@ -16,9 +16,10 @@ interface Props {
     color: string;
     icon?: React.ComponentType<any>;
     pageSize?: number;
+    defaultActiveKey?: string;
 }
 
-export function StructuredReportItemList({ items, color, icon, pageSize = 3 }: Props) {
+export function StructuredReportItemList({ items, color, icon, pageSize = 3, defaultActiveKey }: Props) {
     const [visibleCount, setVisibleCount] = useState(pageSize);
     const visibleItems = items.slice(0, visibleCount);
     const totalCount = items.length;
@@ -31,6 +32,7 @@ export function StructuredReportItemList({ items, color, icon, pageSize = 3 }: P
                         item={item}
                         color={color}
                         icon={icon}
+                        defaultActiveKey={defaultActiveKey}
                         key={`${item.message}-${item.context}`}
                     />
                 ))}

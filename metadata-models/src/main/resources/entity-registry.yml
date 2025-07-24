@@ -49,6 +49,7 @@ entities:
       - partitionsSummary
       - versionProperties
       - icebergCatalogInfo
+      - logicalParent
 
       # SaaS Only
       - inferredNeighbors
@@ -640,6 +641,7 @@ entities:
       - testResults
       - deprecation
       - subTypes
+      - logicalParent
       # SaaS Only
       - schemaFieldProfile
       - lineageFeatures

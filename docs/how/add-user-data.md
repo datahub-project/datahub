@@ -62,8 +62,9 @@ source:
 
 # see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
-  ...
-
+ type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
 ```
 
 Use [DataHub CLI](../cli.md) to do the ingestion.

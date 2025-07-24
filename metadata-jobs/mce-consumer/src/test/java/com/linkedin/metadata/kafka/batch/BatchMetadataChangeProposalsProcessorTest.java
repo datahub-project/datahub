@@ -16,6 +16,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.codahale.metrics.Histogram;
@@ -48,12 +49,15 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.ArgumentCaptor;
@@ -641,6 +645,290 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Verify that the processing completed successfully
     verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
+  }
+
+  @Test
+  public void testMicrometerKafkaQueueTimeMetric() throws Exception {
+    // Setup a real MeterRegistry to capture metrics
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+
+    // Create operation context with metric utils
+    OperationContext opContextWithMetrics = mock(OperationContext.class);
+    when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
+
+    // Mock withQueueSpan to execute the runnable directly
+    doAnswer(
+            invocation -> {
+              Runnable runnable = invocation.getArgument(3);
+              runnable.run();
+              return null;
+            })
+        .when(opContextWithMetrics)
+        .withQueueSpan(anyString(), anyList(), anyString(), any(Runnable.class), any());
+
+    // Create processor with metrics-enabled context
+    BatchMetadataChangeProposalsProcessor processorWithMetrics =
+        new BatchMetadataChangeProposalsProcessor(
+            opContextWithMetrics,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockRegistry,
+            mockProvider);
+
+    // Set required fields
+    setProcessorFields(processorWithMetrics);
+
+    // Setup basic configuration
+    setupBasicConfiguration();
+
+    // Create MCP
+    MetadataChangeProposal mcp = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp);
+
+    // Set timestamp to simulate queue time
+    long messageTimestamp = System.currentTimeMillis() - 5000; // 5 seconds ago
+    when(mockConsumerRecord1.timestamp()).thenReturn(messageTimestamp);
+    when(mockConsumerRecord1.topic()).thenReturn("MetadataChangeProposal_v1");
+
+    // Execute
+    processorWithMetrics.consume(List.of(mockConsumerRecord1));
+
+    // Verify timer was recorded
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            "topic",
+            "MetadataChangeProposal_v1",
+            "consumer.group",
+            "MetadataChangeProposal-Consumer");
+
+    assertNotNull(timer);
+    assertEquals(timer.count(), 1);
+    assertTrue(timer.totalTime(TimeUnit.MILLISECONDS) >= 4000); // At least 4 seconds
+    assertTrue(timer.totalTime(TimeUnit.MILLISECONDS) <= 6000); // At most 6 seconds
+  }
+
+  @Test
+  public void testMicrometerKafkaQueueTimeWithMultipleRecords() throws Exception {
+    // Setup a real MeterRegistry
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+
+    // Create operation context with metric utils
+    OperationContext opContextWithMetrics = mock(OperationContext.class);
+    when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
+
+    // Mock withQueueSpan
+    doAnswer(
+            invocation -> {
+              Runnable runnable = invocation.getArgument(3);
+              runnable.run();
+              return null;
+            })
+        .when(opContextWithMetrics)
+        .withQueueSpan(anyString(), anyList(), anyString(), any(Runnable.class), any());
+
+    // Create processor
+    BatchMetadataChangeProposalsProcessor processorWithMetrics =
+        new BatchMetadataChangeProposalsProcessor(
+            opContextWithMetrics,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockRegistry,
+            mockProvider);
+
+    setProcessorFields(processorWithMetrics);
+    setupBasicConfiguration();
+
+    // Create MCPs
+    MetadataChangeProposal mcp1 = createSimpleMCP();
+    MetadataChangeProposal mcp2 = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp1);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(mcp2);
+
+    // Set different timestamps for different queue times
+    long now = System.currentTimeMillis();
+    when(mockConsumerRecord1.timestamp()).thenReturn(now - 2000); // 2 seconds ago
+    when(mockConsumerRecord1.topic()).thenReturn("MetadataChangeProposal_v1");
+
+    when(mockConsumerRecord2.timestamp()).thenReturn(now - 8000); // 8 seconds ago
+    when(mockConsumerRecord2.topic()).thenReturn("MetadataChangeProposal_v1");
+
+    // Execute
+    processorWithMetrics.consume(List.of(mockConsumerRecord1, mockConsumerRecord2));
+
+    // Verify timer was recorded twice
+    Timer timer =
+        meterRegistry.timer(
+            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            "topic",
+            "MetadataChangeProposal_v1",
+            "consumer.group",
+            "MetadataChangeProposal-Consumer");
+
+    assertEquals(timer.count(), 2);
+    // Average should be around 5 seconds ((2 + 8) / 2)
+    assertTrue(timer.mean(TimeUnit.MILLISECONDS) >= 4000);
+    assertTrue(timer.mean(TimeUnit.MILLISECONDS) <= 6000);
+  }
+
+  @Test
+  public void testMicrometerKafkaQueueTimeWithDifferentTopics() throws Exception {
+    // Setup a real MeterRegistry
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+
+    // Create operation context with metric utils
+    OperationContext opContextWithMetrics = mock(OperationContext.class);
+    when(opContextWithMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
+
+    // Mock withQueueSpan
+    doAnswer(
+            invocation -> {
+              Runnable runnable = invocation.getArgument(3);
+              runnable.run();
+              return null;
+            })
+        .when(opContextWithMetrics)
+        .withQueueSpan(anyString(), anyList(), anyString(), any(Runnable.class), any());
+
+    // Create processor
+    BatchMetadataChangeProposalsProcessor processorWithMetrics =
+        new BatchMetadataChangeProposalsProcessor(
+            opContextWithMetrics,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockRegistry,
+            mockProvider);
+
+    setProcessorFields(processorWithMetrics);
+    setupBasicConfiguration();
+
+    // Create MCPs
+    MetadataChangeProposal mcp1 = createSimpleMCP();
+    MetadataChangeProposal mcp2 = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp1);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(mcp2);
+
+    // Set different topics
+    long now = System.currentTimeMillis();
+    when(mockConsumerRecord1.timestamp()).thenReturn(now - 3000);
+    when(mockConsumerRecord1.topic()).thenReturn("MetadataChangeProposal_v1");
+
+    when(mockConsumerRecord2.timestamp()).thenReturn(now - 5000);
+    when(mockConsumerRecord2.topic()).thenReturn("MetadataChangeProposal_Timeseries");
+
+    // Execute separately to simulate different topics
+    processorWithMetrics.consume(List.of(mockConsumerRecord1));
+    processorWithMetrics.consume(List.of(mockConsumerRecord2));
+
+    // Verify separate timers for different topics
+    Timer timer1 =
+        meterRegistry.timer(
+            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            "topic",
+            "MetadataChangeProposal_v1",
+            "consumer.group",
+            "MetadataChangeProposal-Consumer");
+
+    Timer timer2 =
+        meterRegistry.timer(
+            MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+            "topic",
+            "MetadataChangeProposal_Timeseries",
+            "consumer.group",
+            "MetadataChangeProposal-Consumer");
+
+    assertEquals(timer1.count(), 1);
+    assertEquals(timer2.count(), 1);
+
+    // Verify different queue times
+    assertTrue(timer1.totalTime(TimeUnit.MILLISECONDS) >= 2500);
+    assertTrue(timer1.totalTime(TimeUnit.MILLISECONDS) <= 3500);
+
+    assertTrue(timer2.totalTime(TimeUnit.MILLISECONDS) >= 4500);
+    assertTrue(timer2.totalTime(TimeUnit.MILLISECONDS) <= 5500);
+  }
+
+  @Test
+  public void testMicrometerMetricsAbsentWhenRegistryNotPresent() throws Exception {
+    // Create MetricUtils without a registry
+    MetricUtils metricUtilsNoRegistry = MetricUtils.builder().registry(null).build();
+
+    // Create operation context with metric utils that has no registry
+    OperationContext opContextNoRegistry = mock(OperationContext.class);
+    when(opContextNoRegistry.getMetricUtils()).thenReturn(Optional.of(metricUtilsNoRegistry));
+
+    // Mock withQueueSpan
+    doAnswer(
+            invocation -> {
+              Runnable runnable = invocation.getArgument(3);
+              runnable.run();
+              return null;
+            })
+        .when(opContextNoRegistry)
+        .withQueueSpan(anyString(), anyList(), anyString(), any(Runnable.class), any());
+
+    // Create processor
+    BatchMetadataChangeProposalsProcessor processorNoRegistry =
+        new BatchMetadataChangeProposalsProcessor(
+            opContextNoRegistry,
+            entityClient,
+            mockKafkaProducer,
+            mockKafkaThrottle,
+            mockRegistry,
+            mockProvider);
+
+    setProcessorFields(processorNoRegistry);
+    setupBasicConfiguration();
+
+    // Create MCP
+    MetadataChangeProposal mcp = createSimpleMCP();
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(mcp);
+
+    when(mockConsumerRecord1.timestamp()).thenReturn(System.currentTimeMillis() - 1000);
+
+    // Execute - should not throw exception
+    processorNoRegistry.consume(List.of(mockConsumerRecord1));
+  }
+
+  // Helper methods to reduce duplication
+  private void setProcessorFields(BatchMetadataChangeProposalsProcessor processor)
+      throws Exception {
+    java.lang.reflect.Field field =
+        BatchMetadataChangeProposalsProcessor.class.getDeclaredField("fmcpTopicName");
+    field.setAccessible(true);
+    field.set(processor, Topics.FAILED_METADATA_CHANGE_PROPOSAL);
+
+    field = BatchMetadataChangeProposalsProcessor.class.getDeclaredField("mceConsumerGroupId");
+    field.setAccessible(true);
+    field.set(processor, "MetadataChangeProposal-Consumer");
+  }
+
+  private void setupBasicConfiguration() {
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(
+            new MetadataChangeProposalConfig()
+                .setConsumer(
+                    new MetadataChangeProposalConfig.ConsumerBatchConfig()
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
+  }
+
+  private MetadataChangeProposal createSimpleMCP() {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setSystemMetadata(new SystemMetadata());
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setEntityUrn(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)"));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+    mcp.setEntityType("dataset");
+    mcp.setAspectName("status");
+    return mcp;
   }
 
   // Helper method to create an MCP with a specific aspect value size

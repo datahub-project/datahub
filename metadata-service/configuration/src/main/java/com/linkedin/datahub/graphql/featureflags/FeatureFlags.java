@@ -45,6 +45,8 @@ public class FeatureFlags {
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;
   private boolean showProductUpdates = false;
+  private boolean logicalModelsEnabled = false;
+  private boolean showHomepageUserRole = false;
   private boolean viewIngestionSourcePrivilegesEnabled = false;
 
   /* SaaS Only */

@@ -176,6 +176,7 @@ public class ChangeItemImpl implements ChangeMCP {
         // generate default
         systemMetadata(null);
       }
+      this.systemMetadata = SystemMetadataUtils.setAspectModified(this.systemMetadata, auditStamp);
 
       return new ChangeItemImpl(
           this.changeType,

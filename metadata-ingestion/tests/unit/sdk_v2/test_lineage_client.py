@@ -1,6 +1,6 @@
 import pathlib
 from typing import Dict, List, Optional, Sequence, Set, cast
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -141,7 +141,6 @@ def test_infer_lineage_from_sql(client: DataHubClient) -> None:
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
         ],
         query_type=QueryType.SELECT,
-        debug_info=MagicMock(error=None, table_error=None),
     )
 
     query_text = (
@@ -197,7 +196,6 @@ def test_infer_lineage_from_sql_with_multiple_upstreams(
             ),
         ],
         query_type=QueryType.SELECT,
-        debug_info=MagicMock(error=None, table_error=None),
     )
 
     query_text = """

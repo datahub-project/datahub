@@ -31,7 +31,7 @@ public class ElasticSearchSystemMetadataServiceFactory {
             components.getSearchClient(),
             components.getIndexConvention(),
             components.getBulkProcessor(),
-            components.getNumRetries(),
+            components.getConfig().getBulkProcessor().getNumRetries(),
             configurationProvider.getSystemMetadataService()),
         components.getIndexBuilder(),
         elasticIdHashAlgo,

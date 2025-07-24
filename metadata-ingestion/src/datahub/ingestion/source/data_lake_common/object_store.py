@@ -1,3 +1,4 @@
+import re
 from abc import ABC, abstractmethod
 
 # Add imports for source customization
@@ -236,42 +237,76 @@ class ABSObjectStore(ObjectStoreInterface):
     """Implementation of ObjectStoreInterface for Azure Blob Storage."""
 
     PREFIX = "abfss://"
+    HTTPS_REGEX = re.compile(r"(https?://[a-z0-9]{3,24}\.blob\.core\.windows\.net/)")
 
     @classmethod
     def is_uri(cls, uri: str) -> bool:
-        return uri.startswith(cls.PREFIX)
+        return uri.startswith(cls.PREFIX) or bool(cls.HTTPS_REGEX.match(uri))
 
     @classmethod
     def get_prefix(cls, uri: str) -> Optional[str]:
         if uri.startswith(cls.PREFIX):
             return cls.PREFIX
+
+        # Check for HTTPS format
+        match = cls.HTTPS_REGEX.match(uri)
+        if match:
+            return match.group(1)
+
         return None
 
     @classmethod
     def strip_prefix(cls, uri: str) -> str:
-        prefix = cls.get_prefix(uri)
-        if not prefix:
-            raise ValueError(f"Not an ABS URI. Must start with prefix: {cls.PREFIX}")
-        return uri[len(prefix) :]
+        if uri.startswith(cls.PREFIX):
+            return uri[len(cls.PREFIX) :]
+
+        # Handle HTTPS format
+        match = cls.HTTPS_REGEX.match(uri)
+        if match:
+            return uri[len(match.group(1)) :]
+
+        raise ValueError(
+            f"Not an ABS URI. Must start with prefix: {cls.PREFIX} or match Azure Blob Storage HTTPS pattern"
+        )
 
     @classmethod
     def get_bucket_name(cls, uri: str) -> str:
         if not cls.is_uri(uri):
-            raise ValueError(f"Not an ABS URI. Must start with prefix: {cls.PREFIX}")
-        return cls.strip_prefix(uri).split("@")[0]
+            raise ValueError(
+                f"Not an ABS URI. Must start with prefix: {cls.PREFIX} or match Azure Blob Storage HTTPS pattern"
+            )
+
+        if uri.startswith(cls.PREFIX):
+            # abfss://container@account.dfs.core.windows.net/path
+            return cls.strip_prefix(uri).split("@")[0]
+        else:
+            # https://account.blob.core.windows.net/container/path
+            return cls.strip_prefix(uri).split("/")[0]
 
     @classmethod
     def get_object_key(cls, uri: str) -> str:
         if not cls.is_uri(uri):
-            raise ValueError(f"Not an ABS URI. Must start with prefix: {cls.PREFIX}")
-        parts = cls.strip_prefix(uri).split("@", 1)
-        if len(parts) < 2:
-            return ""
-        account_path = parts[1]
-        path_parts = account_path.split("/", 1)
-        if len(path_parts) < 2:
-            return ""
-        return path_parts[1]
+            raise ValueError(
+                f"Not an ABS URI. Must start with prefix: {cls.PREFIX} or match Azure Blob Storage HTTPS pattern"
+            )
+
+        if uri.startswith(cls.PREFIX):
+            # abfss://container@account.dfs.core.windows.net/path
+            parts = cls.strip_prefix(uri).split("@", 1)
+            if len(parts) < 2:
+                return ""
+            account_path = parts[1]
+            path_parts = account_path.split("/", 1)
+            if len(path_parts) < 2:
+                return ""
+            return path_parts[1]
+        else:
+            # https://account.blob.core.windows.net/container/path
+            stripped = cls.strip_prefix(uri)
+            parts = stripped.split("/", 1)
+            if len(parts) < 2:
+                return ""
+            return parts[1]
 
 
 # Registry of all object store implementations
@@ -331,6 +366,12 @@ def get_object_store_bucket_name(uri: str) -> str:
         return uri[prefix_length:].split("/")[0]
     elif uri.startswith(ABSObjectStore.PREFIX):
         return uri[len(ABSObjectStore.PREFIX) :].split("@")[0]
+    elif ABSObjectStore.HTTPS_REGEX.match(uri):
+        # Handle HTTPS Azure Blob Storage URLs
+        match = ABSObjectStore.HTTPS_REGEX.match(uri)
+        if match:
+            stripped = uri[len(match.group(1)) :]
+            return stripped.split("/")[0]
 
     raise ValueError(f"Unsupported URI format: {uri}")
 
@@ -470,18 +511,25 @@ class ObjectStoreSourceAdapter:
         if not ABSObjectStore.is_uri(table_data.table_path):
             return None
 
-        # Parse the ABS URI
         try:
-            # URI format: abfss://container@account.dfs.core.windows.net/path
-            path_without_prefix = ABSObjectStore.strip_prefix(table_data.table_path)
-            parts = path_without_prefix.split("@", 1)
-            if len(parts) < 2:
-                return None
+            if table_data.table_path.startswith("abfss://"):
+                # URI format: abfss://container@account.dfs.core.windows.net/path
+                path_without_prefix = ABSObjectStore.strip_prefix(table_data.table_path)
+                parts = path_without_prefix.split("@", 1)
+                if len(parts) < 2:
+                    return None
 
-            container_name = parts[0]
-            account_parts = parts[1].split("/", 1)
-            account_domain = account_parts[0]
-            account_name = account_domain.split(".")[0]
+                container_name = parts[0]
+                account_parts = parts[1].split("/", 1)
+                account_domain = account_parts[0]
+                account_name = account_domain.split(".")[0]
+            else:
+                # Handle HTTPS format: https://account.blob.core.windows.net/container/path
+                container_name = ABSObjectStore.get_bucket_name(table_data.table_path)
+                if "blob.core.windows.net" in table_data.table_path:
+                    account_name = table_data.table_path.split("//")[1].split(".")[0]
+                else:
+                    return None
 
             # Construct Azure portal URL
             return f"https://portal.azure.com/#blade/Microsoft_Azure_Storage/ContainerMenuBlade/overview/storageAccountId/{account_name}/containerName/{container_name}"

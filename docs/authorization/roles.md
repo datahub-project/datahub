@@ -130,6 +130,7 @@ These privileges are common to both Self-Hosted DataHub and DataHub Cloud.
 | Edit Tag Color                     | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to change the color of a Tag.                                                        |
 | Edit Lineage                       | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to add and remove lineage edges for this entity.                                     |
 | Edit Dataset Queries               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the Queries for a Dataset.                                                   |
+| Execute Entity                     | :heavy_check_mark: | :x:                | :x:                | The ability to execute ingestion for an Entity.                                                  |
 | Manage Data Products               | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to create, edit, and delete Data Products within a Domain                            |
 | Edit Properties                    | :heavy_check_mark: | :heavy_check_mark: | :x:                | The ability to edit the properties for an entity.                                                |
 | Edit Owners                        | :heavy_check_mark: | :x:                | :x:                | The ability to add and remove owners of an entity.                                               |

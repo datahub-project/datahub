@@ -52,7 +52,7 @@ query getMe {
                 }
                 homePage {
                     pageTemplate {
-                        ...pageTemplateFields
+                        ...PageTemplate
                     }
                     dismissedAnnouncementUrns
                 }

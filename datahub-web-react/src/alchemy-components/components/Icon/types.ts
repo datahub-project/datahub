@@ -1,7 +1,12 @@
 import { HTMLAttributes } from 'react';
 
 import { AVAILABLE_ICONS } from '@components/components/Icon/constants';
-import type { FontColorOptions, FontSizeOptions, RotationOptions } from '@components/theme/config';
+import type {
+    FontColorLevelOptions,
+    FontColorOptions,
+    FontSizeOptions,
+    RotationOptions,
+} from '@components/theme/config';
 
 // Utility function to create an enum from an array of strings
 function createEnum<T extends string>(values: T[]): { [K in T]: K } {
@@ -24,6 +29,7 @@ export interface IconPropsDefaults {
     weight?: PhosphorIconWeight;
     size: FontSizeOptions;
     color: FontColorOptions;
+    colorLevel?: FontColorLevelOptions;
     rotate: RotationOptions;
 }
 

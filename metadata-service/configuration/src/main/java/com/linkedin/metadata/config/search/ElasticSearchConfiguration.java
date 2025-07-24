@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder(toBuilder = true)
 public class ElasticSearchConfiguration {
+  private BulkDeleteConfiguration bulkDelete;
+  private BulkProcessorConfiguration bulkProcessor;
   private BuildIndicesConfiguration buildIndices;
   public String implementation;
   private SearchConfiguration search;

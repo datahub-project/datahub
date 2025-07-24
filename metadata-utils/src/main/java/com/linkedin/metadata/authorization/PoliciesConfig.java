@@ -233,6 +233,12 @@ public class PoliciesConfig {
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
+  public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_HOME_PAGE_TEMPLATES",
+          "Manage Home Page Templates",
+          "Privilege allowing users to manage the default home page template and the global modules in it.");
+
   // Acryl-Main only.
   public static final Privilege MANAGE_MONITORS =
       Privilege.of(
@@ -298,6 +304,8 @@ public class PoliciesConfig {
           VIEW_DOCUMENTATION_FORMS_PAGE_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          GET_PLATFORM_EVENTS_PRIVILEGE,
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
           GET_PLATFORM_EVENTS_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_MONITORS,
