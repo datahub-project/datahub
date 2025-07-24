@@ -6,19 +6,9 @@ import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOper
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 import { PageTemplateContextState } from '@app/homeV3/context/types';
 
-import { PageTemplateFragment } from '@graphql/template.generated';
-
 const PageTemplateContext = createContext<PageTemplateContextState | undefined>(undefined);
 
-export const PageTemplateProvider = ({
-    personalTemplate: initialPersonalTemplate,
-    globalTemplate: initialGlobalTemplate,
-    children,
-}: {
-    personalTemplate: PageTemplateFragment | null | undefined;
-    globalTemplate: PageTemplateFragment | null | undefined;
-    children: ReactNode;
-}) => {
+export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
     // Template state management
     const {
         personalTemplate,
@@ -29,7 +19,7 @@ export const PageTemplateProvider = ({
         setPersonalTemplate,
         setGlobalTemplate,
         setTemplate,
-    } = useTemplateState(initialPersonalTemplate, initialGlobalTemplate);
+    } = useTemplateState();
 
     // Template operations
     const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
@@ -97,6 +87,3 @@ export function usePageTemplateContext() {
     }
     return context;
 }
-
-// Re-export types for convenience
-export type { UpsertModuleInput, AddModuleInput, RemoveModuleInput } from './types';

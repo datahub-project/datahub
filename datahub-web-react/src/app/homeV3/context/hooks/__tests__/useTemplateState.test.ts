@@ -1,10 +1,24 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
+import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
+import { useUserContext } from '@app/context/useUserContext';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
+
+// Mock the dependencies
+vi.mock('@app/context/GlobalSettingsContext', () => ({
+    useGlobalSettings: vi.fn(),
+}));
+
+vi.mock('@app/context/useUserContext', () => ({
+    useUserContext: vi.fn(),
+}));
+
+const mockUseGlobalSettings = vi.mocked(useGlobalSettings);
+const mockUseUserContext = vi.mocked(useUserContext);
 
 // Mock template data
 const mockPersonalTemplate: PageTemplateFragment = {
@@ -64,7 +78,26 @@ describe('useTemplateState', () => {
 
     describe('initialization', () => {
         it('should initialize with personal template when provided', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
+                },
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: mockPersonalTemplate,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(mockPersonalTemplate);
             expect(result.current.globalTemplate).toBe(mockGlobalTemplate);
@@ -73,7 +106,26 @@ describe('useTemplateState', () => {
         });
 
         it('should initialize with global template when personal template is null', () => {
-            const { result } = renderHook(() => useTemplateState(null, mockGlobalTemplate));
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
+                },
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: null,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(null);
             expect(result.current.globalTemplate).toBe(mockGlobalTemplate);
@@ -82,7 +134,26 @@ describe('useTemplateState', () => {
         });
 
         it('should initialize with null when both templates are null', () => {
-            const { result } = renderHook(() => useTemplateState(null, null));
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: null,
+                    },
+                },
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: null,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(null);
             expect(result.current.globalTemplate).toBe(null);
@@ -91,7 +162,50 @@ describe('useTemplateState', () => {
         });
 
         it('should handle undefined templates', () => {
-            const { result } = renderHook(() => useTemplateState(undefined, undefined));
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: undefined,
+                },
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: undefined,
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
+
+            expect(result.current.personalTemplate).toBe(null);
+            expect(result.current.globalTemplate).toBe(null);
+            expect(result.current.template).toBe(null);
+            expect(result.current.isEditingGlobalTemplate).toBe(false);
+        });
+
+        it('should not initialize templates when contexts are not loaded', () => {
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
+                },
+                loaded: false,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: mockPersonalTemplate,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(null);
             expect(result.current.globalTemplate).toBe(null);
@@ -101,8 +215,29 @@ describe('useTemplateState', () => {
     });
 
     describe('template switching', () => {
+        beforeEach(() => {
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
+                },
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: mockPersonalTemplate,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+        });
+
         it('should switch to global template when editing global template', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -113,7 +248,7 @@ describe('useTemplateState', () => {
         });
 
         it('should switch back to personal template when not editing global template', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -128,13 +263,24 @@ describe('useTemplateState', () => {
         });
 
         it('should use global template when personal template is null and not editing global', () => {
-            const { result } = renderHook(() => useTemplateState(null, mockGlobalTemplate));
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: null,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.template).toBe(mockGlobalTemplate);
         });
 
         it('should use global template when editing global template even if personal exists', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -145,8 +291,29 @@ describe('useTemplateState', () => {
     });
 
     describe('template updates', () => {
+        beforeEach(() => {
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
+                },
+                loaded: true,
+            });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: mockPersonalTemplate,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+        });
+
         it('should update personal template when not editing global', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             const newTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -168,7 +335,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update global template when editing global', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             const newTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -194,7 +361,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update personal template directly', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             const newPersonalTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -215,7 +382,7 @@ describe('useTemplateState', () => {
         });
 
         it('should update global template directly', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             const newTemplate: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:new',
@@ -236,7 +403,7 @@ describe('useTemplateState', () => {
         });
 
         it('should set template to null', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setTemplate(null);
@@ -249,28 +416,61 @@ describe('useTemplateState', () => {
 
     describe('memoization', () => {
         it('should memoize template selection correctly', () => {
-            const { result, rerender } = renderHook(({ personal, global }) => useTemplateState(personal, global), {
-                initialProps: {
-                    personal: mockPersonalTemplate,
-                    global: mockGlobalTemplate,
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
                 },
+                loaded: true,
             });
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: mockPersonalTemplate,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result, rerender } = renderHook(() => useTemplateState());
 
             const initialTemplate = result.current.template;
 
-            // Rerender with same props
-            rerender({
-                personal: mockPersonalTemplate,
-                global: mockGlobalTemplate,
-            });
+            // Rerender
+            rerender();
 
             expect(result.current.template).toBe(initialTemplate);
         });
     });
 
     describe('edge cases', () => {
+        beforeEach(() => {
+            mockUseGlobalSettings.mockReturnValue({
+                settings: {
+                    globalHomePageSettings: {
+                        defaultTemplate: mockGlobalTemplate,
+                    },
+                },
+                loaded: true,
+            });
+        });
+
         it('should handle switching to global editing when personal template is null', () => {
-            const { result } = renderHook(() => useTemplateState(null, mockGlobalTemplate));
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: null,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -280,7 +480,18 @@ describe('useTemplateState', () => {
         });
 
         it('should handle switching back to personal when personal template is null', () => {
-            const { result } = renderHook(() => useTemplateState(null, mockGlobalTemplate));
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: null,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
@@ -294,7 +505,18 @@ describe('useTemplateState', () => {
         });
 
         it('should handle setting template to null when editing global', () => {
-            const { result } = renderHook(() => useTemplateState(mockPersonalTemplate, mockGlobalTemplate));
+            mockUseUserContext.mockReturnValue({
+                user: {
+                    settings: {
+                        homePage: {
+                            pageTemplate: mockPersonalTemplate,
+                        },
+                    },
+                },
+                loaded: true,
+            } as any);
+
+            const { result } = renderHook(() => useTemplateState());
 
             act(() => {
                 result.current.setIsEditingGlobalTemplate(true);
