@@ -73,9 +73,8 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         default=None,
     )
     override_dialect: Optional[str] = Field(
-        description="DEPRECATED: This field is ignored. SQL dialect detection is now handled automatically by the SQL parsing aggregator based on the platform.",
+        description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
         default=None,
-        hidden_from_docs=True,
     )
 
 
@@ -230,6 +229,7 @@ class SqlQueriesSource(Source):
                     session_id=query_entry.session_id,
                     default_db=self.config.default_db,
                     default_schema=self.config.default_schema,
+                    override_dialect=self.config.override_dialect,
                 )
                 self.aggregator.add_observed_query(observed_query)
 
