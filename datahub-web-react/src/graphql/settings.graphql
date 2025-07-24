@@ -84,6 +84,7 @@ query getGlobalSettings {
             slackSettings {
                 defaultChannelName
                 botToken
+                datahubAtMentionEnabled
             }
             emailSettings {
                 defaultEmail

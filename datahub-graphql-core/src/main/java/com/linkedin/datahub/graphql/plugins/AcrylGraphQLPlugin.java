@@ -819,7 +819,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         typeWiring ->
             typeWiring.dataFetcher(
                 "updateGlobalSettings",
-                new UpdateGlobalSettingsResolver(entityClient, secretService)));
+                new UpdateGlobalSettingsResolver(
+                    entityClient, secretService, integrationsService)));
   }
 
   private void configureTestResolvers(final RuntimeWiring.Builder builder) {

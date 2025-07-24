@@ -4,7 +4,7 @@ from typing import Optional
 import typer
 from loguru import logger
 
-from datahub_integrations.slack.config import SlackConnection
+from datahub_integrations.slack.config import SlackConnection, SlackGlobalSettings
 from datahub_integrations.slack.constants import DATAHUB_SLACK_ICON_URL
 from datahub_integrations.slack.slack import get_slack_app, get_slack_link_preview
 
@@ -24,14 +24,14 @@ def send_message(
     if config_path:
         logger.info(f"Reading config from {config_path}")
         slack_details = pathlib.Path(config_path)
-        config = SlackConnection.model_validate_json(slack_details.read_text())
+        connection = SlackConnection.model_validate_json(slack_details.read_text())
     else:
         logger.info("No config file provided, using default config")
         from datahub_integrations.slack.config import slack_config
 
-        config = slack_config.get_config()
+        connection = slack_config.get_connection()
 
-    app = get_slack_app(config)
+    app = get_slack_app(connection, SlackGlobalSettings())
 
     app.client.chat_postMessage(
         channel=channel,

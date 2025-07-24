@@ -40,12 +40,13 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 
 ## Slack Integration
 
-| Variable                                           | Default | Unit/Type | Components               | Description                                                                                                                        |
-| -------------------------------------------------- | ------- | --------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED` | `true`  | boolean   | [`GMS`]                  | Controls whether some Slack notification types are routed to the integrations service for decoration and additional functionality. |
-| `REQUEST_MINIMAL_SLACK_PERMISSIONS`                | `false` | boolean   | [`GMS`]                  | If turned on, request minimal required slack permissions for Slack integration.                                                    |
-| `STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED`         | `false` | boolean   | [`Integrations Service`] | Enables updating messages based on state recorded in datahub-gms backend.                                                          |
-| `DATAHUB_SLACK_AT_MENTION_ENABLED`                 | `false` | boolean   | [`Integrations Service`] | Enables the Slackbot, which replies to the @datahub mentions.                                                                      |
+| Variable                                           | Default | Unit/Type | Components               | Description                                                                                                                                                                      |
+| -------------------------------------------------- | ------- | --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED` | `true`  | boolean   | [`GMS`]                  | Controls whether some Slack notification types are routed to the integrations service for decoration and additional functionality.                                               |
+| `REQUEST_MINIMAL_SLACK_PERMISSIONS`                | `false` | boolean   | [`GMS`]                  | If turned on, request minimal required slack permissions for Slack integration.                                                                                                  |
+| `STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED`         | `false` | boolean   | [`Integrations Service`] | Enables updating messages based on state recorded in datahub-gms backend.                                                                                                        |
+| `SLACK_AT_MENTION_DEFAULT_ENABLED`                 | `false` | boolean   | [`GMS`]                  | Default value for @DataHub bot mentions when not explicitly configured via UI. Replaces `DATAHUB_SLACK_AT_MENTION_ENABLED` in v0.3.13.                                           |
+| `DATAHUB_SLACK_AT_MENTION_ENABLED`                 | `false` | boolean   | [`Integrations Service`] | **Removed in v0.3.13**: Enables the Slackbot, which replies to the @datahub mentions. Replaced by admin-configurable UI toggle with `SLACK_AT_MENTION_DEFAULT_ENABLED` fallback. |
 
 ## Classification
 

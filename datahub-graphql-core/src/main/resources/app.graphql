@@ -791,6 +791,11 @@ type SlackIntegrationSettings {
   Deprecated! Use connection entity instead.
   """
   botToken: String
+
+  """
+  Whether the Slack @DataHub bot mention functionality is enabled.
+  """
+  datahubAtMentionEnabled: Boolean!
 }
 
 """
@@ -1128,6 +1133,11 @@ input UpdateSlackIntegrationSettingsInput {
   Deprecated! Use upsertConnection to create slack connections instead.
   """
   botToken: String
+
+  """
+  Whether the Slack @DataHub bot mention functionality is enabled.
+  """
+  datahubAtMentionEnabled: Boolean
 }
 
 """

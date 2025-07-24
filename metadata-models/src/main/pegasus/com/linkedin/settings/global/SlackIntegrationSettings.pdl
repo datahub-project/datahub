@@ -25,4 +25,10 @@ record SlackIntegrationSettings {
    * A default slack channel to use.
    */
   defaultChannelName: optional string
+
+  /**
+   * Whether the Slack @DataHub bot mention functionality is enabled.
+   * If null, use the default value from feature flags.
+   */
+  datahubAtMentionEnabled: optional boolean
 }

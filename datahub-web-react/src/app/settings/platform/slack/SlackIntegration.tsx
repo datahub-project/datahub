@@ -37,7 +37,7 @@ import {
     useGetIntegrationSettingsQuery,
     useUpdateGlobalIntegrationSettingsMutation,
 } from '@graphql/settings.generated';
-import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '@types';
+import { DataHubConnectionDetailsType } from '@types';
 
 import slackLogo from '@images/slacklogo.png';
 
@@ -122,11 +122,11 @@ export const SlackIntegration = () => {
     const appConfig = useAppConfig();
 
     const isBotTokensTabVisible = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
-    const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
     const [selectTypeValue, setSelectTypeValue] = useState<string>(APP_CONFIG_SELECT_ID);
 
     const { data, loading, error, refetch } = useGetIntegrationSettingsQuery({ fetchPolicy: 'cache-first' });
+    const settings = data?.globalSettings?.integrationSettings?.slackSettings ?? DEFAULT_SETTINGS;
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
     const { data: connData, loading: connLoading } = useConnectionQuery({
         variables: {
@@ -148,12 +148,6 @@ export const SlackIntegration = () => {
             }
         }
     }, [slackConnData, connection, isBotTokensTabVisible]);
-
-    useEffect(() => {
-        if (data?.globalSettings?.integrationSettings?.slackSettings) {
-            setSettings(data?.globalSettings?.integrationSettings?.slackSettings);
-        }
-    }, [data, setSettings]);
 
     const updateSlackConnection = (isUsingAppConfigTokens: boolean, onComplete?: () => void) => {
         upsertConnection({

@@ -247,7 +247,7 @@ def update_app_with_manifest(
 
 
 if __name__ == "__main__":
-    config = slack_config.get_config()
+    config = slack_config.get_connection()
     logger.debug(f"Config: {config.json(indent=2)}")
 
     manifest = get_slack_app_manifest(is_minimal_permissions=None)

@@ -32,6 +32,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -62,7 +63,7 @@ public class UpdateGlobalSettingsResolverTest {
   public void setUp() {
     TEST_INPUT.setIntegrationSettings(
         new UpdateGlobalIntegrationSettingsInput(
-            new UpdateSlackIntegrationSettingsInput("channel", "token"),
+            new UpdateSlackIntegrationSettingsInput("channel", "token", true),
             new UpdateEmailIntegrationSettingsInput("test@test.com")));
     TEST_INPUT.setNotificationSettings(
         new UpdateGlobalNotificationSettingsInput(
@@ -123,8 +124,10 @@ public class UpdateGlobalSettingsResolverTest {
     Mockito.when(mockSecretService.encrypt("token")).thenReturn("token");
     Mockito.when(mockSecretService.encrypt(CLIENT_SECRET_VALUE)).thenReturn(CLIENT_SECRET_VALUE);
 
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
     UpdateGlobalSettingsResolver resolver =
-        new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService, mockIntegrationsService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -151,9 +154,10 @@ public class UpdateGlobalSettingsResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     SecretService mockSecretService = Mockito.mock(SecretService.class);
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
 
     UpdateGlobalSettingsResolver resolver =
-        new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService, mockIntegrationsService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -176,8 +180,10 @@ public class UpdateGlobalSettingsResolverTest {
         .when(mockClient)
         .ingestProposal(any(OperationContext.class), Mockito.any());
 
+    IntegrationsService mockIntegrationsService = Mockito.mock(IntegrationsService.class);
+
     UpdateGlobalSettingsResolver resolver =
-        new UpdateGlobalSettingsResolver(mockClient, mockSecretService);
+        new UpdateGlobalSettingsResolver(mockClient, mockSecretService, mockIntegrationsService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -193,7 +199,10 @@ public class UpdateGlobalSettingsResolverTest {
     globalSettingsInfo.setIntegrations(
         new GlobalIntegrationSettings()
             .setSlackSettings(
-                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test"))
+                new SlackIntegrationSettings()
+                    .setEnabled(true)
+                    .setDefaultChannelName("test")
+                    .setDatahubAtMentionEnabled(true))
             .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com")));
     NotificationSettingMap map = new NotificationSettingMap();
     map.put(

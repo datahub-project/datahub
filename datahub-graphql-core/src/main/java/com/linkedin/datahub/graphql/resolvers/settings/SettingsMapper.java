@@ -117,6 +117,19 @@ public class SettingsMapper {
     if (input.hasEncryptedBotToken()) {
       result.setBotToken(_secretService.decrypt(input.getEncryptedBotToken()));
     }
+
+    // Resolve datahubAtMentionEnabled based on AI features, explicit setting, or feature flag
+    // fallback.
+    boolean isEnabled;
+    if (!_featureFlags.isAiFeaturesEnabled()) {
+      isEnabled = false;
+    } else if (input.hasDatahubAtMentionEnabled()) {
+      isEnabled = input.isDatahubAtMentionEnabled();
+    } else {
+      isEnabled = _featureFlags.isSlackAtMentionDefaultEnabled();
+    }
+    result.setDatahubAtMentionEnabled(isEnabled);
+
     return result;
   }
 

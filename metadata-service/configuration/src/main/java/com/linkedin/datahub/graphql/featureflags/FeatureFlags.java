@@ -58,6 +58,7 @@ public class FeatureFlags {
   private boolean datasetHealthDashboardEnabled = false;
   private boolean aiFeaturesEnabled = true;
   private boolean documentationAiDefaultEnabled = false;
+  private boolean slackAtMentionDefaultEnabled = false;
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;

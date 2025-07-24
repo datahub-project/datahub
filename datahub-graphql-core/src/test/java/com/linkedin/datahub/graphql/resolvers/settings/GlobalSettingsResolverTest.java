@@ -148,7 +148,10 @@ public class GlobalSettingsResolverTest {
     globalSettingsInfo.setIntegrations(
         new GlobalIntegrationSettings()
             .setSlackSettings(
-                new SlackIntegrationSettings().setEnabled(true).setDefaultChannelName("test"))
+                new SlackIntegrationSettings()
+                    .setEnabled(true)
+                    .setDefaultChannelName("test")
+                    .setDatahubAtMentionEnabled(true))
             .setEmailSettings(new EmailIntegrationSettings().setDefaultEmail("test@test.com")));
     NotificationSettingMap map = new NotificationSettingMap();
     map.put(
@@ -240,5 +243,88 @@ public class GlobalSettingsResolverTest {
     assertFalse(
         result.getDocumentationAi().getEnabled(),
         "documentationAi.enabled should be false when aiFeaturesEnabled is false");
+  }
+
+  private GlobalSettings getSlackAtMentionResult(
+      boolean aiFeaturesEnabled,
+      Boolean slackAtMentionEnabled,
+      boolean slackAtMentionDefaultEnabled)
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setAiFeaturesEnabled(aiFeaturesEnabled);
+    featureFlags.setSlackAtMentionDefaultEnabled(slackAtMentionDefaultEnabled);
+
+    GlobalSettingsInfo info = getGlobalSettingsInfo();
+    if (slackAtMentionEnabled != null) {
+      info.getIntegrations().getSlackSettings().setDatahubAtMentionEnabled(slackAtMentionEnabled);
+    } else {
+      info.getIntegrations().getSlackSettings().removeDatahubAtMentionEnabled();
+    }
+
+    Mockito.when(
+            mockClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
+                .setUrn(Constants.GLOBAL_SETTINGS_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(info.data()))
+                                .setCreated(
+                                    new AuditStamp()
+                                        .setTime(0L)
+                                        .setActor(
+                                            Urn.createFromString("urn:li:corpuser:test")))))));
+
+    GlobalSettingsResolver resolver =
+        new GlobalSettingsResolver(mockClient, mockSecretService, featureFlags);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    return resolver.get(mockEnv).get();
+  }
+
+  @Test
+  public void testSlackAtMentionPresentTrue() throws Exception {
+    GlobalSettings result = getSlackAtMentionResult(true, true, false);
+    assertNotNull(result.getIntegrationSettings().getSlackSettings());
+    assertTrue(result.getIntegrationSettings().getSlackSettings().getDatahubAtMentionEnabled());
+  }
+
+  @Test
+  public void testSlackAtMentionPresentFalse() throws Exception {
+    GlobalSettings result = getSlackAtMentionResult(true, false, true);
+    assertNotNull(result.getIntegrationSettings().getSlackSettings());
+    assertFalse(result.getIntegrationSettings().getSlackSettings().getDatahubAtMentionEnabled());
+  }
+
+  @Test
+  public void testSlackAtMentionAbsentUsesDefault() throws Exception {
+    GlobalSettings resultTrue = getSlackAtMentionResult(true, null, true);
+    assertNotNull(resultTrue.getIntegrationSettings().getSlackSettings());
+    assertTrue(resultTrue.getIntegrationSettings().getSlackSettings().getDatahubAtMentionEnabled());
+
+    GlobalSettings resultFalse = getSlackAtMentionResult(true, null, false);
+    assertNotNull(resultFalse.getIntegrationSettings().getSlackSettings());
+    assertFalse(
+        resultFalse.getIntegrationSettings().getSlackSettings().getDatahubAtMentionEnabled());
+  }
+
+  @Test
+  public void testSlackAtMentionDisabledWhenAiFeaturesDisabled() throws Exception {
+    GlobalSettings result = getSlackAtMentionResult(false, true, true);
+    assertNotNull(result.getIntegrationSettings().getSlackSettings());
+    assertFalse(
+        result.getIntegrationSettings().getSlackSettings().getDatahubAtMentionEnabled(),
+        "slackAtMentionEnabled should be false when aiFeaturesEnabled is false");
   }
 }

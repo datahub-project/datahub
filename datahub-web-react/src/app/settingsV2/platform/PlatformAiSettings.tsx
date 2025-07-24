@@ -1,12 +1,19 @@
 import { InfoCircleFilled } from '@ant-design/icons';
 import { Spin, message } from 'antd';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
+import { SLACK_CONNECTION_URN } from '@app/settingsV2/platform/slack/constants';
+import { decodeSlackConnection } from '@app/settingsV2/platform/slack/utils';
 import { PageTitle, Switch, colors } from '@src/alchemy-components';
 
-import { useUpdateGlobalDocsAiSettingsMutation } from '@graphql/settings.generated';
+import { useConnectionQuery } from '@graphql/connection.generated';
+import {
+    useUpdateGlobalDocsAiSettingsMutation,
+    useUpdateGlobalIntegrationSettingsMutation,
+} from '@graphql/settings.generated';
 
 const Container = styled.div`
     width: 100%;
@@ -72,34 +79,73 @@ const DescriptionText = styled.div`
 
 export const PlatformAiSettings = () => {
     const { globalSettings, refetch, loading } = useGlobalSettingsContext();
-    const [updateGlobalDocsAiSettings, { loading: updating }] = useUpdateGlobalDocsAiSettingsMutation();
+    const [updateGlobalDocsAiSettings, { loading: updatingDocsAi }] = useUpdateGlobalDocsAiSettingsMutation();
+    const [updateGlobalIntegrationSettings, { loading: updatingSlack }] = useUpdateGlobalIntegrationSettingsMutation();
+
+    // Documentation AI settings
     const aiEnabled = globalSettings?.documentationAi?.enabled ?? false;
-    const [switchValue, setSwitchValue] = useState(aiEnabled);
-    const [localLoading, setLocalLoading] = useState(false);
+    const [docAiSwitchValue, setDocAiSwitchValue] = useState(aiEnabled);
+
+    // Slack bot settings
+    const slackBotEnabled = globalSettings?.integrationSettings?.slackSettings?.datahubAtMentionEnabled ?? false;
+    const [slackBotSwitchValue, setSlackBotSwitchValue] = useState(slackBotEnabled);
+
+    // Get Slack connection to check if it's configured
+    const { data: connData } = useConnectionQuery({
+        variables: {
+            urn: SLACK_CONNECTION_URN,
+        },
+    });
+
+    const existingConnJson = connData?.connection?.details?.json;
+    const slackConnData = existingConnJson && decodeSlackConnection(existingConnJson.blob as string);
+    const isSlackEnabled = !!slackConnData?.botToken;
 
     React.useEffect(() => {
-        setSwitchValue(aiEnabled);
-    }, [aiEnabled]);
+        setDocAiSwitchValue(aiEnabled);
+        setSlackBotSwitchValue(slackBotEnabled);
+    }, [aiEnabled, slackBotEnabled]);
 
-    const handleToggle = async (checked: boolean) => {
-        setLocalLoading(true);
-        try {
-            const res = await updateGlobalDocsAiSettings({
-                variables: {
-                    input: { enabled: checked },
-                },
-            });
-            if (res.data?.updateGlobalSettings) {
-                message.success(`AI documentation generation ${checked ? 'enabled' : 'disabled'}`);
-                refetch();
-            } else {
+    const handleDocsAiToggle = (checked: boolean) => {
+        updateGlobalDocsAiSettings({
+            variables: {
+                input: { enabled: checked },
+            },
+        })
+            .then((res) => {
+                if (res.data?.updateGlobalSettings) {
+                    message.success(`AI documentation generation ${checked ? 'enabled' : 'disabled'}`);
+                    return refetch();
+                }
                 message.error('Failed to update AI documentation setting');
-            }
-        } catch (e: any) {
-            message.error('Failed to update AI documentation setting');
-        } finally {
-            setLocalLoading(false);
-        }
+                return Promise.resolve();
+            })
+            .catch(() => {
+                message.error('Failed to update AI documentation setting');
+            });
+    };
+
+    const handleSlackBotToggle = (checked: boolean) => {
+        updateGlobalIntegrationSettings({
+            variables: {
+                input: {
+                    slackSettings: {
+                        datahubAtMentionEnabled: checked,
+                    },
+                },
+            },
+        })
+            .then((res) => {
+                if (res.data?.updateGlobalSettings) {
+                    message.success(`Slack @DataHub bot ${checked ? 'enabled' : 'disabled'}`);
+                    return refetch();
+                }
+                message.error('Failed to update Slack bot setting');
+                return Promise.resolve();
+            })
+            .catch(() => {
+                message.error('Failed to update Slack bot setting');
+            });
     };
 
     let content: React.ReactNode = null;
@@ -107,28 +153,60 @@ export const PlatformAiSettings = () => {
         content = <Spin style={{ marginTop: 40 }} />;
     } else {
         content = (
-            <StyledCard>
-                <TextContainer>
-                    <SettingText>Enable AI Documentation Generation</SettingText>
-                    <DescriptionText>
-                        When enabled, DataHub can generate documentation using AI for supported entities.
-                    </DescriptionText>
-                    <DocsLink
-                        href="https://docs.datahub.com/docs/automations/ai-docs"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        Learn more about AI-powered documentation.
-                    </DocsLink>
-                </TextContainer>
-                <Switch
-                    label=""
-                    isChecked={switchValue}
-                    isDisabled={localLoading || updating}
-                    onChange={(e) => handleToggle(e.target.checked)}
-                    data-testid="ai-docs-toggle"
-                />
-            </StyledCard>
+            <>
+                <StyledCard>
+                    <TextContainer>
+                        <SettingText>Enable AI Documentation Generation</SettingText>
+                        <DescriptionText>
+                            When enabled, DataHub can generate documentation using AI for supported entities.
+                        </DescriptionText>
+                        <DocsLink
+                            href="https://docs.datahub.com/docs/automations/ai-docs"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Learn more about AI-powered documentation.
+                        </DocsLink>
+                    </TextContainer>
+                    <Switch
+                        label=""
+                        isChecked={docAiSwitchValue}
+                        isDisabled={updatingDocsAi}
+                        onChange={(e) => handleDocsAiToggle(e.target.checked)}
+                        data-testid="ai-docs-toggle"
+                    />
+                </StyledCard>
+
+                <StyledCard>
+                    <TextContainer>
+                        <SettingText>Enable @DataHub AI in Slack</SettingText>
+                        <DescriptionText>
+                            When enabled, users can mention @DataHub in Slack to ask questions about your metadata. The{' '}
+                            <Link to="/settings/integrations/slack" style={{ color: colors.violet['600'] }}>
+                                Slack integration
+                            </Link>{' '}
+                            must be configured first.
+                        </DescriptionText>
+                        <DocsLink
+                            href="https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-app"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Learn more about DataHub AI in Slack.
+                        </DocsLink>
+                    </TextContainer>
+                    <Switch
+                        label=""
+                        isChecked={slackBotSwitchValue}
+                        isDisabled={!isSlackEnabled || updatingSlack}
+                        onChange={(e) => handleSlackBotToggle(e.target.checked)}
+                        data-testid="slack-bot-toggle"
+                        disabledHoverText={
+                            !isSlackEnabled ? 'Configure Slack integration first to enable @DataHub AI' : undefined
+                        }
+                    />
+                </StyledCard>
+            </>
         );
     }
 

@@ -848,6 +848,9 @@ featureFlags:
   # If the AI-powered documentation feature should be enabled by default.
   # The globalSettings.documentationAi.enabled setting takes precedence over this.
   # Requires aiFeaturesEnabled to be true.
+  slackAtMentionDefaultEnabled: ${SLACK_AT_MENTION_DEFAULT_ENABLED:false}
+  # If the Slack @DataHub bot mention feature should be enabled by default when not explicitly set.
+  # Serves as fallback when datahubAtMentionEnabled is null in SlackIntegrationSettings.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false}
   # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true}

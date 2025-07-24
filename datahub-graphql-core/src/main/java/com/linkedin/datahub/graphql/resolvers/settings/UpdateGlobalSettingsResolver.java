@@ -17,6 +17,7 @@ import com.linkedin.datahub.graphql.generated.UpdateSlackIntegrationSettingsInpu
 import com.linkedin.datahub.graphql.generated.UpdateSsoSettingsInput;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingMapMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.NotificationSettingMap;
 import com.linkedin.settings.global.DocumentationAiSettings;
@@ -32,16 +33,23 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityClient _entityClient;
   private final SecretService _secretService;
+  private final IntegrationsService _integrationsService;
 
   public UpdateGlobalSettingsResolver(
-      final EntityClient entityClient, final SecretService secretService) {
+      final EntityClient entityClient,
+      final SecretService secretService,
+      final IntegrationsService integrationsService) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
     _secretService = Objects.requireNonNull(secretService, "secretService must not be null");
+    _integrationsService =
+        Objects.requireNonNull(integrationsService, "integrationsService must not be null");
   }
 
   @Override
@@ -129,12 +137,43 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
   private void updateSlackIntegrationSettings(
       final SlackIntegrationSettings existingSettings,
       final UpdateSlackIntegrationSettingsInput update) {
+    boolean hasSlackChanges = false;
+
     existingSettings.setEnabled(true);
     if (update.getDefaultChannelName() != null) {
       existingSettings.setDefaultChannelName(update.getDefaultChannelName());
+      hasSlackChanges = true;
     }
     if (update.getBotToken() != null) {
       existingSettings.setEncryptedBotToken(_secretService.encrypt(update.getBotToken()));
+      hasSlackChanges = true;
+    }
+    if (update.getDatahubAtMentionEnabled() != null) {
+      Boolean oldValue =
+          existingSettings.hasDatahubAtMentionEnabled()
+              ? existingSettings.isDatahubAtMentionEnabled()
+              : null;
+      Boolean newValue = update.getDatahubAtMentionEnabled();
+
+      existingSettings.setDatahubAtMentionEnabled(newValue);
+
+      // Check if the setting actually changed
+      if (!Objects.equals(oldValue, newValue)) {
+        hasSlackChanges = true;
+        log.info("Slack @DataHub mention setting changed from {} to {}", oldValue, newValue);
+      }
+    }
+
+    // Trigger reload if any Slack settings changed
+    if (hasSlackChanges) {
+      try {
+        log.info("Triggering integrations service reload due to Slack settings changes");
+        _integrationsService.reloadCredentials();
+      } catch (Exception e) {
+        log.warn(
+            "Failed to reload integrations service credentials after Slack settings update", e);
+        // Don't fail the update operation if reload fails
+      }
     }
   }
 

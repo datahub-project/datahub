@@ -45,11 +45,13 @@ from datahub_integrations.slack.command.mention import (
 )
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
-from datahub_integrations.slack.config import SLACK_PROXY, SlackConnection, slack_config
-from datahub_integrations.slack.constants import (
-    DATAHUB_SLACK_AT_MENTION_ENABLED,
-    DATAHUB_SLACK_ICON_URL,
+from datahub_integrations.slack.config import (
+    SLACK_PROXY,
+    SlackConnection,
+    SlackGlobalSettings,
+    slack_config,
 )
+from datahub_integrations.slack.constants import DATAHUB_SLACK_ICON_URL
 from datahub_integrations.slack.context import (
     IncidentContext,
     IncidentSelectOption,
@@ -196,7 +198,7 @@ def oauth_callback(
     error: Optional[str] = None,
     error_description: Optional[str] = None,
 ) -> RedirectResponse:
-    config = slack_config.get_config()
+    config = slack_config.get_connection()
     assert config.app_details, "App details should be present after provisioning."
     assert config.app_details.client_id, (
         "Client id should be present after provisioning"
@@ -253,7 +255,7 @@ def oauth_callback(
 
     # Send a welcome message to the user who just installed us.
     # TODO: Add more context to this message + a link back to the integrations page.
-    app = get_slack_app(new_config)
+    app = get_slack_app(new_config, slack_config.get_global_settings())
     app.client.chat_postMessage(
         channel=authed_user["id"],
         text="DataHub has been connected to Slack!",
@@ -264,13 +266,16 @@ def oauth_callback(
 
 
 @functools.lru_cache(maxsize=1)
-def get_slack_app(config: SlackConnection) -> slack_bolt.App:
-    if not config.app_details:
+def get_slack_app(
+    connection: SlackConnection,
+    settings: SlackGlobalSettings,
+) -> slack_bolt.App:
+    if not connection.app_details:
         raise fastapi.HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The Slack app manifest has not been provisioned yet.",
         )
-    if config.bot_token is None:
+    if connection.bot_token is None:
         raise fastapi.HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The Slack app has not been installed into a workspace yet.",
@@ -280,8 +285,8 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     # Initializes your app with your bot token and signing secret
     app = slack_bolt.App(
-        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY, token=config.bot_token),
-        signing_secret=config.app_details.signing_secret,
+        client=slack_sdk.web.WebClient(proxy=SLACK_PROXY, token=connection.bot_token),
+        signing_secret=connection.app_details.signing_secret,
         # As per the docs:
         # > One secret is the new Signing Secret, and one is the deprecated verification token.
         # > We strongly recommend you only use the Signing Secret from now on.
@@ -358,9 +363,10 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         thread_ts = event.get("thread_ts")
         message_ts = event["ts"]
 
-        if not DATAHUB_SLACK_AT_MENTION_ENABLED:
+        if not settings.datahub_at_mention_enabled:
             say(
-                text="The @datahub mention is currently disabled. Please use /datahub commands instead.",
+                text="The AI-powered @DataHub bot is currently disabled. "
+                "Contact your administrator to enable it or use /datahub commands instead.",
                 icon_url=DATAHUB_SLACK_ICON_URL,
                 thread_ts=thread_ts or message_ts,  # Reply in the thread
             )
@@ -776,7 +782,9 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
 def get_slack_request_handler() -> SlackRequestHandler:
     # Attach the slack event handler to the app.
-    app = get_slack_app(slack_config.get_config())
+    app = get_slack_app(
+        slack_config.get_connection(), slack_config.get_global_settings()
+    )
     app_handler = SlackRequestHandler(app)
     return app_handler
 
@@ -857,7 +865,9 @@ class SlackLinkPreview(BaseModel):
 
 
 def get_slack_link_preview(raw_url: str) -> SlackLinkPreview:
-    app = get_slack_app(slack_config.get_config())
+    app = get_slack_app(
+        slack_config.get_connection(), slack_config.get_global_settings()
+    )
 
     url = parse_slack_message_url(raw_url)
     if not url:

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def graph_as_user(impersonation_urn: str) -> DataHubGraph:
     return DataHubGraph(
-        graph.config.copy(
+        graph.config.model_copy(
             update={"extra_headers": {"X-DataHub-Impersonated-Urn": impersonation_urn}},
             deep=True,
         )

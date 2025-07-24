@@ -39,7 +39,7 @@ import {
     useGetIntegrationSettingsQuery,
     useUpdateGlobalIntegrationSettingsMutation,
 } from '@graphql/settings.generated';
-import { DataHubConnectionDetailsType, SlackIntegrationSettings } from '@types';
+import { DataHubConnectionDetailsType } from '@types';
 
 import slackLogo from '@images/slacklogo.png';
 
@@ -129,13 +129,13 @@ export const SlackIntegration = () => {
     const isBotTokensTabVisibleByDefault = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
     const isBotTokensTabVisibleByQueryParam = useShouldDisplayBotTokensTabFromQueryParams();
 
-    const [settings, setSettings] = useState<SlackIntegrationSettings>(DEFAULT_SETTINGS);
     const [connection, setConnection] = useState<SlackConnection>(DEFAULT_CONNECTION);
     const [selectTypeValue, setSelectTypeValue] = useState<typeof APP_CONFIG_SELECT_ID | typeof BOT_TOKEN_SELECT_ID>(
         APP_CONFIG_SELECT_ID,
     );
 
     const { data, loading, error, refetch } = useGetIntegrationSettingsQuery({ fetchPolicy: 'cache-first' });
+    const settings = data?.globalSettings?.integrationSettings?.slackSettings ?? DEFAULT_SETTINGS;
     const [updateGlobalIntegrationSettings] = useUpdateGlobalIntegrationSettingsMutation();
     const { data: connData, loading: connLoading } = useConnectionQuery({
         variables: {
@@ -162,12 +162,6 @@ export const SlackIntegration = () => {
             }
         }
     }, [slackConnData, connection, isConnectedThroughBotTokens]);
-
-    useEffect(() => {
-        if (data?.globalSettings?.integrationSettings?.slackSettings) {
-            setSettings(data?.globalSettings?.integrationSettings?.slackSettings);
-        }
-    }, [data, setSettings]);
 
     const updateSlackConnection = (isUsingAppConfigTokens: boolean, onComplete?: () => void) => {
         upsertConnection({
@@ -333,8 +327,9 @@ export const SlackIntegration = () => {
                 {isConnected ? (
                     <GlobalNotificationsBanner>
                         <InfoIcon />
-                        The Slack integration is ready! Now switch to the{' '}
-                        <Link to="/settings/notifications">Platform Notifications Tab</Link> to try it out.
+                        The Slack integration is ready! You can now{' '}
+                        <Link to="/settings/notifications">configure notifications</Link> or{' '}
+                        <Link to="/settings/ai">enable @DataHub AI in Slack</Link>.
                         {!isConnectedThroughAppConfig && (
                             <>
                                 <br />

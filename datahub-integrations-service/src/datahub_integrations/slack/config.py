@@ -18,8 +18,8 @@ from datahub_integrations.slack.slack_history import (
     SlackHistoryCache,
 )
 
-_SLACK_CONFIG_ID = "__system_slack-0"
-_SLACK_CONFIG_URN = f"urn:li:dataHubConnection:{_SLACK_CONFIG_ID}"
+_SLACK_CONNECTION_ID = "__system_slack-0"
+_SLACK_CONNECTION_URN = f"urn:li:dataHubConnection:{_SLACK_CONNECTION_ID}"
 _SLACK_PLATFORM_URN: str = DataPlatformUrn("slack").urn()
 SLACK_PROXY = os.environ.get("DATAHUB_SLACK_PROXY")
 
@@ -62,7 +62,7 @@ class SlackConnection(_FrozenConnectionModel):
     # TODO: Add workspace_id here?
 
 
-def _get_current_slack_config() -> SlackConnection:
+def _get_current_slack_connection() -> SlackConnection:
     """Gets the current slack config from DataHub."""
 
     # For local testing, you can use this instead:
@@ -71,7 +71,7 @@ def _get_current_slack_config() -> SlackConnection:
     #     json.loads(pathlib.Path("slack_details.json").read_text())
     # )
 
-    obj = get_connection_json(graph=graph, urn=_SLACK_CONFIG_URN)
+    obj = get_connection_json(graph=graph, urn=_SLACK_CONNECTION_URN)
 
     if not obj:
         logger.debug("No slack config found, returning an empty config")
@@ -82,32 +82,72 @@ def _get_current_slack_config() -> SlackConnection:
     return config
 
 
-def _set_current_slack_config(config: SlackConnection) -> None:
+def _set_current_slack_connection(config: SlackConnection) -> None:
     """Sets the current slack config in DataHub."""
 
     save_connection_json(
         graph=graph,
-        urn=_SLACK_CONFIG_URN,
+        urn=_SLACK_CONNECTION_URN,
         platform_urn=_SLACK_PLATFORM_URN,
         config=config,
     )
+
+
+_SLACK_GET_GLOBAL_SETTINGS_QUERY = """
+query getSlackMentionSettings {
+    globalSettings {
+        integrationSettings {
+            slackSettings {
+                datahubAtMentionEnabled
+            }
+        }
+    }
+}
+"""
+
+
+class SlackGlobalSettings(_FrozenConnectionModel):
+    datahub_at_mention_enabled: bool = False
+
+
+def _get_global_settings() -> SlackGlobalSettings:
+    """Gets the current global settings from DataHub."""
+    try:
+        data = graph.execute_graphql(_SLACK_GET_GLOBAL_SETTINGS_QUERY)
+        slack_settings: dict = data["globalSettings"]["integrationSettings"][
+            "slackSettings"
+        ]
+        return SlackGlobalSettings(
+            datahub_at_mention_enabled=slack_settings["datahubAtMentionEnabled"]
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch global slack settings: {e}")
+        return SlackGlobalSettings(datahub_at_mention_enabled=False)
 
 
 @dataclass
 class _SlackConfigManager:
     """A caching wrapper around the Slack config."""
 
-    _config: Optional[SlackConnection] = None
+    _connection: Optional[SlackConnection] = None
+    _global_settings: Optional[SlackGlobalSettings] = None
     _slack_history_cache: SlackHistoryCache = dataclasses.field(
         default_factory=SlackHistoryCache
     )
 
-    def get_config(self, force_refresh: bool = False) -> SlackConnection:
-        if self._config is None or force_refresh:
-            logger.info("Getting slack config")
-            self._config = _get_current_slack_config()
+    def get_connection(self, force_refresh: bool = False) -> SlackConnection:
+        if self._connection is None or force_refresh:
+            self.reload()
+            assert self._connection is not None
 
-        return self._config
+        return self._connection
+
+    def get_global_settings(self) -> SlackGlobalSettings:
+        if self._global_settings is None:
+            self.reload()
+            assert self._global_settings is not None
+
+        return self._global_settings
 
     def get_slack_history_cache(self) -> SlackHistoryCache:
         return self._slack_history_cache
@@ -119,12 +159,13 @@ class _SlackConfigManager:
         return None
 
     def reload(self) -> SlackConnection:
-        logger.info("Reloading slack config")
-        old_config = self._config
-        self._config = _get_current_slack_config()
+        logger.info("Reloading slack connection and settings")
+        old_config = self._connection
+        self._connection = _get_current_slack_connection()
+        self._global_settings = _get_global_settings()
 
         if (old_app_id := self._get_app_id(old_config)) != (
-            new_app_id := self._get_app_id(self._config)
+            new_app_id := self._get_app_id(self._connection)
         ):
             # NOTE: This isn't an ideal spot to put the slack_history_cache,
             # but it's the easiest path forward right now.
@@ -134,12 +175,12 @@ class _SlackConfigManager:
             )
             self._slack_history_cache = SlackHistoryCache()
 
-        return self._config
+        return self._connection
 
     def save_config(self, config: SlackConnection) -> None:
         logger.info("Setting slack config")
-        self._config = config
-        _set_current_slack_config(config)
+        self._connection = config
+        _set_current_slack_connection(config)
 
 
 slack_config = _SlackConfigManager()
