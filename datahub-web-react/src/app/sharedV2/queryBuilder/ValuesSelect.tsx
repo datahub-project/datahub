@@ -1,49 +1,52 @@
-import { colors, typography } from '@components';
-import React from 'react';
+import React, { useMemo } from 'react';
 
-import { SelectInput } from '@app/sharedV2/queryBuilder/builder/property/input/SelectInput';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { SelectParams, ValueInputType, ValueOptions } from '@app/sharedV2/queryBuilder/builder/property/types/values';
-import { EntitySearchInput } from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInput';
+import { EntitySearchValueInput } from '@app/sharedV2/queryBuilder/valueInputs/EntitySearchValueInput';
+import SelectValueInput from '@app/sharedV2/queryBuilder/valueInputs/SelectValueInput';
 
-const EntitySearchInputStyle = {
-    minWidth: 250,
-};
-
-const SelectInputStyle = {
-    minWidth: 250,
-    margin: 12,
-};
+function propertyToValueInputLabel(property: string | undefined): string | undefined {
+    switch (property) {
+        case 'urn':
+            return 'Assets';
+        case 'glossaryTerms':
+            return 'Terms';
+        case '_entityType':
+            return 'Types';
+        default:
+            return property ? capitalizeFirstLetterOnly(property) : undefined;
+    }
+}
 
 interface Props {
     selectedValues?: string[];
     options?: ValueOptions;
     onChangeValues: (newValues: string[]) => void;
+    property?: string;
 }
 
-const ValuesSelect = ({ selectedValues, options, onChangeValues }: Props) => {
+const ValuesSelect = ({ selectedValues, options, onChangeValues, property }: Props) => {
+    const label = useMemo(() => propertyToValueInputLabel(property), [property]);
+
     return (
         <>
             {options?.inputType === ValueInputType.ENTITY_SEARCH && (
-                <EntitySearchInput
+                <EntitySearchValueInput
                     selectedUrns={selectedValues || []}
                     onChangeSelectedUrns={(newSelected) => onChangeValues(newSelected)}
                     entityTypes={(options.options as any)?.entityTypes || []}
                     mode={(options.options as any)?.mode || 'single'}
-                    style={EntitySearchInputStyle}
-                    tagStyle={{ fontSize: 12, color: colors.gray[500] }}
-                    optionStyle={{ fontSize: 14, fontFamily: typography.fonts.body, color: colors.gray[500] }}
+                    label={label}
                 />
             )}
             {options?.inputType === ValueInputType.SELECT && (
-                <SelectInput
+                <SelectValueInput
                     selected={selectedValues}
                     onChangeSelected={(selected) => onChangeValues(selected as string[])}
                     placeholder="Select a value..."
                     options={(options.options as SelectParams)?.options}
                     mode={(options.options as any)?.mode || 'single'}
-                    style={SelectInputStyle}
-                    tagStyle={{ fontSize: 12, color: colors.gray[500] }}
-                    optionStyle={{ fontSize: 14, fontFamily: typography.fonts.body, color: colors.gray[500] }}
+                    label={label}
                 />
             )}
         </>

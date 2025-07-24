@@ -90,7 +90,7 @@ export const properties = [
         valueType: ValueTypeId.URN,
         valueOptions: {
             entityTypes: [EntityType.Container],
-            mode: SelectInputMode.SINGLE,
+            mode: SelectInputMode.MULTIPLE,
         },
     },
     {

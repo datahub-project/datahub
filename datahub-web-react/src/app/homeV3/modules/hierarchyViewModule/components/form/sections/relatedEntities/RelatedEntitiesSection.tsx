@@ -12,7 +12,7 @@ import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuil
 import { LogicalOperatorType, LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { properties } from '@app/sharedV2/queryBuilder/properties';
 
-const DEFAULT = {
+const EMPTY_FILTER = {
     operator: LogicalOperatorType.AND,
     operands: [],
 };
@@ -29,7 +29,7 @@ export default function RelatedEntitiesSection() {
 
     const updateFilters = useCallback(
         (updatedPredicate: LogicalPredicate | undefined) => {
-            form.setFieldValue(FORM_FIELD_RELATED_ENTITIES_FILTER, updatedPredicate);
+            form.setFieldValue(FORM_FIELD_RELATED_ENTITIES_FILTER, updatedPredicate ?? EMPTY_FILTER);
         },
         [form],
     );
@@ -53,7 +53,7 @@ export default function RelatedEntitiesSection() {
             <Form.Item name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
                 {isChecked && (
                     <LogicalFiltersBuilder
-                        filters={relatedEntitiesFilter ?? defaultRelatedEntitiesFilter ?? DEFAULT}
+                        filters={relatedEntitiesFilter ?? defaultRelatedEntitiesFilter ?? EMPTY_FILTER}
                         onChangeFilters={updateFilters}
                         properties={properties}
                     />

@@ -1,9 +1,7 @@
-import { Text, Tooltip } from '@components';
-import { Select } from 'antd';
-import React from 'react';
+import { SelectOption, SimpleSelect } from '@components';
+import React, { useMemo } from 'react';
 
 import { Operator } from '@app/sharedV2/queryBuilder/builder/property/types/operators';
-import { StyledSelect } from '@app/sharedV2/queryBuilder/styledComponents';
 
 interface Props {
     selectedOperator?: string;
@@ -12,31 +10,27 @@ interface Props {
 }
 
 const OperatorSelect = ({ selectedOperator, operators, onChangeOperator }: Props) => {
+    const options: SelectOption[] = useMemo(
+        () =>
+            operators?.map((operator) => ({
+                value: operator.id.toString(),
+                label: operator.displayName,
+                description: operator.description,
+            })) ?? [],
+        [operators],
+    );
+
     return (
-        <StyledSelect
-            defaultActiveFirstOption={false}
+        <SimpleSelect
+            options={options}
             placeholder="Select an operator..."
-            onSelect={(val) => onChangeOperator(val)}
-            value={selectedOperator?.toLowerCase()}
-            disabled={!operators}
+            onUpdate={(val) => onChangeOperator(val[0])}
+            values={selectedOperator ? [selectedOperator.toLowerCase()] : []}
+            isDisabled={!operators}
             data-testid="condition-operator-select"
-        >
-            {operators?.map((operator) => {
-                return (
-                    <Select.Option
-                        value={operator.id.toLowerCase()}
-                        key={operator.id.toLowerCase()}
-                        data-testid={`condition-operator-select-option-${operator.id.toLowerCase()}`}
-                    >
-                        <Tooltip title={operator.description} placement="right" showArrow={false}>
-                            <Text color="gray" type="span">
-                                {operator.displayName}
-                            </Text>
-                        </Tooltip>
-                    </Select.Option>
-                );
-            })}
-        </StyledSelect>
+            width="full"
+            showClear={false}
+        />
     );
 };
 

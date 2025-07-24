@@ -80,6 +80,7 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
                     selectedValues={selectedPredicate?.values}
                     options={valueOptions}
                     onChangeValues={handleValuesChange}
+                    property={selectedPredicate?.property}
                 />
             </SelectContainer>
             <IconsContainer>

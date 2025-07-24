@@ -1,9 +1,7 @@
-import { Text, Tooltip } from '@components';
-import { Select } from 'antd';
-import React from 'react';
+import { SelectOption, SimpleSelect } from '@components';
+import React, { useMemo } from 'react';
 
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
-import { StyledSelect } from '@app/sharedV2/queryBuilder/styledComponents';
 
 interface Props {
     selectedProperty?: string;
@@ -12,24 +10,26 @@ interface Props {
 }
 
 const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Props) => {
+    const options: SelectOption[] = useMemo(
+        () =>
+            properties?.map((property) => ({
+                value: property.id.toString(),
+                label: property.displayName,
+                description: property.description,
+            })) ?? [],
+        [properties],
+    );
+
     return (
-        <StyledSelect
-            value={selectedProperty}
-            onChange={onChangeProperty}
+        <SimpleSelect
+            options={options}
+            onUpdate={(val) => onChangeProperty(val[0])}
+            values={selectedProperty ? [selectedProperty] : []}
             placeholder="Select a property"
-            defaultActiveFirstOption={false}
             data-testid="condition-select"
-        >
-            {properties.map((prop) => (
-                <Select.Option key={prop.id} value={prop.id} data-testid={`condition-select-option-${prop.id}`}>
-                    <Tooltip title={prop.description} placement="top" showArrow={false}>
-                        <Text color="gray" type="span">
-                            {prop.displayName}
-                        </Text>
-                    </Tooltip>
-                </Select.Option>
-            ))}
-        </StyledSelect>
+            width="full"
+            showClear={false}
+        />
     );
 };
 
