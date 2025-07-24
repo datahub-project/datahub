@@ -48,7 +48,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,testdb.dbo.test_table,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,sqlserver.debezium.server.dbo.test_table,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,debezium.sqlserver.testdb.dbo.test_table,PROD)"
             ]
         }
     },
