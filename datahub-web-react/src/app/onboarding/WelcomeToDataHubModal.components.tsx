@@ -2,14 +2,17 @@ import { Spin } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import colors from '@components/theme/foundations/colors';
+
 /**
  * Container for individual carousel slides with centered content
  */
-export const SlideContainer = styled.div`
+export const SlideContainer = styled.div<{ isActive?: boolean }>`
     position: relative; /* Provide positioning context for absolutely positioned children */
     text-align: left;
     margin-bottom: 32px;
     min-height: 470px;
+    visibility: ${(props) => (props.isActive === false ? 'hidden' : 'visible')};
 `;
 
 /**
@@ -32,11 +35,11 @@ const LoadingContainerBase = styled.div<{ width: string }>`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: ${(props) => props.theme.styles['background-light']};
-    border: 2px dashed ${(props) => props.theme.styles['border-color-base']};
+    background-color: ${colors.gray[1500]};
+    border: 2px dashed ${colors.gray[100]};
     border-radius: 8px;
     font-size: 16px;
-    color: ${(props) => props.theme.styles['text-secondary']};
+    color: ${colors.gray[1700]};
     font-weight: 500;
     margin: 0 auto;
     gap: 16px;
@@ -61,7 +64,7 @@ export const LoadingContainer: React.FC<{ width: string; children?: React.ReactN
  * Styled anchor for DataHub Docs link
  */
 export const StyledDocsLink = styled.a`
-    color: rgb(83, 63, 209);
+    color: ${colors.primary[500]};
     text-align: center;
     font-size: 14px;
     font-style: normal;
@@ -74,6 +77,52 @@ export const StyledDocsLink = styled.a`
     padding: 10px 12px;
 
     &:hover {
-        background-color: rgb(249, 250, 252);
+        background-color: ${colors.gray[1500]};
     }
 `;
+
+/**
+ * Styled video element for visible videos
+ */
+const StyledVideo = styled.video<{ width: string }>`
+    width: ${(props) => props.width};
+`;
+
+/**
+ * Styled video element for hidden preload videos
+ */
+const HiddenPreloadVideo = styled.video<{ width: string }>`
+    width: ${(props) => props.width};
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+`;
+
+/**
+ * Reusable video slide component that handles loading states
+ */
+interface VideoSlideProps {
+    videoSrc?: string;
+    isReady: boolean;
+    onVideoLoad: () => void;
+    width: string;
+}
+
+export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, isReady, onVideoLoad, width }) => (
+    <>
+        {isReady ? (
+            <StyledVideo width={width} autoPlay loop muted playsInline>
+                <source src={videoSrc} type="video/mp4" />
+            </StyledVideo>
+        ) : (
+            <LoadingContainer width={width}>Loading video...</LoadingContainer>
+        )}
+        {videoSrc && !isReady && (
+            <HiddenPreloadVideo width={width} autoPlay loop muted playsInline onCanPlay={onVideoLoad}>
+                <source src={videoSrc} type="video/mp4" />
+            </HiddenPreloadVideo>
+        )}
+    </>
+);

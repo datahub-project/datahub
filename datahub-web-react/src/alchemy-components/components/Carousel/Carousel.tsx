@@ -80,7 +80,7 @@ const StyledCarousel = styled(AntCarousel)`
 const RightComponentContainer = styled.div`
     position: absolute;
     bottom: -2px;
-    right: 24px;
+    right: 14px;
     display: flex;
     align-items: center;
     gap: 8px;

@@ -10,6 +10,7 @@ import {
     SlideContainer,
     StyledDocsLink,
     VideoContainer,
+    VideoSlide,
 } from '@src/app/onboarding/WelcomeToDataHubModal.components';
 
 import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.png';
@@ -28,6 +29,7 @@ interface VideoSources {
 export const WelcomeToDataHubModal = () => {
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [isTransitioning, setIsTransitioning] = useState(false);
     const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
     const [videoLoading, setVideoLoading] = useState(false);
     const [videosReady, setVideosReady] = useState<{ [key in keyof VideoSources]?: boolean }>({});
@@ -48,6 +50,7 @@ export const WelcomeToDataHubModal = () => {
         if (!shouldSkipTour) {
             setShouldShow(true);
             setCurrentSlide(0);
+            setIsTransitioning(false);
         }
     }, [shouldSkipTour]);
 
@@ -56,6 +59,7 @@ export const WelcomeToDataHubModal = () => {
         if (isModalTourOpen) {
             setShouldShow(true);
             setCurrentSlide(0);
+            setIsTransitioning(false);
         }
     }, [isModalTourOpen]);
 
@@ -136,8 +140,31 @@ export const WelcomeToDataHubModal = () => {
         return undefined;
     }, [TOTAL_CAROUSEL_SLIDES, shouldShow, videoSources]);
 
+    // Add keyboard navigation
+    useEffect(() => {
+        const handleKeyPress = (event: KeyboardEvent) => {
+            if (!shouldShow) return;
+
+            if (event.key === 'ArrowLeft') {
+                const prevSlide = currentSlide > 0 ? currentSlide - 1 : TOTAL_CAROUSEL_SLIDES - 1;
+                carouselRef.current?.goTo(prevSlide);
+            } else if (event.key === 'ArrowRight') {
+                const nextSlide = (currentSlide + 1) % TOTAL_CAROUSEL_SLIDES;
+                carouselRef.current?.goTo(nextSlide);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [shouldShow, currentSlide, TOTAL_CAROUSEL_SLIDES]);
+
+    const handleBeforeSlideChange = (_from: number, _to: number) => {
+        // Start transition when carousel animation begins
+        setIsTransitioning(true);
+    };
+
     const handleSlideChange = (current: number) => {
-        // Prevent invalid slide changes during carousel initialization
+        // Called after carousel animation completes
         if (current >= 0 && current < TOTAL_CAROUSEL_SLIDES) {
             const direction = current > currentSlide ? 'forward' : 'backward';
 
@@ -149,6 +176,8 @@ export const WelcomeToDataHubModal = () => {
             });
 
             setCurrentSlide(current);
+            // End transition now that animation is complete
+            setIsTransitioning(false);
         }
 
         // Clear and restart timer on manual navigation
@@ -181,6 +210,7 @@ export const WelcomeToDataHubModal = () => {
 
         setShouldShow(false);
         setCurrentSlide(0); // Reset to first slide for next opening
+        setIsTransitioning(false); // Reset transition state
 
         // Clean up timer
         if (slideTimer.current) {
@@ -213,7 +243,7 @@ export const WelcomeToDataHubModal = () => {
                     },
                 ]}
             >
-                <SlideContainer>
+                <SlideContainer isActive>
                     <Heading type="h2">&nbsp;</Heading>
                     <VideoContainer>
                         <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading...</LoadingContainer>
@@ -235,6 +265,7 @@ export const WelcomeToDataHubModal = () => {
             <Carousel
                 ref={carouselRef}
                 autoplay={false}
+                beforeChange={handleBeforeSlideChange}
                 afterChange={handleSlideChange}
                 arrows={false}
                 leftComponent={
@@ -263,7 +294,7 @@ export const WelcomeToDataHubModal = () => {
                     ) : undefined
                 }
             >
-                <SlideContainer>
+                <SlideContainer isActive={isTransitioning || currentSlide === 0}>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Find Any Asset, Anywhere
                     </Heading>
@@ -271,45 +302,15 @@ export const WelcomeToDataHubModal = () => {
                         Search datasets, models, dashboards, and more across your entire stack
                     </Heading>
                     <VideoContainer>
-                        {videosReady.search ? (
-                            <video
-                                width={MODAL_IMAGE_WIDTH}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                style={{
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                                }}
-                            >
-                                <source src={videoSources?.search} type="video/mp4" />
-                            </video>
-                        ) : (
-                            <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading video...</LoadingContainer>
-                        )}
-                        {videoSources?.search && !videosReady.search && (
-                            <video
-                                width={MODAL_IMAGE_WIDTH}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                onCanPlay={() => handleVideoLoad('search')}
-                                style={{
-                                    opacity: 0,
-                                    position: 'absolute',
-                                    pointerEvents: 'none',
-                                    top: 0,
-                                    left: 0,
-                                }}
-                            >
-                                <source src={videoSources.search} type="video/mp4" />
-                            </video>
-                        )}
+                        <VideoSlide
+                            videoSrc={videoSources?.search}
+                            isReady={videosReady.search || false}
+                            onVideoLoad={() => handleVideoLoad('search')}
+                            width={MODAL_IMAGE_WIDTH}
+                        />
                     </VideoContainer>
                 </SlideContainer>
-                <SlideContainer>
+                <SlideContainer isActive={isTransitioning || currentSlide === 1}>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Understand Your Data&apos;s Origin
                     </Heading>
@@ -317,45 +318,15 @@ export const WelcomeToDataHubModal = () => {
                         See the full story of how your data was created and transformed
                     </Heading>
                     <VideoContainer>
-                        {videosReady.lineage ? (
-                            <video
-                                width={MODAL_IMAGE_WIDTH}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                style={{
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                                }}
-                            >
-                                <source src={videoSources?.lineage} type="video/mp4" />
-                            </video>
-                        ) : (
-                            <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading video...</LoadingContainer>
-                        )}
-                        {videoSources?.lineage && !videosReady.lineage && (
-                            <video
-                                width={MODAL_IMAGE_WIDTH}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                onCanPlay={() => handleVideoLoad('lineage')}
-                                style={{
-                                    opacity: 0,
-                                    position: 'absolute',
-                                    pointerEvents: 'none',
-                                    top: 0,
-                                    left: 0,
-                                }}
-                            >
-                                <source src={videoSources.lineage} type="video/mp4" />
-                            </video>
-                        )}
+                        <VideoSlide
+                            videoSrc={videoSources?.lineage}
+                            isReady={videosReady.lineage || false}
+                            onVideoLoad={() => handleVideoLoad('lineage')}
+                            width={MODAL_IMAGE_WIDTH}
+                        />
                     </VideoContainer>
                 </SlideContainer>
-                <SlideContainer>
+                <SlideContainer isActive={isTransitioning || currentSlide === 2}>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Manage Breaking Changes Confidently
                     </Heading>
@@ -363,46 +334,16 @@ export const WelcomeToDataHubModal = () => {
                         Preview the full impact of schema and column changes
                     </Heading>
                     <VideoContainer>
-                        {videosReady.impact ? (
-                            <video
-                                width={MODAL_IMAGE_WIDTH}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                style={{
-                                    borderRadius: '8px',
-                                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                                }}
-                            >
-                                <source src={videoSources?.impact} type="video/mp4" />
-                            </video>
-                        ) : (
-                            <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading video...</LoadingContainer>
-                        )}
-                        {videoSources?.impact && !videosReady.impact && (
-                            <video
-                                width={MODAL_IMAGE_WIDTH}
-                                autoPlay
-                                loop
-                                muted
-                                playsInline
-                                onCanPlay={() => handleVideoLoad('impact')}
-                                style={{
-                                    opacity: 0,
-                                    position: 'absolute',
-                                    pointerEvents: 'none',
-                                    top: 0,
-                                    left: 0,
-                                }}
-                            >
-                                <source src={videoSources.impact} type="video/mp4" />
-                            </video>
-                        )}
+                        <VideoSlide
+                            videoSrc={videoSources?.impact}
+                            isReady={videosReady.impact || false}
+                            onVideoLoad={() => handleVideoLoad('impact')}
+                            width={MODAL_IMAGE_WIDTH}
+                        />
                     </VideoContainer>
                 </SlideContainer>
                 {videoSources.aiDocs && (
-                    <SlideContainer>
+                    <SlideContainer isActive={isTransitioning || currentSlide === 3}>
                         <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                             Documentation Without the Work
                         </Heading>
@@ -410,51 +351,21 @@ export const WelcomeToDataHubModal = () => {
                             Save hours of manual work while improving discoverability
                         </Heading>
                         <VideoContainer>
-                            {videosReady.aiDocs ? (
-                                <video
-                                    width={MODAL_IMAGE_WIDTH}
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    style={{
-                                        borderRadius: '8px',
-                                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                                    }}
-                                >
-                                    <source src={videoSources?.aiDocs} type="video/mp4" />
-                                </video>
-                            ) : (
-                                <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading video...</LoadingContainer>
-                            )}
-                            {videoSources?.aiDocs && !videosReady.aiDocs && (
-                                <video
-                                    width={MODAL_IMAGE_WIDTH}
-                                    autoPlay
-                                    loop
-                                    muted
-                                    playsInline
-                                    onCanPlay={() => handleVideoLoad('aiDocs')}
-                                    style={{
-                                        opacity: 0,
-                                        position: 'absolute',
-                                        pointerEvents: 'none',
-                                        top: 0,
-                                        left: 0,
-                                    }}
-                                >
-                                    <source src={videoSources.aiDocs} type="video/mp4" />
-                                </video>
-                            )}
+                            <VideoSlide
+                                videoSrc={videoSources?.aiDocs}
+                                isReady={videosReady.aiDocs || false}
+                                onVideoLoad={() => handleVideoLoad('aiDocs')}
+                                width={MODAL_IMAGE_WIDTH}
+                            />
                         </VideoContainer>
                     </SlideContainer>
                 )}
-                <SlideContainer>
+                <SlideContainer isActive={isTransitioning || currentSlide === TOTAL_CAROUSEL_SLIDES - 1}>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Ready to Get Started?
                     </Heading>
                     <Heading type="h3" size="md" color="gray" colorLevel={1700}>
-                        Explore our comprehensive documentation or jump right in and start discovering your data.
+                        Explore our comprehensive documentation or jump right in and start discovering your data
                     </Heading>
                     <LoadedImage
                         src={welcomeModalHomeScreenshot}
