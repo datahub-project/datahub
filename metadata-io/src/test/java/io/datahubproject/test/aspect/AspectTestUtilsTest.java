@@ -132,13 +132,13 @@ public class AspectTestUtilsTest {
     assertTrue(validatorClasses.contains("ConditionalWriteValidator"));
   }
 
-  /** Test creating a custom test factory that can disable base plugins. */
+  /** Test that AspectTestUtils can enhance a registry with test plugins additively. */
   @Test
-  public void testCustomTestFactoryCanDisableBasePlugins() {
-    // Create a base registry with a validator we want to disable
+  public void testAspectTestUtilsEnhancesRegistryAdditively() {
+    // Create a base registry with a custom validator
     AspectPluginConfig baseConfig =
         AspectPluginConfig.builder()
-            .className("TestTargetValidator")
+            .className("BaseValidator")
             .enabled(true)
             .supportedOperations(List.of("CREATE", "UPDATE"))
             .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
@@ -147,24 +147,28 @@ public class AspectTestUtilsTest {
     PluginFactory baseFactory = createPluginFactoryWithConfig(baseConfig);
     EntityRegistry baseRegistry = createMockRegistry(baseFactory);
 
-    // Create a custom test factory that disables the base validator
-    AspectPluginConfig disablingConfig =
-        AspectPluginConfig.builder()
-            .className("TestTargetValidator")
-            .enabled(false) // Same config but disabled
-            .supportedOperations(List.of("CREATE", "UPDATE"))
-            .supportedEntityAspectNames(List.of(AspectPluginConfig.EntityAspectName.ALL))
-            .build();
+    // Use AspectTestUtils to enhance the registry
+    EntityRegistry enhanced = AspectTestUtils.enhanceRegistryWithTestPlugins(baseRegistry);
 
-    PluginFactory customTestFactory = createPluginFactoryWithConfig(disablingConfig);
+    PluginFactory enhancedFactory = enhanced.getPluginFactory();
+    List<AspectPayloadValidator> validators = enhancedFactory.getAspectPayloadValidators();
 
-    // Manually merge to test disabling functionality
-    PluginFactory merged = PluginFactory.merge(baseFactory, customTestFactory, null);
+    // Should have base validator + 2 test validators from AspectTestUtils = 3 total
+    assertEquals(validators.size(), 3, "Enhanced registry should have base + test validators");
 
-    // The base validator should be filtered out (disabled), and the test factory's disabled
-    // validator
-    // should also be filtered out by constructor, resulting in no validators
-    assertEquals(merged.getAspectPayloadValidators().size(), 0);
+    List<String> validatorClasses =
+        validators.stream().map(v -> v.getClass().getSimpleName()).collect(Collectors.toList());
+
+    // Should contain the base validator (first due to merge order)
+    assertTrue(validatorClasses.contains("MockValidator"), "Should contain base validator");
+
+    // Should contain the test validators from AspectTestUtils
+    assertTrue(
+        validatorClasses.contains("CreateIfNotExistsValidator"),
+        "Should contain CreateIfNotExistsValidator from AspectTestUtils");
+    assertTrue(
+        validatorClasses.contains("ConditionalWriteValidator"),
+        "Should contain ConditionalWriteValidator from AspectTestUtils");
   }
 
   /** Test that we can create a test factory that adds validators alongside disabling others. */
