@@ -334,6 +334,15 @@ def test_tagged_union_error_messages() -> None:
     ):
         load_filters({"and": [{"unknown_field": 6}]})
 
+    # Test that we can load a filter from a string.
+    # Sometimes we get filters encoded as JSON, and we want to handle those gracefully.
+    filter_str = '{\n  "and": [\n    {"entity_type": ["dataset"]},\n    {"entity_subtype": ["Table"]},\n    {"platform": ["snowflake"]}\n  ]\n}'
+    assert load_filters(filter_str) == F.and_(
+        F.entity_type("dataset"),
+        F.entity_subtype("Table"),
+        F.platform("snowflake"),
+    )
+
 
 def test_invalid_filter() -> None:
     with pytest.raises(InvalidUrnError):
