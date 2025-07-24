@@ -47,10 +47,10 @@ services:
         confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.2.5 || { echo "Failed to install JDBC connector"; exit 1; }
         confluent-hub install --no-prompt confluentinc/connect-transforms:1.4.1 || { echo "Failed to install transforms"; exit 1; }
         confluent-hub install --no-prompt confluentinc/kafka-connect-datagen:0.6.0 || { echo "Failed to install datagen"; exit 1; }
-        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.7.0 || { echo "Failed to install Debezium MySQL"; exit 1; }
-        confluent-hub install --no-prompt debezium/debezium-connector-postgresql:1.7.0 || { echo "Failed to install Debezium PostgreSQL"; exit 1; }
-        confluent-hub install --no-prompt debezium/debezium-connector-sqlserver:1.7.0 || { echo "Failed to install Debezium SQL Server"; exit 1; }
-        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:1.6.8 || { echo "Failed to install BigQuery"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-mysql:2.4.2 || { echo "Failed to install Debezium MySQL"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-postgresql:2.5.4 || { echo "Failed to install Debezium PostgreSQL"; exit 1; }
+        confluent-hub install --no-prompt debezium/debezium-connector-sqlserver:2.5.4 || { echo "Failed to install Debezium SQL Server"; exit 1; }
+        confluent-hub install --no-prompt wepay/kafka-connect-bigquery:2.5.6 || { echo "Failed to install BigQuery"; exit 1; }
         confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:1.10.1 || { echo "Failed to install MongoDB"; exit 1; }
         confluent-hub install --no-prompt confluentinc/kafka-connect-s3:10.5.1 || { echo "Failed to install S3"; exit 1; }
         
