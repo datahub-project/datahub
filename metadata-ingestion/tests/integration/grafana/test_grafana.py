@@ -3,13 +3,14 @@ import time
 from base64 import b64encode
 
 import pytest
+import pytest_docker.plugin
 import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import cleanup_image
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -64,8 +65,10 @@ def test_resources_dir(pytestconfig):
 
 
 @pytest.fixture(scope="module")
-def test_api_key():
-    url = "http://localhost:3000"
+def test_api_key(loaded_grafana):
+    # Get the actual mapped port from Docker services
+    grafana_port = loaded_grafana.port_for("grafana", 3000)
+    url = f"http://localhost:{grafana_port}"
     admin_user = "admin"
     admin_password = "admin"
 
@@ -93,36 +96,61 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "grafana"
     ) as docker_services:
-        wait_for_port(
-            docker_services,
-            container_name="grafana",
-            container_port=3000,
-            timeout=300,
-        )
+        # Docker Compose now waits for health check to pass before considering service ready
+        # Verify we can access the API endpoints as an additional safety check
+        verify_grafana_api_ready(docker_services)
         yield docker_services
 
     cleanup_image("grafana/grafana")
 
 
-def wait_for_grafana(url: str, max_attempts: int = 30, sleep_time: int = 5) -> bool:
-    """Helper function to wait for Grafana to start
+def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> None:
+    """Robust verification that Grafana API is fully accessible after health check passes"""
+    import requests
 
-    TODO: Replace this polling strategy with Docker Compose health checks
-    for better reliability. Use 'depends_on' with 'condition: service_healthy'
-    instead of application-level retries to avoid flaky tests.
-    """
-    for i in range(max_attempts):
-        logging.info("waiting for Grafana to start...")
+    grafana_port = docker_services.port_for("grafana", 3000)
+    base_url = f"http://localhost:{grafana_port}"
+
+    # Wait for API endpoints to be fully ready (health check might pass but API still initializing)
+    max_attempts = 30
+    for attempt in range(max_attempts):
         try:
-            resp = requests.get(url)
-            if resp.status_code == 200:
-                logging.info(f"Grafana started after waiting {i * sleep_time} seconds")
-                return True
-        except requests.exceptions.RequestException:
-            pass
-        time.sleep(sleep_time)
+            # Test both basic API access and service account creation capability
+            api_url = f"{base_url}/api/search"
+            resp = requests.get(api_url, auth=("admin", "admin"), timeout=10)
 
-    pytest.fail("Grafana did not start in time")
+            if resp.status_code == 200:
+                # Also verify service account API is ready (needed for test_api_key fixture)
+                # Service accounts might not be available in all Grafana versions
+                sa_url = f"{base_url}/api/serviceaccounts"
+                sa_resp = requests.get(sa_url, auth=("admin", "admin"), timeout=10)
+
+                if sa_resp.status_code == 200:
+                    logging.info(
+                        f"Grafana API endpoints fully ready with service accounts (attempt {attempt + 1})"
+                    )
+                    return
+                elif sa_resp.status_code == 404:
+                    # Service accounts API not available - this is okay for older Grafana versions
+                    logging.info(
+                        f"Grafana API ready, service accounts not available (attempt {attempt + 1})"
+                    )
+                    return
+                else:
+                    logging.debug(
+                        f"Service account API not ready yet: {sa_resp.status_code}"
+                    )
+            else:
+                logging.debug(f"Basic API not ready yet: {resp.status_code}")
+
+        except Exception as e:
+            logging.debug(f"API readiness check failed (attempt {attempt + 1}): {e}")
+
+        if attempt < max_attempts - 1:
+            time.sleep(2)
+
+    logging.warning(f"Grafana API may not be fully ready after {max_attempts} attempts")
+    # Don't fail here - let the test proceed and provide better error info if needed
 
 
 @freeze_time(FROZEN_TIME)
@@ -130,7 +158,6 @@ def test_grafana_basic_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
     """Test ingestion with lineage enabled"""
-    wait_for_grafana("http://localhost:3000/api/health")
 
     with fs_helpers.isolated_filesystem(tmp_path):
         pipeline = Pipeline.create(
@@ -170,7 +197,6 @@ def test_grafana_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
     """Test ingestion with lineage enabled"""
-    wait_for_grafana("http://localhost:3000/api/health")
 
     with fs_helpers.isolated_filesystem(tmp_path):
         pipeline = Pipeline.create(
