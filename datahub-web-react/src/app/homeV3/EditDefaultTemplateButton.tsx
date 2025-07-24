@@ -1,7 +1,8 @@
 import { Button, Tooltip } from '@components';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const ButtonWrapper = styled.div`
@@ -13,6 +14,13 @@ const ButtonWrapper = styled.div`
 export default function EditDefaultTemplateButton() {
     const { setIsEditingGlobalTemplate, isEditingGlobalTemplate } = usePageTemplateContext();
 
+    const onClick = useCallback(() => {
+        setIsEditingGlobalTemplate(true);
+        analytics.event({
+            type: EventType.HomePageTemplateGlobalTemplateEditingStart,
+        });
+    }, [setIsEditingGlobalTemplate]);
+
     // TODO: also hide this if you don't have permissions - CH-510
     if (isEditingGlobalTemplate) return null;
 
@@ -22,7 +30,7 @@ export default function EditDefaultTemplateButton() {
                 <Button
                     icon={{ icon: 'PencilSimpleLine', color: 'gray', source: 'phosphor' }}
                     variant="text"
-                    onClick={() => setIsEditingGlobalTemplate(true)}
+                    onClick={onClick}
                 />
             </Tooltip>
         </ButtonWrapper>
