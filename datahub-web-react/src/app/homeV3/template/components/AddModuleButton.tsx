@@ -11,6 +11,16 @@ const Wrapper = styled.div``;
 
 const StyledDropdownContainer = styled.div`
     max-width: 330px;
+
+    .ant-dropdown-menu {
+        border-radius: 12px;
+    }
+
+    &&& {
+        .ant-dropdown-menu-sub {
+            border-radius: 12px;
+        }
+    }
 `;
 
 const StyledButton = styled(Button)<{ $orientation: AddModuleButtonOrientation; $opened?: boolean }>`
