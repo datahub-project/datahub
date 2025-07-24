@@ -92,7 +92,7 @@ function IngestionSourceTable({
             { arrayFormat: 'comma' },
         );
 
-        history.replace({
+        history.push({
             pathname: tabUrlMap[TabType.RunHistory],
             search,
         });
