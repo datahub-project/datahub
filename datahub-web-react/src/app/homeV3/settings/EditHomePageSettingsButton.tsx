@@ -50,10 +50,13 @@ export default function EditHomePageSettingsButton() {
         });
     }, [setIsEditingGlobalTemplate]);
 
-    const handleResetToDefault = () => {
+    const handleResetToDefault = useCallback(() => {
         resetTemplateToDefault();
         setShowConfirmResetModal(false);
-    };
+        analytics.event({
+            type: EventType.HomePageTemplateResetToGlobalTemplate,
+        });
+    }, [resetTemplateToDefault]);
 
     if (isEditingGlobalTemplate || (!canEditDefaultTemplate && !isOnPersonalTemplate)) return null;
 
