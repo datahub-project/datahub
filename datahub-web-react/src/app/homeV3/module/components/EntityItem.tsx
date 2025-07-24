@@ -35,7 +35,6 @@ export default function EntityItem({
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
-    // TODO: should we add when navigateOnlyOnNameClick is true?
     const sendAnalytics = useCallback(
         () =>
             analytics.event({
@@ -58,6 +57,7 @@ export default function EntityItem({
                     padding={padding}
                     navigateOnlyOnNameClick
                     dragIconRenderer={dragIconRenderer}
+                    onClick={sendAnalytics}
                 />
             ) : (
                 <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={sendAnalytics}>

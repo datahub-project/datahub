@@ -126,6 +126,9 @@ export enum EventType {
     HomePageTemplateModuleUpdate,
     HomePageTemplateModuleDelete,
     HomePageTemplateModuleMove,
+    HomePageTemplateModuleModalCreateOpen,
+    HomePageTemplateModuleModalEditOpen,
+    HomePageTemplateModuleModalCancel,
     HomePageTemplateGlobalTemplateEditingStart,
     HomePageTemplateGlobalTemplateEditingDone,
     HomePageTemplateResetToGlobalTemplate,
@@ -937,6 +940,21 @@ export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
     isPersonal: boolean;
 }
 
+export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCreateOpen;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalEditOpen;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCancel;
+    moduleType: DataHubPageModuleType;
+}
+
 export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
     type: EventType.HomePageTemplateGlobalTemplateEditingStart;
 }
@@ -1085,6 +1103,9 @@ export type Event =
     | HomePageTemplateModuleUpdateEvent
     | HomePageTemplateModuleDeleteEvent
     | HomePageTemplateModuleMoveEvent
+    | HomePageTemplateModuleModalCreateOpenEvent
+    | HomePageTemplateModuleModalEditOpenEvent
+    | HomePageTemplateModuleModalCancelEvent
     | HomePageTemplateGlobalTemplateEditingStartEvent
     | HomePageTemplateGlobalTemplateEditingDoneEvent
     | HomePageTemplateResetToGlobalTemplateEvent

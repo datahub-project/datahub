@@ -110,6 +110,9 @@ public enum DataHubUsageEventType {
   HOME_PAGE_TEMPLATE_MODULE_UPDATE_EVENT("HomePageTemplateModuleUpdateEvent"),
   HOME_PAGE_TEMPLATE_MODULE_DELETE_EVENT("HomePageTemplateModuleDeleteEvent"),
   HOME_PAGE_TEMPLATE_MODULE_MOVE_EVENT("HomePageTemplateModuleMoveEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_CREATE_OPEN_EVENT("HomePageTemplateModuleModalCreateOpenEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_EDIT_OPEN_EVENT("HomePageTemplateModuleModalEditOpenEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_CANCEL_EVENT("HomePageTemplateModuleModalCancelEvent"),
   HOME_PAGE_TEMPLATE_GLOBAL_TEMPLATE_EDITING_START_EVENT(
       "HomePageTemplateGlobalTemplateEditingStartEvent"),
   HOME_PAGE_TEMPLATE_GLOBAL_TEMPLATE_EDITING_DONE_EVENT(
