@@ -1,9 +1,10 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 
 import PolicyPrivilegeForm from '@app/permissions/policy/PolicyPrivilegeForm';
 import * as policyUtils from '@app/permissions/policy/policyUtils';
+import { render } from '@utils/test-utils/customRender';
 
 import { EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
