@@ -161,7 +161,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             self.username,
             self.password.get_secret_value() if self.password else None,
             self.host_port,  # type: ignore
-            current_db if (current_db and self.database) else self.database,
+            current_db if current_db else self.database,
             uri_opts=uri_opts,
         )
         if self.use_odbc:
