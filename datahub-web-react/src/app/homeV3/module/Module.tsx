@@ -8,6 +8,7 @@ import DocumentationModule from '@app/homeV3/modules/documentation/Documentation
 import TopDomainsModule from '@app/homeV3/modules/domains/TopDomainsModule';
 import HierarchyViewModule from '@app/homeV3/modules/hierarchyViewModule/HierarchyViewModule';
 import LinkModule from '@app/homeV3/modules/link/LinkModule';
+import SubscriptionsModule from '@app/homeV3/modules/subscriptions/SubscriptionsModule';
 
 import { DataHubPageModuleType } from '@types';
 
@@ -22,6 +23,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.Link) return LinkModule;
         if (module.properties.type === DataHubPageModuleType.RichText) return DocumentationModule;
         if (module.properties.type === DataHubPageModuleType.Hierarchy) return HierarchyViewModule;
+        if (module.properties.type === DataHubPageModuleType.SubscribedAssets) return SubscriptionsModule; // SaaS-only
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);

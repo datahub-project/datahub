@@ -37,6 +37,18 @@ const DOMAINS_MODULE: PageModuleFragment = {
     },
 };
 
+// SaaS-only
+const YOUR_SUBSCRIPTIONS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:your_subscriptions',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Your Subscriptions',
+        type: DataHubPageModuleType.SubscribedAssets,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const {
         addModule,
@@ -188,11 +200,31 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             disabled: isSmallModuleRow,
         };
 
+        // SaaS-only
+        const yourSubscriptions = {
+            name: 'Your Subscriptions',
+            key: 'your-subscriptions',
+            label: (
+                <MenuItem
+                    description="Assets the current user is subscribed to"
+                    title="Your Subscriptions"
+                    icon="Bell"
+                    isDisabled={isSmallModuleRow}
+                    isSmallModule={false}
+                />
+            ),
+
+            onClick: () => {
+                handleAddExistingModule(YOUR_SUBSCRIPTIONS_MODULE);
+            },
+            disabled: isSmallModuleRow,
+        };
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Default" />,
             type: 'group',
-            children: [yourAssets, domains],
+            children: [yourAssets, domains, yourSubscriptions],
         });
 
         // Add global custom modules if available

@@ -28,4 +28,8 @@ enum DataHubPageModuleType {
    * Module displaying the top domains
    */
   DOMAINS
+  /**
+   * Module displaying assets subscribed to by a given user
+   */
+  SUBSCRIBED_ASSETS
 }

@@ -10,6 +10,7 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.Link, 'Choose links that are important'],
     [DataHubPageModuleType.OwnedAssets, 'Assets the current user owns'],
     [DataHubPageModuleType.RichText, 'Pin docs for your DataHub users'],
+    [DataHubPageModuleType.SubscribedAssets, 'Assets the current user is subscribed to'], // SaaS-only
 ]);
 
 export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Map([
@@ -19,6 +20,7 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Ma
     [DataHubPageModuleType.Link, 'LinkSimple'],
     [DataHubPageModuleType.OwnedAssets, 'Database'],
     [DataHubPageModuleType.RichText, 'TextT'],
+    [DataHubPageModuleType.SubscribedAssets, 'Bell'], // SaaS-only
 ]);
 
 export const DEFAULT_MODULE_ICON = 'Database';
@@ -46,6 +48,7 @@ export const ADD_MODULE_MENU_SECTION_CUSTOM_LARGE_MODULE_TYPES: DataHubPageModul
 export const DEFAULT_GLOBAL_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.OwnedAssets,
     DataHubPageModuleType.Domains,
+    DataHubPageModuleType.SubscribedAssets, // SaaS-only
 ];
 
 export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [

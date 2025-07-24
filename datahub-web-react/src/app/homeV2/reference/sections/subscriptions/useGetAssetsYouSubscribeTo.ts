@@ -19,13 +19,13 @@ export const useGetAssetsYouSubscribeTo = (user?: CorpUser | null, count = MAX_A
     });
 
     const entityRegistry = useEntityRegistry();
+    const originEntities = data?.listSubscriptions?.subscriptions?.map((result) => result.entity) || [];
+
     const entities =
-        data?.listSubscriptions?.subscriptions
-            ?.filter((subscription) => subscription.entity)
-            .map((subscription) =>
-                entityRegistry.getGenericEntityProperties(subscription.entity.type as EntityType, subscription.entity),
-            ) || [];
+        originEntities.map((subscription) =>
+            entityRegistry.getGenericEntityProperties(subscription.type as EntityType, subscription),
+        ) || [];
     const total = data?.listSubscriptions?.total || 0;
 
-    return { entities, loading, error, total };
+    return { originEntities, entities, loading, error, total };
 };
