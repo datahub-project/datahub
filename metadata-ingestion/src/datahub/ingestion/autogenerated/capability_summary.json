@@ -980,8 +980,38 @@
     "grafana": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }
@@ -989,7 +1019,7 @@
       "classname": "datahub.ingestion.source.grafana.grafana_source.GrafanaSource",
       "platform_id": "grafana",
       "platform_name": "Grafana",
-      "support_status": "TESTING"
+      "support_status": "CERTIFIED"
     },
     "hana": {
       "capabilities": [
