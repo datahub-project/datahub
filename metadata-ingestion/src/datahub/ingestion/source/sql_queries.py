@@ -207,15 +207,6 @@ class SqlQueriesSource(Source):
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:
         """Add a query to the SQL parsing aggregator."""
         try:
-            observed_query = ObservedQuery(
-                query=query_entry.query,
-                timestamp=query_entry.timestamp,
-                user=query_entry.user,
-                session_id=query_entry.session_id,
-                default_db=self.config.default_db,
-                default_schema=self.config.default_schema,
-            )
-
             # If we have explicit lineage, use it directly
             if query_entry.upstream_tables or query_entry.downstream_tables:
                 logger.debug("Using explicit lineage from query file")
@@ -230,6 +221,14 @@ class SqlQueriesSource(Source):
                     self.aggregator.add_known_query_lineage(known_lineage)
             else:
                 # No explicit lineage, rely on parsing
+                observed_query = ObservedQuery(
+                    query=query_entry.query,
+                    timestamp=query_entry.timestamp,
+                    user=query_entry.user,
+                    session_id=query_entry.session_id,
+                    default_db=self.config.default_db,
+                    default_schema=self.config.default_schema,
+                )
                 self.aggregator.add_observed_query(observed_query)
 
         except Exception as e:
