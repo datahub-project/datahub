@@ -31,6 +31,7 @@ import {
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useAppConfig } from '@app/useAppConfig';
@@ -90,11 +91,12 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
+    const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
     const isHomePage = useIsHomePage();
+    const showHomepageRedesign = useShowHomePageRedesign();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -153,6 +155,12 @@ export const NavSidebar = () => {
 
     const versionLink = generateReleaseNotesLink(config?.appVersion);
 
+    function handleHomeclick() {
+        if (isHomePage && showHomepageRedesign) {
+            toggle();
+        }
+    }
+
     const mainMenu: NavBarMenuItems = {
         items: [
             {
@@ -163,6 +171,7 @@ export const NavSidebar = () => {
                 key: 'home',
                 link: PageRoutes.ROOT,
                 onlyExactPathMapping: true,
+                onClick: () => handleHomeclick(),
             },
             {
                 type: NavBarMenuItemTypes.Item,

@@ -4,6 +4,8 @@ import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
@@ -68,13 +70,22 @@ type Props = {
 };
 
 export default function NavBarHeader({ logotype }: Props) {
-    const { isCollapsed } = useNavBarContext();
+    const { toggle, isCollapsed } = useNavBarContext();
     const { globalSettings } = useGlobalSettingsContext();
+    const showHomepageRedesign = useShowHomePageRedesign();
     const customName = globalSettings?.visualSettings?.customOrgName;
+    const isHomePage = useIsHomePage();
+
+    function handleLogoClick() {
+        if (isHomePage && showHomepageRedesign) {
+            toggle();
+        }
+        analytics.event({ type: EventType.NavBarItemClick, label: 'Home' });
+    }
 
     return (
         <Container>
-            <StyledLink to="/" onClick={() => analytics.event({ type: EventType.NavBarItemClick, label: 'Home' })}>
+            <StyledLink to="/" onClick={handleLogoClick}>
                 <Logotype>{logotype}</Logotype>
                 {!isCollapsed && !customName && <DatahubCloudLogo />}
                 {!isCollapsed && customName && <Title>{customName}</Title>}
