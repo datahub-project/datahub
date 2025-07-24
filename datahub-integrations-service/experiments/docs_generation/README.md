@@ -3,7 +3,7 @@
 ## Prerequisites
 
 1. Build and activate datahub-integrations-service python venv
-2. Create `.env` file in `docs_generation` folder containing bedrock credentials
+2. Create `.env` file in `datahub-integrations-service` folder containing bedrock credentials
    ```.env
    BEDROCK_AWS_ACCESS_KEY_ID=
    BEDROCK_AWS_SECRET_ACCESS_KEY=

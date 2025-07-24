@@ -151,12 +151,10 @@ async def main(prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = 
         )
         logger.debug(eval_result)
         try:
-            active_run = mlflow.active_run()
-            assert active_run is not None
             html_path = execute_notebook_save_as_html(
                 experiments_dir / "analyze_run.ipynb",
                 pathlib.Path(experiment_results_dir),
-                {"RUN_NAME": active_run.info.run_name},
+                {"RUN_NAME": run.info.run_name},
             )
             mlflow.log_artifact(html_path)
         except Exception as e:
