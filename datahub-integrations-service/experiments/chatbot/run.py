@@ -9,6 +9,7 @@ import asyncer
 import mlflow
 import pandas as pd
 import typer
+from anyio import to_thread
 from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 from mlflow import metrics as mlflow_metrics
@@ -24,6 +25,8 @@ from datahub_integrations.experimentation.chatbot import (
     prompts_file,
 )
 from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
+from datahub_integrations.experimentation.utils import execute_notebook_save_as_html
+from datahub_integrations.gen_ai.description_v3 import ANYIO_THREAD_COUNT
 from datahub_integrations.mcp.mcp_server import mcp
 
 assert AI_EXPERIMENTATION_INITIALIZED
@@ -75,6 +78,8 @@ def _has_response_metric_fn(predictions, targets, metrics):
         scores=scores,
         aggregate_results={
             "pass_percentage": len(list(filter(lambda x: x, scores))) / len(scores)
+            if len(scores) > 0
+            else 0
         },
     )
 
@@ -99,6 +104,7 @@ async def main(prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = 
             return
         logger.info(f"Running {len(filtered_prompts)} prompts")
 
+    to_thread.current_default_thread_limiter().total_tokens = ANYIO_THREAD_COUNT
     with mlflow.start_run() as run:
         assert run.info.run_name is not None
         experiment_results_dir: pathlib.Path = (
@@ -144,6 +150,17 @@ async def main(prompt_ids: Annotated[Optional[List[str]], typer.Option(None)] = 
             ],
         )
         logger.debug(eval_result)
+        try:
+            active_run = mlflow.active_run()
+            assert active_run is not None
+            html_path = execute_notebook_save_as_html(
+                experiments_dir / "analyze_run.ipynb",
+                pathlib.Path(experiment_results_dir),
+                {"RUN_NAME": active_run.info.run_name},
+            )
+            mlflow.log_artifact(html_path)
+        except Exception as e:
+            logger.error(f"Error executing notebook: {e}")
 
 
 if __name__ == "__main__":

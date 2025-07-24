@@ -15,6 +15,7 @@ To run the bot + evals:
 - `instance`: the instance of the chatbot to run the prompt on
 - `message`: the prompt message
 - `response_guidelines`: the response guidelines for the prompt; passed to the LLM judge
+- `tags`: list of tags
 
 ## Other tools
 

@@ -1,10 +1,6 @@
 import json
-import os
-import pathlib
-import subprocess
 import threading
 from collections import defaultdict
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -220,69 +216,3 @@ def update_guidelines_file(guidelines_dict: Dict[str, HumanGuidelines]) -> None:
 
 def get_deployment_details() -> List[Dict[str, str]]:
     return json.load(open("eval_config/deployment_details.json"))
-
-
-def execute_notebook_save_as_html(
-    notebook_path: pathlib.Path, output_dir: pathlib.Path, params: Dict[str, str]
-) -> str:
-    """
-    Executes a Jupyter Notebook and saves the executed version as HTML.
-
-    Args:
-        notebook_path (str): The path to the Jupyter Notebook file (.ipynb).
-        output_dir (str): The directory to save the executed notebook.
-
-    Returns:
-        str: The path to the successfully executed HTML notebook.
-
-    Raises:
-        FileNotFoundError: If the 'jupyter' command is not found.
-        subprocess.CalledProcessError: If the notebook execution fails.
-        Exception: For any other unexpected errors during execution.
-    """
-    notebook_filename = os.path.basename(notebook_path)
-    notebook_name_without_ext, _ = os.path.splitext(notebook_filename)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    executed_notebook_filename = (
-        f"{notebook_name_without_ext}_executed_{timestamp}.ipynb"
-    )
-    executed_notebook_path = os.path.join(output_dir, executed_notebook_filename)
-    executed_notebook_filename_html = (
-        f"{notebook_name_without_ext}_executed_{timestamp}.html"
-    )
-    executed_notebook_path_html = os.path.join(
-        output_dir, executed_notebook_filename_html
-    )
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    print(f"Executing notebook: {notebook_path}")
-
-    param_options = []
-    for k, v in params.items():
-        param_options.append("-p")
-        param_options.append(k)
-        param_options.append(v)
-
-    # Get the virtual environment Python executable
-    venv_path = os.path.join(os.path.dirname(__file__), "..", "..")
-    papermill_command = [
-        "papermill",
-        str(notebook_path),
-        str(executed_notebook_path),
-        *param_options,
-    ]
-    jupyter_command = [
-        "jupyter",
-        "nbconvert",
-        "--to",
-        "html",
-        "--no-input",
-        str(executed_notebook_path),
-        "--output",
-        str(executed_notebook_path_html),
-    ]
-    subprocess.run(papermill_command, check=True, cwd=venv_path)
-    subprocess.run(jupyter_command, check=True, cwd=venv_path)
-    print(f"Executed notebook saved to: {executed_notebook_path_html}")
-    return executed_notebook_path_html

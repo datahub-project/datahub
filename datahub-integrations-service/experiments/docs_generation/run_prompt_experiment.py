@@ -14,12 +14,12 @@ import mlflow.metrics
 import pandas as pd
 import typer
 from datahub.utilities.perf_timer import PerfTimer
-from eval_common import execute_notebook_save_as_html
 from loguru import logger
 from mlflow.metrics import MetricValue
 
 import datahub_integrations.gen_ai as gen_ai_module
 from datahub_integrations.chat.linkify import urn_regex
+from datahub_integrations.experimentation.utils import execute_notebook_save_as_html
 from datahub_integrations.gen_ai.description_context import transform_table_info_for_llm
 from datahub_integrations.gen_ai.description_v3 import (
     ANYIO_THREAD_COUNT,

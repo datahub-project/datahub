@@ -22,6 +22,7 @@ class Prompt(pydantic.BaseModel):
     message: str
 
     response_guidelines: str | None = None
+    tags: list[str] | None = None
 
     # TODO: add mechanism for testing follow-up questions using a starting chat history
 
