@@ -1,6 +1,6 @@
 import { Tooltip } from '@components';
 import { Button } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 import {
     ActionsContainer,
@@ -17,7 +17,7 @@ interface Props {
     onDeletePredicate: (index: number) => void;
     onChangeOperator: (operator: LogicalOperatorType) => void;
     index: number;
-    operator?: LogicalOperatorType;
+    operator: LogicalOperatorType;
 }
 
 const GroupHeader = ({
@@ -28,14 +28,7 @@ const GroupHeader = ({
     index,
     operator,
 }: Props) => {
-    const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(
-        operator ?? LogicalOperatorType.AND,
-    );
-
-    useEffect(() => {
-        onChangeOperator(selectedOperation);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedOperation]);
+    const selectedOperation = operator ?? LogicalOperatorType.AND;
 
     return (
         <ToolbarContainer>
@@ -43,7 +36,7 @@ const GroupHeader = ({
                 <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (AND)">
                     <OperationButton
                         variant="text"
-                        onClick={() => setSelectedOperation(LogicalOperatorType.AND)}
+                        onClick={() => onChangeOperator(LogicalOperatorType.AND)}
                         isSelected={selectedOperation === LogicalOperatorType.AND}
                     >
                         All
@@ -52,7 +45,7 @@ const GroupHeader = ({
                 <Tooltip showArrow={false} title="Match assets that satisfy all of the following conditions (OR)">
                     <OperationButton
                         variant="text"
-                        onClick={() => setSelectedOperation(LogicalOperatorType.OR)}
+                        onClick={() => onChangeOperator(LogicalOperatorType.OR)}
                         isSelected={selectedOperation === LogicalOperatorType.OR}
                     >
                         Any
@@ -61,7 +54,7 @@ const GroupHeader = ({
                 <Tooltip showArrow={false} title="Match assets that do not match any of the following conditions (NOT)">
                     <OperationButton
                         variant="text"
-                        onClick={() => setSelectedOperation(LogicalOperatorType.NOT)}
+                        onClick={() => onChangeOperator(LogicalOperatorType.NOT)}
                         isSelected={selectedOperation === LogicalOperatorType.NOT}
                     >
                         None

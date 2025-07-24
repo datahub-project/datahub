@@ -1,17 +1,20 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
-import { Button } from '@src/alchemy-components';
+import { Button, Text } from '@src/alchemy-components';
 import { EmbeddedListSearchModal } from '@src/app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import { MAX_COUNT_VAL } from '@src/app/searchV2/utils/constants';
 import Loading from '@src/app/shared/Loading';
 import { pluralize } from '@src/app/shared/textUtil';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 
+import { AndFilterInput } from '@types';
+
 const AssetReviewWrapper = styled.div`
     display: flex;
     justify-content: flex-end;
+    align-items: flex-end;
+    flex-direction: column;
 `;
 
 const StyledButton = styled(Button)`
@@ -21,12 +24,13 @@ const StyledButton = styled(Button)`
     justify-content: center;
 `;
 
-export default function AssetReviewModal() {
-    const { formValues } = useContext(ManageFormContext);
+type Props = {
+    orFilters?: AndFilterInput[];
+    maxSelectableAssets?: number;
+};
 
+export default function AssetReviewModal({ orFilters, maxSelectableAssets }: Props) {
     const [isModalVisible, setIsModalVisible] = useState(false);
-
-    const orFilters = formValues.assets?.orFilters;
 
     const searchFlags = { rewriteQuery: false };
     const { data, loading } = useGetSearchResultsForMultipleQuery({
@@ -58,6 +62,11 @@ export default function AssetReviewModal() {
                 )}
                 {!loading && !totalCount && <>No Assets Selected</>}
             </StyledButton>
+            {maxSelectableAssets && (
+                <Text size="sm" color="gray" colorLevel={1700}>
+                    *Max {maxSelectableAssets.toLocaleString()} assets can be selected for this action.
+                </Text>
+            )}
             {isModalVisible && (
                 <EmbeddedListSearchModal
                     title="View Selected Assets"

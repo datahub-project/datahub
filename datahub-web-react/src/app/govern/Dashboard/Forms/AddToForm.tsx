@@ -34,6 +34,7 @@ const AddToForm = () => {
             ...formValues,
             assets: {
                 logicalPredicate: {
+                    type: 'logical',
                     operator: LogicalOperatorType.AND,
                     operands: [],
                 },
@@ -76,7 +77,7 @@ const AddToForm = () => {
                         onChangeFilters={handleFiltersChange}
                         properties={properties}
                     />
-                    <AssetReviewModal />
+                    <AssetReviewModal orFilters={formValues.assets?.orFilters} />
                 </>
             )}
             <Divider />

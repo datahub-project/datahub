@@ -59,7 +59,7 @@ export const PropertyTreeSelect = ({ selectedProperty, properties, onChangePrope
             treeNodeLabelProp="label"
             placeholder="Select a property..."
             onSelect={(newVal) => onChangeProperty(newVal as string)}
-            value={selectedProperty}
+            value={selectedProperty || undefined}
             treeDefaultExpandAll
             treeExpandAction="click"
         >

@@ -1,4 +1,5 @@
 import { PageTitle, colors } from '@components';
+import { Plus } from 'phosphor-react';
 import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -7,6 +8,7 @@ import { HeaderContainer, PageContainer } from '@app/govern/structuredProperties
 import { AssertionsByAssertionSummary } from '@app/observe/dataset/assertion/AssertionsByAssertionSummary';
 import { AssertionsByTableSummary } from '@app/observe/dataset/assertion/AssertionsByTableSummary';
 import { IncidentsSummary } from '@app/observe/dataset/incident/IncidentsSummary';
+import BulkCreateAssertionsDrawer from '@app/observe/shared/bulkCreate/BulkCreateAssertionsDrawer';
 import { useAppConfig } from '@app/useAppConfig';
 import { Tabs } from '@src/alchemy-components/components/Tabs';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -39,6 +41,12 @@ export const DatasetHealthPage = () => {
 
     const [selectedTab, setSelectedTab] = React.useState<string>(ASSERTIONS_TAB_ID);
     const [selectedSubTab, setSelectedSubTab] = React.useState<string>(BY_ASSERTIONS_TAB_ID);
+    const [isBulkCreateAssertionsDrawerOpen, setIsBulkCreateAssertionsDrawerOpen] = React.useState<boolean>(false);
+
+    const assertionMonitorsEnabled = !!appConfig.config?.featureFlags?.assertionMonitorsEnabled;
+    const onlineSmartAssertionsEnabled = !!appConfig.config?.featureFlags?.onlineSmartAssertionsEnabled;
+    const showBulkCreateAssertionsButton =
+        assertionMonitorsEnabled && onlineSmartAssertionsEnabled && selectedTab === ASSERTIONS_TAB_ID;
 
     // Initialize tab state based on current URL
     React.useEffect(() => {
@@ -128,9 +136,23 @@ export const DatasetHealthPage = () => {
                 <PageTitle
                     title="Data Health"
                     subTitle="A birds-eye view of the health of your entire data landscape."
+                    actionButton={
+                        showBulkCreateAssertionsButton
+                            ? {
+                                  label: 'Bulk Create',
+                                  onClick: () => setIsBulkCreateAssertionsDrawerOpen(true),
+                                  icon: <Plus size={14} />,
+                              }
+                            : undefined
+                    }
                 />
             </HeaderContainer>
             {!!appConfig.config.featureFlags.datasetHealthDashboardEnabled && mainTabs}
+            <BulkCreateAssertionsDrawer
+                key={`${isBulkCreateAssertionsDrawerOpen}`}
+                open={isBulkCreateAssertionsDrawerOpen}
+                onClose={() => setIsBulkCreateAssertionsDrawerOpen(false)}
+            />
         </PageContainer>
     );
 };

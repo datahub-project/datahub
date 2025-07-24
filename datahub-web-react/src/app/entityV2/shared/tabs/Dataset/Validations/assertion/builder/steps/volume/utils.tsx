@@ -384,20 +384,29 @@ export const getVolumeSourceTypeDetails = (
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypeDetails[sourceType];
 };
 
-export const getDefaultVolumeSourceType = (platformUrn: string, connectionForEntityExists: boolean) => {
-    return connectionForEntityExists
+export const getDefaultVolumeSourceType = (
+    platformUrn: string,
+    connectionForEntityExists: boolean,
+    isView?: boolean,
+) => {
+    const result = connectionForEntityExists
         ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.defaultSourceType ?? DatasetVolumeSourceType.DatahubDatasetProfile)
         : DatasetVolumeSourceType.DatahubDatasetProfile;
+    if (isView && result === DatasetVolumeSourceType.InformationSchema) {
+        return DatasetVolumeSourceType.Query;
+    }
+    return result;
 };
 
 export const getDefaultDatasetVolumeAssertionParametersState = (
     platformUrn: string,
     monitorsConnectionForEntityExists: boolean,
+    isView?: boolean,
 ) => {
     return {
         type: AssertionEvaluationParametersType.DatasetVolume,
         datasetVolumeParameters: {
-            sourceType: getDefaultVolumeSourceType(platformUrn, monitorsConnectionForEntityExists),
+            sourceType: getDefaultVolumeSourceType(platformUrn, monitorsConnectionForEntityExists, isView),
         },
     };
 };

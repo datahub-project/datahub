@@ -1,14 +1,13 @@
 import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
-import { Button } from '@components';
+import { Button, colors } from '@components';
 import { Collapse, Progress, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ProgressReport } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/useBulkCreateFieldAssertions';
-import { getFieldMetricTypeReadableLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
-
-import { FieldMetricType, SchemaFieldSpecInput } from '@types';
+import { extractDatasetNameFromUrn } from '@app/entityV2/shared/utils';
+import { getAssertionTypeLabel } from '@app/observe/shared/bulkCreate/BulkCreateAssertionsProgress.utils';
+import { ProgressTracker } from '@app/observe/shared/bulkCreate/constants';
 
 const Container = styled.div`
     display: flex;
@@ -52,7 +51,7 @@ const ProgressText = styled(Typography.Text)`
 
 const StyledProgress = styled(Progress)`
     .ant-progress-bg {
-        background: linear-gradient(90deg, ${REDESIGN_COLORS.GREEN_NORMAL} 0%, ${REDESIGN_COLORS.TERTIARY_GREEN} 100%);
+        background: linear-gradient(90deg, ${colors.green[500]} 0%, ${colors.green[1200]} 100%);
     }
 `;
 
@@ -70,8 +69,8 @@ const SuccessfulSummary = styled.div`
 `;
 
 const SuccessfulPill = styled.div`
-    background: ${REDESIGN_COLORS.GREEN_LIGHT};
-    color: ${REDESIGN_COLORS.GREEN_800};
+    background: ${colors.gray[100]};
+    color: ${colors.gray[600]};
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
@@ -79,19 +78,14 @@ const SuccessfulPill = styled.div`
 `;
 
 const MorePill = styled.div`
-    background: ${REDESIGN_COLORS.GREY_100};
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    background: ${colors.gray[100]};
+    color: ${colors.gray[600]};
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;
-
-    &:hover {
-        background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
-        color: white;
-    }
 `;
 
 const ErrorContainer = styled.div`
@@ -161,29 +155,15 @@ const CompletedMessage = styled.div`
 `;
 
 type Props = {
-    progress: ProgressReport;
+    progress: ProgressTracker;
     onDone: () => void;
 };
 
-export const CreateBulkFieldSmartAssertionsProgress = ({ progress, onDone }: Props) => {
+export default function BulkCreateAssertionsProgress({ progress, onDone }: Props) {
     const { total, completed, successful, errored } = progress;
 
     const progressPercentage = total > 0 ? (completed / total) * 100 : 0;
     const isCompleted = completed === total && total > 0;
-
-    const getFieldPath = (field: SchemaFieldSpecInput | 'Unknown'): string => {
-        if (field === 'Unknown') return 'Unknown';
-        return field.path || 'Unknown';
-    };
-
-    const getMetricLabel = (metric: FieldMetricType | 'Unknown'): string => {
-        if (metric === 'Unknown') return 'Unknown';
-        try {
-            return getFieldMetricTypeReadableLabel(metric);
-        } catch {
-            return String(metric);
-        }
-    };
 
     const renderSuccessfulSummary = () => {
         if (successful.length === 0) return null;
@@ -195,8 +175,8 @@ export const CreateBulkFieldSmartAssertionsProgress = ({ progress, onDone }: Pro
         const tooltipContent = (
             <TooltipContent>
                 {successful.map((item) => (
-                    <TooltipItem key={`${getFieldPath(item.field)}-${getMetricLabel(item.metric)}`}>
-                        {getFieldPath(item.field)} – {getMetricLabel(item.metric)}
+                    <TooltipItem key={`${item.dataset}-${item.assertionType}`}>
+                        {extractDatasetNameFromUrn(item.dataset)} – {getAssertionTypeLabel(item.assertionType)}
                     </TooltipItem>
                 ))}
             </TooltipContent>
@@ -204,13 +184,13 @@ export const CreateBulkFieldSmartAssertionsProgress = ({ progress, onDone }: Pro
 
         return (
             <SuccessfulContainer>
-                <Typography.Text strong style={{ color: REDESIGN_COLORS.GREEN_800 }}>
+                <Typography.Text strong style={{ color: colors.gray[600] }}>
                     Successfully Created ({successful.length})
                 </Typography.Text>
                 <SuccessfulSummary>
                     {visibleSuccessful.map((item) => (
-                        <SuccessfulPill key={`${getFieldPath(item.field)}-${getMetricLabel(item.metric)}`}>
-                            {getFieldPath(item.field)} – {getMetricLabel(item.metric)}
+                        <SuccessfulPill key={`${item.dataset}-${item.assertionType}`}>
+                            {extractDatasetNameFromUrn(item.dataset)} – {getAssertionTypeLabel(item.assertionType)}
                         </SuccessfulPill>
                     ))}
                     {remainingCount > 0 && (
@@ -234,11 +214,12 @@ export const CreateBulkFieldSmartAssertionsProgress = ({ progress, onDone }: Pro
                 <StyledCollapse ghost>
                     {errored.map((error) => (
                         <Collapse.Panel
-                            key={`${getFieldPath(error.field)}-${getMetricLabel(error.metric)}`}
+                            key={`${error.dataset}-${error.assertionType}`}
                             header={
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <ErrorIcon />
-                                    <strong>{getFieldPath(error.field)}</strong> {getMetricLabel(error.metric)}
+                                    <strong>{extractDatasetNameFromUrn(error.dataset)}</strong>{' '}
+                                    {getAssertionTypeLabel(error.assertionType)}
                                 </div>
                             }
                         >
@@ -293,4 +274,4 @@ export const CreateBulkFieldSmartAssertionsProgress = ({ progress, onDone }: Pro
             )}
         </Container>
     );
-};
+}

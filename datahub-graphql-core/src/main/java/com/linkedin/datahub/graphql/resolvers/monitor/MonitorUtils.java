@@ -206,9 +206,7 @@ public class MonitorUtils {
       if (input.getAuditLog() != null) {
         result.setAuditLog(createAuditLogSpec(input.getAuditLog()));
       } else {
-        throw new DataHubGraphQLException(
-            "Invalid input. Audit Log info is required if type FRESHNESS source type is AUDIT_LOG.",
-            DataHubGraphQLErrorCode.BAD_REQUEST);
+        result.setAuditLog(new AuditLogSpec());
       }
     }
     if (DatasetFreshnessSourceType.FIELD_VALUE.equals(result.getSourceType())) {

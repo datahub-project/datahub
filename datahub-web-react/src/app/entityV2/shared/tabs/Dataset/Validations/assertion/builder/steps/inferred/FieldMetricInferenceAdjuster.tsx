@@ -44,7 +44,7 @@ export const FieldMetricInferenceAdjuster = (props: Props) => {
     const inferenceContent = (
         <>
             {/* Title - only show if not collapsable since Collapse will have its own title */}
-            {!collapsable && <Typography.Title level={5}>Inference Settings</Typography.Title>}
+            {!collapsable && <Typography.Title level={5}>AI Model Tuning</Typography.Title>}
 
             {/* Sensitivity */}
             <InferenceSensitivityAdjuster
@@ -85,7 +85,7 @@ export const FieldMetricInferenceAdjuster = (props: Props) => {
         <Row style={collapsable ? { marginBottom: 12 } : {}}>
             {collapsable ? (
                 <Collapse>
-                    <Collapse.Panel header="Inference Settings" key="inference-settings">
+                    <Collapse.Panel header="AI Model Tuning" key="ai-model-tuning">
                         {inferenceContent}
                     </Collapse.Panel>
                 </Collapse>

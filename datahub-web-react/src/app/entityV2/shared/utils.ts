@@ -442,3 +442,17 @@ export function extractPlatformNameFromAssetUrn(urn: string) {
     const platformName = extractPlatformNameFromPlatformUrn(platformUrn);
     return platformName;
 }
+
+/**
+ * Extracts the fully qualified dataset name from a dataset URN.
+ * URNs typically look like: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+ * @param datasetUrn - The URN of the dataset.
+ * @returns The dataset name.
+ */
+export const extractDatasetNameFromUrn = (datasetUrn: string): string => {
+    const parts = datasetUrn.split(',');
+    if (parts.length >= 2) {
+        return parts[1] || datasetUrn;
+    }
+    return datasetUrn;
+};

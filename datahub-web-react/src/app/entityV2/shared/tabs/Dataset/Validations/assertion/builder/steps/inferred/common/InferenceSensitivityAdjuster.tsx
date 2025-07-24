@@ -14,7 +14,7 @@ export const DEFAULT_SMART_ASSERTION_SENSITIVITY = 5; // Medium
 export const InferenceSensitivityAdjuster = (props: Props) => {
     const { sensitivity, disabled, onChange } = props;
 
-    const initialValueRef = useRef(sensitivity || DEFAULT_SMART_ASSERTION_SENSITIVITY);
+    const initialValueRef = useRef(sensitivity ?? DEFAULT_SMART_ASSERTION_SENSITIVITY);
     useEffect(() => {
         onChange(initialValueRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
