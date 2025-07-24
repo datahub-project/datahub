@@ -104,14 +104,29 @@ public class AspectTestUtils {
    * @see #enhanceRegistryWithTestPlugins(EntityRegistry) for the recommended usage pattern
    */
   public static PluginFactory createTestPluginFactory() {
+    // Create configurations for the validators
+    List<AspectPluginConfig> validatorConfigs =
+        List.of(createCreateIfNotExistsValidatorConfig(), createConditionalWriteValidatorConfig());
+
+    // Create validator instances with the configurations
     List<AspectPayloadValidator> validators =
         List.of(
-            new CreateIfNotExistsValidator().setConfig(createCreateIfNotExistsValidatorConfig()),
-            new ConditionalWriteValidator().setConfig(createConditionalWriteValidatorConfig()));
+            new CreateIfNotExistsValidator().setConfig(validatorConfigs.get(0)),
+            new ConditionalWriteValidator().setConfig(validatorConfigs.get(1)));
 
-    // Create PluginFactory with pre-built plugin instances
+    // Create PluginConfiguration that matches the provided plugin instances
+    // This ensures consistency with merge logic which checks the configuration
+    PluginConfiguration pluginConfiguration =
+        new PluginConfiguration(
+            validatorConfigs, // aspectPayloadValidators - matches our validators
+            Collections.emptyList(), // mutationHooks
+            Collections.emptyList(), // mclSideEffects
+            Collections.emptyList() // mcpSideEffects
+            );
+
+    // Create PluginFactory with both plugin instances and matching configuration
     return new PluginFactory(
-        PluginConfiguration.EMPTY, // No config needed since we're providing instances
+        pluginConfiguration, // Proper config instead of EMPTY
         Collections.emptyList(), // No custom class loaders
         validators,
         Collections.emptyList(), // No mutation hooks for basic testing
