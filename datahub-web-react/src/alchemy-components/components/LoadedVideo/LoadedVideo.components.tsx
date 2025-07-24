@@ -1,8 +1,9 @@
 import styled from 'styled-components';
 
+import colors from '@components/theme/foundations/colors';
+
 const STORY_WIDTH = '600px';
 const STORY_PADDING = '20px';
-const VIDEO_WIDTH = '520px';
 
 export const StoryContainer = styled.div`
     width: ${STORY_WIDTH};
@@ -12,7 +13,7 @@ export const StoryContainer = styled.div`
 export const StoryTitle = styled.h3`
     margin-bottom: 20px;
     text-align: center;
-    color: #262626;
+    color: ${colors.gray[600]};
     font-size: 18px;
     font-weight: 600;
 `;
@@ -20,13 +21,13 @@ export const StoryTitle = styled.h3`
 export const StoryDescription = styled.p`
     margin-bottom: 20px;
     text-align: center;
-    color: #666;
+    color: ${colors.gray[1700]};
     font-size: 14px;
     line-height: 1.5;
 `;
 
 export const CarouselContainer = styled.div`
-    border: 1px solid #e0e0e0;
+    border: 1px solid ${colors.gray[100]};
     border-radius: 8px;
     padding: 20px;
 `;
@@ -40,7 +41,7 @@ export const SlideTitle = styled.h4`
     margin-bottom: 16px;
     font-size: 16px;
     font-weight: 600;
-    color: #262626;
+    color: ${colors.gray[600]};
 `;
 
 export const VideoContainer = styled.div`
@@ -56,12 +57,12 @@ export const ErrorContainer = styled.div`
     justify-content: center;
     width: 400px;
     height: 225px;
-    background-color: #fff2f0;
-    border: 2px dashed #ff4d4f;
+    background-color: ${colors.red[0]};
+    border: 2px dashed ${colors.red[500]};
     border-radius: 8px;
     margin: 0 auto;
     font-size: 16px;
-    color: #ff4d4f;
+    color: ${colors.red[500]};
     font-weight: 500;
 `;
 
@@ -71,12 +72,12 @@ export const LoadingContainer = styled.div`
     justify-content: center;
     width: 400px;
     height: 225px;
-    background-color: #f5f5f5;
-    border: 2px dashed #d9d9d9;
+    background-color: ${colors.gray[1500]};
+    border: 2px dashed ${colors.gray[100]};
     border-radius: 8px;
     margin: 0 auto;
     font-size: 16px;
-    color: #8c8c8c;
+    color: ${colors.gray[1700]};
     font-weight: 500;
 `;
 
@@ -89,7 +90,7 @@ export const LoadingOverlay = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #f5f5f5;
+    background-color: ${colors.gray[1500]};
     z-index: 1;
     border-radius: 4px;
 `;
@@ -101,7 +102,6 @@ export const VideoPlayerContainer = styled.div`
     margin: 0 auto;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 `;
 
 export const IndicatorContainer = styled.div`
@@ -119,13 +119,11 @@ export const IndicatorDot = styled.div<{ $isActive: boolean }>`
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background-color: ${({ $isActive }) => ($isActive ? '#1890ff' : '#d9d9d9')};
+    background-color: ${({ $isActive }) => ($isActive ? colors.primary[500] : colors.gray[100])};
 `;
 
 export const IndicatorText = styled.p`
     margin-top: 10px;
     font-size: 12px;
-    color: #999;
+    color: ${colors.gray[1800]};
 `;
-
-export { VIDEO_WIDTH };
