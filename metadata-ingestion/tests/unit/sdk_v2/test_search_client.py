@@ -342,6 +342,13 @@ def test_tagged_union_error_messages() -> None:
         F.entity_subtype("Table"),
         F.platform("snowflake"),
     )
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.+Unable to extract tag using discriminator", re.DOTALL
+        ),
+    ):
+        load_filters("this is invalid json but should not raise a json error")
 
 
 def test_invalid_filter() -> None:
