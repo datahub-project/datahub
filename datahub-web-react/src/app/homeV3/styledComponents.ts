@@ -13,7 +13,6 @@ export const PageWrapper = styled.div`
     display: flex;
     flex-direction: column;
     box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.08);
-    position: relative;
     align-items: center;
 `;
 
@@ -22,6 +21,9 @@ export const HomePageContainer = styled.div`
     flex: 1;
     overflow: hidden;
     margin: 5px;
+    border: 1px solid ${colors.gray[100]};
+    border-radius: 12px;
+    position: relative;
 `;
 
 export const StyledVectorBackground = styled(VectorBackground)`
@@ -60,7 +62,7 @@ export const ContentContainer = styled.div`
 export const CenteredContainer = styled.div`
     max-width: 1600px; // could simply increase this - ask in design review
     width: 100%;
-    padding: 0 8px;
+    padding: 0 8px 16px 0;
 `;
 
 export const ContentDiv = styled.div`
@@ -79,13 +81,13 @@ export const StyledIcon = styled(Icon)`
 export const LoaderContainer = styled.div`
     display: flex;
     height: 100%;
-    min-height: 200px;
+    height: 200px;
 `;
 
 export const EmptyContainer = styled.div`
     display: flex;
-    height: 50%;
     width: 100%;
+    height: 200px;
     justify-content: center;
     align-items: center;
 `;
