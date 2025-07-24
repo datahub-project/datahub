@@ -2,12 +2,13 @@ import json
 import logging
 import os
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import partial
 from typing import Iterable, List, Optional, Union
 
 from pydantic import Field
 
+from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -209,8 +210,8 @@ class SqlQueriesSource(Source):
     def _add_query_to_aggregator(self, query_entry: "QueryEntry") -> None:
         """Add a query to the SQL parsing aggregator."""
         try:
-            # If we have explicit lineage, use it directly
-            if query_entry.upstream_tables or query_entry.downstream_tables:
+            # If we have both upstream and downstream tables, use explicit lineage
+            if query_entry.upstream_tables and query_entry.downstream_tables:
                 logger.debug("Using explicit lineage from query file")
                 for downstream_table in query_entry.downstream_tables:
                     known_lineage = KnownQueryLineageInfo(
@@ -222,6 +223,15 @@ class SqlQueriesSource(Source):
                     )
                     self.aggregator.add_known_query_lineage(known_lineage)
             else:
+                # Warn if only partial lineage information is provided
+                if query_entry.upstream_tables and not query_entry.downstream_tables:
+                    logger.debug(
+                        "Only upstream tables provided, falling back to SQL parsing for lineage detection"
+                    )
+                elif query_entry.downstream_tables and not query_entry.upstream_tables:
+                    logger.debug(
+                        "Only downstream tables provided, falling back to SQL parsing for lineage detection"
+                    )
                 # No explicit lineage, rely on parsing
                 observed_query = ObservedQuery(
                     query=query_entry.query,
@@ -260,7 +270,7 @@ class QueryEntry:
         return cls(
             query=entry_dict["query"],
             timestamp=(
-                datetime.fromtimestamp(entry_dict["timestamp"], tz=timezone.utc)
+                parse_user_datetime(str(entry_dict["timestamp"]))
                 if "timestamp" in entry_dict
                 else None
             ),
@@ -274,6 +284,7 @@ class QueryEntry:
                     env=config.env,
                 )
                 for table in entry_dict.get("downstream_tables", [])
+                if table and table.strip()
             ],
             upstream_tables=[
                 make_dataset_urn_with_platform_instance(
@@ -283,6 +294,7 @@ class QueryEntry:
                     env=config.env,
                 )
                 for table in entry_dict.get("upstream_tables", [])
+                if table and table.strip()
             ],
             session_id=entry_dict.get("session_id"),
         )
