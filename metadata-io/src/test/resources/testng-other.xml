@@ -12,6 +12,7 @@
                 <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
                 <exclude name="com.linkedin.metadata.graph.neo4j.*"/>
             </package>
+            <package name="io.datahubproject.test.aspect.*"/>
         </packages>
 
         <!-- Explicitly exclude the specific test class -->
