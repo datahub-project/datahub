@@ -11,7 +11,7 @@ import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { Entity } from '@types';
+import { DataHubPageModuleType, Entity } from '@types';
 
 const AssetsSection = styled.div`
     display: flex;
@@ -22,6 +22,10 @@ const AssetsSection = styled.div`
 const ItemDetailsContainer = styled.div`
     display: flex;
     align-items: center;
+`;
+
+const ResultsContainer = styled.div`
+    margin: 0 -16px 0 -8px;
 `;
 
 type Props = {
@@ -74,6 +78,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 entity={entity}
                 key={entity.urn}
                 customDetailsRenderer={customDetailsRenderer}
+                moduleType={DataHubPageModuleType.AssetCollection}
                 navigateOnlyOnNameClick
             />
         ));
@@ -92,7 +97,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 appliedFilters={appliedFilters}
                 updateFieldFilters={updateFieldFilters}
             />
-            {content}
+            <ResultsContainer>{content}</ResultsContainer>
         </AssetsSection>
     );
 };

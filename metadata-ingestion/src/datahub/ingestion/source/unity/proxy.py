@@ -521,9 +521,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     @cached(cachetools.FIFOCache(maxsize=100))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
-        logger.info(f"Fetching schema tags for catalog: {catalog}")
+        logger.info(f"Fetching schema tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM {catalog}.information_schema.schema_tags"
+        query = f"SELECT * FROM `{catalog}`.information_schema.schema_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}
@@ -544,9 +544,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     @cached(cachetools.FIFOCache(maxsize=100))
     def get_catalog_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
-        logger.info(f"Fetching table tags for catalog: {catalog}")
+        logger.info(f"Fetching table tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM {catalog}.information_schema.catalog_tags"
+        query = f"SELECT * FROM `{catalog}`.information_schema.catalog_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}
@@ -566,9 +566,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     @cached(cachetools.FIFOCache(maxsize=100))
     def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
-        logger.info(f"Fetching table tags for catalog: {catalog}")
+        logger.info(f"Fetching table tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM {catalog}.information_schema.table_tags"
+        query = f"SELECT * FROM `{catalog}`.information_schema.table_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}
@@ -589,9 +589,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     @cached(cachetools.FIFOCache(maxsize=100))
     def get_column_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
-        logger.info(f"Fetching column tags for catalog: {catalog}")
+        logger.info(f"Fetching column tags for catalog: `{catalog}`")
 
-        query = f"SELECT * FROM {catalog}.information_schema.column_tags"
+        query = f"SELECT * FROM `{catalog}`.information_schema.column_tags"
         rows = self._execute_sql_query(query)
 
         result_dict: Dict[str, List[UnityCatalogTag]] = {}

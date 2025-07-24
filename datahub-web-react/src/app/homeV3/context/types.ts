@@ -19,9 +19,10 @@ export interface AddModuleInput {
 }
 
 export interface RemoveModuleInput {
-    moduleUrn: string;
+    module: PageModuleFragment;
     position: ModulePositionInput;
 }
+
 export interface ModuleModalState {
     isOpen: boolean;
     moduleType: DataHubPageModuleType | null;
@@ -30,7 +31,11 @@ export interface ModuleModalState {
     close: () => void;
     isEditing: boolean;
     initialState: PageModuleFragment | null;
-    openToEdit: (moduleType: DataHubPageModuleType, currentData: PageModuleFragment) => void;
+    openToEdit: (
+        moduleType: DataHubPageModuleType,
+        currentData: PageModuleFragment,
+        currentPosition: ModulePositionInput,
+    ) => void;
 }
 
 export interface MoveModuleInput {
