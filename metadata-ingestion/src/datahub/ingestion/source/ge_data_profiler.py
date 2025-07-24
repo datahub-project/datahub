@@ -1498,6 +1498,7 @@ class DatahubGEProfiler:
                     f"Unexpected {pretty_name} while profiling. Should have 3 parts but has {len(name_parts)} parts."
                 )
             if platform == DATABRICKS:
+                # TODO: Review logic for BigQuery as well, probably project.dataset.table should be quoted there as well
                 quoted_name = ".".join(
                     batch.engine.dialect.identifier_preparer.quote(part)
                     for part in name_parts
