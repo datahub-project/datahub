@@ -7,7 +7,6 @@ import { EntitySearchInput } from '@src/app/entityV2/shared/EntitySearchInput/En
 
 const EntitySearchInputStyle = {
     minWidth: 250,
-    margin: 12,
 };
 
 const SelectInputStyle = {

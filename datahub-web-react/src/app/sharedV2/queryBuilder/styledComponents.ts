@@ -8,13 +8,13 @@ export const ConditionContainer = styled.div<{ depth: number }>`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 16px;
-    margin-left: ${(props) => props.depth * 20 + 50}px;
+    padding: 4px 16px;
+    padding-left: ${(props) => props.depth * 20 + 50 + 8}px;
 `;
 
 export const SelectContainer = styled.div`
     display: flex;
-    gap: 80px;
+    gap: 16px;
 `;
 
 export const IconsContainer = styled.div`
@@ -25,7 +25,7 @@ export const ToolbarContainer = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
+    padding: 8px 16px;
 `;
 
 export const OperationButton = styled(Button)<{ isSelected: boolean }>`
@@ -49,7 +49,7 @@ export const StyledCollapse = styled(Collapse)<{ depth: number; hasChildren: boo
     .ant-collapse-header {
         padding: 0 0 0 ${(props) => props.depth * 20 + (props.hasChildren ? 20 : 48)}px !important;
         align-items: center !important;
-        margin: 12px 0;
+        margin: 8px 0;
         background-color: ${colors.gray[1500]};
     }
 
