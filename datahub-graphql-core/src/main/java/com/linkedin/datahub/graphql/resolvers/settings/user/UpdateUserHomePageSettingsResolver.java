@@ -88,6 +88,8 @@ public class UpdateUserHomePageSettingsResolver implements DataFetcher<Completab
 
     if (input.getPageTemplate() != null) {
       settings.setPageTemplate(UrnUtils.getUrn(input.getPageTemplate()));
+    } else {
+      settings.data().remove("pageTemplate");
     }
 
     // Append to the list of existing dismissed announcements

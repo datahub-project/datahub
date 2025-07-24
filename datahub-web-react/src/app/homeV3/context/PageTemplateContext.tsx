@@ -32,7 +32,8 @@ export const PageTemplateProvider = ({
     } = useTemplateState(initialPersonalTemplate, initialGlobalTemplate);
 
     // Template operations
-    const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate } = useTemplateOperations();
+    const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
+        useTemplateOperations(setPersonalTemplate);
 
     // Modal state
     const moduleModalState = useModuleModalState();
@@ -66,6 +67,7 @@ export const PageTemplateProvider = ({
             upsertModule,
             moduleModalState,
             moveModule,
+            resetTemplateToDefault,
         }),
         [
             personalTemplate,
@@ -81,6 +83,7 @@ export const PageTemplateProvider = ({
             upsertModule,
             moduleModalState,
             moveModule,
+            resetTemplateToDefault,
         ],
     );
 

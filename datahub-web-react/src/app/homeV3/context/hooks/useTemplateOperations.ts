@@ -43,7 +43,7 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
     return rowIndex !== undefined && rowIndex >= 0 && rowIndex < rows.length;
 };
 
-export function useTemplateOperations() {
+export function useTemplateOperations(setPersonalTemplate: (template: PageTemplateFragment | null) => void) {
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
 
@@ -194,9 +194,21 @@ export function useTemplateOperations() {
         [upsertPageTemplateMutation, updateUserHomePageSettings],
     );
 
+    const resetTemplateToDefault = () => {
+        setPersonalTemplate(null);
+        updateUserHomePageSettings({
+            variables: {
+                input: {
+                    pageTemplate: null,
+                },
+            },
+        });
+    };
+
     return {
         updateTemplateWithModule,
         removeModuleFromTemplate,
         upsertTemplate,
+        resetTemplateToDefault,
     };
 }
