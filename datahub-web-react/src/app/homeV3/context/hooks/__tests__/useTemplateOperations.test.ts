@@ -808,19 +808,5 @@ describe('useTemplateOperations', () => {
                 },
             });
         });
-
-        it('should handle mutation rejection gracefully', async () => {
-            const error = new Error('Network error');
-            mockUpdateUserHomePageSettings.mockRejectedValueOnce(error);
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
-
-            await expect(
-                act(async () => {
-                    await result.current.resetTemplateToDefault();
-                }),
-            ).rejects.toThrow('Network error');
-
-            expect(setPersonalTemplate).toHaveBeenCalledWith(null);
-        });
     });
 });

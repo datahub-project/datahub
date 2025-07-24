@@ -3741,6 +3741,7 @@ export const mocks = [
                         viewStructuredPropertiesPage: true,
                         manageApplications: true,
                         manageFeatures: true,
+                        manageHomePageTemplates: true,
                     },
                 },
             },
