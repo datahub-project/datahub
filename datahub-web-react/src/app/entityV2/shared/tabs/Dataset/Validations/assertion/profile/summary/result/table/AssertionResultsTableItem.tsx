@@ -59,9 +59,10 @@ type Props = {
     monitor?: Monitor;
     run: AssertionRunEvent;
     refetchResults: () => Promise<unknown>;
+    openAssertionNote: () => void;
 };
 
-export const AssertionResultsTableItem = ({ assertion, monitor, run, refetchResults }: Props) => {
+export const AssertionResultsTableItem = ({ assertion, monitor, run, refetchResults, openAssertionNote }: Props) => {
     const assertionRunTime = run.timestampMillis;
     const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
@@ -91,6 +92,7 @@ export const AssertionResultsTableItem = ({ assertion, monitor, run, refetchResu
                 resultStatusType={ResultStatusType.HISTORICAL}
                 placement="bottom"
                 refetchResults={refetchResults}
+                openAssertionNote={openAssertionNote}
             >
                 <ResultColumn>
                     <PreHeaderText color={resultTextColor}>

@@ -28,6 +28,7 @@ fragment incrementingSegmentSpecDetails on IncrementingSegmentSpec {
 fragment assertionInfo on AssertionInfo {
     type
     description
+    note
     lastUpdated {
         time
         actor

@@ -17,6 +17,7 @@ type Props = {
     children: React.ReactNode;
     resultStatusType?: ResultStatusType;
     refetchResults?: () => Promise<unknown>;
+    openAssertionNote?: () => void;
 };
 
 export const AssertionResultPopover = ({
@@ -29,6 +30,7 @@ export const AssertionResultPopover = ({
     children,
     resultStatusType,
     refetchResults,
+    openAssertionNote,
 }: Props) => {
     return (
         <Popover
@@ -44,6 +46,7 @@ export const AssertionResultPopover = ({
                     onClickProfileButton={onClickProfileButton}
                     resultStatusType={resultStatusType}
                     refetchResults={refetchResults}
+                    openAssertionNote={openAssertionNote}
                 />
             }
             placement={placement}

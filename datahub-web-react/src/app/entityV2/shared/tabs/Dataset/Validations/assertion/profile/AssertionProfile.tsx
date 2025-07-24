@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
 import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
 import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
 import { AssertionTabs } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionTabs';
+import { AssertionNoteTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/note/AssertionNoteTab';
 import { AssertionSettingsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/settings/AssertionSettingsTab';
 import { AssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryTab';
 import {
@@ -12,10 +13,11 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionUtils';
 
 import { useGetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
-import { Assertion, DataContract, Entity, Monitor } from '@types';
+import { Assertion, DataContract, Entity, Maybe, Monitor } from '@types';
 
 enum TabType {
     Summary = 'Summary',
+    Note = 'Note',
     Settings = 'Settings',
 }
 
@@ -47,10 +49,17 @@ export const AssertionProfile = ({
         loading,
         refetch: localRefetch,
     } = useGetAssertionWithMonitorsQuery({ variables: { assertionUrn: urn } });
-    const assertion = data?.assertion as Assertion;
+    // TODO: we should move these casts to a deep partial assertion type
+    const assertion = data?.assertion as Maybe<Assertion>;
     const monitor = data?.assertion?.monitor?.relationships?.[0]?.entity as Monitor;
     const result = assertion?.runEvents?.runEvents[0]?.result;
     const editAllowed = canEditMonitor && canEditAssertion;
+
+    const [selectedTab, setSelectedTab] = useState<string>(TabType.Summary);
+
+    const openAssertionNote = () => {
+        setSelectedTab(TabType.Note);
+    };
 
     const fullRefetch = () => {
         localRefetch();
@@ -61,7 +70,19 @@ export const AssertionProfile = ({
         {
             key: TabType.Summary,
             label: 'Summary',
-            content: <AssertionSummaryTab loading={loading} assertion={assertion} monitor={monitor} />,
+            content: (
+                <AssertionSummaryTab
+                    loading={loading}
+                    assertion={assertion}
+                    monitor={monitor}
+                    openAssertionNote={openAssertionNote}
+                />
+            ),
+        },
+        {
+            key: TabType.Note,
+            label: 'Notes',
+            content: <AssertionNoteTab loading={loading} assertion={assertion} editAllowed={editAllowed} />,
         },
         {
             key: TabType.Settings,
@@ -84,7 +105,9 @@ export const AssertionProfile = ({
 
     return (
         <>
-            {(loading && <AssertionProfileHeaderLoading />) || (
+            {loading || !assertion ? (
+                <AssertionProfileHeaderLoading />
+            ) : (
                 <AssertionProfileHeader
                     assertion={assertion}
                     monitor={monitor}
@@ -97,7 +120,7 @@ export const AssertionProfile = ({
                     close={close}
                 />
             )}
-            <AssertionTabs defaultSelectedTab={TabType.Summary} tabs={tabs} />
+            <AssertionTabs selectedTab={selectedTab} setSelectedTab={setSelectedTab} tabs={tabs} />
             <AssertionProfileFooter />
         </>
     );

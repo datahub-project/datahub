@@ -51,6 +51,7 @@ type Props = {
     isInitializing: boolean;
     parentDimensions: { width: number; height: number };
     refreshData?: () => Promise<unknown>;
+    openAssertionNote?: () => void;
 };
 
 export const AssertionResultsTimelineViz = ({
@@ -61,6 +62,7 @@ export const AssertionResultsTimelineViz = ({
     parentDimensions,
     isInitializing,
     refreshData,
+    openAssertionNote,
 }: Props) => {
     // Run event data
     const completedRuns =
@@ -97,6 +99,7 @@ export const AssertionResultsTimelineViz = ({
                         timeRange={timeRange}
                         renderHeader={renderChartTitle}
                         refreshData={refreshData}
+                        openAssertionNote={openAssertionNote}
                     />
                 );
             case AssertionChartType.Freshness:
@@ -108,6 +111,7 @@ export const AssertionResultsTimelineViz = ({
                         timeRange={timeRange}
                         renderHeader={renderChartTitle}
                         refreshData={refreshData}
+                        openAssertionNote={openAssertionNote}
                     />
                 );
             default:

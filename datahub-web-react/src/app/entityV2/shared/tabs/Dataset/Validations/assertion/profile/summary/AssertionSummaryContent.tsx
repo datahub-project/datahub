@@ -13,9 +13,10 @@ import { Assertion, Monitor, MonitorMode } from '@types';
 type Props = {
     assertion: Assertion;
     monitor?: Monitor;
+    openAssertionNote: () => void;
 };
 
-export const AssertionSummaryContent = ({ assertion, monitor }: Props) => {
+export const AssertionSummaryContent = ({ assertion, monitor, openAssertionNote }: Props) => {
     const isStopped = monitor?.info?.status?.mode === MonitorMode.Inactive;
     const schedule = tryGetScheduleFromMonitor(monitor);
     const lastEvaluatedAtMillis = assertion.runEvents?.runEvents?.[0]?.timestampMillis;
@@ -24,11 +25,15 @@ export const AssertionSummaryContent = ({ assertion, monitor }: Props) => {
         <>
             {/* NOTE: the timeline chart will have a title, so no need to add a section title here */}
             <AssertionSummarySection>
-                <AssertionResultsTimeline assertion={assertion} monitor={monitor} />
+                <AssertionResultsTimeline
+                    assertion={assertion}
+                    monitor={monitor}
+                    openAssertionNote={openAssertionNote}
+                />
             </AssertionSummarySection>
             <Divider />
             <AssertionSummarySection title="Activity">
-                <AssertionResultsTable assertion={assertion} monitor={monitor} />
+                <AssertionResultsTable assertion={assertion} monitor={monitor} openAssertionNote={openAssertionNote} />
             </AssertionSummarySection>
             <Divider />
             <AssertionSummarySection title="Schedule details">

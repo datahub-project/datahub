@@ -775,6 +775,11 @@ input UpdateAssertionMetadataInput {
   description: String
 
   """
+  An optional note to give technical owners more context about the assertion, and how to troubleshoot it.
+  """
+  note: String
+
+  """
   An optional set of actions to apply on success or failure of the assertion
   """
   actions: AssertionActionsInput

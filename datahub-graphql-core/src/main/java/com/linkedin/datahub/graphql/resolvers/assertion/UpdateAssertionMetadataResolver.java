@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -15,6 +17,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.LongSupplier;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,9 +25,16 @@ import lombok.extern.slf4j.Slf4j;
 public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableFuture<Assertion>> {
 
   private final AssertionService _assertionService;
+  private final LongSupplier _timeSupplier;
+
+  public UpdateAssertionMetadataResolver(
+      @Nonnull final AssertionService assertionService, @Nonnull final LongSupplier timeSupplier) {
+    _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
+    _timeSupplier = Objects.requireNonNull(timeSupplier, "timeSupplier is required");
+  }
 
   public UpdateAssertionMetadataResolver(@Nonnull final AssertionService assertionService) {
-    _assertionService = Objects.requireNonNull(assertionService, "assertionService is required");
+    this(assertionService, System::currentTimeMillis);
   }
 
   @Override
@@ -58,8 +68,18 @@ public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableF
             _assertionService.updateAssertionMetadata(
                 context.getOperationContext(),
                 assertionUrn,
-                AssertionUtils.createAssertionActions(input.getActions()),
-                input.getDescription());
+                input.getActions() != null
+                    ? AssertionUtils.createAssertionActions(input.getActions())
+                    : null,
+                input.getDescription(),
+                input.getNote() != null
+                    ? new AssertionNote()
+                        .setContent(input.getNote())
+                        .setLastModified(
+                            new AuditStamp()
+                                .setActor(UrnUtils.getUrn(context.getActorUrn()))
+                                .setTime(_timeSupplier.getAsLong()))
+                    : null);
 
             // Then, return the new assertion
             return AssertionMapper.map(

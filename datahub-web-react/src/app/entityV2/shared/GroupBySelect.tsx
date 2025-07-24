@@ -31,7 +31,7 @@ export function GroupBySelect({ options, selectedValue, onSelect, width = 50 }: 
                 }
             }}
             placeholder={displayValue}
-            size="md"
+            size="sm"
             showClear={false}
             width={width}
             selectLabelProps={{ label: 'Group', variant: 'labeled' }}

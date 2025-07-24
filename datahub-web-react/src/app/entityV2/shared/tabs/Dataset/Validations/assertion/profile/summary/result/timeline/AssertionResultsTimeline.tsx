@@ -23,11 +23,12 @@ const Container = styled.div`
 type Props = {
     assertion: Assertion;
     monitor?: Monitor;
+    openAssertionNote?: () => void;
 };
 
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
-export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
+export const AssertionResultsTimeline = ({ assertion, monitor, openAssertionNote }: Props) => {
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
@@ -113,6 +114,7 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
                     isInitializing={isInitializing}
                     results={results as any}
                     refreshData={refetch}
+                    openAssertionNote={openAssertionNote}
                 />
             )}
             <TimeSelect timeWindow={selectedTimeWindow} setTimeWindow={setSelectedTimeWindow} />

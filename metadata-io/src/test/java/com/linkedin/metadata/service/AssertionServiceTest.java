@@ -311,7 +311,8 @@ public class AssertionServiceTest {
         new AssertionService(
             mockClient, mock(GraphClient.class), mock(OpenApiClient.class), clock, objectMapper);
 
-    service.updateAssertionMetadata(opContext, TEST_ASSERTION_URN, mockAssertionActions(), null);
+    service.updateAssertionMetadata(
+        opContext, TEST_ASSERTION_URN, mockAssertionActions(), null, null);
     Mockito.verify(mockClient, Mockito.times(1))
         .batchIngestProposals(
             any(OperationContext.class),

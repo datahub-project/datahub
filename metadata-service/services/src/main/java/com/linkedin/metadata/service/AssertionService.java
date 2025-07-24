@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionActions;
 import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionNote;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
@@ -1126,7 +1127,8 @@ public class AssertionService extends BaseService {
       @Nonnull OperationContext opContext,
       @Nonnull final Urn assertionUrn,
       @Nullable final AssertionActions actions,
-      @Nullable final String assertionDescription) {
+      @Nullable final String assertionDescription,
+      @Nullable final AssertionNote assertionNote) {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     Objects.requireNonNull(opContext, "opContext must not be null");
     Urn actorUrn = null;
@@ -1156,6 +1158,9 @@ public class AssertionService extends BaseService {
     // 3. Ingest assertion info aspect changes
     if (assertionDescription != null) {
       existingInfo.setDescription(assertionDescription);
+    }
+    if (assertionNote != null) {
+      existingInfo.setNote(assertionNote);
     }
     existingInfo.setLastUpdated(new AuditStamp().setTime(getCurrentTime()).setActor(actorUrn));
     aspects.add(
