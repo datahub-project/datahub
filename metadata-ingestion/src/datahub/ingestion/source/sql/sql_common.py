@@ -416,7 +416,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_db_name(self, inspector: Inspector) -> str:
         engine = inspector.engine
 
-        if engine and hasattr(engine, "url") and hasattr(engine.url, "database"):
+        if (
+            engine
+            and hasattr(engine, "url")
+            and hasattr(engine.url, "database")
+            and not (hasattr(engine.url, "query") and engine.url.query is not None)
+        ):
             if engine.url.database is None:
                 return ""
             return str(engine.url.database).strip('"')
