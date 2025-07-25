@@ -5,6 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
+from azure.identity import DefaultAzureCredential
+
 from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -143,6 +145,9 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+# Databricks resource ID for Azure
+DATABRICKS_RESOURCE_ID = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+
 
 @platform_name("Databricks")
 @config_class(UnityCatalogSourceConfig)
@@ -198,13 +203,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         self.init_hive_metastore_proxy()
 
-        self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            config.workspace_url,
-            config.token,
-            config.warehouse_id,
-            report=self.report,
-            hive_metastore_proxy=self.hive_metastore_proxy,
+        self.domain_registry = DomainRegistry(
+            cached_domains=[k for k, v in config.domain.items() if isinstance(k, str)],
+            graph=self.ctx.graph,
         )
+        self.service_principal_map: Dict[str, ServicePrincipal] = {}
+        self.groups_map: Dict[str, str] = {}
+        self._init_proxy()
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
 
@@ -215,11 +220,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 config.workspace_name
                 if config.workspace_name is not None
                 else config.workspace_url.split("//")[1].split(".")[0]
-            )
-
-        if self.config.domain:
-            self.domain_registry = DomainRegistry(
-                cached_domains=[k for k in self.config.domain], graph=self.ctx.graph
             )
 
         # Global map of service principal application id -> ServicePrincipal
@@ -265,6 +265,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     f"Failed to connect to hive_metastore due to {e}",
                 )
                 self.report.hive_metastore_catalog_found = False
+
+    def _init_proxy(self):
+        if self.config.auth_type == "azure_default":
+            credential = DefaultAzureCredential()
+            token = credential.get_token(f"{DATABRICKS_RESOURCE_ID}/.default").token
+        else:
+            if not self.config.token:
+                raise ValueError("token is required when auth_type is 'token'")
+            token = self.config.token
+        logger.info(f"Token: {token}")
+        self.unity_catalog_api_proxy = UnityCatalogApiProxy(
+            workspace_url=self.config.workspace_url,
+            personal_access_token=token,
+            warehouse_id=self.config.warehouse_id,
+            report=self.report,
+            hive_metastore_proxy=self.hive_metastore_proxy,
+        )
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
