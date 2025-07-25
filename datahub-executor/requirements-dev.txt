@@ -1283,7 +1283,7 @@ send2trash==1.8.3
     #   -r requirements.txt
     #   jupyter-server
     #   notebook
-sentry-sdk==1.45.1
+sentry-sdk==2.33.2
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)

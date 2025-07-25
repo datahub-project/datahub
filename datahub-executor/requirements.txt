@@ -842,7 +842,7 @@ send2trash==1.8.3
     # via
     #   jupyter-server
     #   notebook
-sentry-sdk==1.45.1
+sentry-sdk==2.33.2
     # via
     #   acryl-datahub
     #   acryl-datahub-executor

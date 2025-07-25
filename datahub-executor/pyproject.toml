@@ -24,7 +24,7 @@ dependencies = [
   "redshift-connector>=2.1.5",
   "types-croniter==1.4.0.1",
   "tenacity==8.5.0",
-  "sentry-sdk==1.45.1",
+  "sentry-sdk==2.33.2",
   "oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b8797465536759c742a3",
   "celery[redis,sqs]==5.4.0",
   "kombu==5.4.0",              # Note: 5.4.1 silently breaks
