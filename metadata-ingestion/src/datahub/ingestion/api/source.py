@@ -82,6 +82,12 @@ class StructuredLogLevel(Enum):
 
 
 class StructuredLogType(Enum):
+    """
+    This is used to categorise the errors mainly based on the biggest impact area
+    This is to be used to help in self-serve understand the impact of any log entry
+    More enums to be added as logs are updated to be self-serve
+    """
+
     LINEAGE = "LINEAGE"
 
 
