@@ -169,9 +169,11 @@ public class CorpUserMapper {
       @Nonnull final com.linkedin.identity.CorpUserHomePageSettings homePageSettings) {
     CorpUserHomePageSettings result = new CorpUserHomePageSettings();
 
-    if (homePageSettings.hasPageTemplate()) {
+    if (homePageSettings.getPageTemplate() != null) {
       result.setPageTemplate(
           (DataHubPageTemplate) UrnToEntityMapper.map(null, homePageSettings.getPageTemplate()));
+    } else {
+      result.setPageTemplate(null);
     }
 
     if (homePageSettings.hasDismissedAnnouncements()) {

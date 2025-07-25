@@ -1,9 +1,10 @@
 import { Button, Icon, colors } from '@components';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { ActionsBar } from '@components/components/ActionsBar/ActionsBar';
 
+import analytics, { EventType } from '@app/analytics';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 
 const Warning = styled.div`
@@ -21,6 +22,13 @@ const Warning = styled.div`
 export default function EditDefaultTemplateBar() {
     const { setIsEditingGlobalTemplate, isEditingGlobalTemplate } = usePageTemplateContext();
 
+    const onClick = useCallback(() => {
+        setIsEditingGlobalTemplate(false);
+        analytics.event({
+            type: EventType.HomePageTemplateGlobalTemplateEditingDone,
+        });
+    }, [setIsEditingGlobalTemplate]);
+
     if (!isEditingGlobalTemplate) return null;
 
     return (
@@ -29,7 +37,7 @@ export default function EditDefaultTemplateBar() {
                 <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
                 <span>Editing Organization Default Home</span>
             </Warning>
-            <Button onClick={() => setIsEditingGlobalTemplate(false)}>Done</Button>
+            <Button onClick={onClick}>Done</Button>
         </ActionsBar>
     );
 }

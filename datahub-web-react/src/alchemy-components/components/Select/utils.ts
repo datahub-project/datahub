@@ -62,7 +62,7 @@ export const getSelectPadding = (size) => {
             padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
-            padding: `${spacing.xsm} ${spacing.xsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         lg: {
             padding: `${spacing.sm} ${spacing.sm}`,

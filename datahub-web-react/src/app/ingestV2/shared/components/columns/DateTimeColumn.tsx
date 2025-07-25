@@ -1,4 +1,4 @@
-import { Text, Tooltip } from '@components';
+import { CellHoverWrapper, Text, Tooltip } from '@components';
 import dayjs from 'dayjs';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import localizedFormat from 'dayjs/plugin/localizedFormat';
@@ -22,17 +22,8 @@ dayjs.extend(localizedFormat);
  */
 const DEFAULT_DATETIME_FORMAT = 'l @ LT (z)';
 
-const StyledText = styled(Text)<{ $shouldUnderline?: boolean }>`
+const StyledText = styled(Text)`
     text-wrap: auto;
-
-    ${(props) =>
-        props.$shouldUnderline &&
-        `
-            :hover {
-                text-decoration: underline;
-            }
-        
-        `}
 `;
 
 interface Props {
@@ -40,16 +31,9 @@ interface Props {
     format?: string;
     placeholder?: React.ReactElement;
     showRelative?: boolean;
-    onClick?: () => void;
 }
 
-export default function DateTimeColumn({
-    time,
-    format = DEFAULT_DATETIME_FORMAT,
-    placeholder,
-    showRelative,
-    onClick,
-}: Props) {
+export default function DateTimeColumn({ time, format = DEFAULT_DATETIME_FORMAT, placeholder, showRelative }: Props) {
     const formattedDateTime = useMemo(() => {
         if (!isPresent(time) || time === 0) return undefined;
         return dayjs(time).format(format);
@@ -59,23 +43,27 @@ export default function DateTimeColumn({
 
     const relativeTime = toRelativeTimeString(time);
 
+    return <>{showRelative ? <StyledText>{relativeTime}</StyledText> : <StyledText>{formattedDateTime}</StyledText>}</>;
+}
+
+const DateTimeCellWrapper = styled(CellHoverWrapper)`
+    .hoverable-cell:hover ${StyledText} {
+        text-decoration: underline;
+    }
+`;
+
+export function wrapDateTimeColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
+    const time = record.lastExecTime;
+
+    if (!isPresent(time) || time === 0) {
+        return content;
+    }
+
+    const formattedDateTime = dayjs(time).format(DEFAULT_DATETIME_FORMAT);
+
     return (
-        <>
-            {showRelative ? (
-                <Tooltip title={formattedDateTime}>
-                    <StyledText
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onClick?.();
-                        }}
-                        $shouldUnderline={!!onClick}
-                    >
-                        {relativeTime}
-                    </StyledText>
-                </Tooltip>
-            ) : (
-                <StyledText>{formattedDateTime}</StyledText>
-            )}
-        </>
+        <Tooltip title={formattedDateTime}>
+            <DateTimeCellWrapper>{content}</DateTimeCellWrapper>
+        </Tooltip>
     );
 }

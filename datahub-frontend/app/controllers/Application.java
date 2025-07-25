@@ -41,14 +41,14 @@ public class Application extends Controller {
   private static final Logger logger = LoggerFactory.getLogger(Application.class.getName());
   private static final Set<String> RESTRICTED_HEADERS =
       Set.of("connection", "host", "content-length", "expect", "upgrade", "transfer-encoding");
-  private final HttpClient httpClient =
-      HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+  private final HttpClient httpClient;
 
   private final Config config;
   private final Environment environment;
 
   @Inject
-  public Application(Environment environment, @Nonnull Config config) {
+  public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
+    this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
   }

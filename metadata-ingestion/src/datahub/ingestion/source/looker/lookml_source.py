@@ -27,6 +27,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
@@ -272,6 +273,13 @@ class LookerManifest:
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configured using `extract_column_level_lineage`",
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.LOOKML_PROJECT,
+    ],
 )
 class LookMLSource(StatefulIngestionSourceBase):
     """

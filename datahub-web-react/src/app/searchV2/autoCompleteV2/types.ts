@@ -1,6 +1,6 @@
 import { FontColorLevelOptions, FontColorOptions, FontSizeOptions, FontWeightOptions } from '@components/theme/config';
 
-export type EntityItemVariant = 'searchBar' | 'default';
+export type EntityItemVariant = 'searchBar' | 'default' | 'select';
 
 export type VariantProps = {
     showEntityPopover: boolean;

@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import DragHandle from '@app/homeV3/modules/assetCollection/dragAndDrop/DragHandle';
 
-import type { Entity } from '@types';
+import type { DataHubPageModuleType, Entity } from '@types';
 
 const DraggableWrapper = styled.div<{ $isDragging: boolean; $transform?: string; $transition?: string }>`
     background-color: ${colors.white};
@@ -22,10 +22,11 @@ const DraggableWrapper = styled.div<{ $isDragging: boolean; $transform?: string;
 
 type Props = {
     entity: Entity;
+    moduleType: DataHubPageModuleType;
     customDetailsRenderer?: (entity: Entity) => React.ReactNode;
 };
 
-export default function DraggableEntityItem({ entity, customDetailsRenderer }: Props) {
+export default function DraggableEntityItem({ entity, moduleType, customDetailsRenderer }: Props) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: entity.urn });
 
     const dragHandle = () => {
@@ -45,6 +46,7 @@ export default function DraggableEntityItem({ entity, customDetailsRenderer }: P
                 customDetailsRenderer={customDetailsRenderer}
                 navigateOnlyOnNameClick
                 dragIconRenderer={dragHandle}
+                moduleType={moduleType}
             />
         </DraggableWrapper>
     );

@@ -110,6 +110,7 @@ interface EntityAutocompleteItemProps {
     hideSubtitle?: boolean;
     hideMatches?: boolean;
     padding?: string;
+    onClick?: () => void;
 }
 
 export default function AutoCompleteEntityItem({
@@ -124,6 +125,7 @@ export default function AutoCompleteEntityItem({
     hideSubtitle,
     hideMatches,
     padding,
+    onClick,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -158,7 +160,7 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding}>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
             <ContentContainer>
                 {dragIconRenderer ? (
                     <Icons>

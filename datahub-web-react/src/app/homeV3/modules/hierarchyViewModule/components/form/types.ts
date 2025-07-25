@@ -1,6 +1,6 @@
 import { AssetType } from '@app/homeV3/modules/hierarchyViewModule/types';
+import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
-// TODO: add filters
 export interface HierarchyForm {
     name: string;
 
@@ -9,6 +9,8 @@ export interface HierarchyForm {
     glossaryAssets?: string[];
 
     showRelatedEntities: boolean;
+
+    relatedEntitiesFilter?: LogicalPredicate | null;
 }
 
 export interface HierarchyFormContextType {

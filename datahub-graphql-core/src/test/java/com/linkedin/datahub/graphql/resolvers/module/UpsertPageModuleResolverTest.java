@@ -175,6 +175,7 @@ public class UpsertPageModuleResolverTest {
     paramsInput.setHierarchyViewParams(new HierarchyViewModuleParamsInput());
     paramsInput.getHierarchyViewParams().setAssetUrns(List.of("urn:li:domain:test-domain"));
     paramsInput.getHierarchyViewParams().setShowRelatedEntities(true);
+    paramsInput.getHierarchyViewParams().setRelatedEntitiesFilterJson("{}");
     input.setParams(paramsInput);
 
     Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);

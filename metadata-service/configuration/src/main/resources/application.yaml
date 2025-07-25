@@ -89,6 +89,10 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+    truststore:
+      path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
+      password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
+      type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 

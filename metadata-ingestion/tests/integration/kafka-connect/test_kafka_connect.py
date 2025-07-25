@@ -173,7 +173,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with regex router transformations , only topic prefix
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -194,7 +196,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with regex router transformations , no topic prefix, table whitelist
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -216,7 +220,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with query , topic prefix
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -235,7 +241,9 @@ def loaded_kafka_connect(kafka_connect_runner):
                     }
                     """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL source with ExtractTopic router transformations - source dataset not added
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -257,7 +265,9 @@ def loaded_kafka_connect(kafka_connect_runner):
                 }
                 """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
     # Creating MySQL sink connector - not added
     r = requests.post(
         KAFKA_CONNECT_ENDPOINT,
@@ -275,7 +285,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Debezium MySQL source connector
     r = requests.post(
@@ -290,16 +302,20 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "database.port": "3306",
                 "database.user": "root",
                 "database.password": "rootpwd",
+                "database.server.id": "184054",
+                "topic.prefix": "debezium.mysql",
                 "database.server.name": "all.debezium.topics",
-                "database.history.kafka.bootstrap.servers": "test_broker:9092",
-                "database.history.kafka.topic": "dbhistory.debeziummysql",
+                "schema.history.internal.kafka.bootstrap.servers": "test_broker:9092",
+                "schema.history.internal.kafka.topic": "dbhistory.debeziummysql",
                 "database.allowPublicKeyRetrieval": "true",
                 "include.schema.changes": "false"
             }
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Postgresql source (JDBC connector)
     r = requests.post(
@@ -318,7 +334,9 @@ def loaded_kafka_connect(kafka_connect_runner):
             }
         }""",
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Debezium PostgreSQL source connector
     r = requests.post(
@@ -334,6 +352,7 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "database.user": "postgres",
                 "database.password": "datahub",
                 "database.dbname": "postgres",
+                "topic.prefix": "postgres.debezium",
                 "database.server.name": "postgres.debezium.server",
                 "table.include.list": "public.member",
                 "plugin.name": "pgoutput",
@@ -341,7 +360,9 @@ def loaded_kafka_connect(kafka_connect_runner):
             }
         }""",
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Debezium SQL Server source connector
     r = requests.post(
@@ -358,16 +379,18 @@ def loaded_kafka_connect(kafka_connect_runner):
                 "database.password": "Password123!",
                 "database.names": "TestDB",
                 "database.server.name": "sqlserver.debezium.server",
+                "topic.prefix": "debezium.sqlserver",
                 "table.include.list": "dbo.test_table",
-                "database.history.kafka.bootstrap.servers": "test_broker:9092",
-                "database.history.kafka.topic": "dbhistory.sqlserver"
+                "schema.history.internal.kafka.bootstrap.servers": "test_broker:9092",
+                "schema.history.internal.kafka.topic": "dbhistory.sqlserver",
+                "database.encrypt": "false",
+                "database.trustServerCertificate": "true"
             }
         }""",
     )
-    if r.status_code != 201:
-        print(f"SQL Server connector creation failed: {r.status_code}")
-        print(f"Response: {r.text}")
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating Generic source
     r = requests.post(
@@ -389,7 +412,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }""",
     )
     r.raise_for_status()
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     print("Populating MongoDB with test data...")
     # we populate the database before creating the connector
@@ -416,7 +441,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }""",
     )
     r.raise_for_status()
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Creating S3 Sink source
     r = requests.post(
@@ -474,7 +501,9 @@ def loaded_kafka_connect(kafka_connect_runner):
         }
         """,
     )
-    assert r.status_code == 201  # Created
+    assert r.status_code == 201, (
+        f"Failed with code {r.status_code} and response {r.text}"
+    )
 
     # Connectors should be ready to process data thanks to Docker health checks
     print("Waiting for Kafka Connect connectors to initialize and process data...")

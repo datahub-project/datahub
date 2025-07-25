@@ -5,8 +5,18 @@ import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/M
 
 interface Props {
     module: ModuleInfo;
+    isDisabled?: boolean;
+    isSmallModule?: boolean;
 }
 
-export default function ModuleMenuItem({ module }: Props) {
-    return <MenuItem description={module.description} title={module.name} icon={module.icon} />;
+export default function ModuleMenuItem({ module, isDisabled, isSmallModule }: Props) {
+    return (
+        <MenuItem
+            description={module.description}
+            title={module.name}
+            icon={module.icon}
+            isDisabled={isDisabled}
+            isSmallModule={isSmallModule}
+        />
+    );
 }

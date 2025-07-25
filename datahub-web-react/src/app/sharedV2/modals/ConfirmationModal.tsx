@@ -54,7 +54,7 @@ export const ConfirmationModal = ({
             centered
             footer={
                 <ButtonsContainer>
-                    <Button variant="text" onClick={handleClose} data-testid="modal-cancel-button">
+                    <Button variant="text" color="gray" onClick={handleClose} data-testid="modal-cancel-button">
                         {closeButtonText || 'Cancel'}
                     </Button>
                     <Button variant="filled" onClick={handleConfirm} data-testid="modal-confirm-button">

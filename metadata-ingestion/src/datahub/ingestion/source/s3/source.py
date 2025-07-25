@@ -41,6 +41,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.data_lake_common.data_lake_utils import (
     ContainerWUCreator,
     add_partition_columns_to_schema,
@@ -196,7 +197,14 @@ class TableData:
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.FOLDER,
+        SourceCapabilityModifier.S3_BUCKET,
+    ],
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"

@@ -12503,6 +12503,11 @@ input UpdateUserHomePageSettingsInput {
   The list of urns of announcement posts dismissed by the user.
   """
   newDismissedAnnouncements: [String]
+
+  """
+  Whether to remove the page template for the user.
+  """
+  removePageTemplate: Boolean
 }
 
 """

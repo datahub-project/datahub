@@ -1,4 +1,4 @@
-import { Avatar, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
@@ -169,27 +169,39 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
     return (
         <>
             {singleOwner && (
-                <HoverEntityTooltip entity={singleOwner} showArrow={false}>
-                    <Link
-                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                        }}
-                    >
-                        <Avatar
-                            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                            imageUrl={singleOwner.editableProperties?.pictureLink}
-                            showInPill
-                            type={mapEntityTypeToAvatarType(singleOwner.type)}
-                        />
-                    </Link>
-                </HoverEntityTooltip>
+                <Link
+                    to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                    }}
+                >
+                    <Avatar
+                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                        imageUrl={singleOwner.editableProperties?.pictureLink}
+                        showInPill
+                        type={mapEntityTypeToAvatarType(singleOwner.type)}
+                    />
+                </Link>
             )}
             {owners.length > 1 && (
                 <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
             )}
         </>
     );
+}
+
+export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
+    const singleOwner = record.owners?.length === 1 ? record.owners[0].owner : undefined;
+
+    if (singleOwner) {
+        return (
+            <HoverEntityTooltip entity={singleOwner} showArrow={false}>
+                <CellHoverWrapper>{content}</CellHoverWrapper>
+            </HoverEntityTooltip>
+        );
+    }
+
+    return content;
 }
 interface ActionsColumnProps {
     record: any;
@@ -245,9 +257,23 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    if (record.execCount)
+    if (record.lastExecUrn) {
         items.push({
             key: '2',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setFocusExecutionUrn(record.lastExecUrn);
+                    }}
+                >
+                    View Last Run Result
+                </MenuItem>
+            ),
+        });
+    }
+    if (record.execCount)
+        items.push({
+            key: '3',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -260,7 +286,7 @@ export function ActionsColumn({
         });
     if (navigator.clipboard)
         items.push({
-            key: '3',
+            key: '4',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -273,7 +299,7 @@ export function ActionsColumn({
         });
     if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
-            key: '4',
+            key: '5',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -285,7 +311,7 @@ export function ActionsColumn({
             ),
         });
     items.push({
-        key: '5',
+        key: '6',
         label: (
             <MenuItem
                 onClick={() => {

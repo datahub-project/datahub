@@ -6,10 +6,13 @@ import {
     ChildrenLoaderType,
 } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
 
+import { AndFilterInput } from '@types';
+
 export default function useLoader(
     parentValue: string,
     loadChildren: ChildrenLoaderType,
     loadRelatedEntities: ChildrenLoaderType | undefined,
+    relatedEntitiesOrFilters: AndFilterInput[] | undefined,
 ) {
     const { get, onLoad, maxNumberOfChildrenToLoad: maxNumberToLoad } = useChildrenLoaderContext();
 
@@ -30,6 +33,7 @@ export default function useLoader(
         metadata,
         dependenciesIsLoading: childrenLoading,
         maxNumberToLoad: maxNumberToLoad - (childrenNodes?.length ? childrenNodes.length : 0),
+        orFilters: relatedEntitiesOrFilters,
     });
 
     const {

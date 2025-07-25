@@ -105,6 +105,25 @@ public enum DataHubUsageEventType {
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
   HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
   SEARCH_BAR_FILTER("SearchBarFilterEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_CREATE_EVENT("HomePageTemplateModuleCreateEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_ADD_EVENT("HomePageTemplateModuleAddEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_UPDATE_EVENT("HomePageTemplateModuleUpdateEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_DELETE_EVENT("HomePageTemplateModuleDeleteEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MOVE_EVENT("HomePageTemplateModuleMoveEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_CREATE_OPEN_EVENT("HomePageTemplateModuleModalCreateOpenEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_EDIT_OPEN_EVENT("HomePageTemplateModuleModalEditOpenEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_CANCEL_EVENT("HomePageTemplateModuleModalCancelEvent"),
+  HOME_PAGE_TEMPLATE_GLOBAL_TEMPLATE_EDITING_START_EVENT(
+      "HomePageTemplateGlobalTemplateEditingStartEvent"),
+  HOME_PAGE_TEMPLATE_GLOBAL_TEMPLATE_EDITING_DONE_EVENT(
+      "HomePageTemplateGlobalTemplateEditingDoneEvent"),
+  HOME_PAGE_TEMPLATE_RESET_TO_GLOBAL_TEMPLATE_EVENT("HomePageTemplateResetToGlobalTemplateEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_ASSET_CLICK_EVENT("HomePageTemplateModuleAssetClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_EXPAND_CLICK_EVENT("HomePageTemplateModuleExpandClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_VIEW_ALL_CLICK_EVENT("HomePageTemplateModuleViewAllClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_LINK_CLICK_EVENT("HomePageTemplateModuleLinkClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_ANNOUNCEMENT_DISMISS_EVENT(
+      "HomePageTemplateModuleAnnouncementDismissEvent"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),
