@@ -52,7 +52,7 @@ fragment PageModule on DataHubPageModule {
 
 mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
     upsertPageTemplate(input: $input) {
-        urn
+        ...PageTemplate
     }
 }
 
