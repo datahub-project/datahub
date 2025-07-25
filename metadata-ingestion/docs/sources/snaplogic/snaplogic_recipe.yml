@@ -1,0 +1,15 @@
+pipeline_name: "snaplogic_incremental_ingestion"
+source:
+  type: snaplogic
+  config:
+    username: example@snaplogic.com
+    password: password
+    base_url: https://elastic.snaplogic.com
+    org_name: "ExampleOrg"
+    namespace_mapping:
+      snowflake://snaplogic: snaplogic
+    case_insensitive_namespaces:
+      - snowflake://snaplogic
+    stateful_ingestion:
+      enabled: True
+      remove_stale_metadata: False
