@@ -136,20 +136,13 @@ function IngestionSourceTable({
             title: 'Schedule',
             key: 'schedule',
             render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
-            width: '20%',
-        },
-        {
-            title: 'Owner',
-            key: 'owner',
-            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
-            width: '20%',
-            cellWrapper: wrapOwnerColumnWithHover,
+            width: '10%',
         },
         ...(isPoolsDisplayEnabled
             ? [
                   {
                       // SaaS only
-                      title: 'Executor',
+                      title: 'Executor Pool',
                       key: 'executor',
                       render: (record) =>
                           record.executorPoolId && !record.cliIngestion ? (
@@ -170,18 +163,19 @@ function IngestionSourceTable({
               ]
             : []),
         {
-            title: 'Owner',
-            key: 'owner',
-            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
-            width: '15%',
-        },
-        {
             title: 'Last Run',
             key: 'lastRun',
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '15%',
             onCellClick: (record) => navigateToRunHistory(record),
             cellWrapper: wrapDateTimeColumnWithHover,
+        },
+        {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '20%',
+            cellWrapper: wrapOwnerColumnWithHover,
         },
         {
             title: 'Status',
