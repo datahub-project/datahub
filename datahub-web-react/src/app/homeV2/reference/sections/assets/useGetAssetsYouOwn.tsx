@@ -8,10 +8,13 @@ import { CorpUser } from '@types';
 const MAX_ASSETS_TO_FETCH = 50;
 
 export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO_FETCH) => {
-    const userUrn = user?.urn || '';
-    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(userUrn);
+    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(user?.urn);
 
-    const { loading, data, error } = useGetSearchResultsForMultipleQuery({
+    const {
+        loading: searchLoading,
+        data,
+        error,
+    } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
                 query: '*',
@@ -21,8 +24,8 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: userUrn,
-                        values: [userUrn, ...groupUrns],
+                        value: user?.urn,
+                        values: [user?.urn || '', ...groupUrns],
                     },
                 ],
                 searchFlags: {
@@ -30,16 +33,16 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO
                 },
             },
         },
-        skip: !userUrn || groupDataLoading,
+        skip: !user?.urn || groupDataLoading,
         fetchPolicy: 'cache-first',
     });
 
     const entityRegistry = useEntityRegistry();
+    const originEntities = data?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [];
     const entities =
-        data?.searchAcrossEntities?.searchResults?.map((result) =>
-            entityRegistry.getGenericEntityProperties(result.entity.type, result.entity),
-        ) || [];
+        originEntities.map((entity) => entityRegistry.getGenericEntityProperties(entity.type, entity)) || [];
     const total = data?.searchAcrossEntities?.total || 0;
+    const loading = searchLoading || groupDataLoading || !data;
 
-    return { entities, loading: loading || groupDataLoading, error, total };
+    return { originEntities, entities, loading, error, total };
 };

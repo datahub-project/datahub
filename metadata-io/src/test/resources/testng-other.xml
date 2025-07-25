@@ -11,8 +11,17 @@
                 <exclude name="com.linkedin.metadata.entity.cassandra.*" />
                 <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
                 <exclude name="com.linkedin.metadata.graph.neo4j.*"/>
-                <exclude name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest"/>
             </package>
+            <package name="io.datahubproject.test.aspect.*"/>
         </packages>
+
+        <!-- Explicitly exclude the specific test class -->
+        <classes>
+            <class name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest">
+                <methods>
+                    <exclude name=".*" />
+                </methods>
+            </class>
+        </classes>
     </test>
 </suite>

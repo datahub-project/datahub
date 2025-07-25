@@ -4,6 +4,7 @@ plugins {
 }
 import com.avast.gradle.dockercompose.tasks.ComposeUp
 import com.avast.gradle.dockercompose.tasks.ComposeDownForced
+import org.yaml.snakeyaml.Yaml
 
 apply from: "../gradle/versioning/versioning.gradle"
 
@@ -36,6 +37,13 @@ ext {
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions',
+                    ]
+            ],
+            'quickstartCLI': [
+                    profile: 'quickstart',
+                    modules: python_services_modules + backend_profile_modules + [
+                            ':datahub-frontend',
                             ':datahub-actions',
                     ]
             ],
@@ -82,18 +90,30 @@ ext {
             'quickstartSlim': [
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [
-                        ':docker:datahub-ingestion',
+                        ':datahub-actions',
+                    ]
+            ],
+            'quickstartSpark': [
+                    profile: 'quickstart-backend',
+                    modules: backend_profile_modules + [
+                            ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
-                            'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
-                            'ACTIONS_CONFIG': 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml',
-                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env",
+                            'METADATA_SERVICE_AUTH_ENABLED': 'false'
                     ]
             ],
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
+            ],
+            'quickstartBackendDebug': [
+                profile: 'debug-backend-aws',
+                modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                isDebug: true,
+                additionalEnv: [
+                        DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                ]
             ],
             'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
                     profile: 'quickstart-consumers',
@@ -151,6 +171,7 @@ dockerCompose {
             environment.put "METADATA_TESTS_ENABLED", "true"
             environment.put "DATAHUB_REPO", "${docker_registry}"
 
+
             // Additional environment variables if specified
             if (config.additionalEnv) {
                 config.additionalEnv.each { key, value ->
@@ -165,6 +186,7 @@ dockerCompose {
             buildBeforePull = false
             stopContainers = false
             removeVolumes = false
+            retainContainersOnStartupFailure = config.isDebug ? true: false //forcing nulls to bool
 
             // Apply common configuration
             common_config.each { key, value ->
@@ -181,6 +203,50 @@ dockerCompose {
     }
 }
 
+
+task generateQuickstartComposeConfig {
+    description = "Generates the docker-compose config output for quickstart configuration for use with oss quickstart cli"
+    group = "docker"
+
+    doLast {
+        def composeUpTask = tasks.named("quickstartCLIComposeUp")
+
+        // Some of these details task gleaned from the docker-compose plugin source code
+        // https://github.com/avast/gradle-docker-compose-plugin/blob/main/src/main/groovy/com/avast/gradle/dockercompose/ComposeExecutor.groovy
+        def composeExecutor = composeUpTask.get().getComposeExecutor().get()
+        composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
+
+        def configOutput = composeExecutor.execute('config')
+        
+        // The `config` returns a fully resolved compose file. We need to replace the DATAHUB_VERSION and HOME with values not available at build time
+        configOutput = configOutput.replace('__VERSION__', '${DATAHUB_VERSION}')
+        configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
+
+        // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
+        // This needs to be matched with the version of the CLI used to launch quickstart
+        def yaml = new Yaml()
+        def config = yaml.load(configOutput)
+        config['services']['datahub-gms-quickstart']['environment']['UI_INGESTION_DEFAULT_CLI_VERSION'] = '${UI_INGESTION_DEFAULT_CLI_VERSION}'
+
+        // Configure YAML dump options to match Docker Compose format
+        def dumpOptions = new org.yaml.snakeyaml.DumperOptions()
+        dumpOptions.setDefaultFlowStyle(org.yaml.snakeyaml.DumperOptions.FlowStyle.BLOCK)
+        dumpOptions.setIndent(2)
+        dumpOptions.setWidth(120)
+        yaml = new Yaml(dumpOptions)
+        configOutput = yaml.dump(config)
+
+        configOutput = "# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file\n" + configOutput
+        
+        def outputFile = project.file("${project.projectDir}/quickstart/docker-compose.quickstart-profile.yml")
+        outputFile.getParentFile().mkdirs()
+
+        outputFile.text = configOutput
+
+        logger.lifecycle("quickstart Docker Compose config saved to: ${outputFile.absolutePath}")
+    }
+}
 
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
@@ -207,6 +273,7 @@ quickstart_configs.each { taskName, config ->
         def taskSuffix = config.isDebug? 'debug' : ''
         dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
+        dependsOn tasks.named("generateQuickstartComposeConfig")
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 

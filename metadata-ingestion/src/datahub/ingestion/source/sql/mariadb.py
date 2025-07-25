@@ -43,7 +43,6 @@ class MariaDBConfig(MySQLConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class MariaDBSource(MySQLSource):
     def get_platform(self):
         return "mariadb"

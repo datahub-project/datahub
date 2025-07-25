@@ -1,14 +1,15 @@
 import functools
 import os
 import pathlib
-from datetime import datetime, timezone
-from unittest.mock import patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import MagicMock, patch
 
 import pytest
 from freezegun import freeze_time
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -26,7 +27,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -1025,3 +1026,109 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         aggregator.close()
         assert len(os.listdir(tmp_path)) == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_override_dialect_passed_to_sqlglot_lineage() -> None:
+    """Test that override_dialect is correctly passed to sqlglot_lineage"""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    base_query = ObservedQuery(
+        query="create table foo as select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.sqlglot_lineage"
+    ) as mock_sqlglot_lineage:
+        mock_sqlglot_lineage.return_value = MagicMock()
+
+        # Test with override_dialect set
+
+        base_query.override_dialect = "snowflake"
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] == "snowflake"
+
+        # Reset mock
+        mock_sqlglot_lineage.reset_mock()
+
+        # Test without override_dialect (should be None)
+
+        base_query.override_dialect = None
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] is None
+
+
+@freeze_time(FROZEN_TIME)
+def test_diamond_problem(pytestconfig: pytest.Config, tmp_path: pathlib.Path) -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        is_temp_table=lambda x: x.lower()
+        in [
+            "dummy_test.diamond_problem.t1",
+            "dummy_test.diamond_problem.t2",
+            "dummy_test.diamond_problem.t3",
+            "dummy_test.diamond_problem.t4",
+        ],
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn("snowflake", "dummy_test.diamond_problem.diamond_source1").urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    aggregator._schema_resolver.add_raw_schema_info(
+        DatasetUrn(
+            "snowflake",
+            "dummy_test.diamond_problem.diamond_destination",
+        ).urn(),
+        {"col_a": "int", "col_b": "int", "col_c": "int"},
+    )
+
+    # Diamond query pattern: source1 -> t1 -> {t2, t3} -> t4 -> destination
+    queries = [
+        "CREATE TEMPORARY TABLE t1 as select * from diamond_source1;",
+        "CREATE TEMPORARY TABLE t2 as select * from t1;",
+        "CREATE TEMPORARY TABLE t3 as select * from t1;",
+        "CREATE TEMPORARY TABLE t4 as select t2.col_a, t3.col_b, t2.col_c from t2 join t3 on t2.col_a = t3.col_a;",
+        "CREATE TABLE diamond_destination as select * from t4;",
+    ]
+
+    base_timestamp = datetime(2025, 7, 1, 13, 52, 18, 741000, tzinfo=timezone.utc)
+
+    for i, query in enumerate(queries):
+        aggregator.add(
+            ObservedQuery(
+                query=query,
+                default_db="dummy_test",
+                default_schema="diamond_problem",
+                session_id="14774700499701726",
+                timestamp=base_timestamp + timedelta(seconds=i),
+            )
+        )
+
+    mcpws = [mcp for mcp in aggregator.gen_metadata()]
+    lineage_mcpws = [mcpw for mcpw in mcpws if mcpw.aspectName == "upstreamLineage"]
+    out_path = tmp_path / "mcpw.json"
+    write_metadata_file(out_path, lineage_mcpws)
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        out_path,
+        pytestconfig.rootpath
+        / "tests/unit/sql_parsing/aggregator_goldens/test_diamond_problem_golden.json",
+    )

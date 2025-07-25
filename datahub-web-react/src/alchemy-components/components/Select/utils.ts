@@ -24,7 +24,7 @@ export const getOptionLabelStyle = (
         alignItems: 'center',
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
-            backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
+            backgroundColor: isSelected ? colors.violet[0] : colors.gray[1500],
         },
     };
 };
@@ -59,10 +59,10 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.xxsm} ${spacing.xxsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
-            padding: `${spacing.xsm} ${spacing.xsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         lg: {
             padding: `${spacing.sm} ${spacing.sm}`,

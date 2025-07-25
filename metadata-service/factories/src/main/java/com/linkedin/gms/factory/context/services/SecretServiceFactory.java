@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.context.services;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import io.datahubproject.metadata.services.SecretService;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,7 +17,8 @@ public class SecretServiceFactory {
   @Bean(name = "dataHubSecretService")
   @Primary
   @Nonnull
-  protected SecretService getInstance() {
-    return new SecretService(this.encryptionKey);
+  protected SecretService getInstance(final ConfigurationProvider configurationProvider) {
+    return new SecretService(
+        this.encryptionKey, configurationProvider.getSecretService().isV1AlgorithmEnabled());
   }
 }

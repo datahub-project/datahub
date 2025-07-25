@@ -29,7 +29,7 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSourceReport,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -329,6 +329,13 @@ def tableau_ingest_common(
                     "source": {
                         "type": "tableau",
                         "config": pipeline_config,
+                        # Our output diff checker is optimized for MCPs. Because the
+                        # Tableau source tests produce so much metadata, the diff checker
+                        # visibly slows down. Unpacking into MCPs allows us to use a "fast path"
+                        # that is aware of urn/aspect names and runs more efficiently.
+                        "extractor_config": {
+                            "unpack_mces_into_mcps": True,
+                        },
                     },
                     "sink": {
                         "type": "file",

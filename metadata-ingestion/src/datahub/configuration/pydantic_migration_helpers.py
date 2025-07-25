@@ -1,12 +1,13 @@
 import pydantic.version
 from packaging.version import Version
 
-PYDANTIC_VERSION_2: bool
-if Version(pydantic.version.VERSION) >= Version("2.0"):
-    PYDANTIC_VERSION_2 = True
-else:
-    PYDANTIC_VERSION_2 = False
+_pydantic_version = Version(pydantic.version.VERSION)
 
+PYDANTIC_VERSION_2 = _pydantic_version >= Version("2.0")
+
+# The pydantic.Discriminator type was added in v2.5.0.
+# https://docs.pydantic.dev/latest/changelog/#v250-2023-11-13
+PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR = _pydantic_version >= Version("2.5.0")
 
 # This can be used to silence deprecation warnings while we migrate.
 if PYDANTIC_VERSION_2:
@@ -50,6 +51,7 @@ class v1_ConfigModel(v1_BaseModel):
 
 __all__ = [
     "PYDANTIC_VERSION_2",
+    "PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR",
     "PydanticDeprecatedSince20",
     "GenericModel",
     "v1_ConfigModel",

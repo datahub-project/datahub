@@ -22,6 +22,7 @@ from typing import (
     Union,
 )
 
+import progressbar
 from avro.schema import RecordSchema
 from pydantic import BaseModel
 from requests.models import HTTPError
@@ -159,6 +160,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             openapi_ingestion=self.config.openapi_ingestion,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
+            server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
 
@@ -234,6 +236,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 client_certificate_path=session_config.client_certificate_path,
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
+                server_config_refresh_interval=emitter._server_config_refresh_interval,
             )
         )
 
@@ -474,7 +477,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         filter_criteria_map: Dict[str, str],
     ) -> Optional[Aspect]:
         filter_criteria = [
-            {"field": k, "value": v, "condition": "EQUAL"}
+            {"field": k, "values": [v], "condition": "EQUAL"}
             for k, v in filter_criteria_map.items()
         ]
         filter = {"or": [{"and": filter_criteria}]}
@@ -502,7 +505,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "limit": limit,
             "filter": filter,
         }
-        end_point = f"{self.config.server}/aspects?action=getTimeseriesAspectValues"
+        end_point = f"{self._gms_server}/aspects?action=getTimeseriesAspectValues"
         resp: Dict = self._post_generic(end_point, query_body)
 
         values: Optional[List] = resp.get("value", {}).get("values")
@@ -522,7 +525,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     def get_entity_raw(
         self, entity_urn: str, aspects: Optional[List[str]] = None
     ) -> Dict:
-        endpoint: str = f"{self.config.server}/entitiesV2/{Urn.url_encode(entity_urn)}"
+        endpoint: str = f"{self._gms_server}/entitiesV2/{Urn.url_encode(entity_urn)}"
         if aspects is not None:
             assert aspects, "if provided, aspects must be a non-empty list"
             endpoint = f"{endpoint}?aspects=List(" + ",".join(aspects) + ")"
@@ -652,15 +655,15 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
     @property
     def _search_endpoint(self):
-        return f"{self.config.server}/entities?action=search"
+        return f"{self._gms_server}/entities?action=search"
 
     @property
     def _relationships_endpoint(self):
-        return f"{self.config.server}/openapi/relationships/v1/"
+        return f"{self._gms_server}/openapi/relationships/v1/"
 
     @property
     def _aspect_count_endpoint(self):
-        return f"{self.config.server}/aspects?action=getCount"
+        return f"{self._gms_server}/aspects?action=getCount"
 
     def get_domain_urn_by_name(self, domain_name: str) -> Optional[str]:
         """Retrieve a domain urn based on its name. Returns None if there is no match found"""
@@ -669,7 +672,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         filter_criteria = [
             {
                 "field": "name",
-                "value": domain_name,
+                "values": [domain_name],
                 "condition": "EQUAL",
             }
         ]
@@ -789,7 +792,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             filter_criteria.append(
                 {
                     "field": "customProperties",
-                    "value": f"instance={env}",
+                    "values": [f"instance={env}"],
                     "condition": "EQUAL",
                 }
             )
@@ -797,7 +800,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             filter_criteria.append(
                 {
                     "field": "typeNames",
-                    "value": container_subtype,
+                    "values": [container_subtype],
                     "condition": "EQUAL",
                 }
             )
@@ -806,7 +809,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "input": search_query,
             "entity": "container",
             "start": 0,
-            "count": 10000,
+            "count": 5000,
             "filter": {"or": container_filters},
         }
         results: Dict = self._post_generic(url, search_body)
@@ -901,9 +904,10 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         query: Optional[str] = None,
         container: Optional[str] = None,
         status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 10000,
+        batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
+        skip_cache: bool = False,
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -922,6 +926,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             Note that this requires browsePathV2 aspects (added in 0.10.4+).
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
+        :param skip_cache: Whether to bypass caching. Defaults to False.
 
         :return: An iterable of urns that match the filters.
         """
@@ -949,7 +954,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 $query: String!,
                 $orFilters: [AndFilterInput!],
                 $batchSize: Int!,
-                $scrollId: String) {
+                $scrollId: String,
+                $skipCache: Boolean!) {
 
                 scrollAcrossEntities(input: {
                     query: $query,
@@ -960,6 +966,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
+                        skipCache: $skipCache
                     }
                 }) {
                     nextScrollId
@@ -978,6 +985,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "query": query,
             "orFilters": orFilters,
             "batchSize": batch_size,
+            "skipCache": skip_cache,
         }
 
         for entity in self._scroll_across_entities(graphql_query, variables):
@@ -993,7 +1001,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         query: Optional[str] = None,
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 10000,
+        batch_size: int = 5000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         extra_source_fields: Optional[List[str]] = None,
@@ -1083,7 +1091,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "query": query,
             "orFilters": or_filters_final,
             "batchSize": batch_size,
-            "skipCache": "true" if skip_cache else "false",
+            "skipCache": skip_cache,
             "fetchExtraFields": extra_source_fields,
         }
 
@@ -1202,7 +1210,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         operation_name: Optional[str] = None,
         format_exception: bool = True,
     ) -> Dict:
-        url = f"{self.config.server}/api/graphql"
+        url = f"{self._gms_server}/api/graphql"
 
         body: Dict = {
             "query": query,
@@ -1427,6 +1435,83 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         related_aspects = response.get("relatedAspects", [])
         return reference_count, related_aspects
 
+    def get_kafka_consumer_offsets(
+        self,
+    ) -> dict:
+        """
+        Get Kafka consumer offsets from the DataHub API.
+
+        Args:
+            graph (DataHubGraph): The DataHub graph client
+
+        """
+        urls = {
+            "mcp": f"{self.config.server}/openapi/operations/kafka/mcp/consumer/offsets",
+            "mcl": f"{self.config.server}/openapi/operations/kafka/mcl/consumer/offsets",
+            "mcl-timeseries": f"{self.config.server}/openapi/operations/kafka/mcl-timeseries/consumer/offsets",
+        }
+
+        params = {"skipCache": "true", "detailed": "true"}
+        results = {}
+        for key, url in urls.items():
+            response = self._get_generic(url=url, params=params)
+            results[key] = response
+            if "errors" in response:
+                logger.error(f"Error: {response['errors']}")
+        return results
+
+    def _restore_index_call(self, payload_obj: dict) -> None:
+        result = self._post_generic(
+            f"{self._gms_server}/operations?action=restoreIndices", payload_obj
+        )
+        logger.debug(f"Restore indices result: {result}")
+
+    def restore_indices(
+        self,
+        urn_pattern: Optional[str] = None,
+        aspect: Optional[str] = None,
+        start: Optional[int] = None,
+        batch_size: Optional[int] = None,
+        file: Optional[str] = None,
+    ) -> None:
+        """Restore the indices for a given urn or urn-like pattern.
+
+        Args:
+            urn_pattern: The exact URN or a pattern (with % for wildcard) to match URNs. If not provided, will restore indices from the file.
+            aspect: Optional aspect string to restore indices for a specific aspect.
+            start: Optional integer to decide which row number of sql store to restore from. Default: 0. Ignored in case file is provided.
+            batch_size: Optional integer to decide how many rows to restore. Default: 10. Ignored in case file is provided.
+            file: Optional file path to a file containing URNs to restore indices for.
+
+        Returns:
+            A string containing the result of the restore indices operation. This format is subject to change.
+        """
+        payload_obj = {}
+        if file is not None:
+            with open(file) as f:
+                for urn in progressbar.progressbar(f.readlines()):
+                    urn = urn.strip()
+                    if "%" in urn:
+                        payload_obj["urnLike"] = urn
+                    else:
+                        payload_obj["urn"] = urn
+                    if aspect is not None:
+                        payload_obj["aspect"] = aspect
+                    self._restore_index_call(payload_obj)
+        else:
+            if urn_pattern is not None:
+                if "%" in urn_pattern:
+                    payload_obj["urnLike"] = urn_pattern
+                else:
+                    payload_obj["urn"] = urn_pattern
+            if aspect is not None:
+                payload_obj["aspect"] = aspect
+            if start is not None:
+                payload_obj["start"] = start
+            if batch_size is not None:
+                payload_obj["batchSize"] = batch_size
+            self._restore_index_call(payload_obj)
+
     @functools.lru_cache
     def _make_schema_resolver(
         self,
@@ -1491,7 +1576,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         env: str = DEFAULT_ENV,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-        default_dialect: Optional[str] = None,
+        override_dialect: Optional[str] = None,
     ) -> "SqlParsingResult":
         from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
 
@@ -1505,7 +1590,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             schema_resolver=schema_resolver,
             default_db=default_db,
             default_schema=default_schema,
-            default_dialect=default_dialect,
+            override_dialect=override_dialect,
         )
 
     def create_tag(self, tag_name: str) -> str:
@@ -1732,7 +1817,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
-        url = f"{self.config.server}/openapi/v2/entity/batch/{entity_name}"
+        url = f"{self._gms_server}/openapi/v2/entity/batch/{entity_name}"
         response = self._session.post(url, data=json.dumps(payload), headers=headers)
         response.raise_for_status()
 
@@ -1789,7 +1874,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "Content-Type": "application/json",
         }
 
-        url = f"{self.config.server}/openapi/v3/entity/{entity_name}/batchGet"
+        url = f"{self._gms_server}/openapi/v3/entity/{entity_name}/batchGet"
         if with_system_metadata:
             url += "?systemMetadata=true"
 

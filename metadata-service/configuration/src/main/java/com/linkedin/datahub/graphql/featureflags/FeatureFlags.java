@@ -40,4 +40,11 @@ public class FeatureFlags {
   private boolean showSearchBarAutocompleteRedesign = false;
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
+  private boolean showIngestionPageRedesign = false;
+  private boolean showLineageExpandMore = true;
+  private boolean showHomePageRedesign = false;
+  private boolean lineageGraphV3 = true;
+  private boolean showProductUpdates = false;
+  private boolean logicalModelsEnabled = false;
+  private boolean showHomepageUserRole = false;
 }

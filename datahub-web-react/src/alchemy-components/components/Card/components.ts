@@ -3,8 +3,8 @@ import styled from 'styled-components';
 import { colors, radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
-export const CardContainer = styled.div<{ hasButton?: boolean; width?: string; maxWidth?: string; height?: string }>(
-    ({ hasButton, width, maxWidth, height }) => ({
+export const CardContainer = styled.div<{ isClickable?: boolean; width?: string; maxWidth?: string; height?: string }>(
+    ({ isClickable, width, maxWidth, height }) => ({
         border: `1px solid ${colors.gray[100]}`,
         borderRadius: radius.lg,
         padding: spacing.md,
@@ -19,7 +19,7 @@ export const CardContainer = styled.div<{ hasButton?: boolean; width?: string; m
         width,
         height,
 
-        '&:hover': hasButton
+        '&:hover': isClickable
             ? {
                   border: `1px solid ${({ theme }) => theme.styles['primary-color']}`,
                   cursor: 'pointer',
@@ -39,7 +39,7 @@ export const Header = styled.div<{ iconAlignment?: IconAlignmentOptions }>(({ ic
 export const TitleContainer = styled.div({
     display: 'flex',
     flexDirection: 'column',
-    gap: 2,
+    gap: 0,
     width: '100%',
 });
 

@@ -10,6 +10,7 @@ import humanfriendly
 import pydantic
 import redshift_connector
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -46,6 +47,7 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.datashares import RedshiftDatasharesHelper
@@ -125,7 +127,13 @@ logger: logging.Logger = logging.getLogger(__name__)
 @platform_name("Redshift")
 @config_class(RedshiftConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
@@ -140,12 +148,15 @@ logger: logging.Logger = logging.getLogger(__name__)
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
 )
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -354,7 +365,23 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             ).workunit_processor,
         ]
 
+    def _warn_deprecated_configs(self):
+        if (
+            self.config.match_fully_qualified_names is not None
+            and not self.config.match_fully_qualified_names
+            and self.config.schema_pattern is not None
+            and self.config.schema_pattern != AllowDenyPattern.allow_all()
+        ):
+            self.report.report_warning(
+                message="Please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.",
+                context="Config option deprecation warning",
+                title="Config option deprecation warning",
+            )
+
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        self._warn_deprecated_configs()
         connection = self._try_get_redshift_connection(self.config)
 
         if connection is None:

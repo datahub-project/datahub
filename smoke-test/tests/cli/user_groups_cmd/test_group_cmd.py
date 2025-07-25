@@ -4,14 +4,10 @@ import tempfile
 from typing import Any, Dict, Iterable, List
 
 import yaml
-from click.testing import CliRunner, Result
 
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
-from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph
-from tests.utils import wait_for_writes_to_sync
-
-runner = CliRunner()
+from tests.utils import run_datahub_cmd, wait_for_writes_to_sync
 
 
 def sync_elastic() -> None:
@@ -28,8 +24,7 @@ def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:
             "-f",
             group_file.name,
         ]
-        group_create_result = runner.invoke(
-            datahub,
+        group_create_result = run_datahub_cmd(
             upsert_args,
             env={
                 "DATAHUB_GMS_URL": auth_session.gms_url(),
@@ -56,8 +51,7 @@ def gen_datahub_groups(num_groups: int) -> Iterable[CorpGroup]:
 
 def datahub_get_group(auth_session, group_urn: str):
     get_args: List[str] = ["get", "--urn", group_urn]
-    get_result: Result = runner.invoke(
-        datahub,
+    get_result = run_datahub_cmd(
         get_args,
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),
@@ -115,10 +109,14 @@ def test_group_upsert(auth_session: Any, graph_client: DataHubGraph) -> None:
             "corpGroupKey": {"name": f"group_{i}"},
             "ownership": {
                 "lastModified": {"actor": "urn:li:corpuser:unknown", "time": 0},
+                "ownerTypes": {
+                    "urn:li:ownershipType:__system__technical_owner": [
+                        "urn:li:corpuser:user1"
+                    ],
+                },
                 "owners": [
                     {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
                 ],
-                "ownerTypes": {},
             },
             "status": {"removed": False},
         }

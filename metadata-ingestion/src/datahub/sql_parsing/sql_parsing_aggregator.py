@@ -49,6 +49,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     sqlglot_lineage,
 )
 from datahub.sql_parsing.sqlglot_utils import (
+    DialectOrStr,
     _parse_statement,
     get_query_fingerprint,
     try_format_query,
@@ -58,6 +59,7 @@ from datahub.sql_parsing.tool_meta_extractor import (
     ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -108,8 +110,9 @@ class ObservedQuery:
     default_schema: Optional[str] = None
     query_hash: Optional[str] = None
     usage_multiplier: int = 1
+    override_dialect: Optional[DialectOrStr] = None
 
-    # Use this to store addtitional key-value information about query for debugging
+    # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
 
 
@@ -140,6 +143,7 @@ class QueryMetadata:
 
     used_temp_tables: bool = True
 
+    extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
@@ -188,6 +192,7 @@ class QueryMetadata:
             source=models.QuerySourceClass.SYSTEM,
             created=self.make_created_audit_stamp(),
             lastModified=self.make_last_modified_audit_stamp(),
+            origin=self.origin.urn() if self.origin else None,
         )
 
 
@@ -263,7 +268,7 @@ class PreparsedQuery:
     query_type_props: QueryTypeProps = dataclasses.field(
         default_factory=lambda: QueryTypeProps()
     )
-    # Use this to store addtitional key-value information about query for debugging
+    # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
@@ -831,6 +836,7 @@ class SqlParsingAggregator(Closeable):
             session_id=session_id,
             timestamp=observed.timestamp,
             user=observed.user,
+            override_dialect=observed.override_dialect,
         )
         if parsed.debug_info.error:
             self.report.observed_query_parse_failures.append(
@@ -948,6 +954,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                extra_info=parsed.extra_info,
                 origin=parsed.origin,
             )
         )
@@ -1164,6 +1171,7 @@ class SqlParsingAggregator(Closeable):
         session_id: str = _MISSING_SESSION_ID,
         timestamp: Optional[datetime] = None,
         user: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
+        override_dialect: Optional[DialectOrStr] = None,
     ) -> SqlParsingResult:
         with self.report.sql_parsing_timer:
             parsed = sqlglot_lineage(
@@ -1171,6 +1179,7 @@ class SqlParsingAggregator(Closeable):
                 schema_resolver=schema_resolver,
                 default_db=default_db,
                 default_schema=default_schema,
+                override_dialect=override_dialect,
             )
         self.report.num_sql_parsed += 1
 
@@ -1491,9 +1500,9 @@ class SqlParsingAggregator(Closeable):
             return
 
         # If a query doesn't involve any allowed tables, skip it.
-        if downstream_urn is None and not any(
-            self.is_allowed_table(urn) for urn in query.upstreams
-        ):
+        if (
+            downstream_urn is None or not self.is_allowed_table(downstream_urn)
+        ) and not any(self.is_allowed_table(urn) for urn in query.upstreams):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
@@ -1574,16 +1583,20 @@ class SqlParsingAggregator(Closeable):
 
         @dataclasses.dataclass
         class QueryLineageInfo:
-            upstreams: List[UrnStr]  # this is direct upstreams, with *no temp tables*
-            column_lineage: List[ColumnLineageInfo]
+            upstreams: OrderedSet[
+                UrnStr
+            ]  # this is direct upstreams, with *no temp tables*
+            column_lineage: OrderedSet[ColumnLineageInfo]
             confidence_score: float
 
             def _merge_lineage_from(self, other_query: "QueryLineageInfo") -> None:
-                self.upstreams += other_query.upstreams
-                self.column_lineage += other_query.column_lineage
+                self.upstreams.update(other_query.upstreams)
+                self.column_lineage.update(other_query.column_lineage)
                 self.confidence_score = min(
                     self.confidence_score, other_query.confidence_score
                 )
+
+        cache: Dict[str, QueryLineageInfo] = {}
 
         def _recurse_into_query(
             query: QueryMetadata, recursion_path: List[QueryId]
@@ -1591,10 +1604,12 @@ class SqlParsingAggregator(Closeable):
             if query.query_id in recursion_path:
                 # This is a cycle, so we just return the query as-is.
                 return QueryLineageInfo(
-                    upstreams=query.upstreams,
-                    column_lineage=query.column_lineage,
+                    upstreams=OrderedSet(query.upstreams),
+                    column_lineage=OrderedSet(query.column_lineage),
                     confidence_score=query.confidence_score,
                 )
+            if query.query_id in cache:
+                return cache[query.query_id]
             recursion_path = [*recursion_path, query.query_id]
             composed_of_queries.add(query.query_id)
 
@@ -1609,7 +1624,7 @@ class SqlParsingAggregator(Closeable):
                         upstream_query = self._query_map.get(upstream_query_id)
                         if (
                             upstream_query
-                            and upstream_query.query_id not in composed_of_queries
+                            and upstream_query.query_id not in recursion_path
                         ):
                             temp_query_lineage_info = _recurse_into_query(
                                 upstream_query, recursion_path
@@ -1669,11 +1684,14 @@ class SqlParsingAggregator(Closeable):
                 ]
             )
 
-            return QueryLineageInfo(
-                upstreams=list(new_upstreams),
-                column_lineage=new_cll,
+            ret = QueryLineageInfo(
+                upstreams=new_upstreams,
+                column_lineage=OrderedSet(new_cll),
                 confidence_score=new_confidence_score,
             )
+            cache[query.query_id] = ret
+
+            return ret
 
         resolved_lineage_info = _recurse_into_query(base_query, [])
 
@@ -1706,15 +1724,15 @@ class SqlParsingAggregator(Closeable):
         )
 
         merged_query_text = ";\n\n".join(
-            [q.formatted_query_string for q in ordered_queries]
+            deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
 
         resolved_query = dataclasses.replace(
             base_query,
             query_id=composite_query_id,
             formatted_query_string=merged_query_text,
-            upstreams=resolved_lineage_info.upstreams,
-            column_lineage=resolved_lineage_info.column_lineage,
+            upstreams=list(resolved_lineage_info.upstreams),
+            column_lineage=list(resolved_lineage_info.column_lineage),
             confidence_score=resolved_lineage_info.confidence_score,
         )
 

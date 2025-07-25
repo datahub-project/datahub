@@ -132,12 +132,21 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_column_errors: int = 0
     sql_parser_successes: int = 0
 
+    # Details on where column info comes from.
+    nodes_with_catalog_columns: int = 0
+    nodes_with_inferred_columns: int = 0
+    nodes_with_graph_columns: int = 0
+    nodes_with_no_columns: int = 0
+
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
         default_factory=LossyList
     )
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
+
+    duplicate_sources_dropped: Optional[int] = None
+    duplicate_sources_references_updated: Optional[int] = None
 
 
 class EmitDirective(ConfigEnum):
@@ -349,7 +358,7 @@ class DBTCommonConfig(
     # override default value to True.
     incremental_lineage: bool = Field(
         default=True,
-        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run.",
+        description="When enabled, emits incremental/patch lineage for non-dbt entities. When disabled, re-states lineage on each run. This would also require enabling 'incremental_lineage' in the counterpart warehouse ingestion (_e.g._ BigQuery, Redshift, etc).",
     )
 
     _remove_use_compiled_code = pydantic_removed_field("use_compiled_code")
@@ -362,6 +371,12 @@ class DBTCommonConfig(
         default=True,
         description="Whether to add database name to the table urn. "
         "Set to False to skip it for engines like AWS Athena where it's not required.",
+    )
+
+    drop_duplicate_sources: bool = Field(
+        default=True,
+        description="When enabled, drops sources that have the same name in the target platform as a model. "
+        "This ensures that lineage is generated reliably, but will lose any documentation associated only with the source.",
     )
 
     @validator("target_platform")
@@ -503,7 +518,7 @@ class DBTNode:
     raw_code: Optional[str]
 
     dbt_adapter: str
-    dbt_name: str
+    dbt_name: str  # dbt unique identifier
     dbt_file_path: Optional[str]
     dbt_package_name: Optional[str]  # this is pretty much always present
 
@@ -619,14 +634,8 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def columns_setdefault(self, schema_fields: List[SchemaField]) -> None:
-        """
-        Update the column list if they are not already set.
-        """
-
-        if self.columns:
-            # If we already have columns, don't overwrite them.
-            return
+    def set_columns(self, schema_fields: List[SchemaField]) -> None:
+        """Update the column list."""
 
         self.columns = [
             DBTColumn(
@@ -823,7 +832,9 @@ def get_column_type(
 @platform_name("dbt")
 @config_class(DBTCommonConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -973,6 +984,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._infer_schemas_and_update_cll(all_nodes_map)
 
         nodes = self._filter_nodes(all_nodes)
+        nodes = self._drop_duplicate_sources(nodes)
+
         non_test_nodes = [
             dataset_node for dataset_node in nodes if dataset_node.node_type != "test"
         ]
@@ -998,7 +1011,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return self.config.node_name_pattern.allowed(key)
 
     def _filter_nodes(self, all_nodes: List[DBTNode]) -> List[DBTNode]:
-        nodes = []
+        nodes: List[DBTNode] = []
         for node in all_nodes:
             key = node.dbt_name
 
@@ -1007,6 +1020,62 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 continue
 
             nodes.append(node)
+
+        return nodes
+
+    def _drop_duplicate_sources(self, original_nodes: List[DBTNode]) -> List[DBTNode]:
+        """Detect and correct cases where a model and source have the same name.
+
+        In these cases, we don't want to generate both because they'll have the same
+        urn and hence overwrite each other. Instead, we drop the source and update
+        references to it to point at the model.
+
+        The risk here is that the source might have documentation that'd be lost,
+        which is why we maintain optionality with a config flag.
+        """
+        if not self.config.drop_duplicate_sources:
+            return original_nodes
+
+        self.report.duplicate_sources_dropped = 0
+        self.report.duplicate_sources_references_updated = 0
+
+        # Pass 1 - find all model names in the warehouse.
+        warehouse_model_names: Dict[str, str] = {}  # warehouse name -> model unique id
+        for node in original_nodes:
+            if node.node_type == "model" and node.exists_in_target_platform:
+                warehouse_model_names[node.get_db_fqn()] = node.dbt_name
+
+        # Pass 2 - identify + drop duplicate sources.
+        source_references_to_update: Dict[
+            str, str
+        ] = {}  # source unique id -> model unique id
+        nodes: List[DBTNode] = []
+        for node in original_nodes:
+            if (
+                node.node_type == "source"
+                and node.exists_in_target_platform
+                and (model_name := warehouse_model_names.get(node.get_db_fqn()))
+            ):
+                self.report.warning(
+                    title="Duplicate model and source names detected",
+                    message="We found a dbt model and dbt source with the same name. To ensure reliable lineage generation, the source node was ignored. "
+                    "If you associated documentation/tags/other metadata with the source, it will be lost. "
+                    "To avoid this, you should remove the source node from your dbt project and replace any `source(<source_name>)` calls with `ref(<model_name>)`.",
+                    context=f"{node.dbt_name} (called {node.get_db_fqn()} in {self.config.target_platform}) duplicates {model_name}",
+                )
+                self.report.duplicate_sources_dropped += 1
+                source_references_to_update[node.dbt_name] = model_name
+            else:
+                nodes.append(node)
+
+        # Pass 3 - update references to the dropped sources.
+        for node in nodes:
+            for i, current_upstream in enumerate(node.upstream_nodes):
+                if current_upstream in source_references_to_update:
+                    node.upstream_nodes[i] = source_references_to_update[
+                        current_upstream
+                    ]
+                    self.report.duplicate_sources_references_updated += 1
 
         return nodes
 
@@ -1248,9 +1317,28 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn, self._to_schema_info(inferred_schema_fields)
                 )
 
-            # Save the inferred schema fields into the dbt node.
-            if inferred_schema_fields:
-                node.columns_setdefault(inferred_schema_fields)
+            # When updating the node's columns, our order of preference is:
+            # 1. Schema from the dbt catalog
+            # 2. Inferred schema
+            # 3. Schema fetched from the graph
+            if node.columns:
+                self.report.nodes_with_catalog_columns += 1
+                pass  # we already have columns from the dbt catalog
+            elif inferred_schema_fields:
+                logger.debug(
+                    f"Using {len(inferred_schema_fields)} inferred columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_inferred_columns += 1
+                node.set_columns(inferred_schema_fields)
+            elif schema_fields:
+                logger.debug(
+                    f"Using {len(schema_fields)} graph columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_graph_columns += 1
+                node.set_columns(schema_fields)
+            else:
+                logger.debug(f"No columns found for {node.dbt_name}")
+                self.report.nodes_with_no_columns += 1
 
     def _parse_cll(
         self,
@@ -1315,6 +1403,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.tag_prefix,
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
         action_processor_tag = OperationProcessor(
@@ -1686,6 +1775,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.tag_prefix,
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
         canonical_schema: List[SchemaField] = []

@@ -2,130 +2,92 @@ package datahub.client.kafka.containers;
 
 import static datahub.client.kafka.containers.Utils.CONFLUENT_PLATFORM_VERSION;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
-import org.testcontainers.images.builder.Transferable;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.TestcontainersConfiguration;
 
-/** This container wraps Confluent Kafka. */
+/** This container wraps Confluent Kafka using KRaft mode (no Zookeeper required). */
 public class KafkaContainer extends GenericContainer<KafkaContainer> {
 
-  private static final String STARTER_SCRIPT = "/testcontainers_start.sh";
-
   private static final int KAFKA_INTERNAL_PORT = 9092;
-  private static final int KAFKA_LOCAL_PORT = 9093;
-
+  private static final int KAFKA_EXTERNAL_PORT = 9093;
+  private static final int KAFKA_CONTROLLER_PORT = 29093;
   public static final int KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT = 29092;
-
-  private static final int PORT_NOT_ASSIGNED = -1;
-
-  private String zookeeperConnect = null;
-
-  private int port = PORT_NOT_ASSIGNED;
 
   private final String networkAlias = "kafka";
 
-  public KafkaContainer(String zookeeperConnect) {
-    this(CONFLUENT_PLATFORM_VERSION, zookeeperConnect);
+  public KafkaContainer() {
+    this(CONFLUENT_PLATFORM_VERSION);
   }
 
-  public KafkaContainer(String confluentPlatformVersion, String zookeeperConnect) {
+  public KafkaContainer(String confluentPlatformVersion) {
     super(getKafkaContainerImage(confluentPlatformVersion));
 
-    this.zookeeperConnect = zookeeperConnect;
-    withExposedPorts(KAFKA_INTERNAL_PORT, KAFKA_LOCAL_PORT);
+    // Fix the external port to 9093 to match the advertised listener
+    // Only expose the external port, not the internal port to avoid conflicts
+    addFixedExposedPort(KAFKA_EXTERNAL_PORT, KAFKA_EXTERNAL_PORT);
 
-    // Use two listeners with different names, it will force Kafka to communicate
-    // with itself via internal
-    // listener when KAFKA_INTER_BROKER_LISTENER_NAME is set, otherwise Kafka will
-    // try to use the advertised listener
+    // KRaft configuration
+    String clusterId = java.util.UUID.randomUUID().toString();
+    withEnv("KAFKA_NODE_ID", "1");
+    withEnv("KAFKA_PROCESS_ROLES", "broker,controller");
+    withEnv("KAFKA_CONTROLLER_QUORUM_VOTERS", "1@" + networkAlias + ":" + KAFKA_CONTROLLER_PORT);
+    withEnv("CLUSTER_ID", clusterId);
+    withEnv("KAFKA_CLUSTER_ID", clusterId);
+
+    // Configure listeners
     withEnv(
         "KAFKA_LISTENERS",
         "PLAINTEXT://0.0.0.0:"
             + KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT
+            + ",CONTROLLER://0.0.0.0:"
+            + KAFKA_CONTROLLER_PORT
             + ",BROKER://0.0.0.0:"
             + KAFKA_INTERNAL_PORT
-            + ",BROKER_LOCAL://0.0.0.0:"
-            + KAFKA_LOCAL_PORT);
+            + ",BROKER_EXTERNAL://0.0.0.0:"
+            + KAFKA_EXTERNAL_PORT);
+
     withEnv(
         "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP",
-        "BROKER:PLAINTEXT,PLAINTEXT:PLAINTEXT,BROKER_LOCAL:PLAINTEXT");
+        "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,BROKER:PLAINTEXT,BROKER_EXTERNAL:PLAINTEXT");
+
+    // Advertised listeners - external port must match the container port
+    withEnv(
+        "KAFKA_ADVERTISED_LISTENERS",
+        String.format(
+            "PLAINTEXT://%s:%d,BROKER://%s:%d,BROKER_EXTERNAL://localhost:%d",
+            networkAlias,
+            KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT,
+            networkAlias,
+            KAFKA_INTERNAL_PORT,
+            KAFKA_EXTERNAL_PORT // This must be 9093, not a mapped port
+            ));
+
+    withEnv("KAFKA_CONTROLLER_LISTENER_NAMES", "CONTROLLER");
     withEnv("KAFKA_INTER_BROKER_LISTENER_NAME", "BROKER");
 
+    // Common Kafka settings
     withEnv("KAFKA_BROKER_ID", "1");
     withEnv("KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR", "1");
     withEnv("KAFKA_OFFSETS_TOPIC_NUM_PARTITIONS", "1");
+    withEnv("KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR", "1");
+    withEnv("KAFKA_TRANSACTION_STATE_LOG_MIN_ISR", "1");
     withEnv("KAFKA_LOG_FLUSH_INTERVAL_MESSAGES", Long.MAX_VALUE + "");
     withEnv("KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS", "0");
+    withEnv("KAFKA_AUTO_CREATE_TOPICS_ENABLE", "false");
 
     withNetworkAliases(networkAlias);
-    waitingFor(new HostPortWaitStrategy());
+
+    // Wait for Kafka to be ready by checking the external port
+    waitingFor(Wait.forListeningPort());
   }
 
-  public Stream<String> getBootstrapServers() {
-    if (port == PORT_NOT_ASSIGNED) {
-      throw new IllegalStateException("You should start Kafka container first");
-    }
-    return Stream.of(
-        String.format("PLAINTEXT://%s:%s", getHost(), port),
-        String.format("PLAINTEXT://localhost:%s", getMappedPort(KAFKA_LOCAL_PORT)));
+  public String getBootstrapServers() {
+    return "localhost:" + KAFKA_EXTERNAL_PORT;
   }
 
   public String getInternalBootstrapServers() {
-    return String.format("PLAINTEXT://%s:%s", networkAlias, KAFKA_INTERNAL_PORT);
-  }
-
-  @Override
-  protected void doStart() {
-    withCommand(
-        "sh",
-        "-c",
-        "while [ ! -f " + STARTER_SCRIPT + " ]; do sleep 0.1; done; " + "sh " + STARTER_SCRIPT);
-
-    super.doStart();
-  }
-
-  @Override
-  protected void containerIsStarting(InspectContainerResponse containerInfo, boolean reused) {
-    super.containerIsStarting(containerInfo, reused);
-
-    port = getMappedPort(KAFKA_INTERNAL_PORT);
-
-    if (reused) {
-      return;
-    }
-
-    // Use two listeners with different names, it will force Kafka to communicate
-    // with itself via internal
-    // listener when KAFKA_INTER_BROKER_LISTENER_NAME is set, otherwise Kafka will
-    // try to use the advertised listener
-
-    String command = "#!/bin/bash \n";
-    command += "export KAFKA_ZOOKEEPER_CONNECT='" + zookeeperConnect + "'\n";
-    command +=
-        "export KAFKA_ADVERTISED_LISTENERS='"
-            + Stream.concat(
-                    Stream.of(
-                        "PLAINTEXT://"
-                            + networkAlias
-                            + ":"
-                            + KAFKA_INTERNAL_ADVERTISED_LISTENERS_PORT,
-                        "BROKER_LOCAL://localhost:" + getMappedPort(KAFKA_LOCAL_PORT)),
-                    containerInfo.getNetworkSettings().getNetworks().values().stream()
-                        .map(it -> "BROKER://" + it.getIpAddress() + ":" + KAFKA_INTERNAL_PORT))
-                .collect(Collectors.joining(","))
-            + "'\n";
-
-    command += ". /etc/confluent/docker/bash-config \n";
-    command += "/etc/confluent/docker/configure \n";
-    command += "/etc/confluent/docker/launch \n";
-
-    copyFileToContainer(
-        Transferable.of(command.getBytes(StandardCharsets.UTF_8), 700), STARTER_SCRIPT);
+    return networkAlias + ":" + KAFKA_INTERNAL_PORT;
   }
 
   private static String getKafkaContainerImage(String confluentPlatformVersion) {

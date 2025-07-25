@@ -25,6 +25,10 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SqlWorkUnit,
@@ -41,7 +45,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -113,10 +116,14 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.PROJECTIONS,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 class VerticaSource(SQLAlchemySource):
@@ -493,11 +500,8 @@ class VerticaSource(SQLAlchemySource):
         if dpi_aspect:
             yield dpi_aspect
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["Projections"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.PROJECTIONS]),
         ).as_workunit()
 
         if self.config.domain:

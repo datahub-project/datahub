@@ -1,11 +1,9 @@
-import { Text } from '@components';
-import { Skeleton } from 'antd';
+import { Icon, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
-import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity } from '@types';
@@ -19,6 +17,7 @@ const Wrapper = styled.div`
 const TextWrapper = styled.div`
     display: flex;
     flex-direction: column;
+    max-width: 600px;
 `;
 
 const IconContainer = styled.img`
@@ -35,27 +34,23 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const platformIcon = properties?.platform?.properties?.logoUrl;
 
-    const { contentRef, isContentTruncated } = useContentTruncation(properties);
     const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, entity.type);
 
     return (
         <Wrapper>
-            {!platformIcon && <Skeleton.Avatar size={24} active />}
+            {!platformIcon && <Icon size="4xl" source="phosphor" icon="Placeholder" />}
             {platformIcon && <IconContainer src={platformIcon} />}
             <TextWrapper>
                 <Text size="lg">{entityRegistry.getDisplayName(entity.type, entity)}</Text>
                 <ContextPath
-                    instanceId={properties?.dataPlatformInstance?.instanceId}
                     entityType={entity.type}
-                    type={displayedEntityType}
+                    displayedEntityType={displayedEntityType}
                     browsePaths={properties?.browsePathV2}
                     parentEntities={
                         properties?.parentContainers?.containers ||
                         properties?.parentDomains?.domains ||
                         properties?.parentNodes?.nodes
                     }
-                    contentRef={contentRef}
-                    isContentTruncated={isContentTruncated}
                     linksDisabled
                 />
             </TextWrapper>

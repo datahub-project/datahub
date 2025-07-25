@@ -1,12 +1,16 @@
+# So that SourceCapabilityModifier can be resolved at runtime
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, Dict, List, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import (
     Source,
     SourceCapability as SourceCapability,
 )
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:
@@ -88,10 +92,14 @@ class CapabilitySetting:
     capability: SourceCapability
     description: str
     supported: bool
+    subtype_modifier: Optional[List[SourceCapabilityModifier]] = None
 
 
 def capability(
-    capability_name: SourceCapability, description: str, supported: bool = True
+    capability_name: SourceCapability,
+    description: str,
+    supported: bool = True,
+    subtype_modifier: Optional[List[SourceCapabilityModifier]] = None,
 ) -> Callable[[Type], Type]:
     """
     A decorator to mark a source as having a certain capability
@@ -104,6 +112,7 @@ def capability(
             for base in cls.__bases__
         ):
             cls.__capabilities = {}
+
             cls.get_capabilities = lambda: cls.__capabilities.values()
 
             # If the superclasses have capability annotations, copy those over.
@@ -113,7 +122,10 @@ def capability(
                     cls.__capabilities.update(base_caps)
 
         cls.__capabilities[capability_name] = CapabilitySetting(
-            capability=capability_name, description=description, supported=supported
+            capability=capability_name,
+            description=description,
+            supported=supported,
+            subtype_modifier=subtype_modifier,
         )
         return cls
 

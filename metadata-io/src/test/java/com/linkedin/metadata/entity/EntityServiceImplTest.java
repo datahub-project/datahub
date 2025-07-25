@@ -1,9 +1,8 @@
 package com.linkedin.metadata.entity;
 
-import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_TYPE_ATTR;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -40,6 +39,7 @@ import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.config.PreProcessHooks;
+import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
@@ -53,11 +53,17 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.common.Attributes;
+import io.opentelemetry.api.common.AttributesBuilder;
+import io.opentelemetry.api.trace.Tracer;
 import jakarta.persistence.EntityNotFoundException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -70,8 +76,6 @@ import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -88,10 +92,12 @@ public class EntityServiceImplTest {
   private Status newAspect;
   private EntityServiceImpl entityService;
   private MetadataChangeProposal testMCP;
+  private AspectDao mockAspectDao;
 
   @BeforeMethod
   public void setup() throws Exception {
     mockEventProducer = mock(EventProducer.class);
+    mockAspectDao = mock(AspectDao.class);
 
     // Initialize common test objects
     entityService =
@@ -567,7 +573,7 @@ public class EntityServiceImplTest {
                         .changeType(ChangeType.UPSERT)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     // Test case 1: async = true path
     // Arrange
@@ -625,7 +631,7 @@ public class EntityServiceImplTest {
                         .aspectName(DATASET_PROFILE_ASPECT_NAME)
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
-            .build();
+            .build(opContext);
 
     try {
       entityServiceSpy.ingestTimeseriesProposal(opContext, mockBatch, true);
@@ -954,25 +960,28 @@ public class EntityServiceImplTest {
     // Create a counter mock
     Counter mockCounter = mock(Counter.class);
 
-    // Mock the static method
-    try (MockedStatic<MetricUtils> metricUtilsMock = Mockito.mockStatic(MetricUtils.class)) {
-      metricUtilsMock
-          .when(() -> MetricUtils.counter(eq(EntityServiceImpl.class), eq("delete_nonexisting")))
-          .thenReturn(mockCounter);
+    // Mock the metricUtils
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .metricUtils(metricUtils)
+                    .tracer(mock(Tracer.class))
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
 
-      // Execute the method
-      RollbackResult result =
-          entityService.deleteAspectWithoutMCL(
-              opContext, testUrn.toString(), aspectName, conditions, true);
+    // Execute the method
+    RollbackResult result =
+        entityService.deleteAspectWithoutMCL(
+            testContext, testUrn.toString(), aspectName, conditions, true);
 
-      // Verify result is null
-      assertNull(result, "Result should be null when EntityNotFoundException is caught");
+    // Verify result is null
+    assertNull(result, "Result should be null when EntityNotFoundException is caught");
 
-      // Verify metric was incremented
-      metricUtilsMock.verify(
-          () -> MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting"));
-      verify(mockCounter).inc();
-    }
+    // Verify metric was incremented
+    verify(metricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("delete_nonexisting"), eq(1d));
   }
 
   @Test
@@ -1035,5 +1044,207 @@ public class EntityServiceImplTest {
     assertNotNull(results);
     assertEquals(1, results.size());
     assertEquals(1, results.get(0).rowsMigrated);
+  }
+
+  @Test
+  public void testMapAspectToUsageEvent() {
+    // Test cases for create/update operations
+
+    // Test ACCESS_TOKEN_KEY_ASPECT_NAME
+    AttributeKey<String> eventTypeAttrKey = AttributeKey.stringKey(EVENT_TYPE_ATTR);
+    AttributesBuilder attributesBuilder = Attributes.builder();
+    MetadataChangeLog mcl = new MetadataChangeLog();
+    mcl.setAspectName(ACCESS_TOKEN_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_ACCESS_TOKEN_EVENT.getType());
+
+    // Test INGESTION_SOURCE_KEY_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(INGESTION_SOURCE_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.CREATE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_INGESTION_SOURCE_EVENT.getType());
+
+    // Test INGESTION_INFO_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(INGESTION_INFO_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPDATE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_INGESTION_SOURCE_EVENT.getType());
+
+    // Test DATAHUB_POLICY_KEY_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(DATAHUB_POLICY_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.CREATE_ENTITY);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_POLICY_EVENT.getType());
+
+    // Test DATAHUB_POLICY_INFO_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(DATAHUB_POLICY_INFO_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.PATCH);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_POLICY_EVENT.getType());
+
+    // Test CORP_USER_KEY_ASPECT_NAME
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(CORP_USER_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.CREATE_USER_EVENT.getType());
+
+    // Test CORP_USER_INFO_ASPECT_NAME (should map to UPDATE_USER_EVENT)
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(CORP_USER_INFO_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_USER_EVENT.getType());
+
+    // Test GROUP_MEMBERSHIP_ASPECT_NAME (should map to UPDATE_USER_EVENT)
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(GROUP_MEMBERSHIP_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_USER_EVENT.getType());
+
+    // Test default case for create/update
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName("unknownAspect");
+    mcl.setChangeType(ChangeType.UPSERT);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.UPDATE_ASPECT_EVENT.getType());
+
+    // Test DELETE operations
+
+    // Test ACCESS_TOKEN_KEY_ASPECT_NAME delete
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(ACCESS_TOKEN_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.DELETE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.REVOKE_ACCESS_TOKEN_EVENT.getType());
+
+    // Test DATAHUB_POLICY_KEY_ASPECT_NAME delete
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName(DATAHUB_POLICY_KEY_ASPECT_NAME);
+    mcl.setChangeType(ChangeType.DELETE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.DELETE_POLICY_EVENT.getType());
+
+    // Test default delete case
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName("unknownAspect");
+    mcl.setChangeType(ChangeType.DELETE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.DELETE_ENTITY_EVENT.getType());
+
+    // Test other change types (should default to ENTITY_EVENT)
+    attributesBuilder = Attributes.builder();
+    mcl.setAspectName("someAspect");
+    mcl.setChangeType(ChangeType.RESTATE);
+
+    entityService.mapAspectToUsageEvent(attributesBuilder, mcl);
+    assertEquals(
+        attributesBuilder.build().get(eventTypeAttrKey),
+        DataHubUsageEventType.ENTITY_EVENT.getType());
+  }
+
+  @Test
+  public void testIngestAspectsWithDuplicates() throws Exception {
+    // Create duplicate aspects
+    // Create a batch with duplicate aspects (same urn and aspect name)
+    SystemMetadata metadata = SystemMetadataUtils.createDefaultSystemMetadata();
+    List<ChangeItemImpl> items =
+        List.of(
+            ChangeItemImpl.builder()
+                .urn(TEST_URN)
+                .aspectName(STATUS_ASPECT_NAME)
+                .recordTemplate(new Status().setRemoved(false))
+                .systemMetadata(metadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(opContext.getAspectRetriever()),
+            ChangeItemImpl.builder()
+                .urn(TEST_URN)
+                .aspectName(STATUS_ASPECT_NAME)
+                .recordTemplate(new Status().setRemoved(true))
+                .systemMetadata(metadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(opContext.getAspectRetriever()),
+            ChangeItemImpl.builder()
+                .urn(TEST_URN)
+                .aspectName(STATUS_ASPECT_NAME)
+                .recordTemplate(new Status().setRemoved(false))
+                .systemMetadata(metadata)
+                .auditStamp(TEST_AUDIT_STAMP)
+                .build(opContext.getAspectRetriever()));
+
+    AspectsBatchImpl aspectsBatch =
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(items)
+            .build(opContext);
+    assertTrue(aspectsBatch.containsDuplicateAspects(), "Expected duplicates.");
+
+    // Mock metric utils to verify the increment call
+    MetricUtils mockMetricUtils = mock(MetricUtils.class);
+    OperationContext testContext =
+        opContext.toBuilder()
+            .systemTelemetryContext(
+                SystemTelemetryContext.builder()
+                    .tracer(SystemTelemetryContext.TEST.getTracer())
+                    .metricUtils(mockMetricUtils)
+                    .build())
+            .build(opContext.getSystemActorContext().getAuthentication(), false);
+
+    // Mock the transaction to return an empty result
+    when(mockAspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
+        .thenReturn(
+            Optional.of(
+                IngestAspectsResult.builder()
+                    .updateAspectResults(List.of(UpdateAspectResult.builder().build()))
+                    .build()));
+
+    // Execute
+    entityService.ingestAspects(testContext, aspectsBatch, true, true);
+
+    // Verify the metric was incremented
+    verify(mockMetricUtils, times(1))
+        .increment(eq(EntityServiceImpl.class), eq("batch_with_duplicate"), eq(1.0d));
   }
 }
