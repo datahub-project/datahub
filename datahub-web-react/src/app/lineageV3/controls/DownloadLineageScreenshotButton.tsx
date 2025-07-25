@@ -3,31 +3,13 @@ import { toPng } from 'html-to-image';
 import React, { useContext } from 'react';
 import { getRectOfNodes, getTransformForBounds, useReactFlow } from 'reactflow';
 
-import { LineageNodesContext } from '@app/lineageV2/common';
-import { StyledPanelButton } from '@app/lineageV2/controls/StyledPanelButton';
+import { LineageNodesContext } from '@app/lineageV3/common';
+import { StyledPanelButton } from '@app/lineageV3/controls/StyledPanelButton';
+import { downloadImage } from '@app/lineageV3/utils/lineageUtils';
 
 type Props = {
     showExpandedText: boolean;
 };
-
-function downloadImage(dataUrl: string, name?: string) {
-    const now = new Date();
-    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-        now.getDate(),
-    ).padStart(2, '0')}`;
-
-    const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(
-        now.getSeconds(),
-    ).padStart(2, '0')}`;
-
-    const fileNamePrefix = name ? `${name}_` : 'reactflow_';
-    const fileName = `${fileNamePrefix}${dateStr}_${timeStr}.png`;
-
-    const a = document.createElement('a');
-    a.setAttribute('download', fileName);
-    a.setAttribute('href', dataUrl);
-    a.click();
-}
 
 export default function DownloadLineageScreenshotButton({ showExpandedText }: Props) {
     const { getNodes } = useReactFlow();
