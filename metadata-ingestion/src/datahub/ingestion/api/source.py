@@ -81,11 +81,16 @@ class StructuredLogLevel(Enum):
     ERROR = logging.ERROR
 
 
+class StructuredLogType(Enum):
+    LINEAGE = "LINEAGE"
+
+
 @dataclass
 class StructuredLogEntry(Report):
     title: Optional[str]
     message: str
     context: LossyList[str]
+    log_type: Optional[StructuredLogType] = None
 
 
 @dataclass
@@ -108,6 +113,7 @@ class StructuredLogs(Report):
         exc: Optional[BaseException] = None,
         log: bool = False,
         stacklevel: int = 1,
+        log_type: Optional[StructuredLogType] = None,
     ) -> None:
         """
         Report a user-facing warning for the ingestion run.
@@ -160,6 +166,7 @@ class StructuredLogs(Report):
                 title=title,
                 message=message,
                 context=context_list,
+                log_type=log_type,
             )
         else:
             if context is not None:
@@ -219,9 +226,16 @@ class SourceReport(ExamplesReport):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log_type: Optional[StructuredLogType] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=False
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=False,
+            log_type=log_type,
         )
 
     def warning(
@@ -231,9 +245,16 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_type: Optional[StructuredLogType] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=log
+            StructuredLogLevel.WARN,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_type=log_type,
         )
 
     def report_failure(
@@ -243,9 +264,16 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_type: Optional[StructuredLogType] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_type=log_type,
         )
 
     def failure(
@@ -267,9 +295,16 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_type: Optional[StructuredLogType] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.INFO, message, title, context, exc, log=log
+            StructuredLogLevel.INFO,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_type=log_type,
         )
 
     @contextlib.contextmanager
@@ -279,6 +314,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         context: Optional[str] = None,
         level: StructuredLogLevel = StructuredLogLevel.ERROR,
+        log_type: Optional[StructuredLogType] = None,
     ) -> Iterator[None]:
         # Convenience method that helps avoid boilerplate try/except blocks.
         # TODO: I'm not super happy with the naming here - it's not obvious that this
@@ -287,7 +323,12 @@ class SourceReport(ExamplesReport):
             yield
         except Exception as exc:
             self._structured_logs.report_log(
-                level, message=message, title=title, context=context, exc=exc
+                level,
+                message=message,
+                title=title,
+                context=context,
+                exc=exc,
+                log_type=log_type,
             )
 
     def __post_init__(self) -> None:
