@@ -365,6 +365,8 @@ public class ConfigurationAllowlist {
     }
 
     // If it's an array, include the entire array (per design decision)
+    // FIXME: this is incorrect - we should still apply the filter to all array elements. a.b.c when
+    // a is an array should be applied to all elements of a (ie a[0].b.c, a[1].b.c, etc)
     if (nestedData instanceof java.util.List || nestedData.getClass().isArray()) {
       return nestedData;
     }
@@ -493,13 +495,13 @@ public class ConfigurationAllowlist {
     }
 
     // Arrays/Lists are treated as leaf values (include entirely)
+    // FIXME: this is not accurate - we should not include them entirely
     if (value instanceof java.util.List || value.getClass().isArray()) {
       return true;
     }
 
     // Maps: only empty maps are considered leaf values
-    if (value instanceof java.util.Map) {
-      Map<?, ?> mapValue = (Map<?, ?>) value;
+    if (value instanceof Map<?, ?> mapValue) {
       return mapValue.isEmpty();
     }
 
