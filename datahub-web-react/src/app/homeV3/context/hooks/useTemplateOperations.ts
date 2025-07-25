@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import {
@@ -197,11 +198,13 @@ export function useTemplateOperations(
                 variables: { input },
             }).then(({ data }) => {
                 if (isCreatingPersonalTemplate && data?.upsertPageTemplate.urn) {
+                    // set personal template in state after successful creation of new personal template with correct urn
+                    setPersonalTemplate(data.upsertPageTemplate);
                     updateUserHomePageSettings({ variables: { input: { pageTemplate: data.upsertPageTemplate.urn } } });
                 }
             });
         },
-        [upsertPageTemplateMutation, updateUserHomePageSettings],
+        [upsertPageTemplateMutation, updateUserHomePageSettings, setPersonalTemplate],
     );
 
     const resetTemplateToDefault = () => {
@@ -214,7 +217,7 @@ export function useTemplateOperations(
             },
         });
         // for now when a user resets to default, delete their personal template to prevent dangling templates
-        if (personalTemplate) {
+        if (personalTemplate && personalTemplate.urn !== DEFAULT_TEMPLATE_URN) {
             deletePageTemplate({ variables: { input: { urn: personalTemplate.urn } } });
         }
     };
