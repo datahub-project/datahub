@@ -3,7 +3,12 @@ import { useCallback } from 'react';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
+import {
+    PageModuleFragment,
+    PageTemplateFragment,
+    useDeletePageTemplateMutation,
+    useUpsertPageTemplateMutation,
+} from '@graphql/template.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
 import { PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
@@ -43,9 +48,13 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
     return rowIndex !== undefined && rowIndex >= 0 && rowIndex < rows.length;
 };
 
-export function useTemplateOperations(setPersonalTemplate: (template: PageTemplateFragment | null) => void) {
+export function useTemplateOperations(
+    setPersonalTemplate: (template: PageTemplateFragment | null) => void,
+    personalTemplate: PageTemplateFragment | null,
+) {
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
+    const [deletePageTemplate] = useDeletePageTemplateMutation();
 
     // Helper function to update template state with a new module
     const updateTemplateWithModule = useCallback(
@@ -165,14 +174,14 @@ export function useTemplateOperations(setPersonalTemplate: (template: PageTempla
         (
             templateToUpsert: PageTemplateFragment | null,
             isPersonal: boolean,
-            personalTemplate: PageTemplateFragment | null,
+            currentPersonalTemplate: PageTemplateFragment | null,
         ) => {
             if (!templateToUpsert) {
                 console.error('Template is required for upsert');
                 return Promise.reject(new Error('Template is required for upsert'));
             }
 
-            const isCreatingPersonalTemplate = isPersonal && !personalTemplate;
+            const isCreatingPersonalTemplate = isPersonal && !currentPersonalTemplate;
 
             const input = {
                 urn: isCreatingPersonalTemplate ? undefined : templateToUpsert.urn || undefined, // undefined for create
@@ -204,6 +213,10 @@ export function useTemplateOperations(setPersonalTemplate: (template: PageTempla
                 },
             },
         });
+        // for now when a user resets to default, delete their personal template to prevent dangling templates
+        if (personalTemplate) {
+            deletePageTemplate({ variables: { input: { urn: personalTemplate.urn } } });
+        }
     };
 
     return {

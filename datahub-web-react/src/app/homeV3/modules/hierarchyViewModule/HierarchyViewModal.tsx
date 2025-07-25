@@ -72,7 +72,7 @@ export default function HierarchyViewModal() {
     return (
         <BaseModuleModal
             title={`${isEditing ? 'Edit' : 'Add'} Hierarchy View`}
-            subtitle="Create a widget by selecting assets and information that will be shown to your users"
+            subtitle="Create a module by selecting assets and information that will be shown to your users"
             onUpsert={handleUpsertAssetCollectionModule}
             maxWidth="900px"
         >
