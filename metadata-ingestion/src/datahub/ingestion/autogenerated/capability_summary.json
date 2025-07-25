@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-07T09:06:40.727786+00:00",
+  "generated_at": "2025-07-24T13:24:05.751563+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -33,7 +33,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -46,6 +49,7 @@
           "capability": "LINEAGE_FINE",
           "description": "Supported for S3 tables",
           "subtype_modifier": [
+            "View",
             "Table"
           ],
           "supported": true
@@ -92,6 +96,7 @@
           "capability": "LINEAGE_COARSE",
           "description": "Supported for S3 tables",
           "subtype_modifier": [
+            "View",
             "Table"
           ],
           "supported": true
@@ -127,7 +132,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Project",
+            "Dataset"
+          ],
           "supported": true
         },
         {
@@ -245,7 +253,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -296,7 +307,8 @@
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default to get lineage for views via `include_view_lineage`",
           "subtype_modifier": [
-            "View"
+            "View",
+            "Table"
           ],
           "supported": true
         },
@@ -343,7 +355,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -450,6 +465,12 @@
     },
     "datahub": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
         {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
@@ -584,6 +605,12 @@
     "delta-lake": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -675,7 +702,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -871,7 +901,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "GCS bucket",
+            "Folder"
+          ],
           "supported": true
         },
         {
@@ -900,6 +933,14 @@
     },
     "glue": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
         {
           "capability": "LINEAGE_FINE",
           "description": "Support via the `emit_s3_lineage` config field",
@@ -939,8 +980,38 @@
     "grafana": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
-          "description": "Enabled by default via stateful ingestion",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         }
@@ -948,14 +1019,17 @@
       "classname": "datahub.ingestion.source.grafana.grafana_source.GrafanaSource",
       "platform_id": "grafana",
       "platform_name": "Grafana",
-      "support_status": "TESTING"
+      "support_status": "CERTIFIED"
     },
     "hana": {
       "capabilities": [
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1037,6 +1111,14 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Supported by default",
+          "subtype_modifier": [
+            "Project"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -1071,7 +1153,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1143,7 +1228,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1407,6 +1495,15 @@
     "looker": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Model",
+            "Folder"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
           "subtype_modifier": null,
@@ -1463,6 +1560,14 @@
     "lookml": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "LookML Project"
+          ],
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configured using `extract_column_level_lineage`",
           "subtype_modifier": null,
@@ -1497,7 +1602,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1599,6 +1707,14 @@
     "mlflow": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Extract ML experiments",
+          "subtype_modifier": [
+            "ML Experiment"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Extract descriptions for MLflow Registered Models and Model Versions",
           "subtype_modifier": null,
@@ -1675,6 +1791,14 @@
     "mongodb": {
       "capabilities": [
         {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Database"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -1703,7 +1827,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1783,7 +1910,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -1935,7 +2065,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2001,7 +2134,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2199,7 +2335,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2271,7 +2410,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2455,7 +2597,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -2535,7 +2679,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Folder",
+            "S3 bucket"
+          ],
           "supported": true
         },
         {
@@ -2677,7 +2824,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Sigma Workspace"
+          ],
           "supported": true
         },
         {
@@ -2753,7 +2902,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2859,7 +3011,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -2968,6 +3123,16 @@
     },
     "tableau": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": [
+            "Project",
+            "Site",
+            "Workbook"
+          ],
+          "supported": true
+        },
         {
           "capability": "LINEAGE_FINE",
           "description": "Enabled by default, configure using `extract_column_level_lineage`",
@@ -3122,7 +3287,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -3194,7 +3362,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Catalog",
+            "Schema"
+          ],
           "supported": true
         },
         {
@@ -3288,7 +3459,10 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database",
+            "Schema"
+          ],
           "supported": true
         },
         {

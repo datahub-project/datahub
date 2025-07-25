@@ -303,6 +303,11 @@ class AthenaConfig(SQLCommonConfig):
         print_warning=True,
     )
 
+    emit_schema_fieldpaths_as_v1: bool = pydantic.Field(
+        default=False,
+        description="Convert simple field paths to DataHub field path v1 format. Simple column paths are those that do not contain any nested fields.",
+    )
+
     profiling: AthenaProfilingConfig = AthenaProfilingConfig()
 
     def get_sql_alchemy_url(self):
@@ -342,12 +347,18 @@ class Partitionitem:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Supported for S3 tables",
-    subtype_modifier=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Supported for S3 tables",
-    subtype_modifier=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
@@ -641,6 +652,11 @@ class AthenaSource(SQLAlchemySource):
                 partition_keys is not None and column["name"] in partition_keys
             ),
         )
+
+        # Keeping it as individual check to make it more explicit and easier to understand
+        if not self.config.emit_schema_fieldpaths_as_v1:
+            return fields
+
         if isinstance(
             fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
         ):

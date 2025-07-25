@@ -9,5 +9,14 @@ record CorpUserHomePageSettings {
   /**
    * The page template that will be rendered in the UI by default for this user
    */
-  pageTemplate: Urn
+  @Relationship = {
+    "name": "HasPersonalPageTemplate",
+    "entityTypes": [ "dataHubPageTemplate" ]
+  }
+  pageTemplate: optional Urn
+
+   /**
+   * The list of announcement urns that have been dismissed by the user
+   */
+  dismissedAnnouncements: optional array [Urn]
 }

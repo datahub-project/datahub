@@ -1,3 +1,4 @@
+import re
 import unittest
 import unittest.mock
 from io import StringIO
@@ -6,6 +7,9 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from datahub.configuration.pydantic_migration_helpers import (
+    PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+)
 from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     SearchFilterRule,
@@ -14,7 +18,14 @@ from datahub.ingestion.graph.filters import (
 from datahub.metadata.urns import DataPlatformUrn, QueryUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters, compute_entity_types
-from datahub.sdk.search_filters import Filter, FilterDsl as F, load_filters
+from datahub.sdk.search_filters import (
+    Filter,
+    FilterDsl as F,
+    _BaseFilter,
+    _CustomCondition,
+    _filter_discriminator,
+    load_filters,
+)
 from datahub.utilities.urns.error import InvalidUrnError
 from tests.test_helpers.graph_helpers import MockDataHubGraph
 
@@ -170,6 +181,160 @@ and:
     ]
 
 
+def test_entity_subtype_filter() -> None:
+    filter_obj_1: Filter = load_filters({"entity_subtype": ["Table"]})
+    assert filter_obj_1 == F.entity_subtype("Table")
+
+    # Ensure it works without the list wrapper to maintain backwards compatibility.
+    filter_obj_2: Filter = load_filters({"entity_subtype": "Table"})
+    assert filter_obj_1 == filter_obj_2
+
+
+def test_filters_all_types() -> None:
+    filter_obj: Filter = load_filters(
+        {
+            "and": [
+                {
+                    "or": [
+                        {"entity_type": ["dataset"]},
+                        {"entity_type": ["chart", "dashboard"]},
+                    ]
+                },
+                {"not": {"entity_subtype": ["Table"]}},
+                {"platform": ["snowflake"]},
+                {"domain": ["urn:li:domain:marketing"]},
+                {
+                    "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"],
+                    "direct_descendants_only": True,
+                },
+                {"env": ["PROD"]},
+                {"status": "NOT_SOFT_DELETED"},
+                {
+                    "field": "custom_field",
+                    "condition": "GREATER_THAN_OR_EQUAL_TO",
+                    "values": ["5"],
+                },
+            ]
+        }
+    )
+    assert filter_obj == F.and_(
+        F.or_(
+            F.entity_type("dataset"),
+            F.entity_type(["chart", "dashboard"]),
+        ),
+        F.not_(F.entity_subtype("Table")),
+        F.platform("snowflake"),
+        F.domain("urn:li:domain:marketing"),
+        F.container(
+            "urn:li:container:f784c48c306ba1c775ef917e2f8c1560",
+            direct_descendants_only=True,
+        ),
+        F.env("PROD"),
+        F.soft_deleted(RemovedStatusFilter.NOT_SOFT_DELETED),
+        F.custom_filter("custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]),
+    )
+
+
+def test_field_discriminator() -> None:
+    with pytest.raises(ValueError, match="Cannot get discriminator for _BaseFilter"):
+        _BaseFilter._field_discriminator()
+
+    assert F.entity_type("dataset")._field_discriminator() == "entity_type"
+    assert F.not_(F.entity_subtype("Table"))._field_discriminator() == "not"
+    assert (
+        F.custom_filter(
+            "custom_field", "GREATER_THAN_OR_EQUAL_TO", ["5"]
+        )._field_discriminator()
+        == _CustomCondition._field_discriminator()
+    )
+
+    class _BadFilter(_BaseFilter):
+        field1: str
+        field2: str
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            "Found multiple fields that could be the discriminator for this filter: ['field1', 'field2']"
+        ),
+    ):
+        _BadFilter._field_discriminator()
+
+
+def test_filter_discriminator() -> None:
+    # Simple filter discriminator extraction.
+    assert _filter_discriminator(F.entity_type("dataset")) == "entity_type"
+    assert _filter_discriminator({"entity_type": "dataset"}) == "entity_type"
+    assert _filter_discriminator({"not": {"entity_subtype": "Table"}}) == "not"
+    assert _filter_discriminator({"unknown_field": 6}) == "unknown_field"
+    assert _filter_discriminator({"field1": 6, "field2": 7}) is None
+    assert _filter_discriminator({}) is None
+    assert _filter_discriminator(6) is None
+
+    # Special cases.
+    assert (
+        _filter_discriminator(
+            {
+                "field": "custom_field",
+                "condition": "GREATER_THAN_OR_EQUAL_TO",
+                "values": ["5"],
+            }
+        )
+        == "_custom"
+    )
+    assert (
+        _filter_discriminator(
+            {
+                "field": "custom_field",
+                "condition": "EXISTS",
+            }
+        )
+        == "_custom"
+    )
+    assert (
+        _filter_discriminator(
+            {"container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"]}
+        )
+        == "container"
+    )
+    assert (
+        _filter_discriminator(
+            {
+                "container": ["urn:li:container:f784c48c306ba1c775ef917e2f8c1560"],
+                "direct_descendants_only": True,
+            }
+        )
+        == "container"
+    )
+
+
+@pytest.mark.skipif(
+    not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR,
+    reason="Tagged union w/ callable discriminator is not supported by the current pydantic version",
+)
+def test_tagged_union_error_messages() -> None:
+    # With pydantic v1, we'd get 10+ validation errors and it'd be hard to
+    # understand what went wrong. With v2, we get a single simple error message.
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.*entity_type\.entity_type.*Input should be a valid list",
+            re.DOTALL,
+        ),
+    ):
+        load_filters({"entity_type": 6})
+
+    # Even when within an "and" clause, we get a single error message.
+    with pytest.raises(
+        ValidationError,
+        match=re.compile(
+            r"1 validation error.*Input tag 'unknown_field' found using .+ does not match any of the expected tags:.+union_tag_invalid",
+            re.DOTALL,
+        ),
+    ):
+        load_filters({"and": [{"unknown_field": 6}]})
+
+
 def test_invalid_filter() -> None:
     with pytest.raises(InvalidUrnError):
         F.domain("marketing")
@@ -215,6 +380,22 @@ def test_compute_entity_types() -> None:
             },
         ]
     ) == ["DATASET", "CHART"]
+
+
+def test_compute_entity_types_deduplication() -> None:
+    types, _ = compile_filters(
+        load_filters(
+            {
+                "and": [
+                    {"entity_type": ["DATASET"]},
+                    {"entity_type": ["DATASET"]},
+                    {"entity_subtype": "Table"},
+                    {"not": {"platform": ["snowflake"]}},
+                ]
+            }
+        )
+    )
+    assert types == ["DATASET"]
 
 
 def test_compile_filters() -> None:

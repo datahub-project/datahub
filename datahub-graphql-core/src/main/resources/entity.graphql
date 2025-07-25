@@ -390,6 +390,11 @@ type ERModelRelationshipProperties {
   relationshipFieldMappings: [RelationshipFieldMapping!]
 
   """
+  Cardinality of the ERModelRelationship
+  """
+  cardinality: ERModelRelationshipCardinality!
+
+  """
   Created timestamp millis associated with the ERModelRelationship
   """
   createdTime: Long
@@ -398,6 +403,31 @@ type ERModelRelationshipProperties {
   Created actor urn associated with the ERModelRelationship
   """
   createdActor: Entity
+}
+
+"""
+The Cardinality of the ERModelRelationship
+"""
+enum ERModelRelationshipCardinality {
+  """
+  One to One
+  """
+  ONE_ONE
+
+  """
+  One to Many
+  """
+  ONE_N
+
+  """
+  Many to One
+  """
+  N_ONE
+
+  """
+  Many to Many
+  """
+  N_N
 }
 
 """
@@ -767,6 +797,11 @@ type Mutation {
   Update the View-related settings for a user.
   """
   updateCorpUserViewsSettings(input: UpdateCorpUserViewsSettingsInput!): Boolean
+
+  """
+  Update the HomePage-related settings for a user.
+  """
+  updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
 
   """
   Update a user setting
@@ -4239,6 +4274,11 @@ type CorpUserHomePageSettings {
   The default page template for the User.
   """
   pageTemplate: DataHubPageTemplate
+
+  """
+  List of urns of the announcements dismissed by the User.
+  """
+  dismissedAnnouncementUrns: [String]
 }
 
 """
@@ -5329,6 +5369,10 @@ input ERModelRelationshipPropertiesInput {
   Details about the ERModelRelationship
   """
   relationshipFieldmappings: [RelationshipFieldMappingInput!]
+  """
+  optional field to store cardinality of the ERModelRelationship
+  """
+  erModelRelationshipCardinality: ERModelRelationshipCardinality
   """
   optional flag about the ERModelRelationship is getting create
   """
@@ -12447,6 +12491,26 @@ input UpdateCorpUserViewsSettingsInput {
 }
 
 """
+Input required to update a user's home page settings.
+"""
+input UpdateUserHomePageSettingsInput {
+  """
+  The URN of the page template to be rendered on the home page for the user.
+  """
+  pageTemplate: String
+
+  """
+  The list of urns of announcement posts dismissed by the user.
+  """
+  newDismissedAnnouncements: [String]
+
+  """
+  Whether to remove the page template for the user.
+  """
+  removePageTemplate: Boolean
+}
+
+"""
 Information required to render an embedded version of an asset
 """
 type Embed {
@@ -12539,6 +12603,11 @@ type QueryProperties {
   An Audit Stamp corresponding to the creation of this resource
   """
   created: AuditStamp!
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp!
 
   """
   An Audit Stamp corresponding to the update of this resource

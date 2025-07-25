@@ -1,3 +1,8 @@
+import dayjs from 'dayjs';
+import advancedFormat from 'dayjs/plugin/advancedFormat';
+import localizedFormat from 'dayjs/plugin/localizedFormat';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -10,13 +15,31 @@ import {
     StructuredReportLogEntry,
 } from '@app/ingestV2/executions/components/reporting/types';
 import {
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_PENDING,
     EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
     EXECUTION_REQUEST_STATUS_SUCCESS,
 } from '@app/ingestV2/executions/constants';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
-import { EntityType, ExecutionRequestResult, FacetFilterInput, FacetMetadata, SortCriterion, SortOrder } from '@types';
+import {
+    Entity,
+    EntityType,
+    ExecutionRequestResult,
+    FacetFilterInput,
+    FacetMetadata,
+    IngestionSource,
+    OwnershipTypeEntity,
+    SortCriterion,
+    SortOrder,
+} from '@types';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dayjs.extend(advancedFormat);
+dayjs.extend(localizedFormat);
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -280,6 +303,118 @@ export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
+export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+
+    if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
+        return null;
+    }
+
+    let totalStatusCount = 0;
+    let totalDatasetProfileCount = 0;
+    let totalDatasetUsageStatisticsCount = 0;
+
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now - we have not decided on the design for non dataset entity types
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([_, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const dataSetProfileCount = (aspects as any)?.datasetProfile || 0;
+            const dataSetUsageStatisticsCount = (aspects as any)?.datasetUsageStatistics || 0;
+
+            totalStatusCount += statusCount;
+            totalDatasetProfileCount += dataSetProfileCount;
+            totalDatasetUsageStatisticsCount += dataSetUsageStatisticsCount;
+        });
+    });
+
+    if (totalStatusCount === 0) {
+        return null;
+    }
+
+    const result: Array<{ type: string; count: number; percent: string }> = [];
+
+    if (totalDatasetProfileCount > 0) {
+        const datasetProfilePercent = `${((totalDatasetProfileCount / totalStatusCount) * 100).toFixed(0)}%`;
+        result.push({
+            type: 'Profiling',
+            count: totalDatasetProfileCount,
+            percent: datasetProfilePercent,
+        });
+    }
+
+    if (totalDatasetUsageStatisticsCount > 0) {
+        const datasetUsageStatisticsPercent = `${((totalDatasetUsageStatisticsCount / totalStatusCount) * 100).toFixed(0)}%`;
+        result.push({
+            type: 'Usage',
+            count: totalDatasetUsageStatisticsCount,
+            percent: datasetUsageStatisticsPercent,
+        });
+    } else {
+        result.push({
+            type: 'Usage',
+            count: 0,
+            percent: '0%',
+        });
+    }
+
+    if (result.length === 0) {
+        return null;
+    }
+
+    return result;
+};
+
+export const getIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+    const structuredReportObject = extractStructuredReportPOJO(executionResult);
+    if (!structuredReportObject) {
+        return null;
+    }
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+
+    if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
+        return null;
+    }
+
+    const result: Array<{ title: string; count: number; percent: string }> = [];
+    Object.entries(aspectsBySubtypes).forEach(([entityType, subtypes]) => {
+        if (entityType !== 'dataset') {
+            // temporary for now - we have not decided on the design for non dataset entity types
+            return;
+        }
+        Object.entries(subtypes as Record<string, any>).forEach(([subtype, aspects]) => {
+            const statusCount = (aspects as any)?.status || 0;
+            const upstreamLineage = (aspects as any)?.upstreamLineage || 0;
+            if (statusCount === 0) {
+                return;
+            }
+            const percent = `${((upstreamLineage / statusCount) * 100).toFixed(0)}%`;
+            if (percent === '0%') {
+                return;
+            }
+            result.push({
+                title: subtype,
+                count: statusCount,
+                percent,
+            });
+        });
+    });
+    if (result.length === 0) {
+        return null;
+    }
+
+    return result;
+};
+
 export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult> | null) => {
     if (!result) {
         return undefined;
@@ -371,4 +506,81 @@ export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): Face
     return hideSystemSources
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
         : { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] };
+};
+
+export function formatTimezone(timezoneVal: string | null | undefined): string | undefined {
+    return timezoneVal ? dayjs().tz(timezoneVal).format('z') : undefined;
+}
+
+export function capitalizeMonthsAndDays(scheduleText: string): string {
+    const dayNames = Array.from({ length: 7 }, (_, i) => dayjs().day(i).format('dddd').toLowerCase());
+    const monthNames = Array.from({ length: 12 }, (_, i) => dayjs().month(i).format('MMMM').toLowerCase());
+
+    const capitalizableWords = new Set([...dayNames, ...monthNames]);
+
+    return scheduleText.replace(/\b[a-z]+\b/g, (word) =>
+        capitalizableWords.has(word) ? word.charAt(0).toUpperCase() + word.slice(1) : word,
+    );
+}
+
+export const getSourceStatus = (
+    source: IngestionSource,
+    sourcesToRefetch: Set<string>,
+    executedUrns: Set<string>,
+): string => {
+    const isPolling = sourcesToRefetch.has(source.urn);
+    const hasRequests = !!source.executions?.executionRequests?.length;
+    const hasActiveRequest = source.executions?.executionRequests?.some(isExecutionRequestActive);
+    const executedNow = executedUrns.has(source.urn);
+
+    if (executedNow && !hasActiveRequest) return EXECUTION_REQUEST_STATUS_LOADING;
+    if (!isPolling && !hasRequests) return EXECUTION_REQUEST_STATUS_PENDING;
+
+    return (
+        getIngestionSourceStatus(source.executions?.executionRequests?.[0]?.result) ?? EXECUTION_REQUEST_STATUS_PENDING
+    );
+};
+
+export const buildOwnerEntities = (urn: string, owners?: Entity[], defaultOwnerType?: OwnershipTypeEntity) => {
+    return (
+        owners?.map((owner: any) => ({
+            owner: {
+                ...owner,
+                editableProperties: {
+                    email: '',
+                    displayName: '',
+                    title: '',
+                    pictureLink: '',
+                    ...owner.editableProperties,
+                },
+                properties: {
+                    displayName: '',
+                    email: '',
+                    active: true,
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.properties,
+                },
+                info: {
+                    email: '',
+                    admins: [],
+                    members: [],
+                    groups: [],
+                    active: true,
+                    displayName: '',
+                    firstName: '',
+                    lastName: '',
+                    fullName: '',
+                    title: '',
+                    ...owner.info,
+                },
+            },
+            associatedUrn: urn,
+            type: owner.type,
+            ownershipType: defaultOwnerType ?? null,
+            __typename: 'Owner' as const,
+        })) || []
+    );
 };

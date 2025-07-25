@@ -8,7 +8,6 @@ from click_default_group import DefaultGroup
 from datahub.api.entities.forms.forms import Forms
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -24,8 +23,6 @@ def forms() -> None:
     name="upsert",
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path) -> None:
     """Upsert forms in DataHub."""
 
@@ -38,7 +35,6 @@ def upsert(file: Path) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get form from DataHub"""
     with get_default_graph(ClientMode.CLI) as graph:

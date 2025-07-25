@@ -41,7 +41,11 @@ from datahub.ingestion.source.aws.s3_util import (
     get_key_prefix,
     strip_s3_prefix,
 )
-from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    ContainerWUCreator,
+    add_partition_columns_to_schema,
+)
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
@@ -58,9 +62,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaField,
     SchemaMetadata,
-    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -70,7 +72,6 @@ from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     PartitionsSummaryClass,
     PartitionSummaryClass,
-    SchemaFieldDataTypeClass,
     _Aspect,
 )
 from datahub.telemetry import stats, telemetry
@@ -196,7 +197,14 @@ class TableData:
 @platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.FOLDER,
+        SourceCapabilityModifier.S3_BUCKET,
+    ],
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
@@ -474,7 +482,7 @@ class S3Source(StatefulIngestionSourceBase):
             fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema and table_data.partitions:
-            self.add_partition_columns_to_schema(
+            add_partition_columns_to_schema(
                 fields=fields, path_spec=path_spec, full_path=table_data.full_path
             )
 
@@ -509,34 +517,6 @@ class S3Source(StatefulIngestionSourceBase):
             return avro.AvroInferrer()
         else:
             return None
-
-    def add_partition_columns_to_schema(
-        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
-    ) -> None:
-        is_fieldpath_v2 = False
-        for field in fields:
-            if field.fieldPath.startswith("[version=2.0]"):
-                is_fieldpath_v2 = True
-                break
-        partition_keys = path_spec.get_partition_from_path(full_path)
-        if not partition_keys:
-            return None
-
-        for partition_key in partition_keys:
-            fields.append(
-                SchemaField(
-                    fieldPath=(
-                        f"{partition_key[0]}"
-                        if not is_fieldpath_v2
-                        else f"[version=2.0].[type=string].{partition_key[0]}"
-                    ),
-                    nativeDataType="string",
-                    type=SchemaFieldDataTypeClass(StringTypeClass()),
-                    isPartitioningKey=True,
-                    nullable=True,
-                    recursive=False,
-                )
-            )
 
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
@@ -682,7 +662,7 @@ class S3Source(StatefulIngestionSourceBase):
 
         logger.info(f"Extracting table schema from file: {table_data.full_path}")
         browse_path: str = (
-            strip_s3_prefix(table_data.table_path)
+            self.strip_s3_prefix(table_data.table_path)
             if self.is_s3_platform()
             else table_data.table_path.strip("/")
         )
@@ -949,7 +929,10 @@ class S3Source(StatefulIngestionSourceBase):
         """
 
         def _is_allowed_path(path_spec_: PathSpec, s3_uri: str) -> bool:
-            allowed = path_spec_.allowed(s3_uri)
+            # Normalize URI for pattern matching
+            normalized_uri = self._normalize_uri_for_pattern_matching(s3_uri)
+
+            allowed = path_spec_.allowed(normalized_uri)
             if not allowed:
                 logger.debug(f"File {s3_uri} not allowed and skipping")
                 self.report.report_file_dropped(s3_uri)
@@ -1394,8 +1377,13 @@ class S3Source(StatefulIngestionSourceBase):
                 )
                 table_dict: Dict[str, TableData] = {}
                 for browse_path in file_browser:
+                    # Normalize URI for pattern matching
+                    normalized_file_path = self._normalize_uri_for_pattern_matching(
+                        browse_path.file
+                    )
+
                     if not path_spec.allowed(
-                        browse_path.file,
+                        normalized_file_path,
                         ignore_ext=self.is_s3_platform()
                         and self.source_config.use_s3_content_type,
                     ):
@@ -1470,6 +1458,14 @@ class S3Source(StatefulIngestionSourceBase):
 
     def is_s3_platform(self):
         return self.source_config.platform == "s3"
+
+    def strip_s3_prefix(self, s3_uri: str) -> str:
+        """Strip S3 prefix from URI. Can be overridden by adapters for other platforms."""
+        return strip_s3_prefix(s3_uri)
+
+    def _normalize_uri_for_pattern_matching(self, uri: str) -> str:
+        """Normalize URI for pattern matching. Can be overridden by adapters for other platforms."""
+        return uri
 
     def get_report(self):
         return self.report

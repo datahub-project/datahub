@@ -230,9 +230,10 @@ class SourceReport(ExamplesReport):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
+        log: bool = True,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.WARN, message, title, context, exc, log=True
+            StructuredLogLevel.WARN, message, title, context, exc, log=log
         )
 
     def report_failure(

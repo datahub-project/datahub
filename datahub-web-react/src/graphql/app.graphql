@@ -103,6 +103,10 @@ query appConfig {
             showIngestionPageRedesign
             showLineageExpandMore
             showHomePageRedesign
+            showProductUpdates
+            lineageGraphV3
+            logicalModelsEnabled
+            showHomepageUserRole
         }
         chromeExtensionConfig {
             enabled
@@ -129,6 +133,14 @@ query getGlobalViewsSettings {
 query getDocPropagationSettings {
     docPropagationSettings {
         docColumnPropagation
+    }
+}
+
+query getHomePageSettings {
+    globalHomePageSettings {
+        defaultTemplate {
+            ...PageTemplate
+        }
     }
 }
 

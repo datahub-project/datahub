@@ -88,6 +88,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.aspect.AspectTestUtils;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -132,7 +133,23 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected T_RS _retentionService;
 
   static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
-  protected OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+  // Enhanced OperationContext with test plugins integrated at the registry level
+  protected OperationContext opContext =
+      TestOperationContexts.systemContext(
+          null,
+          null,
+          null,
+          () ->
+              AspectTestUtils.enhanceRegistryWithTestPlugins(
+                  TestOperationContexts.defaultEntityRegistry()),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null);
+
   protected final EntityRegistry _testEntityRegistry = opContext.getEntityRegistry();
   protected OperationContext userContext =
       TestOperationContexts.userContextNoSearchAuthorization(_testEntityRegistry);
@@ -551,7 +568,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName1 = AspectGenerationUtils.getAspectName(writeAspect1);
     pairToIngest.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     _entityServiceImpl.ingestAspects(
         opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, metadata1);
 
@@ -627,7 +644,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     GenericAspect aspect = GenericRecordUtils.serializeAspect(pairToIngest.get(0).getSecond());
 
-    SystemMetadata initialSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata initialSystemMetadata =
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     initialChangeLog.setAspect(aspect);
     initialChangeLog.setSystemMetadata(initialSystemMetadata);
     initialChangeLog.setEntityKeyAspect(
@@ -636,7 +654,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
-    SystemMetadata futureSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata futureSystemMetadata =
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
     futureSystemMetadata.setRunId("run-123");
     futureSystemMetadata.setLastRunId("run-123");
@@ -700,7 +719,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     final UpstreamLineage upstreamLineage = AspectGenerationUtils.createUpstreamLineage();
     String aspectName1 = AspectGenerationUtils.getAspectName(upstreamLineage);
 
-    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setEntityType(entityUrn.getEntityType());
     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(upstreamLineage);
@@ -722,7 +741,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     initialChangeLog.setAspect(genericAspect);
     initialChangeLog.setSystemMetadata(metadata1);
 
-    SystemMetadata futureSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
+    SystemMetadata futureSystemMetadata =
+        AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
     futureSystemMetadata.setRunId("run-123");
 
@@ -1263,11 +1283,14 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
     SystemMetadata metadata1 =
-        AspectGenerationUtils.createSystemMetadata(1625792689, "run-123", null, "1");
+        AspectGenerationUtils.createSystemMetadata(
+            1625792689, "run-123", null, "1", TEST_AUDIT_STAMP);
     SystemMetadata metadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", null, "2");
+        AspectGenerationUtils.createSystemMetadata(
+            1635792689, "run-456", null, "2", TEST_AUDIT_STAMP);
     SystemMetadata expectedMetadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "2");
+        AspectGenerationUtils.createSystemMetadata(
+            1635792689, "run-456", "run-123", "2", TEST_AUDIT_STAMP);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1390,12 +1413,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     String aspectName = AspectGenerationUtils.getAspectName(writeAspect1);
 
     SystemMetadata metadata1 =
-        AspectGenerationUtils.createSystemMetadata(1625792689, "run-123", null, "1");
+        AspectGenerationUtils.createSystemMetadata(
+            1625792689, "run-123", null, "1", TEST_AUDIT_STAMP);
     SystemMetadata metadata2 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", null, "2");
+        AspectGenerationUtils.createSystemMetadata(
+            1635792689, "run-456", null, "2", TEST_AUDIT_STAMP);
     SystemMetadata expectedMetadata2 =
         SystemMetadataUtils.setNoOp(
-            AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "2"),
+            AspectGenerationUtils.createSystemMetadata(
+                1635792689, "run-456", "run-123", "2", TEST_AUDIT_STAMP),
             false);
 
     List<ChangeItemImpl> items =
@@ -1503,7 +1529,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
     SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-456");
     SystemMetadata expectedMetadata2 =
-        AspectGenerationUtils.createSystemMetadata(1625792689, "run-456", "run-123", "1");
+        AspectGenerationUtils.createSystemMetadata(
+            1625792689, "run-456", "run-123", "1", TEST_AUDIT_STAMP);
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1855,7 +1882,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     objectMapper
         .getFactory()
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-    return RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
+    return RecordUtils.toRecordTemplate(clazz, RecordUtils.toJsonString(aspect));
   }
 
   @Test
@@ -2991,6 +3018,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
   @Test
   public void testFailedAspectValidation() throws Exception {
+    final OperationContext testContext =
+        TestOperationContexts.Builder.builder()
+            .systemTelemetryContextSupplier(() -> null) // mocked
+            .entityRegistrySupplier(
+                () ->
+                    AspectTestUtils.enhanceRegistryWithTestPlugins(
+                        TestOperationContexts.defaultEntityRegistry()))
+            .buildSystemContext();
+
     try (MockedStatic<Span> mockedStatic = Mockito.mockStatic(Span.class)) {
       Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:testFailedAspectValidation");
 
@@ -3019,7 +3055,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                   .auditStamp(TEST_AUDIT_STAMP)
                   // Set invalid version to trigger validation failure
                   .headers(Map.of("If-Version-Match", "-10000"))
-                  .build(opContext.getAspectRetriever()));
+                  .build(testContext.getAspectRetriever()));
 
       // Create a mock Future that completes successfully
       @SuppressWarnings("unchecked")
@@ -3033,11 +3069,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
       // Execute the ingest which should trigger validation failures
       _entityServiceImpl.ingestAspects(
-          opContext,
+          testContext,
           AspectsBatchImpl.builder()
-              .retrieverContext(opContext.getRetrieverContext())
+              .retrieverContext(testContext.getRetrieverContext())
               .items(items)
-              .build(opContext),
+              .build(testContext),
           true,
           true);
 
@@ -3049,7 +3085,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       // Verify failed MCP production
       verify(_mockProducer, times(1))
           .produceFailedMetadataChangeProposalAsync(
-              eq(opContext), any(MCPItem.class), any(Set.class));
+              eq(testContext), any(MCPItem.class), any(Set.class));
 
       // Verify Future.get() was called
       verify(mockFuture, times(1)).get();

@@ -4,8 +4,6 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CO
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -22,6 +20,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -57,9 +56,6 @@ public class BatchMetadataChangeProposalsProcessor {
   private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
-
   @Value(
       "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
           + Topics.FAILED_METADATA_CHANGE_PROPOSAL
@@ -86,7 +82,31 @@ public class BatchMetadataChangeProposalsProcessor {
     String topicName = null;
 
     for (ConsumerRecord<String, GenericRecord> consumerRecord : consumerRecords) {
-      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils -> {
+                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+
+                // Dropwizard legacy
+                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
+
+                // Micrometer with tags
+                // TODO: include priority level when available
+                metricUtils
+                    .getRegistry()
+                    .ifPresent(
+                        meterRegistry -> {
+                          meterRegistry
+                              .timer(
+                                  MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                                  "topic",
+                                  consumerRecord.topic(),
+                                  "consumer.group",
+                                  mceConsumerGroupId)
+                              .record(Duration.ofMillis(queueTimeMs));
+                        });
+              });
       final GenericRecord record = consumerRecord.value();
 
       if (topicName == null) {

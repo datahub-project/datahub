@@ -39,9 +39,6 @@ jobs:
           "RyanHolstien",
           "sakethvarma397",
           "purnimagarg1",
-          "sagar-salvi-apptware",
-          "kushagra-apptware",
-          "Salman-Apptware",
           "mayurinehate",
           "noggi",
           "skrydal",
@@ -50,15 +47,17 @@ jobs:
           "acrylJonny",
           "chakru-r",
           "brock-acryl",
-          "mminichino",
           "jayacryl",
           "v-tarasevich-blitz-brain",
-          "ryota-cloud",
           "annadoesdesign",
           "jmacryl",
           "esteban",
           "anthonyburdi",
-          "ligfx"
+          "ligfx",
+          "ksrinath",
+          "bryanprosser-acryl",
+          "Alex23Hub",
+          "alexsku"
           ]'),
           github.actor
           )

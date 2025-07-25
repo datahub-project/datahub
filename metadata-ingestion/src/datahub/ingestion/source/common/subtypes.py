@@ -59,6 +59,8 @@ class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
+    TABLEAU_SITE = "Site"
+    TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
@@ -67,6 +69,8 @@ class BIContainerSubTypes(StrEnum):
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
     MODE_COLLECTION = "Collection"
+    GRAFANA_FOLDER = "Folder"
+    GRAFANA_DASHBOARD = "Dashboard"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -143,7 +147,7 @@ def create_source_capability_modifier_enum():
     for enum_class in source_enums:
         for member in enum_class:  # type: ignore[var-annotated]
             if member.name in all_values:
-                logger.error(
+                logger.debug(
                     f"Warning: {member.name} already exists with value {all_values[member.name]}, skipping {member.value}"
                 )
                 continue

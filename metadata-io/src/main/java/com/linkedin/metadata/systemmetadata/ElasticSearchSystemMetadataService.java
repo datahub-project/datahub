@@ -1,6 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -91,6 +91,14 @@ public class ElasticSearchSystemMetadataService
     document.put("registryName", systemMetadata.getRegistryName());
     document.put("registryVersion", systemMetadata.getRegistryVersion());
     document.put("removed", false);
+    if (systemMetadata.getAspectCreated() != null) {
+      document.put("aspectCreatedTime", systemMetadata.getAspectCreated().getTime());
+      document.put("aspectCreatedActor", systemMetadata.getAspectCreated().getActor().toString());
+    }
+    if (systemMetadata.getAspectModified() != null) {
+      document.put("aspectModifiedTime", systemMetadata.getAspectModified().getTime());
+      document.put("aspectModifiedActor", systemMetadata.getAspectModified().getActor().toString());
+    }
     if (systemMetadata.getProperties() != null
         && systemMetadata.getProperties().containsKey(TELEMETRY_TRACE_KEY)) {
       document.put(TELEMETRY_TRACE_KEY, systemMetadata.getProperties().get(TELEMETRY_TRACE_KEY));

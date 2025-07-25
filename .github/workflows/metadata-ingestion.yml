@@ -25,9 +25,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
 jobs:
   metadata-ingestion:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
     timeout-minutes: 60
     env:
       DATAHUB_TELEMETRY_ENABLED: false
@@ -35,7 +38,7 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.11"]
+        python-version: ["3.9", "3.11"]
         command:
           [
             "testQuick",

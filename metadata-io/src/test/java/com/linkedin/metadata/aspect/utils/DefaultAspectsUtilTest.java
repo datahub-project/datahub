@@ -2,7 +2,6 @@ package com.linkedin.metadata.aspect.utils;
 
 import static org.mockito.Mockito.*;
 
-import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
@@ -16,6 +15,7 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -33,7 +33,7 @@ public class DefaultAspectsUtilTest {
   public void testAdditionalChanges() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Database server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
-    EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    EbeanAspectDao aspectDao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     aspectDao.setConnectionValidated(true);
     EventProducer mockProducer = mock(EventProducer.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
@@ -56,7 +56,10 @@ public class DefaultAspectsUtilTest {
         DefaultAspectsUtil.getAdditionalChanges(
                 opContext,
                 AspectsBatchImpl.builder()
-                    .mcps(List.of(proposal1), new AuditStamp(), opContext.getRetrieverContext())
+                    .mcps(
+                        List.of(proposal1),
+                        AuditStampUtils.createDefaultAuditStamp(),
+                        opContext.getRetrieverContext())
                     .build(opContext)
                     .getMCPItems(),
                 entityServiceImpl,

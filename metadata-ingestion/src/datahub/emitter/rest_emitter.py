@@ -61,6 +61,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    ChangeTypeClass,
+)
 from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
@@ -94,7 +98,9 @@ TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
-INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
+INGEST_MAX_PAYLOAD_BYTES = int(
+    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES", 15 * 1024 * 1024)
+)
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
@@ -626,15 +632,27 @@ class DataHubRestEmitter(Closeable, Emitter):
                     trace_data = extract_trace_data(response) if response else None
 
         else:
-            url = f"{self._gms_server}/aspects?action=ingestProposal"
+            if mcp.changeType == ChangeTypeClass.DELETE:
+                if mcp.aspectName not in KEY_ASPECT_NAMES:
+                    raise OperationalError(
+                        f"Delete not supported for non key aspect: {mcp.aspectName} for urn: "
+                        f"{mcp.entityUrn}"
+                    )
 
-            mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
-            payload_dict = {
-                "proposal": mcp_obj,
-                "async": "true"
-                if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
-                else "false",
-            }
+                url = f"{self._gms_server}/entities?action=delete"
+                payload_dict = {
+                    "urn": mcp.entityUrn,
+                }
+            else:
+                url = f"{self._gms_server}/aspects?action=ingestProposal"
+
+                mcp_obj = preserve_unicode_escapes(pre_json_transform(mcp.to_obj()))
+                payload_dict = {
+                    "proposal": mcp_obj,
+                    "async": "true"
+                    if emit_mode in (EmitMode.ASYNC, EmitMode.ASYNC_WAIT)
+                    else "false",
+                }
 
             payload = json.dumps(payload_dict)
 
