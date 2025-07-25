@@ -44,6 +44,81 @@ public class PluginFactory {
     return PluginFactory.withConfig(PluginConfiguration.EMPTY);
   }
 
+  /**
+   * Merges two PluginFactory instances, combining their plugins and configurations.
+   *
+   * <p><strong>Merge Strategy:</strong>
+   *
+   * <ul>
+   *   <li><strong>Empty handling:</strong> If either factory is empty, returns the non-empty one
+   *   <li><strong>Plugin inclusion:</strong> Includes all plugins from factory A first, then all
+   *       plugins from factory B
+   *   <li><strong>Duplicate resolution:</strong> Factory A plugins are filtered out only if
+   *       disabled by factory B configurations
+   *   <li><strong>Configuration merging:</strong> Combines PluginConfiguration objects from both
+   *       factories
+   * </ul>
+   *
+   * <p><strong>Plugin Inclusion Logic:</strong>
+   *
+   * <p>The merge process follows this sequence:
+   *
+   * <ol>
+   *   <li>Include all plugins from factory A, except those that are disabled by factory B's
+   *       configurations
+   *   <li>Add all plugins from factory B
+   * </ol>
+   *
+   * <p><strong>Disabling Logic:</strong>
+   *
+   * <p>A plugin from factory A is filtered out (disabled) if any configuration in factory B would
+   * disable it. A plugin A is considered "disabled by" a configuration B when:
+   *
+   * <ol>
+   *   <li>Plugin A is currently enabled
+   *   <li>Plugin A and configuration B have identical settings except for the enabled flag
+   *   <li>Configuration B has enabled=false
+   * </ol>
+   *
+   * <p>This allows factory B to selectively "turn off" specific plugins from factory A by providing
+   * matching disabled configurations, while still adding its own plugins.
+   *
+   * <p>The {@code isDisabledBy()} method in {@code AspectPluginConfig} compares all configuration
+   * fields except {@code enabled} (className, packageScan, supportedOperations,
+   * supportedEntityAspectNames, spring) and returns {@code true} when the current plugin is
+   * enabled, the other configuration is disabled, and all other fields match.
+   *
+   * <p><strong>Examples:</strong>
+   *
+   * <pre>{@code
+   * // Basic merge - no conflicts
+   * PluginFactory factoryA = createFactory(enabledValidatorA);
+   * PluginFactory factoryB = createFactory(enabledValidatorB);
+   * PluginFactory merged = PluginFactory.merge(factoryA, factoryB, null);
+   * // Result: [validatorA, validatorB]
+   *
+   * // Selective disabling - B disables specific plugin from A
+   * PluginFactory factoryA = createFactory(enabledValidator, anotherEnabledValidator);
+   * PluginFactory factoryB = createFactory(disabledValidator, newEnabledValidator); // first config matches A's validator but disabled
+   * PluginFactory merged = PluginFactory.merge(factoryA, factoryB, null);
+   * // Result: [anotherEnabledValidator, disabledValidator, newEnabledValidator] (A's enabledValidator filtered out)
+   * }</pre>
+   *
+   * <p><strong>Unit Test Coverage:</strong>
+   *
+   * <p>The merge behavior is comprehensively tested by {@code PluginFactoryMergeTest} which
+   * validates: empty factory handling, non-overlapping plugin merging, duplicate resolution and
+   * disabling logic, plugin ordering preservation, and configuration merging across all plugin
+   * types.
+   *
+   * @param a The first plugin factory (plugins included first in merge result)
+   * @param b The second plugin factory (plugins included second, can disable plugins from A)
+   * @param pluginFactoryProvider Optional factory provider for creating new instances when neither
+   *     factory has loaded plugins yet
+   * @return A new PluginFactory containing the merged plugins and configurations
+   * @see AspectPluginConfig#isDisabledBy(AspectPluginConfig)
+   * @see PluginConfiguration#merge(PluginConfiguration, PluginConfiguration)
+   */
   public static PluginFactory merge(
       PluginFactory a,
       PluginFactory b,

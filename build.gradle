@@ -397,6 +397,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.glassfish', module: 'jakarta.json'
     exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
+    exclude group: 'com.typesafe.play', module: 'shaded-oauth'
     
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -406,6 +407,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force externalDependency.antlr4
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
+    resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
