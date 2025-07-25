@@ -13,16 +13,17 @@ import useGlossaryTree from '@app/homeV3/modules/hierarchyViewModule/components/
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 
-import { DataHubPageModuleType } from '@types';
+import { AndFilterInput, DataHubPageModuleType } from '@types';
 
 const Wrapper = styled.div``;
 
 interface Props {
     assetUrns: string[];
     shouldShowRelatedEntities: boolean;
+    relatedEntitiesOrFilters: AndFilterInput[] | undefined;
 }
 
-export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities }: Props) {
+export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities, relatedEntitiesOrFilters }: Props) {
     const { tree, loading } = useGlossaryTree(assetUrns ?? [], shouldShowRelatedEntities);
 
     const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
@@ -62,6 +63,7 @@ export default function GlossaryTreeView({ assetUrns, shouldShowRelatedEntities 
                     parentValues={parentValues}
                     loadChildren={useChildrenGlossaryLoader}
                     loadRelatedEntities={shouldShowRelatedEntities ? useGlossaryRelatedEntitiesLoader : undefined}
+                    relatedEntitiesOrFilters={relatedEntitiesOrFilters}
                 />
 
                 <TreeView

@@ -13,16 +13,17 @@ import useDomainsTree from '@app/homeV3/modules/hierarchyViewModule/components/d
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 
-import { DataHubPageModuleType } from '@types';
+import { AndFilterInput, DataHubPageModuleType } from '@types';
 
 const Wrapper = styled.div``;
 
 interface Props {
     assetUrns: string[];
     shouldShowRelatedEntities: boolean;
+    relatedEntitiesOrFilters: AndFilterInput[] | undefined;
 }
 
-export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities }: Props) {
+export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, relatedEntitiesOrFilters }: Props) {
     const { tree, loading } = useDomainsTree(assetUrns ?? [], shouldShowRelatedEntities);
     const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
 
@@ -61,6 +62,7 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities }
                     parentValues={parentValues}
                     loadChildren={useChildrenDomainsLoader}
                     loadRelatedEntities={shouldShowRelatedEntities ? useDomainRelatedEntitiesLoader : undefined}
+                    relatedEntitiesOrFilters={relatedEntitiesOrFilters}
                 />
 
                 <TreeView
