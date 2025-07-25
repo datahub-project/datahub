@@ -67,7 +67,7 @@ export default function ModuleMenu({ module, position }: Props) {
                             label: (
                                 <>
                                     {!canEdit ? (
-                                        <Tooltip title="You can not edit Default widgets">
+                                        <Tooltip title="Default modules are not editable">
                                             <Text color="gray" colorLevel={300}>
                                                 Edit
                                             </Text>

@@ -24,7 +24,9 @@ export default function SubscriptionsModule(props: ModuleProps) {
                     onLinkClick={navigateToSearch}
                 />
             ) : (
-                originEntities.map((entity) => <EntityItem entity={entity} key={entity.urn} />)
+                originEntities.map((entity) => (
+                    <EntityItem entity={entity} key={entity.urn} moduleType={props.module.properties.type} />
+                ))
             )}
         </LargeModule>
     );

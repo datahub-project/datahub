@@ -65,3 +65,7 @@ mutation upsertPageModule($input: UpsertPageModuleInput!) {
 mutation deletePageModule($input: DeletePageModuleInput!) {
     deletePageModule(input: $input)
 }
+
+mutation deletePageTemplate($input: DeletePageTemplateInput!) {
+    deletePageTemplate(input: $input)
+}

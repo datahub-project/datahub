@@ -8,22 +8,6 @@ import { Tooltip } from '@components/components/Tooltip';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
 import { colors } from '@src/alchemy-components/theme';
 
-// const StyledTabsPrimary = styled(AntTabs)<{
-//     $navMarginBottom?: number;
-//     $navMarginTop?: number;
-//     $containerHeight?: 'full' | 'auto';
-//     $addPaddingLeft?: boolean;
-//     $hideTabsHeader: boolean;
-// }>`
-//     ${(props) =>
-//         props.$containerHeight === 'full'
-//             ? `
-//         height: 100%;
-//     `
-//             : `
-//         flex: 1;
-//     `}
-//     overflow: hidden;
 const ScrollableTabsContainer = styled.div<{ $maxHeight?: string }>`
     max-height: ${({ $maxHeight }) => $maxHeight || '100%'};
     overflow-y: auto;
