@@ -961,8 +961,7 @@ class SQLServerSource(SQLAlchemySource):
         if (
             self.config.database
             and self.config.database != ""
-            or self.config.sqlalchemy_uri
-            and self.config.sqlalchemy_uri != ""
+            or (self.config.sqlalchemy_uri and self.config.sqlalchemy_uri != "")
         ):
             inspector = inspect(engine)
             yield inspector

@@ -416,33 +416,37 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_db_name(self, inspector: Inspector) -> str:
         engine = inspector.engine
 
-        if (
-            engine
-            and hasattr(engine, "url")
-            and hasattr(engine.url, "database")
-            and not (hasattr(engine.url, "query") and engine.url.query is not None)
-        ):
-            if engine.url.database is None:
-                return ""
-            return str(engine.url.database).strip('"')
+        try:
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "database")
+                and engine.url.database
+            ):
+                return str(engine.url.database).strip('"')
 
-        elif (
-            engine
-            and hasattr(engine, "url")
-            and hasattr(engine.url, "query")
-            and "odbc_connect" in engine.url.query
-        ):
-            # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
-            match = re.search(
-                r"DATABASE=([^;]*);",
-                urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
-                flags=re.IGNORECASE,
-            )
-            if match and match.group(1):
-                return match.group(1)
+            if (
+                engine
+                and hasattr(engine, "url")
+                and hasattr(engine.url, "query")
+                and "odbc_connect" in engine.url.query
+            ):
+                # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
+                database = re.search(
+                    r"DATABASE=([^;]*);",
+                    urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
+                    flags=re.IGNORECASE,
+                )
 
-        else:
-            raise RuntimeError("Unable to get database name from Sqlalchemy inspector")
+                if database and database.group(1):
+                    return database.group(1)
+
+            return ""
+
+        except Exception as e:
+            raise RuntimeError(
+                "Unable to get database name from Sqlalchemy inspector"
+            ) from e
 
     def get_schema_names(self, inspector):
         return inspector.get_schema_names()
