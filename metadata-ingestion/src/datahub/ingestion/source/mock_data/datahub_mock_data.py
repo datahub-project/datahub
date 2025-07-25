@@ -144,7 +144,7 @@ class DataHubMockDataConfig(ConfigModel):
     )
 
 
-@platform_name("DataHubMockData")
+@platform_name("fake")
 @config_class(DataHubMockDataConfig)
 @support_status(SupportStatus.TESTING)
 class DataHubMockDataSource(Source):
