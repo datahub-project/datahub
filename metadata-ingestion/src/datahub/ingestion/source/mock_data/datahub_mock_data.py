@@ -35,6 +35,8 @@ from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
 
+PLATFORM_NAME = "fake"
+
 
 class SubTypePattern(StrEnum):
     ALTERNATING = "alternating"
@@ -144,7 +146,7 @@ class DataHubMockDataConfig(ConfigModel):
     )
 
 
-@platform_name("fake")
+@platform_name(PLATFORM_NAME)
 @config_class(DataHubMockDataConfig)
 @support_status(SupportStatus.TESTING)
 class DataHubMockDataSource(Source):
@@ -310,7 +312,7 @@ class DataHubMockDataSource(Source):
             table_level, table_index, subtype_pattern, subtype_types, level_subtypes
         )
 
-        urn = make_dataset_urn(platform="fake", name=table_name)
+        urn = make_dataset_urn(platform=PLATFORM_NAME, name=table_name)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=urn,
             entityType="dataset",
@@ -434,7 +436,7 @@ class DataHubMockDataSource(Source):
 
     def _get_status_aspect(self, table: str) -> MetadataWorkUnit:
         urn = make_dataset_urn(
-            platform="fake",
+            platform=PLATFORM_NAME,
             name=table,
         )
         mcp = MetadataChangeProposalWrapper(
@@ -449,7 +451,7 @@ class DataHubMockDataSource(Source):
     ) -> MetadataWorkUnit:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn(
-                platform="fake",
+                platform=PLATFORM_NAME,
                 name=downstream_table,
             ),
             entityType="dataset",
@@ -457,7 +459,7 @@ class DataHubMockDataSource(Source):
                 upstreams=[
                     UpstreamClass(
                         dataset=make_dataset_urn(
-                            platform="fake",
+                            platform=PLATFORM_NAME,
                             name=upstream_table,
                         ),
                         type=DatasetLineageTypeClass.TRANSFORMED,
@@ -469,7 +471,7 @@ class DataHubMockDataSource(Source):
 
     def _get_profile_aspect(self, table: str) -> MetadataWorkUnit:
         urn = make_dataset_urn(
-            platform="fake",
+            platform=PLATFORM_NAME,
             name=table,
         )
         mcp = MetadataChangeProposalWrapper(
@@ -486,7 +488,7 @@ class DataHubMockDataSource(Source):
 
     def _get_usage_aspect(self, table: str) -> MetadataWorkUnit:
         urn = make_dataset_urn(
-            platform="fake",
+            platform=PLATFORM_NAME,
             name=table,
         )
         mcp = MetadataChangeProposalWrapper(
