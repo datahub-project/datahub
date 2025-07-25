@@ -92,6 +92,7 @@ const mockMoveModule = vi.fn();
 const mockUpdateTemplateWithModule = vi.fn();
 const mockRemoveModuleFromTemplate = vi.fn();
 const mockUpsertTemplate = vi.fn();
+const mockResetTemplateToDefault = vi.fn();
 
 describe('PageTemplateContext', () => {
     beforeEach(() => {
@@ -113,6 +114,7 @@ describe('PageTemplateContext', () => {
             updateTemplateWithModule: mockUpdateTemplateWithModule,
             removeModuleFromTemplate: mockRemoveModuleFromTemplate,
             upsertTemplate: mockUpsertTemplate,
+            resetTemplateToDefault: mockResetTemplateToDefault,
         });
 
         mockUseModuleOperations.mockReturnValue({

@@ -251,6 +251,11 @@ export class DatasetEntity implements Entity<Dataset> {
                         </span>
                     ),
                     component: GovernanceTab,
+                    getCount: (_, dataset) => {
+                        const passingTests = dataset?.dataset?.testResults?.passing || [];
+                        const failingTests = dataset?.dataset?.testResults?.failing || [];
+                        return passingTests.length + failingTests.length;
+                    },
                 },
                 {
                     name: 'Runs', // TODO: Rename this to DatasetRunsTab.

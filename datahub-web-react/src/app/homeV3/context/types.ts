@@ -22,6 +22,7 @@ export interface RemoveModuleInput {
     module: PageModuleFragment;
     position: ModulePositionInput;
 }
+
 export interface ModuleModalState {
     isOpen: boolean;
     moduleType: DataHubPageModuleType | null;
@@ -59,4 +60,5 @@ export type PageTemplateContextState = {
     moduleModalState: ModuleModalState;
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
+    resetTemplateToDefault: () => void;
 };

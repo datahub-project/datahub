@@ -58,6 +58,7 @@ def test_dataset_basic(pytestconfig: pytest.Config) -> None:
     assert d.description is None
     assert d.custom_properties == {}
     assert d.domain is None
+    assert d.view_definition is None
 
     # TODO: The column descriptions should go in the editable fields, since we're not in ingestion mode.
     assert len(d.schema) == 2
@@ -125,6 +126,7 @@ def _build_complex_dataset() -> Dataset:
             GlossaryTermUrn("AccountBalance"),
         ],
         domain=DomainUrn("Marketing"),
+        view_definition="SELECT * FROM my_other_table",
     )
 
     assert d.platform is not None
@@ -149,6 +151,8 @@ def _build_complex_dataset() -> Dataset:
     assert d.created == created
     assert d.last_modified == updated
     assert d.custom_properties == {"key1": "value1", "key2": "value2"}
+    assert d.view_definition is not None
+    assert d.view_definition.viewLogic == "SELECT * FROM my_other_table"
 
     # Check standard aspects.
     assert d.subtype == "Table"
