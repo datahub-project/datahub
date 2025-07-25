@@ -223,13 +223,25 @@ class SqlQueriesSource(Source):
                     self.aggregator.add_known_query_lineage(known_lineage)
             else:
                 # Warn if only partial lineage information is provided
-                if query_entry.upstream_tables and not query_entry.downstream_tables:
-                    logger.debug(
-                        "Only upstream tables provided, falling back to SQL parsing for lineage detection"
+                # XOR: true if exactly one of upstream_tables or downstream_tables is provided
+                if bool(query_entry.upstream_tables) ^ bool(
+                    query_entry.downstream_tables
+                ):
+                    query_preview = (
+                        query_entry.query[:150] + "..."
+                        if len(query_entry.query) > 150
+                        else query_entry.query
                     )
-                elif query_entry.downstream_tables and not query_entry.upstream_tables:
-                    logger.debug(
-                        "Only downstream tables provided, falling back to SQL parsing for lineage detection"
+                    missing_upstream = (
+                        "Missing upstream. " if not query_entry.upstream_tables else ""
+                    )
+                    missing_downstream = (
+                        "Missing downstream. "
+                        if not query_entry.downstream_tables
+                        else ""
+                    )
+                    logger.info(
+                        f"Only partial lineage information provided, falling back to SQL parsing for complete lineage detection. {missing_upstream}{missing_downstream}Query: {query_preview}"
                     )
                 # No explicit lineage, rely on parsing
                 observed_query = ObservedQuery(
