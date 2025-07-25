@@ -25,11 +25,9 @@ export default function LinkModal() {
     const linkParams = initialState?.properties?.params?.linkParams;
     const urn = initialState?.urn;
 
-    /* TODO: Uncomment to validate and disable button once the Rich Text module PR is merged
-
-     const titleValue = Form.useWatch('title', form);
-     const linkUrlValue = Form.useWatch('link', form);
-     const isDisabled = !titleValue?.trim() || !linkUrlValue?.trim(); */
+    const nameValue = Form.useWatch('name', form);
+    const linkUrlValue = Form.useWatch('linkUrl', form);
+    const isDisabled = !nameValue?.trim() || !linkUrlValue?.trim();
 
     const handleUpsertDocumentationModule = () => {
         form.validateFields().then((values) => {
@@ -57,8 +55,7 @@ export default function LinkModal() {
             subtitle="Add links to your home page"
             onUpsert={handleUpsertDocumentationModule}
             width="40%"
-            /* TODO: Uncomment to validate and disable button once the Rich Text module PR is merged
-             submitButtonProps={{ disabled: isDisabled }} */
+            submitButtonProps={{ disabled: isDisabled }}
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
