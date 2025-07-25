@@ -4,8 +4,9 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 
 import dataclasses
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -28,6 +29,7 @@ from databricks.sdk.service.sql import (
 )
 from databricks.sdk.service.workspace import ObjectType
 from databricks.sql import connect
+from databricks.sql.types import Row
 
 from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -291,10 +293,59 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
+    @cached(cachetools.FIFOCache(maxsize=100))
+    def get_catalog_column_lineage(self, catalog: str) -> Dict[str, Dict[str, dict]]:
+        """Get column lineage for all tables in a catalog."""
+        logger.info(f"Fetching column lineage for catalog: {catalog}")
+        try:
+            query = """
+                SELECT
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
+                    target_table_schema, target_table_name, target_column_name,
+                    max(event_time)
+                FROM system.access.column_lineage
+                WHERE
+                    target_table_catalog = %s
+                    AND target_table_schema IS NOT NULL
+                    AND target_table_name IS NOT NULL
+                    AND target_column_name IS NOT NULL
+                    AND source_table_catalog IS NOT NULL
+                    AND source_table_schema IS NOT NULL
+                    AND source_table_name IS NOT NULL
+                    AND source_column_name IS NOT NULL
+                GROUP BY
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name,  source_type,
+                    target_table_schema, target_table_name, target_column_name
+                """
+            rows = self._execute_sql_query(query, (catalog,))
+
+            result_dict: Dict[str, Dict[str, dict]] = {}
+            for row in rows:
+                result_dict.setdefault(row["target_table_schema"], {}).setdefault(
+                    row["target_table_name"], {}
+                ).setdefault(row["target_column_name"], []).append(
+                    # make fields look like the response from the older HTTP API
+                    {
+                        "catalog_name": row["source_table_catalog"],
+                        "schema_name": row["source_table_schema"],
+                        "table_name": row["source_table_name"],
+                        "name": row["source_column_name"],
+                    }
+                )
+
+            return result_dict
+        except Exception as e:
+            logger.warning(
+                f"Error getting column lineage for catalog {catalog}: {e}",
+                exc_info=True,
+            )
+            return {}
+
     def list_lineages_by_table(
         self, table_name: str, include_entity_lineage: bool
     ) -> dict:
         """List table lineage by table name."""
+        logger.debug(f"Getting table lineage for {table_name}")
         return self._workspace_client.api_client.do(  # type: ignore
             method="GET",
             path="/api/2.0/lineage-tracking/table-lineage",
@@ -304,13 +355,24 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             },
         )
 
-    def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
+    def list_lineages_by_column(self, table_name: str, column_name: str) -> list:
         """List column lineage by table name and column name."""
-        return self._workspace_client.api_client.do(  # type: ignore
-            "GET",
-            "/api/2.0/lineage-tracking/column-lineage",
-            body={"table_name": table_name, "column_name": column_name},
-        )
+        logger.debug(f"Getting column lineage for {table_name}.{column_name}")
+        try:
+            return (
+                self._workspace_client.api_client.do(  # type: ignore
+                    "GET",
+                    "/api/2.0/lineage-tracking/column-lineage",
+                    body={"table_name": table_name, "column_name": column_name},
+                ).get("upstream_cols")
+                or []
+            )
+        except Exception as e:
+            logger.warning(
+                f"Error getting column lineage on table {table_name}, column {column_name}: {e}",
+                exc_info=True,
+            )
+            return []
 
     def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
@@ -348,23 +410,51 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Error getting lineage on table {table.ref}: {e}", exc_info=True
             )
 
-    def get_column_lineage(self, table: Table, column_name: str) -> None:
+    def get_column_lineage(
+        self,
+        table: Table,
+        column_names: List[str],
+        *,
+        max_workers: Optional[int] = None,
+    ) -> None:
         try:
-            response: dict = self.list_lineages_by_column(
-                table_name=table.ref.qualified_table_name,
-                column_name=column_name,
-            )
-            for item in response.get("upstream_cols") or []:
-                table_ref = TableReference.create_from_lineage(
-                    item, table.schema.catalog.metastore
+            # use the newer system tables if we have a SQL warehouse, otherwise fall back
+            # and use the older (and much slower) HTTP API.
+            if self.warehouse_id:
+                lineage = (
+                    self.get_catalog_column_lineage(table.ref.catalog)
+                    .get(table.ref.schema, {})
+                    .get(table.ref.table, {})
                 )
-                if table_ref:
-                    table.upstreams.setdefault(table_ref, {}).setdefault(
-                        column_name, []
-                    ).append(item["name"])
+            else:
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = [
+                        executor.submit(
+                            self.list_lineages_by_column,
+                            table.ref.qualified_table_name,
+                            column_name,
+                        )
+                        for column_name in column_names
+                    ]
+                lineage = {
+                    column_name: future.result()
+                    for column_name, future in zip(column_names, futures)
+                }
+
+            for column_name in column_names:
+                for item in lineage.get(column_name) or []:
+                    table_ref = TableReference.create_from_lineage(
+                        item,
+                        table.schema.catalog.metastore,
+                    )
+                    if table_ref:
+                        table.upstreams.setdefault(table_ref, {}).setdefault(
+                            column_name, []
+                        ).append(item["name"])
+
         except Exception as e:
             logger.warning(
-                f"Error getting column lineage on table {table.ref}, column {column_name}: {e}",
+                f"Error getting column lineage on table {table.ref}: {e}",
                 exc_info=True,
             )
 
@@ -504,14 +594,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def _execute_sql_query(self, query: str) -> List[List[str]]:
+    def _execute_sql_query(self, query: str, params: Sequence[Any] = ()) -> List[Row]:
         """Execute SQL query using databricks-sql connector for better performance"""
         try:
             with (
                 connect(**self._sql_connection_params) as connection,
                 connection.cursor() as cursor,
             ):
-                cursor.execute(query)
+                cursor.execute(query, list(params))
                 return cursor.fetchall()
 
         except Exception as e:
