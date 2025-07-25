@@ -272,10 +272,10 @@ class Telemetry:
         if self.sentry_enabled:
             import sentry_sdk
 
-            try:
-                sentry_sdk.set_tags(properties)
-            except Exception as e:
-                logger.warning("Failed to update Sentry properties.", exc_info=e)
+            # Note: once we're on sentry-sdk 2.1.0+, we can use sentry_sdk.set_tags(properties)
+            # See https://github.com/getsentry/sentry-python/commit/6c960d752c7c7aff3fd7469d2e9ad98f19663aa8
+            for key, value in properties.items():
+                sentry_sdk.set_tag(key, value)
 
     def init_capture_exception(self) -> None:
         if self.sentry_enabled:
