@@ -368,6 +368,7 @@ describe('useModuleOperations', () => {
                 mockPersonalTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
@@ -422,6 +423,7 @@ describe('useModuleOperations', () => {
                 mockGlobalTemplate,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
@@ -476,6 +478,7 @@ describe('useModuleOperations', () => {
                 mockGlobalTemplate,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, null);
@@ -532,6 +535,7 @@ describe('useModuleOperations', () => {
                 mockPersonalTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
@@ -1410,6 +1414,7 @@ describe('useModuleOperations', () => {
                     mockPersonalTemplate,
                     mockGlobalModuleToEdit.urn,
                     position,
+                    false, // shouldRemoveEmptyRow = false (to replace a module we should keep empty row)
                 );
 
                 // Should add the new personal module in the same position
@@ -1664,6 +1669,7 @@ describe('useModuleOperations', () => {
                     mockPersonalTemplate,
                     mockGlobalModuleToEdit.urn,
                     position,
+                    false,
                 );
 
                 // Should not proceed with template update if removal fails
