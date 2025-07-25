@@ -131,7 +131,7 @@ export const ProposalList = ({
                 resourceUrn,
                 allActionRequests: getAllActionRequests,
             },
-            includeAssignees: showAssignee,
+            includeAssignees: !!showAssignee,
         },
         fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
@@ -243,7 +243,7 @@ export const ProposalList = ({
 
     return (
         <FinalContainer>
-            {error && message.error('Failed to load proposals. An unknown error occurred!')}
+            {error && message.error('Failed to load requests. An unknown error occurred!')}
             <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign} $height={height}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
                 {showFiltersHeader && (

@@ -131,6 +131,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         logicalModelsEnabled: false,
         showHomepageUserRole: false,
         viewIngestionSourcePrivilegesEnabled: false,
+        actionWorkflowsEnabled: false,
         showHomePageRedesign: false,
     },
     chromeExtensionConfig: {

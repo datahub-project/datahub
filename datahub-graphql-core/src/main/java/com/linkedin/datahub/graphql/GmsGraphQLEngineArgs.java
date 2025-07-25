@@ -37,6 +37,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.ActionRequestService;
+import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
@@ -123,6 +124,7 @@ public class GmsGraphQLEngineArgs {
   // any fork specific args should go below this line
   Integer defaultLineageLastDaysFilter;
   ActionRequestService actionRequestService;
+  ActionWorkflowService actionWorkflowService;
   ClassificationConfiguration classificationConfiguration;
   EntitySearchService entitySearchService;
   TestEngine testEngine;

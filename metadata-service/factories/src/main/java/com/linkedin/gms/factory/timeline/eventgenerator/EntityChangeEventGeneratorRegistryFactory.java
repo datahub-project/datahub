@@ -3,6 +3,8 @@ package com.linkedin.gms.factory.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.service.ActionWorkflowService;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.eventgenerator.ActionRequestInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.ActionRequestStatusChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
@@ -44,8 +46,11 @@ public class EntityChangeEventGeneratorRegistryFactory {
   @Nonnull
   protected EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry(
       @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
-      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      @Qualifier("userService") final UserService userService) {
     final SystemEntityClient entityClient = applicationContext.getBean(SystemEntityClient.class);
+    final ActionWorkflowService actionWorkflowService =
+        applicationContext.getBean(ActionWorkflowService.class);
     final EntityChangeEventGeneratorRegistry registry = new EntityChangeEventGeneratorRegistry();
     registry.register(SCHEMA_METADATA_ASPECT_NAME, new SchemaMetadataChangeEventGenerator());
     registry.register(
@@ -100,8 +105,12 @@ public class EntityChangeEventGeneratorRegistryFactory {
 
     // Action Request change event generators
     registry.register(
-        ACTION_REQUEST_STATUS_ASPECT_NAME, new ActionRequestStatusChangeEventGenerator());
-    registry.register(ACTION_REQUEST_INFO_ASPECT_NAME, new ActionRequestInfoChangeEventGenerator());
+        ACTION_REQUEST_STATUS_ASPECT_NAME,
+        new ActionRequestStatusChangeEventGenerator(
+            userService, systemOperationContext, actionWorkflowService));
+    registry.register(
+        ACTION_REQUEST_INFO_ASPECT_NAME,
+        new ActionRequestInfoChangeEventGenerator(userService, systemOperationContext));
 
     // Incidents change event generator
     registry.register(INCIDENT_INFO_ASPECT_NAME, new IncidentInfoChangeEventGenerator());

@@ -4,7 +4,7 @@ import com.linkedin.common.Urn
 import com.linkedin.datacontract.SchemaContract
 import com.linkedin.datacontract.FreshnessContract
 import com.linkedin.datacontract.DataQualityContract
-
+import com.linkedin.actionworkflow.ActionWorkflowFormRequest
 
 /**
  * Parameters provided with a particular action request. Only one of the fields will be populated,
@@ -117,4 +117,9 @@ record ActionRequestParams {
      */
     dataQuality: optional array[DataQualityContract]
   }
+
+  /**
+   * An action workflow form request.
+   */
+  workflowFormRequest: optional ActionWorkflowFormRequest
 }

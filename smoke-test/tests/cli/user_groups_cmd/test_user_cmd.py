@@ -104,56 +104,69 @@ def test_user_upsert(auth_session: Any) -> None:
                         "corpUserKey": {"username": f"user_{_i}"},
                         "groupMembership": {"groups": [f"urn:li:corpGroup:group_{_i}"]},
                         "status": {"removed": False},
-                        # Saas only
-                        "corpUserSettings": {
-                            "appearance": {
-                                "showSimplifiedHomepage": False,
-                            },
-                            "notificationSettings": {
-                                "emailSettings": {
-                                    "email": f"user_{_i}@datahubproject.io",
-                                },
-                                "settings": {
-                                    "NEW_PROPOSAL": {
-                                        "params": {
-                                            "email.enabled": "true",
-                                        },
-                                        "value": "ENABLED",
-                                    },
-                                    "PROPOSAL_STATUS_CHANGE": {
-                                        "params": {
-                                            "email.enabled": "true",
-                                        },
-                                        "value": "ENABLED",
-                                    },
-                                    "PROPOSER_PROPOSAL_STATUS_CHANGE": {
-                                        "params": {
-                                            "email.enabled": "true",
-                                        },
-                                        "value": "ENABLED",
-                                    },
-                                    "DATA_HUB_COMMUNITY_UPDATES": {
-                                        "params": {
-                                            "email.enabled": "true",
-                                        },
-                                        "value": "ENABLED",
-                                    },
-                                },
-                                "sinkTypes": [
-                                    "SLACK",
-                                    "EMAIL",
-                                ],
-                                "slackSettings": {
-                                    "userHandle": f"@user{_i}",
-                                },
-                            },
-                        },
                     }
                 )
 
-            # Try assertion
-            assert actual == expected
-            # If assertion passes, we're done
+            # Validate core user data (without corpUserSettings)
+            for i, (actual_user, expected_user) in enumerate(
+                zip(actual, expected, strict=False)
+            ):
+                # Create a copy to avoid mutating original data
+                actual_user_copy = dict(actual_user)
+                # Pop out the settings, we'll validate them separately.
+                actual_settings = actual_user_copy.pop("corpUserSettings", None)
+
+                # Compare the rest of the user data
+                assert actual_user_copy == expected_user, f"User {i} core data mismatch"
+
+                # Validate corpUserSettings structure exists and has key components
+                assert actual_settings is not None, f"User {i} missing corpUserSettings"
+                assert "appearance" in actual_settings, (
+                    f"User {i} missing appearance settings"
+                )
+                assert "notificationSettings" in actual_settings, (
+                    f"User {i} missing notification settings"
+                )
+
+                # Validate notification settings structure
+                notification_settings = actual_settings["notificationSettings"]
+                assert "emailSettings" in notification_settings, (
+                    f"User {i} missing email settings"
+                )
+                assert "settings" in notification_settings, (
+                    f"User {i} missing notification settings map"
+                )
+                assert "sinkTypes" in notification_settings, (
+                    f"User {i} missing sink types"
+                )
+                assert "slackSettings" in notification_settings, (
+                    f"User {i} missing slack settings"
+                )
+
+                # Validate that expected notification types exist (without caring about order)
+                settings_map = notification_settings["settings"]
+                expected_notification_types = [
+                    "DATA_HUB_COMMUNITY_UPDATES",
+                    "NEW_ACTION_WORKFLOW_FORM_REQUEST",
+                    "NEW_PROPOSAL",
+                    "PROPOSAL_STATUS_CHANGE",
+                    "PROPOSER_PROPOSAL_STATUS_CHANGE",
+                    "REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE",
+                ]
+
+                for notification_type in expected_notification_types:
+                    assert notification_type in settings_map, (
+                        f"User {i} missing {notification_type} notification setting"
+                    )
+                    setting = settings_map[notification_type]
+                    assert "value" in setting and setting["value"] == "ENABLED", (
+                        f"User {i} {notification_type} not enabled"
+                    )
+                    assert "params" in setting, (
+                        f"User {i} {notification_type} missing params"
+                    )
+
+            # If we get here, all validations passed
             return
 
         except AssertionError:

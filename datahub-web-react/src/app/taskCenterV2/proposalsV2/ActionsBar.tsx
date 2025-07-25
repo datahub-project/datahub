@@ -7,10 +7,11 @@ import { useUserContext } from '@app/context/useUserContext';
 import { updateActionRequestsList } from '@app/taskCenterV2/proposalsV2/proposalsTable/cacheUtils';
 import { ProposalModalType, createBatchProposalActionEvent } from '@app/taskCenterV2/proposalsV2/utils';
 import { Button, Icon, Modal, Text, TextArea, colors } from '@src/alchemy-components';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import analytics, { EventType } from '@src/app/analytics';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
+import { useReviewActionWorkflowFormRequestMutation } from '@src/graphql/actionWorkflow.generated';
 
-import { ActionRequest, ActionRequestResult } from '@types';
+import { ActionRequest, ActionRequestResult, ActionRequestType } from '@types';
 
 const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;
@@ -90,50 +91,111 @@ const ActionsBar = ({
 
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
+    const [reviewWorkflowFormRequestMutation] = useReviewActionWorkflowFormRequestMutation();
 
     const client = useApolloClient();
 
     const authenticatedUser = useUserContext();
     const currentUser = authenticatedUser?.user;
 
-    const acceptSelectedProposals = () => {
-        acceptProposalsMutation({
-            variables: { urns: selectedUrns, note },
-        })
-            .then(() => {
+    // Separate workflow requests from regular proposals
+    const workflowRequests = selectedProposals.filter(
+        (proposal) => proposal.type === ActionRequestType.WorkflowFormRequest,
+    );
+    const regularProposals = selectedProposals.filter(
+        (proposal) => proposal.type !== ActionRequestType.WorkflowFormRequest,
+    );
+    const workflowRequestUrns = workflowRequests.map((request) => request.urn);
+    const regularProposalUrns = regularProposals.map((request) => request.urn);
+
+    const acceptSelectedProposals = async () => {
+        try {
+            // Handle regular proposals with bulk mutation
+            if (regularProposalUrns.length > 0) {
+                await acceptProposalsMutation({
+                    variables: { urns: regularProposalUrns, note },
+                });
+
+                // Analytics for regular proposals
                 analytics.event({
                     type: EventType.BatchProposalActionEvent,
-                    ...createBatchProposalActionEvent(EntityActionType.ProposalsAccepted, selectedProposals),
+                    ...createBatchProposalActionEvent('ProposalsAccepted', regularProposals),
                 });
-                message.success('Accepted proposals!');
-                updateActionRequestsList(client, selectedUrns, ActionRequestResult.Accepted, note, currentUser);
-                onActionRequestUpdate(selectedUrns);
-                setSelectedUrns([]);
-            })
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to accept proposals. An unexpected error occurred.');
-            });
+            }
+
+            // Handle workflow requests individually
+            if (workflowRequestUrns.length > 0) {
+                await Promise.all(
+                    workflowRequestUrns.map((urn) =>
+                        reviewWorkflowFormRequestMutation({
+                            variables: {
+                                input: {
+                                    urn,
+                                    result: ActionRequestResult.Accepted,
+                                    comment: note || undefined,
+                                },
+                            },
+                        }),
+                    ),
+                );
+
+                // Analytics for workflow requests
+                analytics.event({
+                    type: EventType.BatchProposalActionEvent,
+                    ...createBatchProposalActionEvent('ProposalsAccepted', workflowRequests),
+                });
+            }
+
+            message.success('Approved requests!');
+            updateActionRequestsList(client, selectedUrns, ActionRequestResult.Accepted, note, currentUser);
+            onActionRequestUpdate(selectedUrns);
+            setSelectedUrns([]);
+        } catch (err) {
+            console.log(err);
+            message.error('Failed to approve requests. An unexpected error occurred.');
+        }
     };
 
-    const rejectSelectedProposals = () => {
-        rejectProposalsMutation({
-            variables: { urns: selectedUrns, note },
-        })
-            .then(() => {
+    const rejectSelectedProposals = async () => {
+        try {
+            // Handle regular proposals with bulk mutation
+            if (regularProposalUrns.length > 0) {
+                await rejectProposalsMutation({
+                    variables: { urns: regularProposalUrns, note },
+                });
+
+                // Analytics for regular proposals
                 analytics.event({
                     type: EventType.BatchProposalActionEvent,
-                    ...createBatchProposalActionEvent(EntityActionType.ProposalAccepted, selectedProposals),
+                    ...createBatchProposalActionEvent('ProposalsRejected', regularProposals),
                 });
-                message.success('Proposals declined.');
-                updateActionRequestsList(client, selectedUrns, ActionRequestResult.Rejected, note, currentUser);
-                onActionRequestUpdate(selectedUrns);
-                setSelectedUrns([]);
-            })
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to reject proposals. An unexpected error occurred.');
-            });
+            }
+
+            // Handle workflow requests individually
+            if (workflowRequestUrns.length > 0) {
+                await Promise.all(
+                    workflowRequestUrns.map((urn) =>
+                        reviewWorkflowFormRequestMutation({
+                            variables: {
+                                input: {
+                                    urn,
+                                    result: ActionRequestResult.Rejected,
+                                    comment: note || undefined,
+                                },
+                            },
+                        }),
+                    ),
+                );
+            }
+
+            message.success('Requests declined.');
+            updateActionRequestsList(client, selectedUrns, ActionRequestResult.Rejected, note, currentUser);
+            onActionRequestUpdate(selectedUrns);
+            setSelectedUrns([]);
+        } catch (err) {
+            console.log(err);
+            message.error('Failed to reject requests. An unexpected error occurred.');
+        }
     };
 
     const handleCancel = () => {
@@ -161,8 +223,8 @@ const ActionsBar = ({
                     title={modalConfig[modalType]?.title}
                     subtitle={
                         modalType === ProposalModalType.AcceptAll
-                            ? `Are you sure you want to accept these (${selectedUrns.length}) proposals?`
-                            : `Are you sure you want to reject these (${selectedUrns.length}) proposals?`
+                            ? `Are you sure you want to accept these (${selectedUrns.length}) changes?`
+                            : `Are you sure you want to reject these (${selectedUrns.length}) changes?`
                     }
                     onCancel={handleCancel}
                     buttons={[

@@ -14,7 +14,20 @@ import { Icon, Modal, Pill, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestResult, ActionRequestStatus, Entity, EntityType } from '@src/types.generated';
+import { useReviewActionWorkflowFormRequestMutation } from '@src/graphql/actionWorkflow.generated';
+import {
+    ActionRequest,
+    ActionRequestResult,
+    ActionRequestStatus,
+    ActionRequestType,
+    Entity,
+    EntityType,
+} from '@src/types.generated';
+
+const Container = styled.div`
+    display: flex;
+    justify-content: center;
+`;
 
 const IconsContainer = styled.div`
     display: flex;
@@ -40,17 +53,36 @@ const StyledIcon = styled(Icon)`
 
 type ModalType = ProposalModalType | null;
 
-const modalConfig = {
-    [ProposalModalType.Accept]: {
-        title: 'Approve Proposal',
-        subtitle: 'Please provide a reason for approving changes...',
-        placeholder: 'Why are you approving the proposal?',
-    },
-    [ProposalModalType.Reject]: {
-        title: 'Reject Proposal',
-        subtitle: 'Please provide a reason for rejecting changes...',
-        placeholder: 'Why are you rejecting the proposal?',
-    },
+const getModalConfig = (actionRequest: ActionRequest) => {
+    // Use different text for workflow requests
+    if (actionRequest.type === ActionRequestType.WorkflowFormRequest) {
+        return {
+            [ProposalModalType.Accept]: {
+                title: 'Approve Request',
+                subtitle: 'The user will be notified that their workflow request has been approved.',
+                placeholder: 'Why are you approving this request?',
+            },
+            [ProposalModalType.Reject]: {
+                title: 'Reject Request',
+                subtitle: 'The user will be notified that their workflow request has been rejected.',
+                placeholder: 'Why are you rejecting this request?',
+            },
+        };
+    }
+
+    // Default proposal text for other request types
+    return {
+        [ProposalModalType.Accept]: {
+            title: 'Approve Proposal',
+            subtitle: 'Please provide a reason for approving changes...',
+            placeholder: 'Why are you approving the proposal?',
+        },
+        [ProposalModalType.Reject]: {
+            title: 'Reject Proposal',
+            subtitle: 'Please provide a reason for rejecting changes...',
+            placeholder: 'Why are you rejecting the proposal?',
+        },
+    };
 };
 
 interface Props {
@@ -65,6 +97,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
 
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
+    const [reviewWorkflowFormRequestMutation] = useReviewActionWorkflowFormRequestMutation();
 
     const [modalType, setModalType] = useState<ModalType>(null);
 
@@ -73,60 +106,158 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
     const authenticatedUser = useUserContext();
     const currentUser = authenticatedUser?.user;
 
+    const isWorkflowRequest = actionRequest.type === ActionRequestType.WorkflowFormRequest;
+
     const acceptRequest = () => {
-        acceptProposalsMutation({
-            variables: { urns: [actionRequest.urn], note },
-        })
-            .then(() => {
-                if (actionRequest.entity?.urn) {
-                    analytics.event({
-                        type: EventType.EntityActionEvent,
-                        actionType: EntityActionType.ProposalAccepted,
-                        actionQualifier: actionRequest.type,
-                        entityType: actionRequest.entity?.type,
-                        entityUrn: actionRequest.entity?.urn,
-                    });
-                }
-                message.success('Successfully accepted the proposal!');
-                updateActionRequestsList(client, [actionRequest.urn], ActionRequestResult.Accepted, note, currentUser);
-                onUpdate([actionRequest.urn]);
+        if (isWorkflowRequest) {
+            // Use workflow-specific mutation
+            reviewWorkflowFormRequestMutation({
+                variables: {
+                    input: {
+                        urn: actionRequest.urn,
+                        result: ActionRequestResult.Accepted,
+                        comment: note || undefined,
+                    },
+                },
             })
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to accept proposal. An unknown error occurred!');
+                .then(() => {
+                    if (actionRequest.entity?.urn) {
+                        analytics.event({
+                            type: EventType.EntityActionEvent,
+                            actionType: EntityActionType.ProposalAccepted,
+                            actionQualifier: actionRequest.type,
+                            entityType: actionRequest.entity?.type,
+                            entityUrn: actionRequest.entity?.urn,
+                        });
+                    }
+                    message.success('Successfully approved the workflow request!');
+                    updateActionRequestsList(
+                        client,
+                        [actionRequest.urn],
+                        ActionRequestResult.Accepted,
+                        note,
+                        currentUser,
+                    );
+                    onUpdate([actionRequest.urn]);
+                })
+                .catch((err) => {
+                    console.log(err);
+                    message.error('Failed to approve workflow request. An unknown error occurred!');
+                })
+                .finally(() => {
+                    setModalType(null);
+                    setNote('');
+                });
+        } else {
+            // Use existing proposal mutation
+            acceptProposalsMutation({
+                variables: { urns: [actionRequest.urn], note },
             })
-            .finally(() => {
-                setModalType(null);
-                setNote('');
-            });
+                .then(() => {
+                    if (actionRequest.entity?.urn) {
+                        analytics.event({
+                            type: EventType.EntityActionEvent,
+                            actionType: EntityActionType.ProposalAccepted,
+                            actionQualifier: actionRequest.type,
+                            entityType: actionRequest.entity?.type,
+                            entityUrn: actionRequest.entity?.urn,
+                        });
+                    }
+                    message.success('Successfully accepted the proposal!');
+                    updateActionRequestsList(
+                        client,
+                        [actionRequest.urn],
+                        ActionRequestResult.Accepted,
+                        note,
+                        currentUser,
+                    );
+                    onUpdate([actionRequest.urn]);
+                })
+                .catch((err) => {
+                    console.log(err);
+                    message.error('Failed to accept proposal. An unknown error occurred!');
+                })
+                .finally(() => {
+                    setModalType(null);
+                    setNote('');
+                });
+        }
     };
 
     const rejectRequest = () => {
-        rejectProposalsMutation({
-            variables: { urns: [actionRequest.urn], note },
-        })
-            .then(() => {
-                if (actionRequest.entity?.urn) {
-                    analytics.event({
-                        type: EventType.EntityActionEvent,
-                        actionType: EntityActionType.ProposalRejected,
-                        actionQualifier: actionRequest.type,
-                        entityType: actionRequest.entity?.type,
-                        entityUrn: actionRequest.entity?.urn,
-                    });
-                }
-                message.info('Proposal declined.');
-                updateActionRequestsList(client, [actionRequest.urn], ActionRequestResult.Rejected, note, currentUser);
-                onUpdate([actionRequest.urn]);
+        if (isWorkflowRequest) {
+            // Use workflow-specific mutation
+            reviewWorkflowFormRequestMutation({
+                variables: {
+                    input: {
+                        urn: actionRequest.urn,
+                        result: ActionRequestResult.Rejected,
+                        comment: note || undefined,
+                    },
+                },
             })
-            .catch((err) => {
-                console.log(err);
-                message.error('Failed to reject proposal. An unknown error occurred!');
+                .then(() => {
+                    if (actionRequest.entity?.urn) {
+                        analytics.event({
+                            type: EventType.EntityActionEvent,
+                            actionType: EntityActionType.ProposalRejected,
+                            actionQualifier: actionRequest.type,
+                            entityType: actionRequest.entity?.type,
+                            entityUrn: actionRequest.entity?.urn,
+                        });
+                    }
+                    message.info('Workflow request declined.');
+                    updateActionRequestsList(
+                        client,
+                        [actionRequest.urn],
+                        ActionRequestResult.Rejected,
+                        note,
+                        currentUser,
+                    );
+                    onUpdate([actionRequest.urn]);
+                })
+                .catch((err) => {
+                    console.log(err);
+                    message.error('Failed to reject workflow request. An unknown error occurred!');
+                })
+                .finally(() => {
+                    setModalType(null);
+                    setNote('');
+                });
+        } else {
+            // Use existing proposal mutation
+            rejectProposalsMutation({
+                variables: { urns: [actionRequest.urn], note },
             })
-            .finally(() => {
-                setModalType(null);
-                setNote('');
-            });
+                .then(() => {
+                    if (actionRequest.entity?.urn) {
+                        analytics.event({
+                            type: EventType.EntityActionEvent,
+                            actionType: EntityActionType.ProposalRejected,
+                            actionQualifier: actionRequest.type,
+                            entityType: actionRequest.entity?.type,
+                            entityUrn: actionRequest.entity?.urn,
+                        });
+                    }
+                    message.info('Proposal declined.');
+                    updateActionRequestsList(
+                        client,
+                        [actionRequest.urn],
+                        ActionRequestResult.Rejected,
+                        note,
+                        currentUser,
+                    );
+                    onUpdate([actionRequest.urn]);
+                })
+                .catch((err) => {
+                    console.log(err);
+                    message.error('Failed to reject proposal. An unknown error occurred!');
+                })
+                .finally(() => {
+                    setModalType(null);
+                    setNote('');
+                });
+        }
     };
 
     let actionResultView;
@@ -193,7 +324,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
     };
 
     return (
-        <>
+        <Container>
             {actionResultView}
             {!!modalType && (
                 <StopPropagationWrapper>
@@ -211,13 +342,13 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                             },
                         ]}
                         onCancel={handleCancel}
-                        title={modalConfig[modalType].title}
-                        subtitle={modalConfig[modalType].subtitle}
+                        title={getModalConfig(actionRequest)[modalType]?.title}
+                        subtitle={getModalConfig(actionRequest)[modalType]?.subtitle}
                     >
                         <Form>
                             <TextArea
                                 label="Add Note"
-                                placeholder="Note - optional"
+                                placeholder={getModalConfig(actionRequest)[modalType]?.placeholder || 'Note - optional'}
                                 value={note}
                                 onChange={(e) => setNote(e.target.value)}
                             />
@@ -225,7 +356,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                     </Modal>
                 </StopPropagationWrapper>
             )}
-        </>
+        </Container>
     );
 };
 

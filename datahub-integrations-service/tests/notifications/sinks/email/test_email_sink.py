@@ -420,3 +420,171 @@ def test_get_email_recipients_no_email_recipients(
 
     # Should return empty list since no email recipients
     assert len(filtered_recipients) == 0
+
+
+#
+# Tests for Workflow Request Notifications
+#
+
+
+@patch("datahub_integrations.notifications.sinks.email.email_sink.retry_with_backoff")
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_workflow_request_assignment_parameters"
+)
+def test_send_workflow_request_assignment_notification(
+    mock_build_parameters: Mock,
+    mock_retry: MagicMock,
+    notification_sink: EmailNotificationSink,
+    recipients: List[NotificationRecipientClass],
+    base_url: str,
+) -> None:
+    """
+    Test that workflow request assignment notifications are properly handled.
+    """
+    mock_build_parameters.return_value = {
+        "subject": "Action Required: You've been assigned to review a new Data Access workflow request.",
+        "message": 'John Joyce has created a new <b>Data Access</b> request for Snowflake Table FOO_BAR. <a href="https://example.acryl.io/requests/proposals">Review request.</a>.',
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+    }
+
+    fake_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST",
+            parameters={
+                "workflowName": "Data Access",
+                "actorName": "John Joyce",
+                "entityName": "FOO_BAR",
+                "entityType": "Table",
+                "entityPlatform": "Snowflake",
+            },
+        ),
+        recipients=recipients,
+    )
+
+    notification_sink.base_url = base_url
+    context = NotificationContext()
+    notification_sink.send(fake_request, context)
+
+    # Verify build_workflow_request_assignment_parameters was called
+    mock_build_parameters.assert_called_once_with(fake_request, base_url)
+
+    # Verify retry_with_backoff was called for sending the email
+    mock_retry.assert_called_once()
+    args, kwargs = mock_retry.call_args
+
+    # Should use the workflow request assignment email sending function
+    from datahub_integrations.notifications.sinks.email.send_email import (
+        send_workflow_request_assignment_notification_to_recipients,
+    )
+
+    assert args[0] == send_workflow_request_assignment_notification_to_recipients
+    assert kwargs["recipients"] == recipients
+    assert (
+        kwargs["parameters"]["subject"]
+        == "Action Required: You've been assigned to review a new Data Access workflow request."
+    )
+    assert "max_attempts" in kwargs
+
+
+@patch("datahub_integrations.notifications.sinks.email.email_sink.retry_with_backoff")
+@patch(
+    "datahub_integrations.notifications.sinks.email.email_sink.build_workflow_request_status_change_parameters"
+)
+def test_send_workflow_request_status_change_notification(
+    mock_build_parameters: Mock,
+    mock_retry: MagicMock,
+    notification_sink: EmailNotificationSink,
+    recipients: List[NotificationRecipientClass],
+    base_url: str,
+) -> None:
+    """
+    Test that workflow request status change notifications are properly handled.
+    """
+    mock_build_parameters.return_value = {
+        "subject": "Your Data Access workflow request has been approved.",
+        "message": 'Your <b>Data Access</b> request for Snowflake Table FOO_BAR has been <b>approved</b> by <b>Jane Smith</b>. <a href="https://example.acryl.io/requests/proposals">Click here to view your request history</a>.',
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+    }
+
+    fake_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE",
+            parameters={
+                "workflowName": "Data Access",
+                "actorName": "Jane Smith",
+                "result": "approved",
+                "entityName": "FOO_BAR",
+                "entityType": "Table",
+                "entityPlatform": "Snowflake",
+            },
+        ),
+        recipients=recipients,
+    )
+
+    notification_sink.base_url = base_url
+    context = NotificationContext()
+    notification_sink.send(fake_request, context)
+
+    # Verify build_workflow_request_status_change_parameters was called
+    mock_build_parameters.assert_called_once_with(fake_request, base_url)
+
+    # Verify retry_with_backoff was called for sending the email
+    mock_retry.assert_called_once()
+    args, kwargs = mock_retry.call_args
+
+    # Should use the workflow request status change email sending function
+    from datahub_integrations.notifications.sinks.email.send_email import (
+        send_workflow_request_status_change_notification_to_recipients,
+    )
+
+    assert args[0] == send_workflow_request_status_change_notification_to_recipients
+    assert kwargs["recipients"] == recipients
+    assert (
+        kwargs["parameters"]["subject"]
+        == "Your Data Access workflow request has been approved."
+    )
+    assert "max_attempts" in kwargs
+
+
+def test_workflow_request_notifications_supported_template_types(
+    notification_sink: EmailNotificationSink,
+) -> None:
+    """
+    Test that the new workflow request template types are included in the action map.
+    """
+    # Test assignment notification
+    assignment_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST",
+            parameters={"workflowName": "Test Workflow", "actorName": "Test Actor"},
+        ),
+        recipients=[],
+    )
+
+    # Test status change notification
+    status_change_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template="BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE",
+            parameters={
+                "workflowName": "Test Workflow",
+                "actorName": "Test Actor",
+                "result": "approved",
+            },
+        ),
+        recipients=[],
+    )
+
+    notification_sink.base_url = "https://example.com"
+    context = NotificationContext()
+
+    # Mock the workflow notification methods to verify they get called
+    notification_sink._send_workflow_request_assignment_notification = MagicMock()  # type: ignore
+    notification_sink._send_workflow_request_status_change_notification = MagicMock()  # type: ignore
+
+    # Send both types of requests
+    notification_sink.send(assignment_request, context)
+    notification_sink.send(status_change_request, context)
+
+    # Verify the appropriate methods were called
+    notification_sink._send_workflow_request_assignment_notification.assert_called_once()  # type: ignore
+    notification_sink._send_workflow_request_status_change_notification.assert_called_once()  # type: ignore

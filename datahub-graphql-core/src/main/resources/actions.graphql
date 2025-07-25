@@ -79,6 +79,36 @@ extend type Mutation {
   """
   proposeTag(input: TagAssociationInput!): Boolean
     @deprecated(reason: "Use proposeTags instead")
+
+  """
+  Creates or updates a workflow definition.
+
+  If `input.urn` is specified and exists, the workflow is updated.
+  If `input.urn` is omitted, a new workflow is created.
+  """
+  upsertActionWorkflow(input: UpsertActionWorkflowInput!): ActionWorkflow!
+
+  """
+  Deletes an action workflow definition by URN.
+
+  This will prevent new requests from being created with this workflow URN,
+  but will not affect existing workflow requests.
+  """
+  deleteActionWorkflow(input: DeleteActionWorkflowInput!): Boolean!
+
+  """
+  Creates a new action workflow request triggered by a form submission.
+  """
+  createActionWorkflowFormRequest(
+    input: CreateActionWorkflowFormRequestInput!
+  ): String!
+
+  """
+  Performs a review step for an existing action workflow request for a form submission.
+  """
+  reviewActionWorkflowFormRequest(
+    input: ReviewActionWorkflowFormRequestInput!
+  ): Boolean!
 }
 
 extend type Dataset {
@@ -258,6 +288,15 @@ extend type Query {
   Get the correct assignees of proposals. Returns the list of URN of correct assignees of proposals.
   """
   getActionRequestAssignee(input: GetActionRequestAssigneeInput!): [String!]
+
+  """
+  Lists workflows matching optional filters, paginated.
+
+  Supports filtering by name, type, customType, and applicable entity type.
+  """
+  listActionWorkflows(
+    input: ListActionWorkflowsInput!
+  ): ListActionWorkflowResult!
 }
 
 type ActionRequestsConfig {
@@ -304,6 +343,10 @@ enum ActionRequestType {
   Requests to associate an entity with an owner
   """
   OWNER_ASSOCIATION
+  """
+  Requests for workflow form-based actions
+  """
+  WORKFLOW_FORM_REQUEST
 }
 enum ActionRequestStatus {
   """
@@ -317,7 +360,7 @@ enum ActionRequestStatus {
 }
 enum ActionRequestResult {
   """
-  The action request is accepted
+  The action request is accepted or approved
   """
   ACCEPTED
   """
@@ -683,6 +726,11 @@ type ActionRequestParams {
   Data contract proposal
   """
   dataContractProposal: DataContractProposalParams
+
+  """
+  A workflow form request.
+  """
+  workflowFormRequest: ActionWorkflowFormRequest
 }
 
 enum AssigneeType {
@@ -1082,4 +1130,881 @@ input ProposeStructuredPropertiesInput {
   Optional - metadata about the inference. Required if origin is INFERRED.
   """
   inferenceMetadata: InferenceMetadataInput
+}
+
+"""
+Represents a reusable workflow that can be triggered by users to initiate an action request.
+
+Workflows consist of inputs (fields), entry points (how users can discover them),
+and metadata like name, category, and audit history.
+"""
+type ActionWorkflow implements Entity {
+  """
+  The unique identifier for the workflow.
+  """
+  urn: String!
+
+  """
+  The standard entity type (ACTION_WORKFLOW)
+  """
+  type: EntityType!
+
+  """
+  The display name of the workflow.
+  """
+  name: String!
+
+  """
+  The category of workflow
+  """
+  category: ActionWorkflowCategory
+
+  """
+  A custom category string, used if the `category` is CUSTOM.
+  Useful for grouping related workflows outside of the standard set.
+  """
+  customCategory: String
+
+  """
+  A description of what this workflow does.
+  """
+  description: String
+
+  """
+  The action or event that triggers the workflow.
+  """
+  trigger: ActionWorkflowTrigger!
+
+  """
+  Definition of the sequence of steps that need to be completed to review the workflow request.
+  """
+  steps: [ActionWorkflowStep!]!
+
+  """
+  Metadata about who created this workflow and when.
+  """
+  created: ResolvedAuditStamp!
+
+  """
+  Metadata about who last modified this workflow and when.
+  """
+  lastModified: ResolvedAuditStamp!
+
+  """
+  Not yet implemented -- List of relationships between the source Entity and some destination entities with a given types
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Defines the conditions on which the action workflow is triggered.
+"""
+type ActionWorkflowTrigger {
+  """
+  The type of trigger for the workflow.
+  """
+  type: ActionWorkflowTriggerType!
+
+  """
+  Input required for defining a workflow triggered based on a form completion.
+
+  Required if type is FORM_SUBMITTED.
+  """
+  form: ActionWorkflowForm
+}
+
+"""
+Defines the form used to trigger a workflow.
+"""
+type ActionWorkflowForm {
+  """
+  Entry points for the workflow.
+  """
+  entrypoints: [ActionWorkflowEntrypoint!]!
+
+  """
+  Specify the types of entity that can be associated with a workflow request.
+
+  If specified, a single entity of one of the provided types will be required to initiate a workflow.
+  If not specified, no entities will be required to initiate the workflow.
+
+  Entity types can be provided as raw entity types, e.g. "dataset", OR can support
+  entity type urns, for example: "urn:li:entityType:datahub.dataset"
+  """
+  entityTypes: [EntityType!]
+
+  """
+  Fields (inputs) required to initiate the workflow.
+  """
+  fields: [ActionWorkflowField!]!
+}
+
+"""
+Defines a single review step in a workflow.
+"""
+type ActionWorkflowStep {
+  """
+  A unique identifier for this step within the workflow.
+
+  This ID must be unique within the workflow and is used to match values during workflow execution.
+  """
+  id: String!
+
+  """
+  The type of step in the workflow. Currently just one: Action Request Review for reviewing a form.
+  """
+  type: ActionWorkflowStepType!
+
+  """
+  Optional description shown alongside the step to explain its purpose.
+  """
+  description: String
+
+  """
+  A definition of the actors requied to review, required if type is APPROVAL.
+  """
+  actors: ActionWorkflowStepActors
+}
+
+type ActionWorkflowStepActors {
+  """
+  Users statically assigned to perform the review step.
+  """
+  users: [CorpUser!]!
+
+  """
+  Groups statically assigned to perform the review step.
+  """
+  groups: [CorpGroup!]!
+
+  """
+  Roles statically assigned to perform the review step.
+  """
+  roles: [DataHubRole!]!
+
+  """
+  Dynamic assignment type for the review step.
+  """
+  dynamicAssignment: ActionWorkflowStepDynamicAssignment
+}
+
+type ActionWorkflowStepDynamicAssignment {
+  """
+  A standardized policy for resolving actors dynamically for an access request.
+  """
+  type: ActionWorkflowStepDynamicAssignmentType
+
+  """
+  Optional: A well defined set of ownership types to include in routing.
+  """
+  ownershipTypes: [OwnershipTypeEntity!]
+}
+
+"""
+Represents a single field (input) required to start a workflow.
+"""
+type ActionWorkflowField {
+  """
+  A unique ID for this field within the workflow.
+  """
+  id: String!
+
+  """
+  A user-facing name or label for the field.
+  """
+  name: String!
+
+  """
+  Optional description explaining the field's purpose.
+  """
+  description: String
+
+  """
+  The value type of the field.
+  """
+  valueType: ActionWorkflowFieldValueType!
+
+  """
+  The list of allowed entity types if the value type is URN
+  """
+  allowedEntityTypes: [EntityType!]
+
+  """
+  Optional list of valid values this field can take. If unspecified, any value matching the valueType is allowed.
+  """
+  allowedValues: [PropertyValue!]
+
+  """
+  Defines whether this field supports single or multiple values.
+  """
+  cardinality: PropertyCardinality!
+
+  """
+  Indicates whether this field is mandatory when triggering the workflow.
+  """
+  required: Boolean!
+
+  """
+  A dynamic condition that determines whether the field should be shown or not.
+  """
+  condition: ActionWorkflowFieldCondition
+}
+
+"""
+Defines a UI entrypoint for accessing the workflow.
+"""
+type ActionWorkflowEntrypoint {
+  """
+  The UI location where this workflow should appear (e.g., homepage or entity profile).
+  """
+  type: ActionWorkflowEntrypointType!
+
+  """
+  User-facing label describing the entry point (e.g., "Request Access").
+  """
+  label: String!
+}
+
+"""
+Specifies the high-level category of a workflow.
+"""
+enum ActionWorkflowCategory {
+  """
+  A standard workflow for requesting access.
+  """
+  ACCESS
+
+  """
+  A user-defined category for custom workflows.
+  If provided, the customCategory field should be provided!
+  """
+  CUSTOM
+}
+
+"""
+Specifies the type of trigger for a workflow.
+"""
+enum ActionWorkflowTriggerType {
+  """
+  The workflow is triggered when a form is submitted.
+  """
+  FORM_SUBMITTED
+}
+
+"""
+Specifies the type of step in a workflow.
+"""
+enum ActionWorkflowStepType {
+  """
+  A human review step that requires approval/rejection.
+  """
+  APPROVAL
+}
+
+"""
+Where in the UI the workflow is made available.
+"""
+enum ActionWorkflowEntrypointType {
+  """
+  Workflow is visible on the home page to all users.
+  """
+  HOME
+
+  """
+  Workflow is shown on a specific entity profile (e.g., dataset, dashboard).
+  """
+  ENTITY_PROFILE
+}
+
+"""
+Payload for creating or updating a workflow.
+"""
+input UpsertActionWorkflowInput {
+  """
+  Optional URN. If omitted, a new workflow will be created.
+  """
+  urn: String
+
+  """
+  Display name of the workflow.
+  """
+  name: String!
+
+  """
+  High-level category of the workflow.
+  """
+  category: ActionWorkflowCategory!
+
+  """
+  Optional string for non-standard categories (must be provided when category = CUSTOM).
+  """
+  customCategory: String
+
+  """
+  Description of the workflow.
+  """
+  description: String
+
+  """
+  The trigger configuration for the workflow.
+  """
+  trigger: ActionWorkflowTriggerInput!
+
+  """
+  Definition of the sequence of steps that need to be completed to review the workflow request.
+  """
+  steps: [ActionWorkflowStepInput!]!
+}
+
+"""
+Input for deleting an action workflow.
+"""
+input DeleteActionWorkflowInput {
+  """
+  URN of the workflow to delete.
+  """
+  urn: String!
+}
+
+"""
+Input for defining workflow trigger conditions.
+"""
+input ActionWorkflowTriggerInput {
+  """
+  The type of trigger.
+  """
+  type: ActionWorkflowTriggerType!
+
+  """
+  Input required for defining a workflow triggered based on a form completion.
+  """
+  form: ActionWorkflowFormInput
+}
+
+input ActionWorkflowFormInput {
+  """
+  Entry points for the workflow.
+  """
+  entrypoints: [ActionWorkflowEntrypointInput!]!
+
+  """
+  Specify the types of entity that can be associated with a workflow request.
+
+  If specified, a single entity of one of the provided types will be required to initiate a workflow.
+  If not specified, no entities will be required to initiate the workflow.
+
+  Entity types can be provided as raw entity types, e.g. "dataset", OR can support
+  entity type urns, for example: "urn:li:entityType:datahub.dataset"
+  """
+  entityTypes: [EntityType!]
+
+  """
+  Fields (inputs) required to initiate the workflow.
+  """
+  fields: [ActionWorkflowFieldInput!]!
+}
+
+"""
+Defines a single review step in a workflow.
+"""
+input ActionWorkflowStepInput {
+  """
+  A unique identifier for this step within the workflow.
+
+  This ID must be unique within the workflow and is used to match values during workflow execution.
+  """
+  id: String!
+
+  """
+  The type of step in the workflow. Currently, APPROVAL is the only step type.
+  """
+  type: ActionWorkflowStepType
+
+  """
+  Optional description shown alongside the step to explain its purpose.
+  """
+  description: String
+
+  """
+  A definition of the actors required to take action at this step.
+  """
+  actors: ActionWorkflowStepActorsInput!
+}
+
+input ActionWorkflowStepActorsInput {
+  """
+  Users statically assigned to perform the review step.
+  """
+  userUrns: [String!]!
+
+  """
+  Groups statically assigned to perform the review step.
+  """
+  groupUrns: [String!]!
+
+  """
+  Roles statically assigned to perform the review step.
+  """
+  roleUrns: [String!]!
+
+  """
+  Dynamic assignment type for the review step.
+  """
+  dynamicAssignment: ActionWorkflowStepDynamicAssignmentInput
+}
+
+input ActionWorkflowStepDynamicAssignmentInput {
+  """
+  A standardized policy for resolving actors dynamically for an access request.
+  """
+  type: ActionWorkflowStepDynamicAssignmentType
+
+  """
+  Optional: A well defined set of ownership type urns to including in routing.
+  """
+  ownershipTypeUrns: [String!]
+}
+
+enum ActionWorkflowStepDynamicAssignmentType {
+  """
+  Assign the entity owners.
+  """
+  ENTITY_OWNERS
+
+  """
+  Assign the entity domain owners.
+  """
+  ENTITY_DOMAIN_OWNERS
+
+  """
+  Assign the entity data product owners.
+  """
+  ENTITY_DATA_PRODUCT_OWNERS
+}
+
+"""
+Describes a single input field required by a workflow.
+
+Each field has a display label, type, constraints (e.g., allowed values),
+and metadata that controls how it's rendered and validated.
+"""
+input ActionWorkflowFieldInput {
+  """
+  A workflow-local identifier for this field.
+
+  This ID must be unique within the workflow and is used to match values during workflow execution.
+  """
+  id: String!
+
+  """
+  A user-facing label or name for the field (e.g., "Requester Email").
+  """
+  name: String!
+
+  """
+  Optional description shown alongside the field to explain its purpose.
+  """
+  description: String
+
+  """
+  The URN of the value type (e.g., urn:li:dataType:string, urn:li:dataType:urn).
+  Determines the core type of data the field accepts.
+  """
+  valueType: ActionWorkflowFieldValueType!
+
+  """
+  The list of allowed entity types
+  """
+  allowedEntityTypes: [EntityType!]
+
+  """
+  Optional list of specific values the field can accept.
+
+  If not specified, any value of the specified type is accepted.
+  """
+  allowedValues: [PropertyValueInput!]
+
+  """
+  Whether this field supports a single value or multiple values.
+  """
+  cardinality: PropertyCardinality!
+
+  """
+  Whether this field is required to submit the workflow.
+  Defaults to false.
+  """
+  required: Boolean = false
+
+  """
+  A dynamic condition that determines whether the field should be shown or not.
+  """
+  condition: ActionWorkflowFieldConditionInput
+}
+
+"""
+The type of field condition
+"""
+enum ActionWorkflowFieldConditionType {
+  """
+  The field should be shown if the value of a previously completed field matches the specified value.
+  """
+  SINGLE_FIELD_VALUE
+}
+
+"""
+A specific type of field condition that checks whether a field should be shown based on the value of a previously completed field.
+"""
+type ActionWorkflowSingleFieldValueCondition {
+  """
+  The id / name of the field that the criterion refers to
+  """
+  field: String!
+
+  """
+  Values. one of which the intended field should match
+  Note, if values is set, the above "value" field will be ignored
+  """
+  values: [String!]!
+
+  """
+  The condition for the criterion, e.g. EQUAL, START_WITH
+  """
+  condition: FilterOperator!
+
+  """
+  Whether the condition should be negated
+  """
+  negated: Boolean!
+}
+
+"""
+A condition that determines whether a field should be shown in the action workflow.
+This may evolve in the future to have additional condition types.
+"""
+type ActionWorkflowFieldCondition {
+  """
+  The type of field condition
+  """
+  type: ActionWorkflowFieldConditionType!
+
+  """
+  A field value condition. Present if type is SINGLE_FIELD_VALUE.
+  """
+  singleFieldValueCondition: ActionWorkflowSingleFieldValueCondition
+}
+
+"""
+Input type for ActionWorkflowSingleFieldValueCondition
+"""
+input ActionWorkflowSingleFieldValueConditionInput {
+  """
+  The id / name of the field that the criterion refers to
+  """
+  field: String!
+
+  """
+  Values. one of which the intended field should match
+  Note, if values is set, the above "value" field will be ignored
+  """
+  values: [String!]!
+
+  """
+  The condition for the criterion, e.g. EQUAL, START_WITH
+  """
+  condition: FilterOperator = EQUAL
+
+  """
+  Whether the condition should be negated
+  """
+  negated: Boolean = false
+}
+
+"""
+Input type for ActionWorkflowFieldCondition
+"""
+input ActionWorkflowFieldConditionInput {
+  """
+  The type of field condition
+  """
+  type: ActionWorkflowFieldConditionType!
+
+  """
+  A field value condition. Present if type is SINGLE_FIELD_VALUE.
+  """
+  singleFieldValueCondition: ActionWorkflowSingleFieldValueConditionInput
+}
+
+enum ActionWorkflowFieldValueType {
+  """
+  A string value, e.g., a name or description.
+  """
+  STRING
+
+  """
+  A rich text, long text value, e.g., a name or description.
+  """
+  RICH_TEXT
+
+  """
+  A URN value, e.g., a user or group identifier.
+  """
+  URN
+
+  """
+  A date/time value, typically represented as an epoch timestamp in milliseconds.
+  """
+  DATE
+
+  """
+  A number value, e.g., an integer or float.
+  """
+  NUMBER
+}
+
+"""
+Defines where and how the workflow appears in the user interface.
+
+Each entry point controls how users discover and access the workflow
+(e.g., via the homepage or on an entity profile).
+"""
+input ActionWorkflowEntrypointInput {
+  """
+  The location where this workflow is made visible (e.g., HOME or ENTITY_PROFILE).
+  """
+  type: ActionWorkflowEntrypointType!
+
+  """
+  A human-readable label describing the entry point action (e.g., "Request Access").
+  """
+  label: String!
+}
+
+"""
+Filters used when querying workflows.
+"""
+input ListActionWorkflowsInput {
+  """
+  Starting index for pagination.
+  """
+  start: Int = 0
+
+  """
+  Maximum number of workflows to return.
+  """
+  count: Int = 20
+
+  """
+  Match by top-level workflow category.
+  """
+  category: ActionWorkflowCategory
+
+  """
+  Match by custom category string. Provided only if category is CUSTOM.
+  """
+  customCategory: String
+
+  """
+  Filter workflows that include at least one entrypoint of the specified type.
+  """
+  entrypointType: ActionWorkflowEntrypointType
+
+  """
+  Filter workflows by applicable entity type
+  """
+  entityType: EntityType
+}
+
+"""
+Paginated list of workflow definitions.
+"""
+type ListActionWorkflowResult {
+  """
+  Starting index of this page of results.
+  """
+  start: Int!
+
+  """
+  Number of results returned.
+  """
+  count: Int!
+
+  """
+  Total number of workflows matching the query.
+  """
+  total: Int!
+
+  """
+  The matching workflow definitions.
+  """
+  workflows: [ActionWorkflow!]!
+}
+
+"""
+Represents a single user-submitted instance of a workflow execution,
+e.g., an access request triggered from a defined workflow template.
+
+Includes metadata like description, expiration, and input field values.
+"""
+type ActionWorkflowFormRequest {
+  """
+  The related workflow urn for the request.
+  """
+  workflowUrn: String
+
+  """
+  The category of the workflow
+  """
+  category: ActionWorkflowCategory
+
+  """
+  A custom category of the workflow, provided if category is CUSTOM
+  """
+  customCategory: String
+
+  """
+  Field values provided by the requestor.
+  Each corresponds to a defined field in the workflow template.
+  """
+  fields: [ActionWorkflowRequestField!]!
+
+  """
+  Access request related fields.
+  """
+  access: AccessWorkflowRequest
+
+  """
+  State related to the step of the request
+  """
+  stepState: ActionWorkflowStepState!
+}
+
+type AccessWorkflowRequest {
+  """
+  Optional expiration timestamp for the request (epoch millis).
+  If not provided, the request does not expire.
+  """
+  expiresAt: Long
+}
+
+type ActionWorkflowStepState {
+  """
+  The id of the current step
+  """
+  stepId: String!
+}
+
+"""
+A value provided for a specific field within a workflow request.
+
+Each field includes an ID (matching the workflow template) and a set of values.
+"""
+type ActionWorkflowRequestField {
+  """
+  ID of the field being populated (local to the workflow definition).
+  """
+  id: String!
+
+  """
+  Values supplied by the requestor for this field.
+  Uses the primitive value type from structured properties.
+  Empty if no value was provided.
+  """
+  values: [PropertyValue!]!
+}
+
+"""
+Input for creating or updating a workflow request instance.
+"""
+input ActionWorkflowRequestInput {
+  """
+  Optional user-facing description for the request.
+  """
+  description: String
+
+  """
+  Field values submitted with the request.
+  """
+  fields: [ActionWorkflowRequestFieldInput!]!
+
+  """
+  Optional expiration timestamp for the request (epoch millis).
+  """
+  expiresAt: Long
+}
+
+"""
+Input for a specific field value within a workflow request.
+"""
+input ActionWorkflowRequestFieldInput {
+  """
+  ID of the field being populated (must match a defined field in the workflow).
+  """
+  id: String!
+
+  """
+  The values supplied for this field.
+  """
+  values: [PropertyValueInput!]!
+}
+
+"""
+Input for creating a new action workflow form request instance.
+"""
+input CreateActionWorkflowFormRequestInput {
+  """
+  The urn of the workflow definition to use for this request.
+  """
+  workflowUrn: String!
+
+  """
+  Optional entity URN this request is associated with.
+  If the workflow is associated with entity types,
+  """
+  entityUrn: String
+
+  """
+  Optional user-facing description of the request.
+  """
+  description: String
+
+  """
+  Custom field values submitted by the user initiating the request.
+  Must correspond to the template's expected field definitions.
+  """
+  fields: [ActionWorkflowRequestFieldInput!]!
+
+  """
+  Optional access-specific fields (e.g. expiration time).
+  """
+  access: CreateAccessWorkflowRequestInput
+}
+
+"""
+Input required for creating an access request
+"""
+input CreateAccessWorkflowRequestInput {
+  """
+  Optional: The time at which access should expire.
+  """
+  expiresAt: Long
+}
+
+"""
+Input used to review (approve/reject) an in-progress workflow request.
+"""
+input ReviewActionWorkflowFormRequestInput {
+  """
+  The URN of the request being reviewed.
+  """
+  urn: String!
+
+  """
+  The action taken by the reviewer (e.g., APPROVE, REJECT).
+  """
+  result: ActionRequestResult!
+
+  """
+  Optional reviewer comment (e.g., reason for rejection).
+  """
+  comment: String
 }

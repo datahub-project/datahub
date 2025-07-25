@@ -1,0 +1,65 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.common.Urn
+
+/**
+ * A request for an access workflow form to be reviewed.
+ *
+ * For an access workflow of trigger type FORM, this action request currently represents the "state" 
+ * of the workflow instance. 
+ *
+ * In the future, we may add more features like due dates, escalations, etc.
+ * Ideally, for now we are keeping these out of here.
+ */
+record ActionWorkflowFormRequest {
+    /**
+    * The urn of the associated access request workflow.
+    */
+    @Searchable = {
+        "fieldName": "actionWorkflow"
+    }
+    workflow: Urn
+
+    /**
+    * The category of the workflow. 
+    * Primarily used for searching / filtering action requests.
+    */
+    @Searchable = { "fieldName": "workflowCategory" }
+    category: ActionWorkflowCategory
+
+    /**
+     * The custom category of the workflow, if category is custom.
+     * Primarily used for searching / filtering action requests.
+     */
+    @Searchable = { "fieldName": "customWorkflowCategory" }
+    customCategory: optional string
+
+    /**
+    * Custom fields provided by the user making the request if the action request is of type FORM_SUBMITTED
+    * Eventually, these may need to become search indexed. For now, not indexed.
+    */
+    fields: array[ActionWorkflowFormRequestField]
+
+    /**
+    * Details specific for access request workflow requests.
+    */
+    access: optional record ActionWorkflowRequestAccess {
+        /**
+        * Expiration time for the action request (optional, if part of the template).
+        */
+        @Searchable = {}
+        expiresAt: optional long
+    }
+
+    /**
+     * State related to steps. This should correspond to a step of type ACTION_REQUEST_REVIEW in the workflow 
+     * definition.
+     */
+    stepState: record ActionWorkflowRequestStepState {
+        /**
+         * The id of the current step in the workflow, which should be of type ACTION_REQUEST_REVIEW.
+         */
+        @Searchable = { "fieldName": "workflowStepId" }
+        stepId: string
+    }
+}

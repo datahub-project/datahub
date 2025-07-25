@@ -1,0 +1,47 @@
+namespace com.linkedin.actionworkflow
+
+/**
+ * Defines a single review step in a workflow.
+ * 
+ * Today, steps are simple. They execute in sequence after the trigger event. 
+ *
+ * In the future, we may extend steps to include "depends on steps" to form a DAG structure across
+ * steps. For now, steps execute in linear sequence after the trigger event -- however the expectation
+ * is that they COULD run in parallel after the trigger event without a problem in the future.
+ *
+ * If necessary, we'll extend this to represent conditional branching nodes as a step / node in the Workflow, e.g. Conditional Step, Notification Step, Review Step
+ *
+ * Today, step state is reflected via a single entity representing the workflow instance: the ActionRequest entity.
+ * In the future we'll explore modeling individual step states separately if required.
+ */
+record ActionWorkflowStep {
+    /**
+    * A unique identifier for this step within the workflow.
+    * This ID must be unique within the workflow and is used to match values during workflow execution.
+    */
+    id: string
+
+    /**
+     * A type of step / task / node in the Action Workflow. 
+     */
+    type: enum ActionWorkflowStepType {
+        /** 
+         * The only step type currently supported - a human review step. 
+         * This step type requires that an assigned user reviews an action request associated with this workflow. 
+         * reviews the request, approving or denying it (currently the actions supported, may extend later). 
+         */ 
+        APPROVAL
+    }
+
+    /**
+    * Optional description shown alongside the step to explain its purpose.
+    */
+    description: optional string
+
+    /**
+    * A definition of the actors required to execute the step, if there are any.
+    *
+    * For steps of type REQUEST_REVIEW, this field MUST be provided! 
+    */
+    actors: optional ActionWorkflowStepActors
+}

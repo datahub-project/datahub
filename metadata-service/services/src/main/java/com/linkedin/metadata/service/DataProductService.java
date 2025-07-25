@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -24,6 +25,7 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -300,6 +302,45 @@ public class DataProductService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to delete DataProduct with urn %s", dataProductUrn), e);
+    }
+  }
+
+  /**
+   * Returns a list of DataProduct URNs that contain the specified entity.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the URN of the entity to find data products for
+   * @return a list of DataProduct URNs that contain the entity
+   */
+  @Nonnull
+  public List<Urn> getDataProductsContainingEntity(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(entityUrn, "entityUrn must not be null");
+
+    try {
+      // Find data products that contain this entity using incoming "DataProductContains"
+      // relationships
+      final EntityRelationships relationships =
+          _graphClient.getRelatedEntities(
+              entityUrn.toString(),
+              ImmutableSet.of("DataProductContains"),
+              com.linkedin.metadata.query.filter.RelationshipDirection.INCOMING,
+              0,
+              100, // Limit to 100 data products (should be more than enough)
+              opContext.getActorContext().getActorUrn().toString());
+
+      if (relationships != null && relationships.hasRelationships()) {
+        return relationships.getRelationships().stream()
+            .map(EntityRelationship::getEntity)
+            .collect(Collectors.toList());
+      }
+
+      return new ArrayList<>();
+
+    } catch (Exception e) {
+      log.warn("Failed to find data products containing entity {}: {}", entityUrn, e.getMessage());
+      return new ArrayList<>();
     }
   }
 

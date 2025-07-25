@@ -21,7 +21,11 @@ import com.linkedin.datahub.graphql.resolvers.action.execution.StartActionPipeli
 import com.linkedin.datahub.graphql.resolvers.action.execution.StopActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.UpsertActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.actionrequest.ListActionRequestsResolver;
-import com.linkedin.datahub.graphql.resolvers.actionrequest.ListRejectedActionRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.actionworkflows.CreateActionWorkflowFormRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.actionworkflows.DeleteActionWorkflowResolver;
+import com.linkedin.datahub.graphql.resolvers.actionworkflows.ListActionWorkflowsResolver;
+import com.linkedin.datahub.graphql.resolvers.actionworkflows.ReviewActionWorkflowFormRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.actionworkflows.UpsertActionWorkflowResolver;
 import com.linkedin.datahub.graphql.resolvers.ai.InferDocumentationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateDatasetAssertionResolver;
@@ -143,6 +147,7 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.ActionRequestService;
+import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.FormService;
@@ -194,6 +199,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private TimeseriesAspectService timeseriesAspectService;
   private MetadataTestClient metadataTestClient;
   private ActionRequestService actionRequestService;
+  private ActionWorkflowService actionWorkflowService;
   private StsClient stsClient;
 
   // Config
@@ -238,6 +244,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.shareService = args.getShareService();
     this.formService = args.getFormService();
     this.metadataTestClient = args.getMetadataTestClient();
+    this.actionWorkflowService = args.getActionWorkflowService();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -328,6 +335,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     configureFormAnalyticsResolver(builder, baseEngine);
     configureQueryEntityResolvers(builder, baseEngine);
     configureAssertionResolvers(builder, baseEngine);
+    configureActionWorkflowResolvers(builder, baseEngine);
   }
 
   private void configureMutationResolvers(
@@ -370,6 +378,16 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new ProposeUpdateDescriptionResolver(actionRequestService))
                 .dataFetcher(
                     "proposeDataContract", new ProposeDataContractResolver(actionRequestService))
+                .dataFetcher(
+                    "upsertActionWorkflow", new UpsertActionWorkflowResolver(actionWorkflowService))
+                .dataFetcher(
+                    "deleteActionWorkflow", new DeleteActionWorkflowResolver(actionWorkflowService))
+                .dataFetcher(
+                    "createActionWorkflowFormRequest",
+                    new CreateActionWorkflowFormRequestResolver(actionWorkflowService))
+                .dataFetcher(
+                    "reviewActionWorkflowFormRequest",
+                    new ReviewActionWorkflowFormRequestResolver(actionWorkflowService))
                 .dataFetcher(
                     "createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
                 .dataFetcher(
@@ -506,8 +524,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "getActionRequestAssignee",
                     new GetActionRequestAssigneeResolver(actionRequestService))
                 .dataFetcher(
-                    "listRejectedActionRequests",
-                    new ListRejectedActionRequestsResolver(entityClient, entityService))
+                    "listActionWorkflows", new ListActionWorkflowsResolver(actionWorkflowService))
                 .dataFetcher("validateTest", new ValidateTestResolver(testEngine))
                 .dataFetcher(
                     "getUserNotificationSettings",
@@ -1189,5 +1206,55 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 new BatchGetEntitiesResolver(
                     baseEngine.entityTypes,
                     (env) -> ((QueryUsageFeatures) env.getSource()).getTopUsersLast30Days())));
+  }
+
+  private void configureActionWorkflowResolvers(
+      final RuntimeWiring.Builder builder, final GmsGraphQLEngine baseEngine) {
+    builder.type(
+        "ActionWorkflowStepActors",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "users",
+                    new LoadableTypeBatchResolver<>(
+                        baseEngine.getCorpUserType(),
+                        (env) ->
+                            ((ActionWorkflowStepActors) env.getSource())
+                                .getUsers().stream()
+                                    .map(CorpUser::getUrn)
+                                    .collect(Collectors.toList())))
+                .dataFetcher(
+                    "groups",
+                    new LoadableTypeBatchResolver<>(
+                        baseEngine.getCorpGroupType(),
+                        (env) ->
+                            ((ActionWorkflowStepActors) env.getSource())
+                                .getGroups().stream()
+                                    .map(CorpGroup::getUrn)
+                                    .collect(Collectors.toList())))
+                .dataFetcher(
+                    "roles",
+                    new LoadableTypeBatchResolver<>(
+                        baseEngine.getRoleType(),
+                        (env) ->
+                            ((ActionWorkflowStepActors) env.getSource())
+                                .getRoles().stream()
+                                    .map(DataHubRole::getUrn)
+                                    .collect(Collectors.toList()))));
+    builder.type(
+        "ActionWorkflowStepDynamicAssignment",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "ownershipTypes",
+                new LoadableTypeBatchResolver<>(
+                    baseEngine.getOwnershipType(),
+                    env -> {
+                      ActionWorkflowStepDynamicAssignment src = env.getSource();
+                      return Optional.ofNullable(src.getOwnershipTypes())
+                          .orElse(Collections.emptyList())
+                          .stream()
+                          .map(OwnershipTypeEntity::getUrn)
+                          .collect(Collectors.toList());
+                    })));
   }
 }

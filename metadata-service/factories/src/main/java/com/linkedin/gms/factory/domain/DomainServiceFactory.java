@@ -16,7 +16,7 @@ public class DomainServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected DomainService getInstance(
-      final SystemEntityClient entityClient,
+      @Qualifier("systemEntityClient") final SystemEntityClient entityClient,
       @Qualifier("openApiClient") final OpenApiClient openApiClient,
       final ObjectMapper objectMapper)
       throws Exception {

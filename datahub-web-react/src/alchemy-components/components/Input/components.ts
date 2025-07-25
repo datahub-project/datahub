@@ -31,7 +31,7 @@ export const InputWrapper = styled.div({
 export const InputContainer = styled.div(
     ({ isSuccess, warning, isDisabled, isInvalid }: InputProps) => ({
         border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid)}`,
-        backgroundColor: isDisabled ? colors.gray[100] : colors.white,
+        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
         paddingRight: spacing.md,
     }),
     {
@@ -66,6 +66,10 @@ export const InputField = styled.input({
 
     '&:focus': {
         outline: 'none',
+    },
+
+    '&:disabled': {
+        backgroundColor: colors.gray[1500],
     },
 });
 

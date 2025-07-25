@@ -7,7 +7,7 @@
     "fields" : [ {
       "name" : "type",
       "type" : "string",
-      "doc" : "The type of the action request, for example 'TAG_ASSOCIATION'",
+      "doc" : "The type of the action request, for example 'TAG_ASSOCIATION', 'WORKFLOW_FORM_REQUEST'",
       "Searchable" : {
         "addToFilters" : true,
         "fieldType" : "KEYWORD"
@@ -534,6 +534,100 @@
           },
           "doc" : "A proposal to create or modify a Data Contract",
           "optional" : true
+        }, {
+          "name" : "workflowFormRequest",
+          "type" : {
+            "type" : "record",
+            "name" : "ActionWorkflowFormRequest",
+            "namespace" : "com.linkedin.actionworkflow",
+            "doc" : "A request for an access workflow form to be reviewed.\n\nFor an access workflow of trigger type FORM, this action request currently represents the \"state\" \nof the workflow instance. \n\nIn the future, we may add more features like due dates, escalations, etc.\nIdeally, for now we are keeping these out of here.",
+            "fields" : [ {
+              "name" : "workflow",
+              "type" : "com.linkedin.common.Urn",
+              "doc" : "The urn of the associated access request workflow.",
+              "Searchable" : {
+                "fieldName" : "actionWorkflow"
+              }
+            }, {
+              "name" : "category",
+              "type" : {
+                "type" : "enum",
+                "name" : "ActionWorkflowCategory",
+                "symbols" : [ "ACCESS", "CUSTOM" ],
+                "symbolDocs" : {
+                  "ACCESS" : "Workflow for requesting access to a resource, such as a dataset or data job.\nRequires the `access` field to be populated with specific access parameters.",
+                  "CUSTOM" : "Custom, non-access related workflow. For example, may be used to model workflows like\nasset creation, asset cleanup or deletion, etc."
+                }
+              },
+              "doc" : "The category of the workflow. \nPrimarily used for searching / filtering action requests.",
+              "Searchable" : {
+                "fieldName" : "workflowCategory"
+              }
+            }, {
+              "name" : "customCategory",
+              "type" : "string",
+              "doc" : "The custom category of the workflow, if category is custom.\nPrimarily used for searching / filtering action requests.",
+              "optional" : true,
+              "Searchable" : {
+                "fieldName" : "customWorkflowCategory"
+              }
+            }, {
+              "name" : "fields",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "ActionWorkflowFormRequestField",
+                  "doc" : "Simply capture the field id + the value.",
+                  "fields" : [ {
+                    "name" : "id",
+                    "type" : "string",
+                    "doc" : "Workflow-local id for the field"
+                  }, {
+                    "name" : "values",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.structured.PrimitivePropertyValue"
+                    },
+                    "doc" : "Value, reused model from structured properties. Empty if no response was provided."
+                  } ]
+                }
+              },
+              "doc" : "Custom fields provided by the user making the request if the action request is of type FORM_SUBMITTED\nEventually, these may need to become search indexed. For now, not indexed."
+            }, {
+              "name" : "access",
+              "type" : {
+                "type" : "record",
+                "name" : "ActionWorkflowRequestAccess",
+                "fields" : [ {
+                  "name" : "expiresAt",
+                  "type" : "long",
+                  "doc" : "Expiration time for the action request (optional, if part of the template).",
+                  "optional" : true,
+                  "Searchable" : { }
+                } ]
+              },
+              "doc" : "Details specific for access request workflow requests.",
+              "optional" : true
+            }, {
+              "name" : "stepState",
+              "type" : {
+                "type" : "record",
+                "name" : "ActionWorkflowRequestStepState",
+                "fields" : [ {
+                  "name" : "stepId",
+                  "type" : "string",
+                  "doc" : "The id of the current step in the workflow, which should be of type ACTION_REQUEST_REVIEW.",
+                  "Searchable" : {
+                    "fieldName" : "workflowStepId"
+                  }
+                } ]
+              },
+              "doc" : "State related to steps. This should correspond to a step of type ACTION_REQUEST_REVIEW in the workflow \ndefinition."
+            } ]
+          },
+          "doc" : "An action workflow form request.",
+          "optional" : true
         } ]
       },
       "doc" : "Parameters specific for a particular Action Request type",
@@ -659,7 +753,7 @@
     "Aspect" : {
       "name" : "actionRequestStatus"
     }
-  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.DomainProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.OwnerProposal", "com.linkedin.actionrequest.StructuredPropertyProposal", "com.linkedin.actionrequest.TagProposal", "com.linkedin.ai.InferenceMetadata", {
+  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.DomainProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.OwnerProposal", "com.linkedin.actionrequest.StructuredPropertyProposal", "com.linkedin.actionrequest.TagProposal", "com.linkedin.actionworkflow.ActionWorkflowCategory", "com.linkedin.actionworkflow.ActionWorkflowFormRequest", "com.linkedin.actionworkflow.ActionWorkflowFormRequestField", "com.linkedin.actionworkflow.ActionWorkflowRequestAccess", "com.linkedin.actionworkflow.ActionWorkflowRequestStepState", "com.linkedin.ai.InferenceMetadata", {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",

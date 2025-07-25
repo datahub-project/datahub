@@ -27,6 +27,10 @@ public enum NotificationScenarioType {
   PROPOSAL_STATUS_CHANGE,
   /** A proposal a user has created has been approved or rejected. */
   PROPOSER_PROPOSAL_STATUS_CHANGE,
+  /** A new action workflow form request is created. */
+  NEW_ACTION_WORKFLOW_FORM_REQUEST,
+  /** An action workflow form request step is completed */
+  REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
   INGESTION_RUN_CHANGE,
   INGESTION_FAILURE,
   ASSERTION_STATUS_CHANGE,

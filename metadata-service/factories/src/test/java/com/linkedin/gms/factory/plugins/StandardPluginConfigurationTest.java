@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.plugins;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.actionrequest.validation.ActionRequestWorkflowRequestValidator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
@@ -16,11 +17,16 @@ import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
+import io.datahubproject.metadata.context.OperationContext;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
@@ -36,6 +42,18 @@ import org.testng.annotations.Test;
 public class StandardPluginConfigurationTest extends AbstractTestNGSpringContextTests {
 
   @Autowired private ApplicationContext context;
+
+  @Bean(name = "actionWorkflowService")
+  @Primary
+  public ActionWorkflowService actionWorkflowService() {
+    return Mockito.mock(ActionWorkflowService.class);
+  }
+
+  @Bean(name = "systemOperationContext")
+  @Primary
+  public OperationContext systemOperationContext() {
+    return Mockito.mock(OperationContext.class);
+  }
 
   @Test
   public void testIgnoreUnknownMutatorBeanCreation() {
@@ -194,6 +212,15 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         context.getBean("ExecuteIngestionAuthValidator", AspectPayloadValidator.class);
     assertNotNull(validator);
     assertTrue(validator instanceof ExecuteIngestionAuthValidator);
+  }
+
+  @Test
+  public void testActionRequestWorkflowRequestValidatorBeanCreation() {
+    assertTrue(context.containsBean("actionRequestWorkflowRequestValidator"));
+    AspectPayloadValidator validator =
+        context.getBean("actionRequestWorkflowRequestValidator", AspectPayloadValidator.class);
+    assertNotNull(validator);
+    assertTrue(validator instanceof ActionRequestWorkflowRequestValidator);
   }
 
   @Test

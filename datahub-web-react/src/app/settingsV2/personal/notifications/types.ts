@@ -19,6 +19,13 @@ const GROUP_PROPOSAL_NOTIFICATIONS = [
     },
 ];
 
+const GROUP_ACTION_WORKFLOW_FORM_REQUEST_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.NewActionWorkflowFormRequest,
+        description: 'This group is assigned to review a new workflow form request',
+    },
+];
+
 const USER_PROPOSAL_NOTIFICATIONS = [
     {
         type: NotificationScenarioType.ProposerProposalStatusChange,
@@ -42,6 +49,17 @@ const USER_COMPLIANCE_FORMS_NOTIFICATIONS = [
     },
 ];
 
+const USER_ACTION_WORKFLOW_FORM_NOTIFICATIONS = [
+    {
+        type: NotificationScenarioType.NewActionWorkflowFormRequest,
+        description: 'You are assigned to review a new workflow form request',
+    },
+    {
+        type: NotificationScenarioType.RequesterActionWorkflowFormRequestStatusChange,
+        description: 'A workflow form request you raised is approved or denied',
+    },
+];
+
 export const USER_PROPOSAL_NOTIFICATIONS_GROUP = {
     title: 'Proposals',
     notifications: USER_PROPOSAL_NOTIFICATIONS,
@@ -55,6 +73,16 @@ export const USER_COMPLIANCE_FORMS_NOTIFICATIONS_GROUP = {
 export const GROUP_PROPOSAL_NOTIFICATIONS_GROUP = {
     title: 'Proposals',
     notifications: GROUP_PROPOSAL_NOTIFICATIONS,
+};
+
+export const USER_ACTION_WORKFLOW_FORM_REQUEST_NOTIFICATIONS_GROUP = {
+    title: 'Workflows',
+    notifications: USER_ACTION_WORKFLOW_FORM_NOTIFICATIONS,
+};
+
+export const GROUP_ACTION_WORKFLOW_FORM_REQUEST_NOTIFICATIONS_GROUP = {
+    title: 'Workflows',
+    notifications: GROUP_ACTION_WORKFLOW_FORM_REQUEST_NOTIFICATIONS,
 };
 
 const USER_COMMUNITY_UPDATES_NOTIFICATIONS = [

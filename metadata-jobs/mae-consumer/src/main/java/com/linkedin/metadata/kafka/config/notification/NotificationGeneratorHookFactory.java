@@ -7,6 +7,7 @@ import com.linkedin.metadata.kafka.hook.notification.connection.ConnectionTestNo
 import com.linkedin.metadata.kafka.hook.notification.incident.IncidentNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.ingestion.IngestionNotificationGenerator;
 import com.linkedin.metadata.kafka.hook.notification.proposal.ProposalNotificationGenerator;
+import com.linkedin.metadata.kafka.hook.notification.workflowrequest.WorkflowRequestNotificationGenerator;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,7 +21,8 @@ import org.springframework.context.annotation.Import;
   ProposalNotificationGeneratorFactory.class,
   EntityChangeNotificationGeneratorFactory.class,
   IngestionNotificationGeneratorFactory.class,
-  ConnectionTestNotificationGeneratorFactory.class
+  ConnectionTestNotificationGeneratorFactory.class,
+  WorkflowRequestNotificationGeneratorFactory.class
 })
 public class NotificationGeneratorHookFactory {
 
@@ -33,6 +35,8 @@ public class NotificationGeneratorHookFactory {
   @Autowired private EntityChangeNotificationGenerator _entityChangeNotificationGenerator;
 
   @Autowired private ConnectionTestNotificationGenerator _connectionTestNotificationGenerator;
+
+  @Autowired private WorkflowRequestNotificationGenerator _workflowRequestNotificationGenerator;
 
   @Value("${notifications.enabled:true}")
   private boolean isEnabled;
@@ -47,7 +51,8 @@ public class NotificationGeneratorHookFactory {
             _proposalNotificationGenerator,
             _entityChangeNotificationGenerator,
             _ingestionNotificationGenerator,
-            _connectionTestNotificationGenerator),
+            _connectionTestNotificationGenerator,
+            _workflowRequestNotificationGenerator),
         isEnabled,
         consumerGroupSuffix);
   }

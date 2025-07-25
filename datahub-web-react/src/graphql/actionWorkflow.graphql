@@ -1,0 +1,139 @@
+fragment actionWorkflow on ActionWorkflow {
+    urn
+    name
+    category
+    customCategory
+    description
+    trigger {
+        type
+        form {
+            entrypoints {
+                type
+                label
+            }
+            entityTypes
+            fields {
+                id
+                name
+                description
+                valueType
+                allowedEntityTypes
+                allowedValues {
+                    ... on StringValue {
+                        stringValue
+                    }
+                    ... on NumberValue {
+                        numberValue
+                    }
+                }
+                cardinality
+                required
+                condition {
+                    type
+                    singleFieldValueCondition {
+                        field
+                        values
+                        condition
+                        negated
+                    }
+                }
+            }
+        }
+    }
+    steps {
+        id
+        type
+        description
+        actors {
+            users {
+                urn
+                type
+                username
+                info {
+                    displayName
+                    firstName
+                    lastName
+                    fullName
+                }
+                editableProperties {
+                    pictureLink
+                }
+            }
+            groups {
+                urn
+                type
+                name
+                info {
+                    displayName
+                }
+            }
+            roles {
+                urn
+                type
+                name
+            }
+            dynamicAssignment {
+                type
+                ownershipTypes {
+                    urn
+                    info {
+                        name
+                    }
+                }
+            }
+        }
+    }
+    created {
+        time
+        actor {
+            urn
+            type
+            username
+            info {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                pictureLink
+            }
+        }
+    }
+    lastModified {
+        time
+        actor {
+            urn
+            type
+            username
+            info {
+                displayName
+                firstName
+                lastName
+                fullName
+            }
+            editableProperties {
+                pictureLink
+            }
+        }
+    }
+}
+
+query listActionWorkflows($input: ListActionWorkflowsInput!) {
+    listActionWorkflows(input: $input) {
+        start
+        count
+        total
+        workflows {
+            ...actionWorkflow
+        }
+    }
+}
+
+mutation createActionWorkflowFormRequest($input: CreateActionWorkflowFormRequestInput!) {
+    createActionWorkflowFormRequest(input: $input)
+}
+
+mutation reviewActionWorkflowFormRequest($input: ReviewActionWorkflowFormRequestInput!) {
+    reviewActionWorkflowFormRequest(input: $input)
+}

@@ -1,0 +1,984 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:test-access-reviewer",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "displayName": "Test Access Reviewer",
+        "email": "test-access-reviewer@company.com",
+        "title": "Data Access Reviewer",
+        "fullName": "Test Access Reviewer",
+        "firstName": "Test",
+        "lastName": "Reviewer",
+        "departmentName": "Data Governance"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:test-security-reviewer",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "displayName": "Test Security Reviewer",
+        "email": "test-security-reviewer@company.com",
+        "title": "Security Reviewer",
+        "fullName": "Test Security Reviewer",
+        "firstName": "Security",
+        "lastName": "Reviewer",
+        "departmentName": "Security"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:test-access-reviewers",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+      "json": {
+        "displayName": "Test Access Reviewers Group",
+        "description": "Group for reviewing access requests in test workflows",
+        "email": "test-access-reviewers@company.com",
+        "admins": [],
+        "members": [],
+        "groups": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:security-team",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+      "json": {
+        "displayName": "Security Team",
+        "description": "Security team responsible for data classification and security reviews",
+        "email": "security-team@company.com",
+        "admins": [],
+        "members": [],
+        "groups": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-access-workflow-1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Access Workflow 1",
+        "category": "ACCESS",
+        "description": "Test workflow for requesting access to datasets",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "fields": [
+              {
+                "id": "reason",
+                "name": "Access Reason",
+                "description": "Why do you need access?",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": true
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Access"
+              }
+            ]
+          }
+        },  
+        "steps": [
+          {
+            "id": "manager-approval",
+            "type": "APPROVAL",
+            "description": "Manager approval step",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:admin",
+                "urn:li:corpuser:test-access-reviewer"
+              ],
+              "groups": [
+                "urn:li:corpGroup:test-access-reviewers"
+              ],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-access-workflow-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Access Workflow 2",
+        "category": "ACCESS",
+        "description": "Another test workflow for access requests",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset",
+              "urn:li:entityType:datahub.dashboard"
+            ],
+            "fields": [
+              {
+                "id": "purpose",
+                "name": "Business Purpose",
+                "description": "What is the business purpose?",
+                "valueType": "urn:li:dataType:datahub.rich_text",
+                "cardinality": "SINGLE",
+                "required": true
+              },
+              {
+                "id": "duration",
+                "name": "Access Duration",
+                "description": "How long do you need access?",
+                "valueType": "urn:li:dataType:datahub.number",
+                "cardinality": "SINGLE",
+                "required": false
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Data Access"
+              },
+              {
+                "type": "HOME",
+                "label": "Request Access"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "data-owner-approval",
+            "type": "APPROVAL",
+            "description": "Data owner approval",
+            "actors": {
+              "users": [],
+              "groups": [],
+              "roles": [],
+              "dynamicAssignment": {
+                "type": "ENTITY_OWNERS"
+              }
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-custom-workflow-1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Custom Workflow",
+        "category": "CUSTOM",
+        "customCategory": "DATA_CLASSIFICATION",
+        "description": "Custom workflow for data classification requests",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "fields": [
+              {
+                "id": "classification_level",
+                "name": "Classification Level",
+                "description": "What classification level is needed?",
+                "valueType": "urn:li:dataType:datahub.string",
+                "allowedValues": [
+                  {
+                    "value": {
+                      "string": "PUBLIC"
+                    }
+                  },
+                  {
+                    "value": {
+                      "string": "INTERNAL"
+                    }
+                  },
+                  {
+                    "value": {
+                      "string": "CONFIDENTIAL"
+                    }
+                  }
+                ],
+                "cardinality": "SINGLE",
+                "required": true
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "HOME",
+                "label": "Request Data Classification"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "security-review",
+            "description": "Security team review",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [],
+              "groups": [
+                "urn:li:corpGroup:security-team"
+              ],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-multi-values-workflow",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Multi Values Workflow",
+        "category": "ACCESS",
+        "description": "Test workflow for multiple field values",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "fields": [
+              {
+                "id": "reasons",
+                "name": "Multiple Reasons",
+                "description": "Multiple reasons for access",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "MULTIPLE",
+                "required": true
+              },
+              {
+                "id": "quantities",
+                "name": "Multiple Quantities",
+                "description": "Multiple numeric values",
+                "valueType": "urn:li:dataType:datahub.number",
+                "cardinality": "MULTIPLE",
+                "required": false
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Multi-Value Access"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "multi-approval",
+            "description": "Multi-value approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:admin"
+              ],
+              "groups": [],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-multi-step-workflow",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Multi-Step Workflow",
+        "category": "ACCESS",
+        "description": "Test workflow with multiple approval steps",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "fields": [
+              {
+                "id": "reason",
+                "name": "Access Reason",
+                "description": "Why do you need access?",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": true
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Multi-Step Access"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "manager-approval",
+            "description": "Manager approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:test-access-reviewer"
+              ],
+              "groups": [],
+              "roles": []
+            }
+          },
+          {
+            "id": "security-approval",
+            "description": "Security team approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:test-security-reviewer"
+              ],
+              "groups": [
+                "urn:li:corpGroup:security-team"
+              ],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:delete-test-workflow-1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Delete Test Workflow 1",
+        "category": "ACCESS",
+        "description": "Test workflow specifically created for deletion testing",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "fields": [
+              {
+                "id": "reason",
+                "name": "Access Reason",
+                "description": "Why do you need access?",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": true
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Access"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "approval-step",
+            "description": "Approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:admin"
+              ],
+              "groups": [],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:delete-test-workflow-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Delete Test Workflow 2",
+        "category": "CUSTOM",
+        "customCategory": "DELETE_TEST",
+        "description": "Custom test workflow specifically created for deletion testing",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "fields": [
+              {
+                "id": "custom_field",
+                "name": "Custom Field",
+                "description": "A custom field for testing",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": true
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "HOME",
+                "label": "Custom Request"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "custom-approval",
+            "description": "Custom approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:admin"
+              ],
+              "groups": [],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:delete-test-workflow-3",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Delete Test Workflow 3",
+        "category": "ACCESS",
+        "description": "Another test workflow for multiple deletion testing",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "fields": [
+              {
+                "id": "multi_field",
+                "name": "Multi Field",
+                "description": "Field for multiple deletion test",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": false
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Multi Delete Test"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "multi-approval",
+            "description": "Multi deletion approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [
+                "urn:li:corpuser:admin"
+              ],
+              "groups": [],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:test-entity-owner-user",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "displayName": "Test Entity Owner User",
+        "email": "test-entity-owner-user@company.com",
+        "title": "Data Owner",
+        "fullName": "Test Entity Owner User",
+        "firstName": "Test",
+        "lastName": "EntityOwner",
+        "departmentName": "Data Management"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:test-domain-owner-user",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "displayName": "Test Domain Owner User",
+        "email": "test-domain-owner-user@company.com",
+        "title": "Domain Owner",
+        "fullName": "Test Domain Owner User",
+        "firstName": "Test",
+        "lastName": "DomainOwner",
+        "departmentName": "Data Governance"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:test-entity-owner-group",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+      "json": {
+        "displayName": "Test Entity Owner Group",
+        "description": "Group of entity owners for testing dynamic assignment",
+        "email": "test-entity-owner-group@company.com",
+        "admins": [],
+        "members": [],
+        "groups": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "corpGroup",
+    "entityUrn": "urn:li:corpGroup:test-domain-owner-group",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "corpGroupInfo",
+    "aspect": {
+      "json": {
+        "displayName": "Test Domain Owner Group",
+        "description": "Group of domain owners for testing dynamic assignment",
+        "email": "test-domain-owner-group@company.com",
+        "admins": [],
+        "members": [],
+        "groups": []
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1642233600000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-dynamic-assignment-workflow",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Dynamic Assignment Workflow",
+        "category": "ACCESS",
+        "description": "Test workflow for validating dynamic assignment of both entity owners and domain owners",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": [
+              "urn:li:entityType:datahub.dataset"
+            ],
+            "fields": [
+              {
+                "id": "reason",
+                "name": "Access Reason",
+                "description": "Why do you need access to this dataset?",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": true
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Access"
+              }
+            ]   
+          }
+        },
+        "steps": [
+          {
+            "id": "entity-owner-approval",
+            "description": "Entity owner approval",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [],
+              "groups": [],
+              "roles": [],
+              "dynamicAssignment": {
+                "type": "ENTITY_OWNERS"
+              }
+            }
+          },
+          {
+            "id": "domain-owner-approval", 
+            "description": "Domain owner approval",
+            "type": "APPROVAL",
+            "actors": {
+              "users": [],
+              "groups": [],
+              "roles": [],
+              "dynamicAssignment": {
+                "type": "ENTITY_DOMAIN_OWNERS"
+              }
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:test-dynamic-assignment-domain",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "value": "{\"name\": \"Test Dynamic Assignment Domain\", \"description\": \"Domain for testing dynamic assignment of domain owners\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "value": "{\"domains\": [\"urn:li:domain:test-dynamic-assignment-domain\"]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset,PROD)",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:test-entity-owner-user",
+            "type": "BUSINESS_OWNER"
+          },
+          {
+            "owner": "urn:li:corpGroup:test-entity-owner-group",
+            "type": "DATA_STEWARD"
+          }
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:test-dynamic-assignment-domain",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:test-domain-owner-user",
+            "type": "BUSINESS_OWNER"
+          },
+          {
+            "owner": "urn:li:corpGroup:test-domain-owner-group",
+            "type": "DATA_STEWARD"
+          }
+        ]
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  }
+]

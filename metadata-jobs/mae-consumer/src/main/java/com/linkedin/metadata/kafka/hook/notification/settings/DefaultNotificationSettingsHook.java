@@ -89,6 +89,19 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
                   new NotificationSetting()
                       .setValue(NotificationSettingValue.ENABLED)
                       .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
+              // Enable being notified when assigned a new action workflow request.
+              .put(
+                  NotificationScenarioType.NEW_ACTION_WORKFLOW_FORM_REQUEST.toString(),
+                  new NotificationSetting()
+                      .setValue(NotificationSettingValue.ENABLED)
+                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
+              // Enable being notified when an action workflow request step is completed
+              .put(
+                  NotificationScenarioType.REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE
+                      .toString(),
+                  new NotificationSetting()
+                      .setValue(NotificationSettingValue.ENABLED)
+                      .setParams(new StringMap(ImmutableMap.of("email.enabled", "true"))))
               // Enable DataHub community updates by default
               .put(
                   NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES.toString(),
@@ -112,6 +125,17 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
                   .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true"))),
               // Enable being notified when a proposal I've created is approved or rejected
               NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true"))),
+              // Enable being notified when assigned a new action workflow request.
+              NotificationScenarioType.NEW_ACTION_WORKFLOW_FORM_REQUEST.toString(),
+              new NotificationSetting()
+                  .setValue(NotificationSettingValue.ENABLED)
+                  .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true"))),
+              // Enable being notified when an action workflow request step is completed
+              NotificationScenarioType.REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE
+                  .toString(),
               new NotificationSetting()
                   .setValue(NotificationSettingValue.ENABLED)
                   .setParams(new StringMap(ImmutableMap.of("slack.enabled", "true")))));
@@ -363,7 +387,10 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
             .collect(Collectors.toList());
     existingSettings.setSinkTypes(new NotificationSinkTypeArray(sinkTypes));
     existingSettings.setSlackSettings(new SlackNotificationSettings().setUserHandle(handle));
-    if (!existingSettings.hasSettings()) {
+    if (existingSettings.hasSettings()) {
+      mergeNotificationSettings(
+          existingSettings.getSettings(), DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS);
+    } else {
       existingSettings.setSettings(DEFAULT_SLACK_NOTIFICATION_SCENARIO_SETTINGS);
     }
   }
@@ -373,5 +400,28 @@ public class DefaultNotificationSettingsHook implements MetadataChangeLogHook {
     return SUPPORTED_ENTITY_TYPES.contains(event.getEntityType())
         && SUPPORTED_ASPECT_TYPES.contains(event.getAspectName())
         && !event.getChangeType().equals(ChangeType.DELETE);
+  }
+
+  /** Merges the provided default settings into the existing settings. */
+  private void mergeNotificationSettings(
+      @Nonnull NotificationSettingMap existingSettings,
+      @Nonnull NotificationSettingMap defaultSettings) {
+    for (String scenario : defaultSettings.keySet()) {
+      if (!existingSettings.containsKey(scenario)) {
+        existingSettings.put(scenario, defaultSettings.get(scenario));
+      } else {
+        // If the scenario already exists, we can merge the params
+        NotificationSetting existingSetting = existingSettings.get(scenario);
+        NotificationSetting defaultSetting = defaultSettings.get(scenario);
+        if (defaultSetting.getParams() != null) {
+          existingSetting.setParams(
+              new StringMap(
+                  ImmutableMap.<String, String>builder()
+                      .putAll(existingSetting.getParams())
+                      .putAll(defaultSetting.getParams())
+                      .build()));
+        }
+      }
+    }
   }
 }

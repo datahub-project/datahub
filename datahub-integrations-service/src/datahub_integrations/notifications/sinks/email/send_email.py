@@ -51,6 +51,20 @@ def send_compliance_form_notification_to_recipients(
         send_compliance_form_email(recipient, parameters)
 
 
+def send_workflow_request_assignment_notification_to_recipients(
+    recipients: List[NotificationRecipientClass], parameters: Dict[str, str]
+) -> None:
+    for recipient in recipients:
+        send_workflow_request_assignment_email(recipient, parameters)
+
+
+def send_workflow_request_status_change_notification_to_recipients(
+    recipients: List[NotificationRecipientClass], parameters: Dict[str, str]
+) -> None:
+    for recipient in recipients:
+        send_workflow_request_status_change_email(recipient, parameters)
+
+
 # TODO: handle non-subscription and subscription case in followup.
 def send_change_notification_email(
     recipient: NotificationRecipientClass, parameters: Dict[str, str]
@@ -171,6 +185,66 @@ def send_compliance_form_email(
 
     # Specify the sendgrid template
     message.template_id = COMPLIANCE_FORM_PUBLISH_TEMPLATE
+
+    # Add dynamic data
+    message.dynamic_template_data = parameters
+
+    send_email(message, recipient_address)
+
+
+def send_workflow_request_assignment_email(
+    recipient: NotificationRecipientClass, parameters: Dict[str, str]
+) -> None:
+    # Extract recipient address
+    recipient_address = recipient.id
+    recipient_name = recipient.displayName or DEFAULT_RECIPIENT_NAME
+
+    parameters["recipientName"] = recipient_name
+
+    if recipient_address is None:
+        logger.error(
+            f"Recipient address is None, skipping sending email. Parameters: {parameters}"
+        )
+        return
+
+    # Create new message
+    message = Mail(
+        from_email=Email(FROM_EMAIL_ADDRESS, FROM_EMAIL_TITLE),
+        to_emails=To(recipient_address),
+    )
+
+    # Specify the sendgrid template
+    message.template_id = ACTOR_CHANGE_NOTIFICATION_TEMPLATE
+
+    # Add dynamic data
+    message.dynamic_template_data = parameters
+
+    send_email(message, recipient_address)
+
+
+def send_workflow_request_status_change_email(
+    recipient: NotificationRecipientClass, parameters: Dict[str, str]
+) -> None:
+    # Extract recipient address
+    recipient_address = recipient.id
+    recipient_name = recipient.displayName or DEFAULT_RECIPIENT_NAME
+
+    parameters["recipientName"] = recipient_name
+
+    if recipient_address is None:
+        logger.error(
+            f"Recipient address is None, skipping sending email. Parameters: {parameters}"
+        )
+        return
+
+    # Create new message
+    message = Mail(
+        from_email=Email(FROM_EMAIL_ADDRESS, FROM_EMAIL_TITLE),
+        to_emails=To(recipient_address),
+    )
+
+    # Specify the sendgrid template
+    message.template_id = ACTOR_CHANGE_NOTIFICATION_TEMPLATE
 
     # Add dynamic data
     message.dynamic_template_data = parameters

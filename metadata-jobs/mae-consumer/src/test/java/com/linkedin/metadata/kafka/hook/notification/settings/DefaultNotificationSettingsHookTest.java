@@ -366,6 +366,8 @@ public class DefaultNotificationSettingsHookTest {
                     NotificationScenarioType.NEW_PROPOSAL,
                     NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
                     NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.NEW_ACTION_WORKFLOW_FORM_REQUEST,
+                    NotificationScenarioType.REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
                     NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES)
                 .collect(
                     Collectors.toMap(
@@ -400,7 +402,8 @@ public class DefaultNotificationSettingsHookTest {
                     NotificationScenarioType.NEW_PROPOSAL,
                     NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
                     NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
-                    NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES)
+                    NotificationScenarioType.NEW_ACTION_WORKFLOW_FORM_REQUEST,
+                    NotificationScenarioType.REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE)
                 .collect(
                     Collectors.toMap(
                         NotificationScenarioType::toString,
@@ -409,10 +412,23 @@ public class DefaultNotificationSettingsHookTest {
                                 .setValue(NotificationSettingValue.ENABLED)
                                 .setParams(
                                     new StringMap(
-                                        Stream.of("email.enabled")
+                                        Stream.of("email.enabled", "slack.enabled")
                                             .collect(
                                                 Collectors.toMap(
                                                     param -> param, param -> "true"))))))));
+
+    // Add special case for DATA_HUB_COMMUNITY_UPDATES to only enable email
+    notificationSettings
+        .getSettings()
+        .put(
+            NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES.toString(),
+            new NotificationSetting()
+                .setValue(NotificationSettingValue.ENABLED)
+                .setParams(
+                    new StringMap(
+                        Stream.of("email.enabled")
+                            .collect(Collectors.toMap(param -> param, param -> "true")))));
+
     return new CorpUserSettings()
         .setNotificationSettings(notificationSettings)
         .setAppearance(new CorpUserAppearanceSettings().setShowSimplifiedHomepage(false));
@@ -429,6 +445,8 @@ public class DefaultNotificationSettingsHookTest {
                     NotificationScenarioType.NEW_PROPOSAL,
                     NotificationScenarioType.PROPOSAL_STATUS_CHANGE,
                     NotificationScenarioType.PROPOSER_PROPOSAL_STATUS_CHANGE,
+                    NotificationScenarioType.NEW_ACTION_WORKFLOW_FORM_REQUEST,
+                    NotificationScenarioType.REQUESTER_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
                     NotificationScenarioType.DATA_HUB_COMMUNITY_UPDATES)
                 .collect(
                     Collectors.toMap(

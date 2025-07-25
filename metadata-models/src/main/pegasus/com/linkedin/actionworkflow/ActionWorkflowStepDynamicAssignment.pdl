@@ -1,0 +1,15 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.common.Urn
+
+record ActionWorkflowStepDynamicAssignment {
+  /**
+  * A standardized policy for resolving actors dynamically for an access request.
+  */
+  type: ActionWorkflowStepDynamicAssignmentType
+
+  /**
+  * Optional: A well defined set of ownership type urns to including in routing.
+  */
+  ownershipTypeUrns: optional array[Urn]
+}

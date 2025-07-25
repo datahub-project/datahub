@@ -45,6 +45,7 @@ const Header = styled.div`
     font-size: 14px;
     font-weight: 600;
     color: ${colors.gray[600]};
+    margin-bottom: 12px;
 `;
 
 const Section = styled.div`

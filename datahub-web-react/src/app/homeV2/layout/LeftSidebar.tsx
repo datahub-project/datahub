@@ -11,6 +11,7 @@ import { GlossaryNodesYouOwn } from '@app/homeV2/reference/sections/glossary/Glo
 import { GroupsYouAreIn } from '@app/homeV2/reference/sections/groups/GroupsYouAreIn';
 import { AssetsYouSubscribeTo } from '@app/homeV2/reference/sections/subscriptions/AssetsYouSubscribeTo';
 import { TagsYouOwn } from '@app/homeV2/reference/sections/tags/TagsYouOwn';
+import { WorkflowsYouCanStart } from '@app/homeV2/reference/sections/workflows/WorkflowsYouCanStart';
 import { ReferenceSectionProps } from '@app/homeV2/reference/types';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { V2_HOME_PAGE_PERSONAL_SIDEBAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
@@ -54,12 +55,25 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 type ReferenceSection = {
     id: string;
     component: React.ComponentType<ReferenceSectionProps>;
-    sectionName: PersonalSidebarSection;
+    sectionName: PersonalSidebarSection | 'WORKFLOWS_YOU_CAN_START'; // Temporary until we add it to GraphQL schema
     hideIfEmpty?: boolean;
     personas?: PersonaType[];
 };
 
 const ALL_SECTIONS: ReferenceSection[] = [
+    {
+        id: 'WorkflowsYouCanStart',
+        component: WorkflowsYouCanStart,
+        sectionName: 'WORKFLOWS_YOU_CAN_START',
+        hideIfEmpty: true,
+        personas: [
+            PersonaType.BUSINESS_USER,
+            PersonaType.TECHNICAL_USER,
+            PersonaType.DATA_STEWARD,
+            PersonaType.DATA_LEADER,
+            PersonaType.DATA_ENGINEER,
+        ],
+    },
     {
         id: 'AssetsYouOwn',
         component: AssetsYouOwn,

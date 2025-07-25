@@ -9,13 +9,14 @@ import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptio
 import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
 import RaiseIncidentMenuAction from '@app/entityV2/shared/EntityDropdown/RaiseIncidentMenuAction';
 import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationMenuAction';
+import { WorkflowsMenuAction } from '@app/entityV2/shared/EntityDropdown/WorkflowsMenuAction';
 import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
 import { SubscribeMenuAction } from '@app/shared/subscribe/v2/SubscribeMenuAction';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 export enum EntityMenuItems {
-    SUBSCRIBE,
+    SUBSCRIBE, // acryl-main only
     SHARE,
     COPY_URL,
     UPDATE_DEPRECATION,
@@ -27,6 +28,7 @@ export enum EntityMenuItems {
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
     LINK_VERSION,
+    WORKFLOWS, // acryl-main only
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -78,10 +80,13 @@ function EntityMenuActions(props: Props) {
     return (
         <>
             {isClosed ? (
-                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
+                    {/* acryl-main only */}
+                    {menuItems.has(EntityMenuItems.WORKFLOWS) && <WorkflowsMenuAction />}
                     {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
+                    {/* end acryl-main only */}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
                     {menuItems.has(EntityMenuItems.UPDATE_DEPRECATION) && <UpdateDeprecationMenuAction />}
                     {menuItems.has(EntityMenuItems.DELETE) && (
@@ -106,9 +111,12 @@ function EntityMenuActions(props: Props) {
                     )}
                 </MenuItems>
             ) : (
-                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace}>
+                <MenuItems $shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} data-testid="entity-menu-actions">
                     <ExternalUrlMenuAction shouldFillAllAvailableSpace={shouldFillAllAvailableSpace} />
+                    {/* acryl-main only */}
+                    {menuItems.has(EntityMenuItems.WORKFLOWS) && <WorkflowsMenuAction />}
                     {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
+                    {/* end acryl-main only */}
                     <MoreOptionsContainer>
                         <MoreOptionsMenuAction
                             menuItems={menuItems}

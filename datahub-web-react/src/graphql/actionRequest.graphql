@@ -587,6 +587,28 @@ fragment actionRequestFieldsV2 on ActionRequest {
                 }
             }
         }
+        workflowFormRequest {
+            workflowUrn
+            category
+            customCategory
+            fields {
+                id
+                values {
+                    ... on StringValue {
+                        stringValue
+                    }
+                    ... on NumberValue {
+                        numberValue
+                    }
+                }
+            }
+            access {
+                expiresAt
+            }
+            stepState {
+                stepId
+            }
+        }
     }
     assignees @include(if: $includeAssignees) {
         ...assigneeFields

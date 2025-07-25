@@ -1,0 +1,85 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The ActionWorkflowInfo record captures the metadata and configuration of a workflow.
+ * TODO: In the future, we may store the serialized camunda / flowable workflow instance ID inside.
+ * We'll likely also need to add the "steps" into here since we'll need that to inform state transitions.
+ */
+@Aspect = {
+  "name": "actionWorkflowInfo"
+}
+record ActionWorkflowInfo {
+    /**
+    * Display name of the workflow
+    */
+    @Searchable = {}
+    name: string
+
+    /**
+    * Top-level category of the workflow, e.g. ACCESS
+    */
+    @Searchable = {}
+    category: ActionWorkflowCategory
+
+    /**
+    * Custom category for the workflow, if applicable.
+    *
+    * This is used to group workflows that are not part of the standard types.
+    * Should be provided when the type is CUSTOM.
+    */
+    @Searchable = {}
+    customCategory: optional string
+
+    /**
+     * Description of the workflow. 
+     * If this is based on a Form trigger, this will be displayed to users when completing the form. 
+     */
+    description: optional string
+
+    /**
+    * The action or event that triggers the workflow. This MUST be stored here, because there is no other
+    * place to capture dynamic form state like this. 
+    */
+    trigger: ActionWorkflowTrigger
+
+    /**
+    * Definition of the steps / tasks / nodes comprising the workflow definition. This is the part we can aim 
+    * to be able to convert / transform into serialized XML BPMN Format. For now, we model it strongly here. 
+    * If we can successfully use BPMN for step state, we can deprecate this field in place of the XML serialization. 
+    *
+    * This is the part we'll try to build a transpiler to BPMN for execution for. Ultimately, we do need 
+    * a representation we can easily convert into the frontend framework for display. This represents the set of 
+    * well known workflow step types - across tasks, conditionals, notifications, etc - that are officially supported today.
+    *
+    * If necessary, we'll extend this to represent conditional branching nodes as a step / node in the Workflow, e.g. Conditional Step, Notification Step, Review Step
+    */
+    steps: array[ActionWorkflowStep]
+
+    /**
+    * Audit stamp capturing the time and actor who created the workflow.
+    */
+    @Searchable = {
+        "/time": {
+           "fieldType": "DATETIME",
+           "fieldName": "createdAt"
+        },
+        "/actor": {
+          "fieldType": "URN",
+          "fieldName": "createdBy"
+        }
+    }
+    created: AuditStamp
+
+    /**
+    * Audit stamp capturing the time and actor who last modified the workflow.
+    */
+    @Searchable = {
+        "/time": {
+           "fieldType": "DATETIME",
+           "fieldName": "lastModifiedAt"
+        }
+    }
+    lastModified: AuditStamp
+}

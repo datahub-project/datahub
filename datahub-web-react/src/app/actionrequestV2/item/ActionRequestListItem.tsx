@@ -8,6 +8,7 @@ import OwnerAssociationRequestItem from '@app/actionrequestV2/item/OwnerAssociat
 import StructuredPropertyAssociationRequestItem from '@app/actionrequestV2/item/StructuredPropertyAsssociationRequestItem';
 import TagAssociationRequestItem from '@app/actionrequestV2/item/TagAssociationRequestItem';
 import TermAssociationRequestItem from '@app/actionrequestV2/item/TermAssociationRequestItem';
+import WorkflowFormRequestItem from '@app/actionrequestV2/item/WorkflowFormRequestItem';
 import UpdateDescriptionRequestItem from '@app/actionrequestV2/item/updateDescription/UpdateDescriptionRequestItem';
 import { ActionRequest, ActionRequestType } from '@src/types.generated';
 
@@ -57,11 +58,15 @@ export const ActionRequestListItem = ({ actionRequest }: Props) => {
                 contentView = <OwnerAssociationRequestItem actionRequest={actionRequest} />;
                 break;
             }
+            case ActionRequestType.WorkflowFormRequest: {
+                contentView = <WorkflowFormRequestItem actionRequest={actionRequest} />;
+                break;
+            }
             default:
                 console.error(`Unrecognized Action Request Type ${requestType} provided. Unable to render.`);
                 return null;
         }
         return contentView;
     };
-    return <div>{getActionRequestItemContent(actionRequest)}</div>;
+    return <div className="action-request-test-id">{getActionRequestItemContent(actionRequest)}</div>;
 };

@@ -18,6 +18,8 @@ from datahub_integrations.notifications.sinks.email.template_utils import (
     build_new_proposal_parameters,
     build_proposal_status_change_parameters,
     build_proposer_proposal_status_change_parameters,
+    build_workflow_request_assignment_parameters,
+    build_workflow_request_status_change_parameters,
     timestamp_to_date,
 )
 
@@ -1077,3 +1079,254 @@ def test_build_ingestion_run_change_parameters_missing_parameters() -> None:
     )
     with pytest.raises(ValueError):
         build_ingestion_run_change_parameters(request, base_url)
+
+
+#
+# Tests for build_workflow_request_assignment_parameters(...)
+#
+
+
+def test_build_workflow_request_assignment_parameters_with_entity(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request assignment parameters with entity information.
+    """
+    parameters = {
+        "workflowName": "Data Access",
+        "actorName": "John Joyce",
+        "entityName": "FOO_BAR",
+        "entityType": "Table",
+        "entityPlatform": "Snowflake",
+        "workflowType": "ACCESS_REQUEST",
+        "customWorkflowType": "Custom Access Workflow",
+    }
+    notification_request = get_notification_request(
+        NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST,
+        parameters,
+    )
+
+    expected = {
+        "subject": "Action Required: You have new Data Access request to review.",
+        "message": "John Joyce has created a new <b>Data Access</b> request for <b>Snowflake Table FOO_BAR</b> that requires your review.",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+        "baseUrl": base_url_fix,
+    }
+
+    assert (
+        build_workflow_request_assignment_parameters(notification_request, base_url_fix)
+        == expected
+    )
+
+
+def test_build_workflow_request_assignment_parameters_without_entity(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request assignment parameters without entity information.
+    """
+    parameters = {
+        "workflowName": "Data Access",
+        "actorName": "Jane Smith",
+        "workflowType": "ACCESS_REQUEST",
+    }
+    notification_request = get_notification_request(
+        NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST,
+        parameters,
+    )
+
+    expected = {
+        "subject": "Action Required: You have new Data Access request to review.",
+        "message": "Jane Smith has created a new <b>Data Access</b> request that requires your review.",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+        "baseUrl": base_url_fix,
+    }
+
+    assert (
+        build_workflow_request_assignment_parameters(notification_request, base_url_fix)
+        == expected
+    )
+
+
+def test_build_workflow_request_assignment_parameters_partial_entity(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request assignment parameters with partial entity information (missing platform).
+    """
+    parameters = {
+        "workflowName": "Schema Change",
+        "actorName": "Bob Johnson",
+        "entityName": "user_events",
+        "entityType": "Dataset",
+        # entityPlatform is missing
+    }
+    notification_request = get_notification_request(
+        NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST,
+        parameters,
+    )
+
+    expected = {
+        "subject": "Action Required: You have new Schema Change request to review.",
+        "message": "Bob Johnson has created a new <b>Schema Change</b> request for <b>Dataset user_events</b> that requires your review.",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+        "baseUrl": base_url_fix,
+    }
+
+    assert (
+        build_workflow_request_assignment_parameters(notification_request, base_url_fix)
+        == expected
+    )
+
+
+def test_build_workflow_request_assignment_parameters_missing_required_params(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request assignment parameters with missing required parameters.
+    """
+    notification_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST,
+            parameters=None,
+        ),
+        recipients=[],
+        sinks=[],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Parameters are required for workflow request assignment notifications.",
+    ):
+        build_workflow_request_assignment_parameters(notification_request, base_url_fix)
+
+
+#
+# Tests for build_workflow_request_status_change_parameters(...)
+#
+
+
+def test_build_workflow_request_status_change_parameters_approved_with_entity(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request status change parameters for approved request with entity information.
+    """
+    parameters = {
+        "workflowName": "Data Access",
+        "actorName": "Jane Smith",
+        "result": "approved",
+        "creatorName": "John Joyce",
+        "entityName": "FOO_BAR",
+        "entityType": "Table",
+        "entityPlatform": "Snowflake",
+        "workflowType": "ACCESS_REQUEST",
+    }
+    notification_request = get_notification_request(
+        NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
+        parameters,
+    )
+
+    expected = {
+        "subject": "Your Data Access request has been approved",
+        "message": "Your <b>Data Access</b> request for <b>Snowflake Table FOO_BAR</b> has been <b>approved</b> by <b>Jane Smith</b>.",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+        "baseUrl": base_url_fix,
+    }
+
+    assert (
+        build_workflow_request_status_change_parameters(
+            notification_request, base_url_fix
+        )
+        == expected
+    )
+
+
+def test_build_workflow_request_status_change_parameters_rejected_without_entity(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request status change parameters for rejected request without entity information.
+    """
+    parameters = {
+        "workflowName": "Schema Change",
+        "actorName": "Bob Johnson",
+        "result": "rejected",
+        "creatorName": "Alice Brown",
+    }
+    notification_request = get_notification_request(
+        NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
+        parameters,
+    )
+
+    expected = {
+        "subject": "Your Schema Change request has been rejected",
+        "message": "Your <b>Schema Change</b> request has been <b>rejected</b> by <b>Bob Johnson</b>.",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+        "baseUrl": base_url_fix,
+    }
+
+    assert (
+        build_workflow_request_status_change_parameters(
+            notification_request, base_url_fix
+        )
+        == expected
+    )
+
+
+def test_build_workflow_request_status_change_parameters_unknown_result(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request status change parameters with unknown result (defaults to rejected).
+    """
+    parameters = {
+        "workflowName": "Data Deletion",
+        "actorName": "System Admin",
+        "result": "unknown_status",
+        "entityName": "sensitive_data",
+        "entityType": "Table",
+        "entityPlatform": "BigQuery",
+    }
+    notification_request = get_notification_request(
+        NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
+        parameters,
+    )
+
+    expected = {
+        "subject": "Your Data Deletion request has been rejected",
+        "message": "Your <b>Data Deletion</b> request for <b>BigQuery Table sensitive_data</b> has been <b>rejected</b> by <b>System Admin</b>.",
+        "detailsUrl": "https://example.acryl.io/requests/proposals",
+        "baseUrl": base_url_fix,
+    }
+
+    assert (
+        build_workflow_request_status_change_parameters(
+            notification_request, base_url_fix
+        )
+        == expected
+    )
+
+
+def test_build_workflow_request_status_change_parameters_missing_required_params(
+    base_url_fix: str,
+) -> None:
+    """
+    Test workflow request status change parameters with missing required parameters.
+    """
+    notification_request = NotificationRequestClass(
+        message=NotificationMessageClass(
+            template=NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE,
+            parameters=None,
+        ),
+        recipients=[],
+        sinks=[],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Parameters are required for workflow request status change notifications.",
+    ):
+        build_workflow_request_status_change_parameters(
+            notification_request, base_url_fix
+        )

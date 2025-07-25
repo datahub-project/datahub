@@ -21,7 +21,7 @@ public class DataProductServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected DataProductService getInstance(
-      @Qualifier("entityClient") final EntityClient entityClient) throws Exception {
+      @Qualifier("systemEntityClient") final EntityClient entityClient) throws Exception {
     return new DataProductService(entityClient, _graphClient);
   }
 }

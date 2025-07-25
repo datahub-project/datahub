@@ -20,6 +20,8 @@ from datahub_integrations.notifications.sinks.email.send_email import (
     send_compliance_form_notification_to_recipients,
     send_custom_email_to_recipients,
     send_ingestion_run_notification_to_recipients,
+    send_workflow_request_assignment_notification_to_recipients,
+    send_workflow_request_status_change_notification_to_recipients,
 )
 from datahub_integrations.notifications.sinks.email.template_utils import (
     build_assertion_status_change_parameters,
@@ -31,6 +33,8 @@ from datahub_integrations.notifications.sinks.email.template_utils import (
     build_new_proposal_parameters,
     build_proposal_status_change_parameters,
     build_proposer_proposal_status_change_parameters,
+    build_workflow_request_assignment_parameters,
+    build_workflow_request_status_change_parameters,
 )
 from datahub_integrations.notifications.sinks.sink import NotificationSink
 from datahub_integrations.notifications.sinks.utils import retry_with_backoff
@@ -116,6 +120,16 @@ class EmailNotificationSink(NotificationSink):
             NotificationTemplateTypeClass.BROADCAST_COMPLIANCE_FORM_PUBLISH: lambda: self._send_compliance_form_notification(
                 email_recipients,
                 build_compliance_form_publish_parameters(request, self.base_url),
+                RetryMode.ENABLED,
+            ),
+            NotificationTemplateTypeClass.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST: lambda: self._send_workflow_request_assignment_notification(
+                email_recipients,
+                build_workflow_request_assignment_parameters(request, self.base_url),
+                RetryMode.ENABLED,
+            ),
+            NotificationTemplateTypeClass.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE: lambda: self._send_workflow_request_status_change_notification(
+                email_recipients,
+                build_workflow_request_status_change_parameters(request, self.base_url),
                 RetryMode.ENABLED,
             ),
         }
@@ -251,6 +265,52 @@ class EmailNotificationSink(NotificationSink):
         try:
             retry_with_backoff(
                 send_compliance_form_notification_to_recipients,
+                max_attempts=max_attempts,
+                backoff_factor=2,
+                initial_backoff=1,
+                recipients=recipients,
+                parameters=parameters,
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send notification after {max_attempts} attempts. Error: {e}"
+            )
+
+    def _send_workflow_request_assignment_notification(
+        self,
+        recipients: List[NotificationRecipientClass],
+        parameters: Dict[str, str | None],
+        retry_mode: RetryMode,
+    ) -> None:
+        max_attempts = (
+            MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
+        )
+        try:
+            retry_with_backoff(
+                send_workflow_request_assignment_notification_to_recipients,
+                max_attempts=max_attempts,
+                backoff_factor=2,
+                initial_backoff=1,
+                recipients=recipients,
+                parameters=parameters,
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to send notification after {max_attempts} attempts. Error: {e}"
+            )
+
+    def _send_workflow_request_status_change_notification(
+        self,
+        recipients: List[NotificationRecipientClass],
+        parameters: Dict[str, str | None],
+        retry_mode: RetryMode,
+    ) -> None:
+        max_attempts = (
+            MAX_NOTIFICATION_RETRIES if retry_mode == RetryMode.ENABLED else 1
+        )
+        try:
+            retry_with_backoff(
+                send_workflow_request_status_change_notification_to_recipients,
                 max_attempts=max_attempts,
                 backoff_factor=2,
                 initial_backoff=1,

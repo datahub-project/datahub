@@ -264,6 +264,12 @@ public class PoliciesConfig {
           "Propose Create Glossary Node",
           "Propose the creation of new Glossary Node.");
 
+  public static final Privilege MANAGE_ACTION_WORKFLOWS_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ACTION_WORKFLOWS",
+          "Manage Workflows",
+          "Create, update, and remove action Workflows of any type, including access and custom workflows.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -311,7 +317,8 @@ public class PoliciesConfig {
           MANAGE_MONITORS,
           MANAGE_ORGANIZATION_DISPLAY_PREFERENCES,
           PROPOSE_CREATE_GLOSSARY_TERM,
-          PROPOSE_CREATE_GLOSSARY_NODE);
+          PROPOSE_CREATE_GLOSSARY_NODE,
+          MANAGE_ACTION_WORKFLOWS_PRIVILEGE);
 
   // Resource Privileges //
 

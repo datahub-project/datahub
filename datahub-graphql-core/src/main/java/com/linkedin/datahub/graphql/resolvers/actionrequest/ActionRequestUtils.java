@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.actionrequest;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.CreateGlossaryNodeProposal;
@@ -67,6 +68,7 @@ import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.metadata.query.filter.Condition;
@@ -366,6 +368,9 @@ public class ActionRequestUtils {
     if (params.hasOwnerProposal()) {
       result.setOwnerProposal(mapOwnerProposal(context, params.getOwnerProposal(), entityUrn));
     }
+    if (params.hasWorkflowFormRequest()) {
+      result.setWorkflowFormRequest(mapActionWorkflowFormRequest(params.getWorkflowFormRequest()));
+    }
     return result;
   }
 
@@ -529,6 +534,92 @@ public class ActionRequestUtils {
     return ownerProposalParams;
   }
 
+  public static com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequest
+      mapActionWorkflowFormRequest(
+          final com.linkedin.actionworkflow.ActionWorkflowFormRequest workflowRequest) {
+    final com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequest result =
+        new com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequest();
+
+    if (workflowRequest.hasWorkflow()) {
+      result.setWorkflowUrn(workflowRequest.getWorkflow().toString());
+    }
+
+    result.setCategory(
+        com.linkedin.datahub.graphql.generated.ActionWorkflowCategory.valueOf(
+            workflowRequest.getCategory().toString()));
+
+    if (workflowRequest.hasCustomCategory()) {
+      result.setCustomCategory(workflowRequest.getCustomCategory());
+    }
+
+    // Map fields
+    final List<com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField> mappedFields =
+        new ArrayList<>();
+    for (final com.linkedin.actionworkflow.ActionWorkflowFormRequestField field :
+        workflowRequest.getFields()) {
+      mappedFields.add(mapActionWorkflowRequestField(field));
+    }
+    result.setFields(mappedFields);
+
+    // Map access details if present
+    if (workflowRequest.hasAccess()) {
+      final com.linkedin.datahub.graphql.generated.AccessWorkflowRequest accessRequest =
+          new com.linkedin.datahub.graphql.generated.AccessWorkflowRequest();
+      if (workflowRequest.getAccess().hasExpiresAt()) {
+        accessRequest.setExpiresAt(workflowRequest.getAccess().getExpiresAt());
+      }
+      result.setAccess(accessRequest);
+    }
+
+    // Map step state
+    final com.linkedin.datahub.graphql.generated.ActionWorkflowStepState stepState =
+        new com.linkedin.datahub.graphql.generated.ActionWorkflowStepState();
+    stepState.setStepId(workflowRequest.getStepState().getStepId());
+    result.setStepState(stepState);
+
+    return result;
+  }
+
+  public static com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField
+      mapActionWorkflowRequestField(
+          final com.linkedin.actionworkflow.ActionWorkflowFormRequestField field) {
+    final com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField result =
+        new com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField();
+
+    result.setId(field.getId());
+
+    // Map values - convert PrimitivePropertyValue to PropertyValue
+    final List<com.linkedin.datahub.graphql.generated.PropertyValue> mappedValues =
+        new ArrayList<>();
+    for (final com.linkedin.structured.PrimitivePropertyValue value : field.getValues()) {
+      mappedValues.add(mapPrimitivePropertyValueToPropertyValue(value));
+    }
+    result.setValues(mappedValues);
+
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.PropertyValue
+      mapPrimitivePropertyValueToPropertyValue(
+          final com.linkedin.structured.PrimitivePropertyValue primitiveValue) {
+    if (primitiveValue.isString()) {
+      final com.linkedin.datahub.graphql.generated.StringValue stringValue =
+          new com.linkedin.datahub.graphql.generated.StringValue();
+      stringValue.setStringValue(primitiveValue.getString());
+      return stringValue;
+    } else if (primitiveValue.isDouble()) {
+      final com.linkedin.datahub.graphql.generated.NumberValue numberValue =
+          new com.linkedin.datahub.graphql.generated.NumberValue();
+      numberValue.setNumberValue(primitiveValue.getDouble().floatValue());
+      return numberValue;
+    }
+    // Default to string value if type is not recognized
+    final com.linkedin.datahub.graphql.generated.StringValue stringValue =
+        new com.linkedin.datahub.graphql.generated.StringValue();
+    stringValue.setStringValue(primitiveValue.toString());
+    return stringValue;
+  }
+
   public static Criterion createStatusCriterion(ActionRequestStatus status) {
     return CriterionUtils.buildCriterion(STATUS_FIELD_NAME, Condition.EQUAL, status.toString());
   }
@@ -668,6 +759,12 @@ public class ActionRequestUtils {
         .collect(Collectors.toList());
   }
 
+  /**
+   * @deprecated Use UserService.getUserMemberships() instead. This method will be removed in a
+   *     future version. The new UserService provides better encapsulation and reusability for user
+   *     group/role resolution.
+   */
+  @Deprecated
   public static AssignedUrns getGroupAndRoleUrns(
       @Nonnull OperationContext opContext, final Urn actor, EntityClient entityClient)
       throws Exception {
@@ -699,6 +796,11 @@ public class ActionRequestUtils {
     } catch (RemoteInvocationException e) {
       throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
     }
+  }
+
+  public static boolean canManageActionWorkflows(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_ACTION_WORKFLOWS_PRIVILEGE);
   }
 
   @Value

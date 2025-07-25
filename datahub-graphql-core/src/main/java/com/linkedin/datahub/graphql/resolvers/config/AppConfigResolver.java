@@ -327,6 +327,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setFormsNotificationsEnabled(_featureFlags.isFormsNotificationsEnabled())
             .setViewIngestionSourcePrivilegesEnabled(
                 _featureFlags.isViewIngestionSourcePrivilegesEnabled())
+            .setActionWorkflowsEnabled(_featureFlags.isActionWorkflowsEnabled())
             .setTagPropagationV2Enabled(_featureFlags.isTagPropagationV2Enabled())
             .build();
 

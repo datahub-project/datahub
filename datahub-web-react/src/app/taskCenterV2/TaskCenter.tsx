@@ -182,7 +182,7 @@ export const TaskCenter = () => {
             name: TabType.RequestsTab,
             path: TabType.RequestsTab.toLocaleLowerCase(),
             content: <Requests />,
-            customTitle: <TabTitle title="Requests" count={notificationsCount} dataTestId="requests-tab" />,
+            customTitle: <TabTitle title="Tasks" count={notificationsCount} dataTestId="requests-tab" />,
             display: {
                 enabled: () => true,
             },
@@ -191,7 +191,7 @@ export const TaskCenter = () => {
             name: TabType.ProposalsTab,
             path: TabType.ProposalsTab.toLocaleLowerCase(),
             content: <Proposals onProposalClick={onProposalClick} />,
-            customTitle: <TabTitle title="Proposals" count={proposalCount} dataTestId="proposals-tab" />,
+            customTitle: <TabTitle title="Requests" count={proposalCount} dataTestId="proposals-tab" />,
             display: {
                 enabled: () => true,
             },

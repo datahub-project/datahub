@@ -73,6 +73,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
+    EntityMenuItems.WORKFLOWS,
 ]);
 
 export class DashboardEntity implements Entity<Dashboard> {

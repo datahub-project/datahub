@@ -1,7 +1,8 @@
-import { Button, Icon } from '@components';
+import { Button } from '@components';
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
 
+import { Icon } from '@components/components/Icon';
 import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
 import {
     getDropdownStyle,
@@ -45,7 +46,7 @@ export const SelectLabelContainer = styled.div({
     gap: spacing.xsm,
     lineHeight: typography.lineHeights.none,
     alignItems: 'center',
-    maxWidth: 'calc(100% - 54px)',
+    maxWidth: 'calc(100% - 10px)',
 });
 
 /**

@@ -1,0 +1,18 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.structured.PrimitivePropertyValue
+
+/**
+ * Simply capture the field id + the value.
+ */
+record ActionWorkflowFormRequestField {
+    /**
+     * Workflow-local id for the field
+     */
+    id: string
+
+    /**
+     * Value, reused model from structured properties. Empty if no response was provided.
+     */
+    values: array[PrimitivePropertyValue]
+}

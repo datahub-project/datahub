@@ -1,4 +1,4 @@
-import { Icon, Text } from '@components';
+import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -40,10 +40,9 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
 
     return (
         <Wrapper>
-            {!platformIcon && <Icon size="4xl" source="phosphor" icon="Placeholder" />}
             {platformIcon && <IconContainer src={platformIcon} />}
             <TextWrapper>
-                <Text size="lg">{entityRegistry.getDisplayName(entity.type, entity)}</Text>
+                <Text size="md">{entityRegistry.getDisplayName(entity.type, entity)}</Text>
                 <ContextPath
                     entityType={entity.type}
                     displayedEntityType={displayedEntityType}

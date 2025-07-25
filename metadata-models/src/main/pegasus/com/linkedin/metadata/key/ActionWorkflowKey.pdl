@@ -1,0 +1,12 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an ActionRequestWorkflow
+ */
+@Aspect = {
+  "name": "actionWorkflowKey"
+}
+record ActionWorkflowKey {
+  /** The unique identifier for the workflow */
+  id: string
+}

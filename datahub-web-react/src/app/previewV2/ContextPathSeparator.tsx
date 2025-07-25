@@ -1,6 +1,8 @@
-import { Icon, colors } from '@components';
+import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Icon } from '@components/components/Icon';
 
 const StyledIcon = styled(Icon)`
     flex-shrink: 0;

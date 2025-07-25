@@ -12,7 +12,7 @@ import {
 } from '@src/types.generated';
 
 export const PERSONAL_ACTION_REQUESTS_GROUP_NAME = 'Inbox';
-export const MY_PROPOSALS_GROUP_NAME = 'My Proposals';
+export const MY_REQUESTS_GROUP_NAME = 'My Requests';
 
 export const PROPOSAL_TARGET_ENTITY_TYPES = [
     EntityType.Dataset,

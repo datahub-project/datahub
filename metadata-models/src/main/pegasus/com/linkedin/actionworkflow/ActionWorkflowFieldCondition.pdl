@@ -1,0 +1,22 @@
+namespace com.linkedin.actionworkflow
+
+/**
+ * A condition that determines whether a form field should be shown in the action workflow.
+ * This may evolve in the future to have additional condition types.
+ */
+record ActionWorkflowFieldCondition {
+    /**
+     * The type of field condition
+     */
+    type: enum ActionWorkflowFieldConditionType {
+        /**
+         * The field should be shown if the value of a previously completed field matches the specified value.
+         */
+        SINGLE_FIELD_VALUE
+    }
+
+    /**
+     * A field value condition. Present if type is FIELD_VALUE.
+     */
+    singleFieldValueCondition: optional ActionWorkflowSingleFieldValueCondition
+}

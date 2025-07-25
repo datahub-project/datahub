@@ -78,5 +78,6 @@ public class FeatureFlags {
   private boolean showDefaultExternalLinks = true;
   private boolean showCreatedAtFilter = false;
   private boolean formsNotificationsEnabled = false;
+  private boolean actionWorkflowsEnabled = false;
   private boolean tagPropagationV2Enabled = false;
 }

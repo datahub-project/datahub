@@ -890,6 +890,8 @@ featureFlags:
   # Enables the redesign of the lineage v2 graph
   viewIngestionSourcePrivilegesEnabled: ${VIEW_INGESTION_SOURCE_PRIVILEGES_ENABLED:false}
   # Enables getting to the ingestion source page if you have permission to view any ingestion sources
+  actionWorkflowsEnabled: ${ACTON_WORKFLOWS_ENABLED:false}
+  # Whether to enable action workflows, which allow users to create, configure notifications, and more for action workflows.
   tagPropagationV2Enabled: ${TAG_PROPAGATION_V2_ENABLED:false}
   # If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
 

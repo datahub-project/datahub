@@ -69,6 +69,7 @@ public class Constants {
 
   public static final String CORP_GROUP_ENTITY_NAME = "corpGroup";
   public static final String ACTION_REQUEST_ENTITY_NAME = "actionRequest";
+  public static final String ACTION_WORKFLOW_ENTITY_NAME = "actionWorkflow";
   public static final String CONSTRAINT_ENTITY_NAME = "constraint";
   public static final String DATASET_ENTITY_NAME = "dataset";
   public static final String CHART_ENTITY_NAME = "chart";
@@ -471,6 +472,7 @@ public class Constants {
   // Action Request
   public static final String ACTION_REQUEST_INFO_ASPECT_NAME = "actionRequestInfo";
   public static final String ACTION_REQUEST_STATUS_ASPECT_NAME = "actionRequestStatus";
+  public static final String ACTION_WORKFLOW_INFO_ASPECT_NAME = "actionWorkflowInfo";
 
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";

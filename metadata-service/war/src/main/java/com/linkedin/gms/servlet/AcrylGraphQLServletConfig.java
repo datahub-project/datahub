@@ -11,7 +11,12 @@ import org.springframework.context.annotation.Configuration;
       "com.linkedin.gms.factory.integration",
       "com.linkedin.gms.factory.connection",
       "com.linkedin.gms.factory.subscription",
-      "com.linkedin.gms.factory.share"
+      "com.linkedin.gms.factory.share",
+      "com.linkedin.gms.factory.user",
+      "com.linkedin.gms.factory.actionrequest",
+      "com.linkedin.gms.factory.ownership",
+      "com.linkedin.gms.factory.domain",
+      "com.linkedin.gms.factory.dataproduct"
     })
 @Configuration
 public class AcrylGraphQLServletConfig {}

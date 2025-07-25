@@ -10,6 +10,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_OWNER_PRO
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
@@ -21,6 +22,10 @@ import com.linkedin.actionrequest.GlossaryTermProposal;
 import com.linkedin.actionrequest.OwnerProposal;
 import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
+import com.linkedin.actionworkflow.ActionWorkflowCategory;
+import com.linkedin.actionworkflow.ActionWorkflowFormRequest;
+import com.linkedin.actionworkflow.ActionWorkflowFormRequestField;
+import com.linkedin.actionworkflow.ActionWorkflowFormRequestFieldArray;
 import com.linkedin.ai.InferenceMetadata;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -643,5 +648,140 @@ public class ActionRequestUtilsTest {
     assertEquals(((CorpGroup) owner2.getOwner()).getUrn(), testGroupUrn.toString());
     assertEquals(
         owner2.getType(), com.linkedin.datahub.graphql.generated.OwnershipType.TECHNICAL_OWNER);
+  }
+
+  @Test
+  public void testMapActionRequestWithWorkflowRequest() throws Exception {
+    // -----------------------------------------
+    // Given: An ActionRequestInfo with a WorkflowRequest
+    // -----------------------------------------
+    Urn workflowUrn = UrnUtils.getUrn("urn:li:actionRequestWorkflow:testWorkflow");
+
+    // Create workflow request fields
+    ActionWorkflowFormRequestField field1 = new ActionWorkflowFormRequestField();
+    field1.setId("field1");
+    PrimitivePropertyValueArray values1 = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue stringValue = new PrimitivePropertyValue();
+    stringValue.setString("test value");
+    values1.add(stringValue);
+    field1.setValues(values1);
+
+    ActionWorkflowFormRequestField field2 = new ActionWorkflowFormRequestField();
+    field2.setId("field2");
+    PrimitivePropertyValueArray values2 = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue numberValue = new PrimitivePropertyValue();
+    numberValue.setDouble(42.0);
+    values2.add(numberValue);
+    field2.setValues(values2);
+
+    ActionWorkflowFormRequestFieldArray fields = new ActionWorkflowFormRequestFieldArray();
+    fields.add(field1);
+    fields.add(field2);
+
+    // Create workflow request with access details
+    ActionWorkflowFormRequest workflowRequest = new ActionWorkflowFormRequest();
+    workflowRequest.setWorkflow(workflowUrn);
+    workflowRequest.setCategory(ActionWorkflowCategory.ACCESS);
+    workflowRequest.setCustomCategory("custom-access-type");
+    workflowRequest.setFields(fields);
+
+    // Add access details
+    com.linkedin.actionworkflow.ActionWorkflowRequestAccess access =
+        new com.linkedin.actionworkflow.ActionWorkflowRequestAccess();
+    access.setExpiresAt(1234567890L);
+    workflowRequest.setAccess(access);
+
+    // Add step state
+    com.linkedin.actionworkflow.ActionWorkflowRequestStepState stepState =
+        new com.linkedin.actionworkflow.ActionWorkflowRequestStepState();
+    stepState.setStepId("review-step");
+    workflowRequest.setStepState(stepState);
+
+    ActionRequestParams requestParams = new ActionRequestParams();
+    requestParams.setWorkflowFormRequest(workflowRequest);
+
+    ActionRequestInfo infoAspect = new ActionRequestInfo();
+    infoAspect.setType(ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    infoAspect.setResource("urn:li:dataset:(urn:li:dataPlatform:hive,myWorkflowDataset,PROD)");
+    infoAspect.setCreated(98765L);
+    infoAspect.setCreatedBy(Urn.createFromString("urn:li:corpuser:workflowUser"));
+    infoAspect.setParams(requestParams);
+    infoAspect.setAssignedUsers(new UrnArray());
+    infoAspect.setAssignedGroups(new UrnArray());
+    infoAspect.setAssignedRoles(new UrnArray());
+
+    ActionRequestAspect aspect1 = ActionRequestAspect.create(infoAspect);
+
+    com.linkedin.actionrequest.ActionRequestStatus statusAspect =
+        new com.linkedin.actionrequest.ActionRequestStatus();
+    statusAspect.setStatus(ACTION_REQUEST_STATUS_PENDING);
+    statusAspect.setResult("");
+    ActionRequestAspect aspect2 = ActionRequestAspect.create(statusAspect);
+
+    Entity entity = buildEntity(aspect1, aspect2);
+
+    // -----------------------------------------
+    // When: We invoke the mapper
+    // -----------------------------------------
+    ActionRequest request =
+        ActionRequestUtils.mapActionRequest(
+            mockContext, entity.getValue().getActionRequestSnapshot());
+
+    // -----------------------------------------
+    // Then: The fields in the mapped request should match
+    // -----------------------------------------
+    assertNotNull(request);
+    assertEquals(request.getStatus(), ActionRequestStatus.PENDING);
+    assertNull(request.getResult()); // Because statusAspect had empty string for result
+    assertNotNull(request.getParams());
+    assertNotNull(request.getParams().getWorkflowFormRequest());
+
+    // Verify workflow request mapping
+    com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequest mappedWorkflowRequest =
+        request.getParams().getWorkflowFormRequest();
+    assertEquals(mappedWorkflowRequest.getWorkflowUrn(), workflowUrn.toString());
+    assertEquals(
+        mappedWorkflowRequest.getCategory(),
+        com.linkedin.datahub.graphql.generated.ActionWorkflowCategory.ACCESS);
+    assertEquals(mappedWorkflowRequest.getCustomCategory(), "custom-access-type");
+
+    // Verify fields mapping
+    assertNotNull(mappedWorkflowRequest.getFields());
+    assertEquals(mappedWorkflowRequest.getFields().size(), 2);
+
+    // Verify field 1 (string value)
+    com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField mappedField1 =
+        mappedWorkflowRequest.getFields().get(0);
+    assertEquals(mappedField1.getId(), "field1");
+    assertEquals(mappedField1.getValues().size(), 1);
+    assertTrue(
+        mappedField1.getValues().get(0)
+            instanceof com.linkedin.datahub.graphql.generated.StringValue);
+    com.linkedin.datahub.graphql.generated.StringValue stringVal =
+        (com.linkedin.datahub.graphql.generated.StringValue) mappedField1.getValues().get(0);
+    assertEquals(stringVal.getStringValue(), "test value");
+
+    // Verify field 2 (number value)
+    com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField mappedField2 =
+        mappedWorkflowRequest.getFields().get(1);
+    assertEquals(mappedField2.getId(), "field2");
+    assertEquals(mappedField2.getValues().size(), 1);
+    assertTrue(
+        mappedField2.getValues().get(0)
+            instanceof com.linkedin.datahub.graphql.generated.NumberValue);
+    com.linkedin.datahub.graphql.generated.NumberValue numberVal =
+        (com.linkedin.datahub.graphql.generated.NumberValue) mappedField2.getValues().get(0);
+    assertEquals(numberVal.getNumberValue(), 42.0f, 0.001f);
+
+    // Verify access details
+    assertNotNull(mappedWorkflowRequest.getAccess());
+    assertEquals(mappedWorkflowRequest.getAccess().getExpiresAt(), Long.valueOf(1234567890L));
+
+    // Verify step state
+    assertNotNull(mappedWorkflowRequest.getStepState());
+    assertEquals(mappedWorkflowRequest.getStepState().getStepId(), "review-step");
+
+    assertEquals(request.getCreated().getTime(), Long.valueOf(98765L));
+    assertEquals(request.getCreated().getActor().getUrn(), "urn:li:corpuser:workflowUser");
   }
 }

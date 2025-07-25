@@ -11,10 +11,10 @@ import com.linkedin.ai.InferenceMetadata
 }
 record ActionRequestInfo {
  /**
-  * The type of the action request, for example 'TAG_ASSOCIATION'
+  * The type of the action request, for example 'TAG_ASSOCIATION', 'WORKFLOW_FORM_REQUEST'
   */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
     "addToFilters": true
   }
   type: string

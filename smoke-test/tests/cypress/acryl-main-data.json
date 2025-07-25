@@ -295,5 +295,170 @@
       }
     },
     "proposedDelta": null
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-access-workflow-cypress",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Access Request",
+        "category": "ACCESS",
+        "description": "Request access to datasets for testing purposes",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "entityTypes": ["urn:li:entityType:datahub.dataset"],
+            "fields": [
+              {
+                "id": "business-purpose",
+                "name": "Business Purpose",
+                "description": "What is the business purpose for this access?",
+                "valueType": "urn:li:dataType:datahub.string",
+                "cardinality": "SINGLE",
+                "required": true
+              },
+              {
+                "id": "access-duration",
+                "name": "Access Duration (days)",
+                "description": "How many days do you need access?",
+                "valueType": "urn:li:dataType:datahub.number",
+                "cardinality": "SINGLE",
+                "required": false
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "ENTITY_PROFILE",
+                "label": "Request Access"
+              },
+              {
+                "type": "HOME",
+                "label": "Request Dataset Access"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "admin-approval",
+            "description": "Admin approval step",
+            "type": "APPROVAL",
+            "actors": {
+              "users": ["urn:li:corpuser:admin"],
+              "groups": [],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-cypress-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionWorkflow",
+    "entityUrn": "urn:li:actionWorkflow:test-custom-workflow-cypress",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionWorkflowInfo",
+    "aspect": {
+      "json": {
+        "name": "Test Custom Form",
+        "category": "CUSTOM",
+        "customCategory": "DATA_REQUEST",
+        "description": "General data request form for testing",
+        "trigger": {
+          "type": "FORM_SUBMITTED",
+          "form": {
+            "fields": [
+              {
+                "id": "priority-level",
+                "name": "Priority Level",
+                "description": "Select the priority level for this request",
+                "valueType": "urn:li:dataType:datahub.string",
+                "allowedValues": [
+                  {
+                    "value": {
+                      "string": "LOW"
+                    }
+                  },
+                  {
+                    "value": {
+                      "string": "MEDIUM"
+                    }
+                  },
+                  {
+                    "value": {
+                      "string": "HIGH"
+                    }
+                  }
+                ],
+                "cardinality": "SINGLE",
+                "required": true
+              },
+              {
+                "id": "additional-details",
+                "name": "Additional Details",
+                "description": "Provide any additional context or requirements",
+                "valueType": "urn:li:dataType:datahub.rich_text",
+                "cardinality": "SINGLE",
+                "required": false
+              }
+            ],
+            "entrypoints": [
+              {
+                "type": "HOME",
+                "label": "Submit Data Request"
+              }
+            ]
+          }
+        },
+        "steps": [
+          {
+            "id": "admin-review",
+            "type": "APPROVAL",
+            "description": "Admin review step",
+            "actors": {
+              "users": ["urn:li:corpuser:admin"],
+              "groups": [],
+              "roles": []
+            }
+          }
+        ],
+        "created": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        },
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:admin"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-cypress-workflows",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
   }
 ]

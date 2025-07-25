@@ -43,6 +43,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,
     EntityMenuItems.ANNOUNCE,
+    EntityMenuItems.WORKFLOWS,
 ]);
 
 /**

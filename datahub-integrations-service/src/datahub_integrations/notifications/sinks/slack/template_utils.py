@@ -819,11 +819,138 @@ def get_user_name(
 
 
 def deserialize_json_list(serialized_list: str) -> List[str]:
+    """
+    Deserialize a JSON string to a list of strings.
+    """
     try:
-        # Deserialize the JSON-formatted string into a Python list
-        deserialized_list = json.loads(serialized_list)
-        return deserialized_list
+        return json.loads(serialized_list)
     except json.JSONDecodeError:
-        # Handle JSON decoding errors
-        logger.exception("Error decoding JSON template parameter")
         return []
+
+
+def build_workflow_request_assignment_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    slack_client: WebClient,
+    base_url: str,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Build Slack message for workflow request assignment notifications.
+    """
+    # Safe extraction of parameters
+    parameters = request.message.parameters or {}
+
+    # Extract basic information
+    workflow_name = parameters.get("workflowName", "Unknown Workflow")
+    actor_name = parameters.get("actorName", "Someone")
+    entity_name = parameters.get("entityName")
+    entity_type = parameters.get("entityType")
+    entity_platform = parameters.get("entityPlatform")
+
+    requests_url = f"{base_url}/requests/proposals"
+
+    # Build entity information if available
+    entity_info = ""
+    if entity_name and entity_type:
+        entity_info = f" for {entity_type} *{entity_name}*"
+        if entity_platform:
+            entity_info += f" on {entity_platform}"
+
+    # Create message text
+    text = f"{actor_name} has created a new {workflow_name} request{entity_info}"
+
+    # Build blocks for rich formatting
+    blocks: List[Dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*New {workflow_name} Request*\n{actor_name} has created a new {workflow_name} request{entity_info}.",
+            },
+        }
+    ]
+
+    # Add action button
+    blocks.append(
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "Review Request"},
+                    "style": "primary",
+                    "url": requests_url,
+                }
+            ],
+        }
+    )
+
+    return text, blocks, []
+
+
+def build_workflow_request_status_change_message(
+    request: NotificationRequestClass,
+    identity_provider: IdentityProvider,
+    slack_client: WebClient,
+    base_url: str,
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Build Slack message for workflow request status change notifications.
+    """
+    # Safe extraction of parameters
+    parameters = request.message.parameters or {}
+
+    # Extract basic information
+    workflow_name = parameters.get("workflowName", "Unknown Workflow")
+    actor_name = parameters.get("actorName", "someone")
+    result = parameters.get("result", "processed")
+    entity_name = parameters.get("entityName")
+    entity_type = parameters.get("entityType")
+    entity_platform = parameters.get("entityPlatform")
+
+    # todo: change to link to YOUR requests.
+    requests_url = f"{base_url}/requests/proposals"
+
+    # Build entity information if available
+    entity_info = ""
+    if entity_name and entity_type:
+        entity_info = f" for {entity_type} *{entity_name}*"
+        if entity_platform:
+            entity_info += f" on {entity_platform}"
+
+    # Determine result text and color
+    result_text = "approved" if result == "approved" else "rejected"
+    result_color = "good" if result == "approved" else "danger"
+
+    # Create message text
+    text = f"Your {workflow_name} request{entity_info} has been {result_text}"
+
+    # Create blocks for the attachment
+    blocks: List[Dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*Request {result_text.title()}*\nYour {workflow_name} request{entity_info} has been *{result_text}* by {actor_name}.",
+            },
+        }
+    ]
+
+    # Add action button
+    blocks.append(
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "View Your Requests"},
+                    "url": requests_url,
+                }
+            ],
+        }
+    )
+
+    # Create attachment with color coding
+    attachments = [{"color": result_color, "blocks": blocks}]
+
+    return text, [], attachments

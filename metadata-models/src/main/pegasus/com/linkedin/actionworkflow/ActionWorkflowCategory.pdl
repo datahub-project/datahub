@@ -1,0 +1,15 @@
+namespace com.linkedin.actionworkflow
+
+enum ActionWorkflowCategory {
+    /**
+     * Workflow for requesting access to a resource, such as a dataset or data job.
+     * Requires the `access` field to be populated with specific access parameters.
+     */
+    ACCESS,
+
+    /**
+     * Custom, non-access related workflow. For example, may be used to model workflows like
+     * asset creation, asset cleanup or deletion, etc.
+     */
+    CUSTOM
+}

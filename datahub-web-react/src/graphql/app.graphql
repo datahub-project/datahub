@@ -156,6 +156,7 @@ query appConfig {
             logicalModelsEnabled
             showHomepageUserRole
             viewIngestionSourcePrivilegesEnabled
+            actionWorkflowsEnabled
         }
         chromeExtensionConfig {
             enabled

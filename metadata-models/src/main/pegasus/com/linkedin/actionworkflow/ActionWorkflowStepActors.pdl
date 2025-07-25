@@ -1,0 +1,28 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.common.Urn
+
+/**
+ * A definition of the actors required to review.
+ */
+record ActionWorkflowStepActors {
+    /**
+    * Users statically assigned to perform the review step.
+    */
+    users: array[Urn]
+
+    /**
+    * Groups statically assigned to perform the review step.
+    */
+    groups: array[Urn]
+
+    /**
+    * Roles statically assigned to perform the review step.
+    */
+    roles: array[Urn]
+
+    /**
+    * Dynamic assignment type for the review step.
+    */
+    dynamicAssignment: optional ActionWorkflowStepDynamicAssignment
+}

@@ -1,0 +1,37 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.metadata.query.filter.Filter
+
+/**
+ * The entry point arguments for the action request workflowform.
+ * In the future, we may extend this model to support more granular entry point filters.
+ */
+record ActionWorkflowEntrypoint {
+    /**
+    * The type of entry point for the action request workflow.
+    * This determines where the action request workflow will be displayed.
+    */
+    @Searchable = {
+        "fieldName": "entrypointType",
+    }
+    type: enum ActionWorkflowEntrypointType {
+        /** Visible on the home page to all users. */
+        HOME
+
+        /** Visible on the entity profile page. For all valid entity types specified in the parent object. */
+        ENTITY_PROFILE
+    }
+
+    /**
+    * The label for the entry point, which is displayed to users.
+    * This should be a user-friendly name that describes the action request.
+    */
+    label: string
+
+    /**
+     * Additional filter criteria to determine when the entry point should be displayed.
+     *
+     * Not yet supported (but will be in the future).
+     */
+    filter: optional Filter
+}

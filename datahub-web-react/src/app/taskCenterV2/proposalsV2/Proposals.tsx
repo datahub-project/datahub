@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { ProposalList } from '@app/taskCenterV2/proposalsV2/ProposalList';
 import {
     ActionRequestGroup,
-    MY_PROPOSALS_GROUP_NAME,
+    MY_REQUESTS_GROUP_NAME,
     PERSONAL_ACTION_REQUESTS_GROUP_NAME,
 } from '@app/taskCenterV2/proposalsV2/utils';
 import { ACTION_REQUEST_DISPLAY_FACETS } from '@app/taskCenterV2/utils/constants';
@@ -64,7 +64,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
      * The first is for the "personal" inbox, where action requests
      * having the authenticated user urn as the assignee are displayed.
      *
-     * The second is for the "My Proposals" or outbox, where action requests
+     * The second is for the "My Requests" or outbox, where action requests
      * having the authenticated user urn as the creator are displayed.
      *
      * The subsequent are "group" inboxes, where action requests
@@ -89,8 +89,8 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 ],
             },
             {
-                name: MY_PROPOSALS_GROUP_NAME,
-                displayName: MY_PROPOSALS_GROUP_NAME,
+                name: MY_REQUESTS_GROUP_NAME,
+                displayName: MY_REQUESTS_GROUP_NAME,
                 createdBy: {
                     urn: authenticatedUser?.corpUser?.urn,
                 },
@@ -123,15 +123,15 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 useUrlParams
                 defaultFilters={activeActionRequestGroup.defaultFilters}
                 initialFilters={activeActionRequestGroup.initialFilters}
-                getAllActionRequests={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
+                getAllActionRequests={activeActionRequestGroup.name === MY_REQUESTS_GROUP_NAME}
                 filterFacets={
-                    activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME
+                    activeActionRequestGroup.name === MY_REQUESTS_GROUP_NAME
                         ? ['type', 'status']
                         : ACTION_REQUEST_DISPLAY_FACETS
                 }
-                enableSelection={activeActionRequestGroup.name !== MY_PROPOSALS_GROUP_NAME}
-                showPendingView={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
-                showAssignee={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
+                enableSelection={activeActionRequestGroup.name !== MY_REQUESTS_GROUP_NAME}
+                showPendingView={activeActionRequestGroup.name === MY_REQUESTS_GROUP_NAME}
+                showAssignee={activeActionRequestGroup.name === MY_REQUESTS_GROUP_NAME}
                 key={activeActionRequestGroup.name}
             />
         </ActiveGroupTabViewContainer>

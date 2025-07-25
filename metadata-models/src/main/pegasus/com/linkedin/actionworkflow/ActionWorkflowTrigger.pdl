@@ -1,0 +1,29 @@
+namespace com.linkedin.actionworkflow
+
+/**
+ * Defines the conditions on which the action workflow is triggered. 
+ *
+ * Currently we have only one trigger type, but we expect this to extend e.g. in the case that change events, proposals,
+ * or other actions can trigger workflows. 
+ *
+ * Currently, the workflow must have exactly 1 trigger condition. We don't expect this to change. 
+ */
+record ActionWorkflowTrigger {
+    /**
+     * A type of step / task / node in the Action Workflow. 
+     */
+    @Searchable = { "fieldName": "triggerType" }
+    type: enum ActionWorkflowTriggerType {
+        /** 
+         * The only trigger type currently supported - a workflow request form is submitted successfully. 
+         * This enables admins to create forms and display them on various entrypoints. 
+         * The form is also captured in the field "form" below. 
+         */ 
+        FORM_SUBMITTED
+    }
+
+    /**
+     * The form definition that will trigger the action workflow when submitted. 
+     */
+    form: optional ActionWorkflowForm
+}

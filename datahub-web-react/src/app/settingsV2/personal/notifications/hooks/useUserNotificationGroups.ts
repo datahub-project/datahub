@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import {
+    USER_ACTION_WORKFLOW_FORM_REQUEST_NOTIFICATIONS_GROUP,
     USER_COMPLIANCE_FORMS_NOTIFICATIONS_GROUP,
     USER_PROPOSAL_NOTIFICATIONS_GROUP,
 } from '@app/settingsV2/personal/notifications/types';
@@ -13,6 +14,10 @@ export default function useUserNotificationGroups(appConfig?: Partial<AppConfig>
 
         if (appConfig?.featureFlags?.formsNotificationsEnabled) {
             groups.push(USER_COMPLIANCE_FORMS_NOTIFICATIONS_GROUP);
+        }
+
+        if (appConfig?.featureFlags?.actionWorkflowsEnabled) {
+            groups.push(USER_ACTION_WORKFLOW_FORM_REQUEST_NOTIFICATIONS_GROUP);
         }
 
         return groups;

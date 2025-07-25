@@ -18,6 +18,8 @@ from datahub_integrations.identity.identity_provider import (
 from datahub_integrations.notifications.sinks.slack.template_utils import (
     build_incident_message,
     build_incident_status_change_message,
+    build_workflow_request_assignment_message,
+    build_workflow_request_status_change_message,
 )
 
 
@@ -540,6 +542,326 @@ def test_incident_status_change_failure_identity_provider(
     )
     assert "*Asset Owners*: None" in text
     assert "*Impacted Asset Owners*: None" in text
+
+
+#
+# Tests for build_workflow_request_assignment_message(...)
+#
+
+
+@pytest.fixture
+def workflow_assignment_request_all_args() -> NotificationRequestClass:
+    """
+    Fixture for workflow request assignment with complete entity information.
+    """
+    recipients = [
+        NotificationRecipientClass(id="reviewer1@example.com", type="SLACK_DM"),
+        NotificationRecipientClass(id="reviewer2@example.com", type="SLACK_DM"),
+    ]
+    return NotificationRequestClass(
+        recipients=recipients,
+        message=NotificationMessageClass(
+            template="BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST",
+            parameters={
+                "workflowName": "Data Access",
+                "actorName": "John Joyce",
+                "entityName": "FOO_BAR",
+                "entityType": "Table",
+                "entityPlatform": "Snowflake",
+                "workflowType": "ACCESS_REQUEST",
+                "customWorkflowType": "Custom Data Access",
+            },
+        ),
+    )
+
+
+@pytest.fixture
+def workflow_assignment_request_minimal_args() -> NotificationRequestClass:
+    """
+    Fixture for workflow request assignment with minimal information.
+    """
+    recipients = [
+        NotificationRecipientClass(id="reviewer@example.com", type="SLACK_DM"),
+    ]
+    return NotificationRequestClass(
+        recipients=recipients,
+        message=NotificationMessageClass(
+            template="BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST",
+            parameters={
+                "workflowName": "Schema Change",
+                "actorName": "Jane Smith",
+            },
+        ),
+    )
+
+
+def test_build_workflow_request_assignment_message_all_args(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+    workflow_assignment_request_all_args: NotificationRequestClass,
+) -> None:
+    """
+    Test workflow request assignment message with all parameters.
+    """
+    text, blocks, attachments = build_workflow_request_assignment_message(
+        workflow_assignment_request_all_args,
+        identity_provider,
+        mock_client,
+        "https://base.url",
+    )
+
+    expected_text = "John Joyce has created a new Data Access request for Table *FOO_BAR* on Snowflake"
+    assert text == expected_text
+
+    # Verify blocks structure - current implementation returns 2 blocks (main section + actions)
+    assert len(blocks) == 2
+    assert blocks[0]["type"] == "section"
+    assert "New Data Access Request" in blocks[0]["text"]["text"]
+    assert (
+        "John Joyce has created a new Data Access request for Table *FOO_BAR* on Snowflake."
+        in blocks[0]["text"]["text"]
+    )
+
+    # Verify action button
+    assert blocks[1]["type"] == "actions"
+    assert len(blocks[1]["elements"]) == 1
+    assert blocks[1]["elements"][0]["text"]["text"] == "Review Request"
+    assert blocks[1]["elements"][0]["url"] == "https://base.url/requests/proposals"
+
+    # No attachments for assignment messages
+    assert len(attachments) == 0
+
+
+def test_build_workflow_request_assignment_message_minimal_args(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+    workflow_assignment_request_minimal_args: NotificationRequestClass,
+) -> None:
+    """
+    Test workflow request assignment message with minimal parameters.
+    """
+    text, blocks, attachments = build_workflow_request_assignment_message(
+        workflow_assignment_request_minimal_args,
+        identity_provider,
+        mock_client,
+        "https://base.url",
+    )
+
+    expected_text = "Jane Smith has created a new Schema Change request"
+    assert text == expected_text
+
+    # Verify blocks structure - should have 2 blocks (main section + actions)
+    assert len(blocks) == 2
+    assert blocks[0]["type"] == "section"
+    assert "New Schema Change Request" in blocks[0]["text"]["text"]
+    assert (
+        "Jane Smith has created a new Schema Change request."
+        in blocks[0]["text"]["text"]
+    )
+
+    # Action buttons
+    assert blocks[1]["type"] == "actions"
+    assert blocks[1]["elements"][0]["text"]["text"] == "Review Request"
+
+    assert len(attachments) == 0
+
+
+def test_build_workflow_request_assignment_message_no_parameters(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+) -> None:
+    """
+    Test workflow request assignment message with no parameters (defaults).
+    """
+    request = NotificationRequestClass(
+        recipients=[],
+        message=NotificationMessageClass(
+            template="BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST",
+            parameters=None,
+        ),
+    )
+
+    text, blocks, attachments = build_workflow_request_assignment_message(
+        request,
+        identity_provider,
+        mock_client,
+        "https://base.url",
+    )
+
+    expected_text = "Someone has created a new Unknown Workflow request"
+    assert text == expected_text
+
+    # Should still have basic structure with defaults
+    assert len(blocks) == 2  # Main section + actions
+    assert "New Unknown Workflow Request" in blocks[0]["text"]["text"]
+    assert len(attachments) == 0
+
+
+#
+# Tests for build_workflow_request_status_change_message(...)
+#
+
+
+@pytest.fixture
+def workflow_status_change_request_approved() -> NotificationRequestClass:
+    """
+    Fixture for approved workflow request status change.
+    """
+    recipients = [
+        NotificationRecipientClass(id="requester@example.com", type="SLACK_DM"),
+    ]
+    return NotificationRequestClass(
+        recipients=recipients,
+        message=NotificationMessageClass(
+            template="BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE",
+            parameters={
+                "workflowName": "Data Access",
+                "actorName": "Jane Smith",
+                "creatorName": "John Joyce",
+                "result": "approved",
+                "entityName": "FOO_BAR",
+                "entityType": "Table",
+                "entityPlatform": "Snowflake",
+                "workflowType": "ACCESS_REQUEST",
+            },
+        ),
+    )
+
+
+@pytest.fixture
+def workflow_status_change_request_rejected() -> NotificationRequestClass:
+    """
+    Fixture for rejected workflow request status change.
+    """
+    recipients = [
+        NotificationRecipientClass(id="requester@example.com", type="SLACK_DM"),
+    ]
+    return NotificationRequestClass(
+        recipients=recipients,
+        message=NotificationMessageClass(
+            template="BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE",
+            parameters={
+                "workflowName": "Schema Change",
+                "actorName": "Bob Johnson",
+                "result": "rejected",
+                "customWorkflowType": "Custom Schema Workflow",
+            },
+        ),
+    )
+
+
+def test_build_workflow_request_status_change_message_approved(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+    workflow_status_change_request_approved: NotificationRequestClass,
+) -> None:
+    """
+    Test workflow request status change message for approved request.
+    """
+    text, blocks, attachments = build_workflow_request_status_change_message(
+        workflow_status_change_request_approved,
+        identity_provider,
+        mock_client,
+        "https://base.url",
+    )
+
+    expected_text = (
+        "Your Data Access request for Table *FOO_BAR* on Snowflake has been approved"
+    )
+    assert text == expected_text
+
+    # Should have attachments with color coding
+    assert len(attachments) == 1
+    assert attachments[0]["color"] == "good"  # Green for approved
+
+    # Verify blocks in attachment - current implementation returns 2 blocks (main section + actions)
+    attachment_blocks = attachments[0]["blocks"]
+    assert len(attachment_blocks) == 2
+
+    assert "Request Approved" in attachment_blocks[0]["text"]["text"]
+    assert "has been *approved* by Jane Smith" in attachment_blocks[0]["text"]["text"]
+
+    # Verify action button
+    assert attachment_blocks[1]["type"] == "actions"
+    assert attachment_blocks[1]["elements"][0]["text"]["text"] == "View Your Requests"
+
+    # No blocks outside of attachments
+    assert len(blocks) == 0
+
+
+def test_build_workflow_request_status_change_message_rejected(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+    workflow_status_change_request_rejected: NotificationRequestClass,
+) -> None:
+    """
+    Test workflow request status change message for rejected request.
+    """
+    text, blocks, attachments = build_workflow_request_status_change_message(
+        workflow_status_change_request_rejected,
+        identity_provider,
+        mock_client,
+        "https://base.url",
+    )
+
+    expected_text = "Your Schema Change request has been rejected"
+    assert text == expected_text
+
+    # Should have attachments with danger color for rejected
+    assert len(attachments) == 1
+    assert attachments[0]["color"] == "danger"  # Red for rejected
+
+    # Verify blocks in attachment - current implementation returns 2 blocks (main section + actions)
+    attachment_blocks = attachments[0]["blocks"]
+    assert len(attachment_blocks) == 2
+
+    assert "Request Rejected" in attachment_blocks[0]["text"]["text"]
+    assert "has been *rejected* by Bob Johnson" in attachment_blocks[0]["text"]["text"]
+
+    # Verify action button
+    assert attachment_blocks[1]["type"] == "actions"
+    assert attachment_blocks[1]["elements"][0]["text"]["text"] == "View Your Requests"
+
+    # No blocks outside of attachments
+    assert len(blocks) == 0
+
+
+def test_build_workflow_request_status_change_message_unknown_result(
+    mock_client: WebClient,
+    identity_provider: IdentityProvider,
+) -> None:
+    """
+    Test workflow request status change message with unknown result (defaults to rejected).
+    """
+    request = NotificationRequestClass(
+        recipients=[],
+        message=NotificationMessageClass(
+            template="BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE",
+            parameters={
+                "workflowName": "Data Export",
+                "actorName": "System Admin",
+                "result": "unknown_status",
+            },
+        ),
+    )
+
+    text, blocks, attachments = build_workflow_request_status_change_message(
+        request,
+        identity_provider,
+        mock_client,
+        "https://base.url",
+    )
+
+    expected_text = "Your Data Export request has been rejected"
+    assert text == expected_text
+
+    # Should default to danger color for unknown results
+    assert len(attachments) == 1
+    assert attachments[0]["color"] == "danger"
+
+    attachment_blocks = attachments[0]["blocks"]
+    assert "Request Rejected" in attachment_blocks[0]["text"]["text"]
+    assert "has been *rejected* by System Admin" in attachment_blocks[0]["text"]["text"]
 
 
 # type: ignore[attr]

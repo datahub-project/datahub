@@ -21,7 +21,9 @@ public class SlackProxySink extends IntegrationsServiceProxySink {
           NotificationTemplateType.BROADCAST_NEW_INCIDENT,
           NotificationTemplateType.BROADCAST_NEW_INCIDENT_UPDATE,
           NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE,
-          NotificationTemplateType.BROADCAST_COMPLIANCE_FORM_PUBLISH);
+          NotificationTemplateType.BROADCAST_COMPLIANCE_FORM_PUBLISH,
+          NotificationTemplateType.BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST,
+          NotificationTemplateType.BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE);
 
   /** A list of recipient types that can be handled by the sink */
   private static final List<NotificationRecipientType> RECIPIENT_TYPES =

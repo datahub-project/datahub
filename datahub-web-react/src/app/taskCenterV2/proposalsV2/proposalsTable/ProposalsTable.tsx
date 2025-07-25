@@ -46,7 +46,7 @@ const ProposalsTable = ({
     }
 
     return (
-        <TableContainer>
+        <TableContainer data-testid="proposals-table">
             <Table
                 columns={columns}
                 data={actionRequests}

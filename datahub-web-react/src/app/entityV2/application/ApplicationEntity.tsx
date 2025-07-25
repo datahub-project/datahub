@@ -27,7 +27,12 @@ import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTa
 import { useGetApplicationQuery } from '@graphql/application.generated';
 import { Application, EntityType, SearchResult } from '@types';
 
-const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.DELETE, EntityMenuItems.EDIT]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.EDIT,
+    EntityMenuItems.WORKFLOWS,
+]);
 
 type ApplicationWithChildren = Application & {
     children?: {

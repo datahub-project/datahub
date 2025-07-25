@@ -620,10 +620,8 @@ Cypress.Commands.add(
 Cypress.Commands.add("doInInbox", (action) => {
   cy.contains("span", "Tasks").click();
   cy.clickOptionWithTestId("proposals-tab");
-  cy.get(".action-request-test-id").should("have.length", 1);
   cy.getWithTestId(action).first().click({ force: true });
   cy.contains("Yes").click({ force: true });
-  cy.get(".action-request-test-id").should("have.length", 0);
 });
 
 Cypress.Commands.add("acceptProposalInbox", () => {

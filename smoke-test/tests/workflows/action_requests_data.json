@@ -1,0 +1,540 @@
+[
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:admin",
+          "urn:li:corpuser:test-access-reviewer"
+        ],
+        "assignedGroups": [
+          "urn:li:corpGroup:test-access-reviewers"
+        ],
+        "assignedRoles": [],
+        "resourceType": "dataset",
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset-1,PROD)",
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-access-workflow-1",
+            "category": "ACCESS",
+            "fields": [
+              {
+                "id": "reason",
+                "values": [
+                  "Need access for quarterly reporting analysis"
+                ]
+              }
+            ],
+            "stepState": {
+              "stepId": "manager-approval"
+            }
+          }
+        },
+        "created": 1640995200000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Access request for quarterly reporting dataset",
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-1",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1640995200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1640995200000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:admin"
+        ],
+        "assignedGroups": [],
+        "assignedRoles": [],
+        "resourceType": "dataset",
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset-2,PROD)",
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-access-workflow-2",
+            "category": "ACCESS",
+            "fields": [
+              {
+                "id": "purpose",
+                "values": [
+                  "Machine learning model training for customer segmentation"
+                ]
+              },
+              {
+                "id": "duration",
+                "values": [
+                  60.0
+                ]
+              }
+            ],
+            "access": {
+              "expiresAt": 1643587200000
+            },
+            "stepState": {
+              "stepId": "data-owner-approval"
+            }
+          }
+        },
+        "created": 1641081600000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Access request for ML training dataset with 60-day expiration",
+        "dueDate": 1641686400000,
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641081600000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-2",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1641081600000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641081600000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-3",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:admin"
+        ],
+        "assignedGroups": [
+          "urn:li:corpGroup:security-team"
+        ],
+        "assignedRoles": [],
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-custom-workflow-1",
+            "category": "CUSTOM",
+            "customCategory": "DATA_CLASSIFICATION",
+            "fields": [
+              {
+                "id": "classification_level",
+                "values": [
+                  "CONFIDENTIAL"
+                ]
+              }
+            ],
+            "stepState": {
+              "stepId": "security-review"
+            }
+          }
+        },
+        "created": 1641168000000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Data classification request for sensitive customer data",
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641168000000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-3",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1641168000000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641168000000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-4",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:admin"
+        ],
+        "assignedGroups": [],
+        "assignedRoles": [],
+        "resourceType": "dataset",
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset-multi,PROD)",
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-multi-values-workflow",
+            "category": "ACCESS",
+            "fields": [
+              {
+                "id": "reasons",
+                "values": [
+                  "Primary reason: Data analysis for product recommendations",
+                  "Secondary reason: Backup data for disaster recovery testing"
+                ]
+              },
+              {
+                "id": "quantities",
+                "values": [
+                  1000.0,
+                  5000.0
+                ]
+              }
+            ],
+            "stepState": {
+              "stepId": "multi-approval"
+            }
+          }
+        },
+        "created": 1641254400000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Multi-value access request for product recommendation system",
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641254400000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-4",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1641254400000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641254400000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-5",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:test-access-reviewer"
+        ],
+        "assignedGroups": [
+          "urn:li:corpGroup:test-access-reviewers"
+        ],
+        "assignedRoles": [],
+        "resourceType": "dashboard",
+        "resource": "urn:li:dashboard:(urn:li:dataPlatform:looker,test-dashboard,PROD)",
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-access-workflow-2",
+            "category": "ACCESS",
+            "fields": [
+              {
+                "id": "purpose",
+                "values": [
+                  "Dashboard access for executive reporting and KPI monitoring"
+                ]
+              },
+              {
+                "id": "duration",
+                "values": [
+                  30.0
+                ]
+              }
+            ],
+            "access": {
+              "expiresAt": 1643587200000
+            },
+            "stepState": {
+              "stepId": "data-owner-approval"
+            }
+          }
+        },
+        "created": 1641340800000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Dashboard access request for executive team",
+        "dueDate": 1641686400000,
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641340800000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-request-5",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1641340800000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641340800000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-multi-step-request",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:test-access-reviewer"
+        ],
+        "assignedGroups": [],
+        "assignedRoles": [],
+        "resourceType": "dataset",
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset-multistep,PROD)",
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-multi-step-workflow",
+            "category": "ACCESS",
+            "fields": [
+              {
+                "id": "reason",
+                "values": [
+                  "Access needed for security audit and compliance review"
+                ]
+              }
+            ],
+            "stepState": {
+              "stepId": "manager-approval"
+            }
+          }
+        },
+        "created": 1641427200000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Multi-step access request for security audit",
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641427200000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-multi-step-request",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1641427200000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641427200000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-unauthorized-request",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestInfo",
+    "aspect": {
+      "json": {
+        "type": "WORKFLOW_FORM_REQUEST",
+        "assignedUsers": [
+          "urn:li:corpuser:test-access-reviewer"
+        ],
+        "assignedGroups": [],
+        "assignedRoles": [],
+        "resourceType": "dataset",
+        "resource": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-dataset-unauthorized,PROD)",
+        "params": {
+          "workflowFormRequest": {
+            "workflow": "urn:li:actionWorkflow:test-access-workflow-1",
+            "category": "ACCESS",
+            "fields": [
+              {
+                "id": "reason",
+                "values": [
+                  "Access request that admin should NOT be able to review"
+                ]
+              }
+            ],
+            "stepState": {
+              "stepId": "manager-approval"
+            }
+          }
+        },
+        "created": 1641513600000,
+        "createdBy": "urn:li:corpuser:datahub",
+        "description": "Access request assigned only to test-access-reviewer (not admin)",
+        "origin": "MANUAL"
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641513600000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  },
+  {
+    "auditHeader": null,
+    "entityType": "actionRequest",
+    "entityUrn": "urn:li:actionRequest:test-unauthorized-request",
+    "entityKeyAspect": null,
+    "changeType": "UPSERT",
+    "aspectName": "actionRequestStatus",
+    "aspect": {
+      "json": {
+        "status": "PENDING",
+        "lastModified": {
+          "time": 1641513600000,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    },
+    "systemMetadata": {
+      "lastObserved": 1641513600000,
+      "runId": "test-action-requests",
+      "registryName": null,
+      "registryVersion": null,
+      "properties": null
+    }
+  }
+]

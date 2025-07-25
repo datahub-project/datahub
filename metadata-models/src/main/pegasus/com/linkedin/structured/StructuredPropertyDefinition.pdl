@@ -48,10 +48,7 @@ record StructuredPropertyDefinition {
     /**
     * The cardinality of the property. If not specified, then the property is assumed to be single valued..
     */
-    cardinality: optional enum PropertyCardinality {
-        SINGLE
-        MULTIPLE
-    } = "SINGLE"
+    cardinality: optional PropertyCardinality = "SINGLE"
 
     @Relationship = {
       "/*": {

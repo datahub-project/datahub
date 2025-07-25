@@ -1,0 +1,57 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.common.Urn
+import com.linkedin.structured.PropertyValue
+import com.linkedin.structured.PropertyCardinality
+
+/**
+ * A field inside an Action Workflow Form.
+ */
+record ActionWorkflowField {
+    /**
+     * Workflow-local id for the field
+     */
+    id: string
+
+    /**
+     * The display name or label for the field, for rendering
+     */
+    name: string
+
+    /**
+     * The description for the field, for rendering
+     */
+    description: optional string
+
+    /**
+     * The urn of the value type for the values - reused from structured properties.
+     * Also, used for rendering
+     */
+    valueType: Urn
+
+    /**
+    * The urns for allowed entity types.
+    */
+    allowedEntityTypes: optional array[Urn]
+
+    /**
+    * A list of allowed values that the property is allowed to take.
+    * If this is not specified, then the property can take any value of given type.
+    */
+    allowedValues: optional array[PropertyValue]
+
+    /**
+    * Whether or not multiple values are allowed.
+    */
+    cardinality: PropertyCardinality
+
+    /**
+     * Whether the field is required or not.
+     */
+    required: boolean = false
+
+    /**
+     * A dynamic condition that determines whether the field should be shown or not.
+     */
+     condition: optional ActionWorkflowFieldCondition
+}

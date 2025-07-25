@@ -101,7 +101,37 @@ public enum NotificationTemplateType {
   BROADCAST_ASSERTION_STATUS_CHANGE(
       ImmutableSet.of("assertionUrn", "entityName", "entityPath", "result"),
       Collections.emptySet()),
-  BROADCAST_COMPLIANCE_FORM_PUBLISH(ImmutableSet.of("formName"), Collections.emptySet());
+  BROADCAST_COMPLIANCE_FORM_PUBLISH(ImmutableSet.of("formName"), Collections.emptySet()),
+  /** Broadcast that a new action workflow request has been created or needs review. */
+  BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST(
+      ImmutableSet.of("workflowName", "workflowUrn", "actorUrn", "actorName"),
+      ImmutableSet.of(
+          "entityName",
+          "entityType",
+          "entityPath",
+          "entityPlatform",
+          "workflowType",
+          "customWorkflowType",
+          "fields")),
+  /** Broadcast that an action workflow request has been completed (approved or denied). */
+  BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE(
+      ImmutableSet.of(
+          "workflowName",
+          "workflowUrn",
+          "actorUrn",
+          "actorName",
+          "creatorUrn",
+          "creatorName",
+          "result"),
+      ImmutableSet.of(
+          "entityName",
+          "entityType",
+          "entityPath",
+          "entityPlatform",
+          "workflowType",
+          "customWorkflowType",
+          "fields",
+          "note"));
 
   private final Set<String> requiredParameters;
   private final Set<String> optionalParameters;

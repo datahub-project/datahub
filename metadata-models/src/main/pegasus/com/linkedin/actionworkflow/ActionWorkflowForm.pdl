@@ -1,0 +1,35 @@
+namespace com.linkedin.actionworkflow
+
+import com.linkedin.common.Urn
+
+record ActionWorkflowForm {
+    /**
+    * Entrypoints for form submission.
+    */
+    entrypoints: array[ActionWorkflowEntrypoint]
+
+    /**
+    * The valid entity type URNs that can be associated with a Workflow Form.
+    * If provided, this will require that an entity of one of the provided types is specified when completing the form.
+    *
+    * If no entity types are provided, the workflow form can be submitted without specifying an entity. In general, this should
+    * be populated for workflows of type ACCESS to enable users to request access to a specific entity!
+    *
+    * If specified, the associated action requests for this workflow will contain an URN of the corresponding type inside of
+    * the `resource` field.
+    *
+    * Note that associating multiple entities with a single Action Request is not yet supported.
+    */
+    @Searchable = {
+        "/*": {
+            "fieldType": "URN",
+            "fieldName": "entityTypes"
+        }
+    }
+    entityTypes: optional array[Urn]
+
+    /**
+    * Fields comprising the workflow request. These are the inputs / arguments required to trigger the workflow.
+    */
+    fields: array[ActionWorkflowField]
+}

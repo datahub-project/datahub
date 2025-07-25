@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.actionrequest.validation.ActionRequestWorkflowRequestValidator;
 import com.linkedin.metadata.aspect.hooks.ExtendedModelStructuredPropertyMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
@@ -403,6 +404,23 @@ public class SpringStandardPluginConfiguration {
             .getExtensions()
             .resolve(new YAMLMapper());
     return new ExtendedModelStructuredPropertyMutator(config, extensionsEnabled);
+  }
+
+  @Bean
+  public AspectPayloadValidator actionRequestWorkflowRequestValidator() {
+    return new ActionRequestWorkflowRequestValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ActionRequestWorkflowRequestValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(UPSERT, UPDATE, CREATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ACTION_REQUEST_ENTITY_NAME)
+                            .aspectName(ACTION_REQUEST_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
   }
   /* End SaaS Only */
 }

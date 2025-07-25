@@ -49,7 +49,8 @@
         "MANAGE_MONITORS",
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
         "PROPOSE_CREATE_GLOSSARY_TERM",
-        "PROPOSE_CREATE_GLOSSARY_NODE"
+        "PROPOSE_CREATE_GLOSSARY_NODE",
+        "MANAGE_ACTION_WORKFLOWS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -280,7 +281,8 @@
         "MANAGE_MONITORS",
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
         "PROPOSE_CREATE_GLOSSARY_TERM",
-        "PROPOSE_CREATE_GLOSSARY_NODE"
+        "PROPOSE_CREATE_GLOSSARY_NODE",
+        "MANAGE_ACTION_WORKFLOWS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -405,7 +407,8 @@
         "CREATE_CONSTRAINTS",
         "VIEW_METADATA_PROPOSALS",
         "PROPOSE_CREATE_GLOSSARY_TERM",
-        "PROPOSE_CREATE_GLOSSARY_NODE"
+        "PROPOSE_CREATE_GLOSSARY_NODE",
+        "MANAGE_ACTION_WORKFLOWS"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",

@@ -1,0 +1,18 @@
+namespace com.linkedin.actionworkflow
+
+enum ActionWorkflowStepDynamicAssignmentType {
+  /**
+  * Assign the entity owners.
+  */
+  ENTITY_OWNERS
+
+  /**
+  * Assign the entity domain owners.
+  */
+  ENTITY_DOMAIN_OWNERS
+
+  /**
+  * Assign the entity data product owners.
+  */
+  ENTITY_DATA_PRODUCT_OWNERS
+}

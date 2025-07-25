@@ -8,15 +8,38 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.actionrequest.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.*;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class ActionRequestInfoChangeEventGenerator
     extends EntityChangeEventGenerator<ActionRequestInfo> {
+
+  private final WorkflowFormRequestStepCompletionChangeEventGenerator
+      workflowFormRequestStepCompletionChangeEventGenerator;
+
+  // Default constructor for backward compatibility
+  public ActionRequestInfoChangeEventGenerator() {
+    this.workflowFormRequestStepCompletionChangeEventGenerator = null;
+  }
+
+  // Constructor with workflow dependencies
+  public ActionRequestInfoChangeEventGenerator(
+      @Nullable final UserService userService,
+      @Nullable final OperationContext systemOperationContext) {
+    this.workflowFormRequestStepCompletionChangeEventGenerator =
+        (userService != null && systemOperationContext != null)
+            ? new WorkflowFormRequestStepCompletionChangeEventGenerator(
+                userService, systemOperationContext)
+            : null;
+  }
+
   @Override
   public List<ChangeEvent> getChangeEvents(
       @Nonnull Urn urn,
@@ -25,6 +48,17 @@ public class ActionRequestInfoChangeEventGenerator
       @Nonnull Aspect<ActionRequestInfo> from,
       @Nonnull Aspect<ActionRequestInfo> to,
       @Nonnull AuditStamp auditStamp) {
+
+    // Check if this is a workflow request and delegate to workflow generator
+    ActionRequestInfo toActionRequestInfo = to.getValue();
+    if (toActionRequestInfo != null
+        && ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST.equals(toActionRequestInfo.getType())
+        && workflowFormRequestStepCompletionChangeEventGenerator != null) {
+      return workflowFormRequestStepCompletionChangeEventGenerator.getChangeEvents(
+          urn, entity, aspect, from, to, auditStamp);
+    }
+
+    // Handle non-workflow requests with original logic
     return computeDiffs(from.getValue(), to.getValue(), urn.toString(), auditStamp);
   }
 

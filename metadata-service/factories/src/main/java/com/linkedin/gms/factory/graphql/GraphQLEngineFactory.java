@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.actionrequest.ActionRequestFactory;
+import com.linkedin.gms.factory.actionrequest.ActionWorkflowServiceFactory;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -41,6 +42,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.ActionRequestService;
+import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
@@ -96,6 +98,7 @@ import software.amazon.awssdk.services.sts.StsClient;
   EntitySearchServiceFactory.class,
   AssertionServiceFactory.class,
   ActionRequestFactory.class,
+  ActionWorkflowServiceFactory.class,
   DataContractServiceFactory.class,
   IntegrationsServiceFactory.class
 })
@@ -281,6 +284,10 @@ public class GraphQLEngineFactory {
   @Qualifier("actionRequestService")
   private ActionRequestService actionRequestService;
 
+  @Autowired
+  @Qualifier("actionWorkflowService")
+  private ActionWorkflowService actionWorkflowService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -361,6 +368,7 @@ public class GraphQLEngineFactory {
     args.setMetricUtils(metricUtils);
     args.setMetadataTestClient(metadataTestClient);
     args.setActionRequestService(actionRequestService);
+    args.setActionWorkflowService(actionWorkflowService);
 
     // Saas Only
     try {

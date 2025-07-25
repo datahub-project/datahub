@@ -28,5 +28,13 @@ enum NotificationTemplateType {
     BROADCAST_NEW_PROPOSAL
     BROADCAST_PROPOSAL_STATUS_CHANGE
     BROADCAST_COMPLIANCE_FORM_PUBLISH
+    /**
+     * Broadcast that a new action workflow form request has been created or needs review.
+     */
+    BROADCAST_NEW_ACTION_WORKFLOW_FORM_REQUEST
+    /**
+     * Broadcast that an action workflow form request has been completed (approved or denied).
+     */
+    BROADCAST_ACTION_WORKFLOW_FORM_REQUEST_STATUS_CHANGE
     INVALID_TEMPLATE
 }

@@ -882,6 +882,11 @@ entities:
     aspects:
       - actionRequestStatus
       - actionRequestInfo
+  - name: actionWorkflow
+    category: internal
+    keyAspect: actionWorkflowKey
+    aspects:
+      - actionWorkflowInfo
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey

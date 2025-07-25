@@ -775,3 +775,89 @@ def join_modifiers(
     if len(linked_modifiers) == 2:
         return f"{modifier_type.lower()} <b>{linked_modifiers[0]}</b> and <b>{linked_modifiers[1]}</b>"
     return f"{modifier_type.lower()} <b>{', '.join(linked_modifiers[:-1])}</b>, and <b>{linked_modifiers[-1]}</b>"
+
+
+def build_workflow_request_assignment_parameters(
+    request: NotificationRequestClass, base_url: str
+) -> Dict[str, str | None]:
+    """
+    Builds email parameters for new workflow request assignments.
+    Uses ACTOR_CHANGE_NOTIFICATION_TEMPLATE which only needs message and detailsUrl.
+    """
+    if request.message.parameters is None:
+        raise ValueError(
+            "Parameters are required for workflow request assignment notifications."
+        )
+
+    params = request.message.parameters
+    requests_url = f"{base_url}/requests/proposals"
+
+    # Extract basic parameters
+    workflow_name = params.get("workflowName", "Unknown Workflow")
+    actor_name = params.get("actorName", "Someone")
+    entity_name = params.get("entityName")
+    entity_type = params.get("entityType")
+    entity_platform = params.get("entityPlatform")
+
+    # Build entity information if available
+    entity_info = ""
+    if entity_name and entity_type:
+        entity_info = f" for <b>{entity_platform + ' ' if entity_platform else ''}{entity_type} {entity_name}</b>"
+
+    # Build the message with HTML formatting and link
+    message = f"{actor_name} has created a new <b>{workflow_name}</b> request{entity_info} that requires your review."
+
+    # Build the subject
+    subject = f"Action Required: You have new {workflow_name} request to review."
+
+    return {
+        "subject": subject,
+        "message": message,
+        "detailsUrl": requests_url,
+        "baseUrl": base_url,
+    }
+
+
+def build_workflow_request_status_change_parameters(
+    request: NotificationRequestClass, base_url: str
+) -> Dict[str, str | None]:
+    """
+    Builds email parameters for workflow request status changes.
+    Uses ACTOR_CHANGE_NOTIFICATION_TEMPLATE which only needs message and detailsUrl.
+    """
+    if request.message.parameters is None:
+        raise ValueError(
+            "Parameters are required for workflow request status change notifications."
+        )
+
+    params = request.message.parameters
+    requests_url = f"{base_url}/requests/proposals"
+
+    # Extract basic parameters
+    workflow_name = params.get("workflowName", "Unknown Workflow")
+    actor_name = params.get("actorName", "Someone")
+    result = params.get("result", "processed")
+    entity_name = params.get("entityName")
+    entity_type = params.get("entityType")
+    entity_platform = params.get("entityPlatform")
+
+    # Build entity information if available
+    entity_info = ""
+    if entity_name and entity_type:
+        entity_info = f" for <b>{entity_platform + ' ' if entity_platform else ''}{entity_type} {entity_name}</b>"
+
+    # Determine result text
+    result_text = "approved" if result == "approved" else "rejected"
+
+    # Build the message with HTML formatting and link
+    message = f"Your <b>{workflow_name}</b> request{entity_info} has been <b>{result_text}</b> by <b>{actor_name}</b>."
+
+    # Build the subject
+    subject = f"Your {workflow_name} request has been {result_text}"
+
+    return {
+        "subject": subject,
+        "message": message,
+        "detailsUrl": requests_url,
+        "baseUrl": base_url,
+    }
