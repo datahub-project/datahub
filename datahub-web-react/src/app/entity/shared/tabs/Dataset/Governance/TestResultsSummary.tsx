@@ -1,25 +1,25 @@
-import { CheckCircleFilled, CloseCircleFilled, StopOutlined } from '@ant-design/icons';
+import { CheckCircle, Stop, XCircle } from '@phosphor-icons/react';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { colors } from '@src/alchemy-components/theme';
 
 const SummaryHeader = styled.div`
     width: 100%;
-    padding-left: 40px;
+    padding-left: 20px;
     padding-top: 20px;
     padding-bottom: 20px;
     display: flex;
     align-items: center;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${colors.gray[100]};
 `;
 
 const SummaryContainer = styled.div``;
 
 const SummaryMessage = styled.div`
     display: inline-block;
-    margin-left: 20px;
+    margin-left: 12px;
 `;
 
 const SummaryTitle = styled(Typography.Title)`
@@ -39,17 +39,14 @@ type Props = {
     summary: TestsSummary;
 };
 
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-
 const getSummaryIcon = (summary: TestsSummary) => {
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <Stop size={28} color={colors.gray[600]} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckCircleFilled style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckCircle size={28} color={colors.green[500]} />;
     }
-    return <CloseCircleFilled style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+    return <XCircle size={28} color={colors.red[500]} />;
 };
 
 const getSummaryMessage = (summary: TestsSummary) => {
