@@ -272,7 +272,10 @@ class Telemetry:
         if self.sentry_enabled:
             import sentry_sdk
 
-            sentry_sdk.set_tags(properties)
+            try:
+                sentry_sdk.set_tags(properties)
+            except Exception as e:
+                logger.warning("Failed to update Sentry properties.", exc_info=e)
 
     def init_capture_exception(self) -> None:
         if self.sentry_enabled:
