@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from datahub.ingestion.source.sql_queries import QueryEntry, SqlQueriesSourceConfig
-from datahub.metadata.urns import CorpUserUrn
+from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
 
 class TestQueryEntry:
@@ -26,7 +26,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -50,7 +52,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -72,7 +76,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -94,7 +100,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -116,7 +124,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -138,7 +148,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -161,11 +173,17 @@ class TestQueryEntry:
                     user=CorpUserUrn("test_user"),
                     operation_type=None,
                     downstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,output_table,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,output_table,PROD)"
+                        )
                     ],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)",
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table2,PROD)",
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        ),
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table2,PROD)"
+                        ),
                     ],
                     session_id=None,
                 ),
@@ -229,7 +247,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -250,7 +270,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -273,10 +295,14 @@ class TestQueryEntry:
                     user=CorpUserUrn("test_user"),
                     operation_type=None,
                     downstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,output_table,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,output_table,PROD)"
+                        )
                     ],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:athena,table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -304,7 +330,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod_instance.table1,DEV)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod_instance.table1,DEV)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -328,7 +356,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:bigquery,table1,PRE)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:bigquery,table1,PRE)"
+                        )
                     ],
                     session_id=None,
                 ),
@@ -354,7 +384,9 @@ class TestQueryEntry:
                     operation_type=None,
                     downstream_tables=[],
                     upstream_tables=[
-                        "urn:li:dataset:(urn:li:dataPlatform:postgres,dev_cluster.table1,PROD)"
+                        DatasetUrn.from_string(
+                            "urn:li:dataset:(urn:li:dataPlatform:postgres,dev_cluster.table1,PROD)"
+                        )
                     ],
                     session_id=None,
                 ),
