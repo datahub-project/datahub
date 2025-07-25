@@ -131,7 +131,12 @@ public enum DataHubUsageEventType {
   ENTITY_EVENT("EntityEvent"),
   FAILED_LOGIN_EVENT("FailedLogInEvent"),
   DELETE_POLICY_EVENT("DeletePolicyEvent"),
-  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent");
+  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
+  WELCOME_TO_DATAHUB_MODAL_VIEW_EVENT("WelcomeToDataHubModalViewEvent"),
+  WELCOME_TO_DATAHUB_MODAL_INTERACT_EVENT("WelcomeToDataHubModalInteractEvent"),
+  WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
+  WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
+      "WelcomeToDataHubModalClickViewDocumentationEvent");
 
   private final String type;
 
