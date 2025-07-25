@@ -283,9 +283,16 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
+        log_type: Optional[StructuredLogType] = None,
     ) -> None:
         self._structured_logs.report_log(
-            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+            StructuredLogLevel.ERROR,
+            message,
+            title,
+            context,
+            exc,
+            log=log,
+            log_type=log_type,
         )
 
     def info(
