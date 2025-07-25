@@ -122,7 +122,7 @@ class StructuredLogs(Report):
         log_type: Optional[StructuredLogType] = None,
     ) -> None:
         """
-        Report a user-facing warning for the ingestion run.
+        Report a user-facing log for the ingestion run.
 
         Args:
             level: The level of the log entry.
@@ -130,6 +130,9 @@ class StructuredLogs(Report):
             title: The category / heading to present on for this message in the UI.
             context: Additional context (e.g. where, how) for the log entry.
             exc: The exception associated with the event. We'll show the stack trace when in debug mode.
+            log_type: The type of the log entry. This is used to categorise the log entry.
+            log: Whether to log the entry to the console.
+            stacklevel: The stack level to use for the log entry.
         """
 
         # One for this method, and one for the containing report_* call.
@@ -234,6 +237,9 @@ class SourceReport(ExamplesReport):
         exc: Optional[BaseException] = None,
         log_type: Optional[StructuredLogType] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
             StructuredLogLevel.WARN,
             message,
@@ -253,6 +259,9 @@ class SourceReport(ExamplesReport):
         log: bool = True,
         log_type: Optional[StructuredLogType] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
             StructuredLogLevel.WARN,
             message,
@@ -272,6 +281,9 @@ class SourceReport(ExamplesReport):
         log: bool = True,
         log_type: Optional[StructuredLogType] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
             StructuredLogLevel.ERROR,
             message,
@@ -291,6 +303,9 @@ class SourceReport(ExamplesReport):
         log: bool = True,
         log_type: Optional[StructuredLogType] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
             StructuredLogLevel.ERROR,
             message,
@@ -310,6 +325,9 @@ class SourceReport(ExamplesReport):
         log: bool = True,
         log_type: Optional[StructuredLogType] = None,
     ) -> None:
+        """
+        See docs of StructuredLogs.report_log for details of args
+        """
         self._structured_logs.report_log(
             StructuredLogLevel.INFO,
             message,
