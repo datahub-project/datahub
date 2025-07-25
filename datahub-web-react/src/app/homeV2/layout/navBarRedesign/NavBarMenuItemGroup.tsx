@@ -13,14 +13,28 @@ const NavBarMenuItemGroup = styled(Menu.ItemGroup)`
         line-height: normal;
         min-height: 38px;
 
-        @media (max-height: 935px) {
-            margin-top: 4px;
-        }
-        @media (max-height: 890px) {
+        @media (max-height: 970px) {
             margin-top: 2px;
         }
-        @media (max-height: 835px) {
+        @media (max-height: 890px) {
             margin-top: 0px;
+        }
+        @media (max-height: 835px) {
+            min-height: 34px;
+        }
+        @media (max-height: 800px) {
+            min-height: 24px;
+        }
+        @media (max-height: 775px) {
+            min-height: 14px;
+        }
+        @media (max-height: 750px) {
+            min-height: 0px;
+            padding: 4px 0;
+        }
+        @media (max-height: 730px) {
+            min-height: 0px;
+            padding: 0;
         }
     }
 `;
