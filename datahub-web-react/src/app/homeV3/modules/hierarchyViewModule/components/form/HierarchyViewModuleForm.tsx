@@ -17,7 +17,7 @@ export default function HierarchyViewModuleForm() {
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Choose a name for your widget" isRequired />
+                <Input label="Name" placeholder="Choose a name for your module" isRequired />
             </Form.Item>
 
             <SelectAssetsSection />

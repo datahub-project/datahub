@@ -319,6 +319,245 @@ describe('useModuleOperations', () => {
 
             consoleSpy.mockRestore();
         });
+
+        describe('size mismatch functionality', () => {
+            it('should create new row when adding small module to large module row', () => {
+                // Create a template with a large module row
+                const templateWithLargeModule: PageTemplateFragment = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    {
+                                        urn: 'urn:li:pageModule:large1',
+                                        type: 'DATAHUB_PAGE_MODULE' as any,
+                                        properties: {
+                                            name: 'Large Module',
+                                            type: DataHubPageModuleType.OwnedAssets,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: {},
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                // Mock the current template as having a large module
+                const { result: hookResult } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        templateWithLargeModule,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const smallModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:small1',
+                    type: 'DATAHUB_PAGE_MODULE' as any,
+                    properties: {
+                        name: 'Small Module',
+                        type: DataHubPageModuleType.Link,
+                        visibility: { scope: PageModuleScope.Personal },
+                        params: {},
+                    },
+                };
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'right',
+                };
+
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    hookResult.current.addModule({
+                        module: smallModule,
+                        position,
+                    });
+                });
+
+                // Verify that handleModuleAdditionWithSizeMismatch was called via the template update
+                expect(mockSetPersonalTemplate).toHaveBeenCalled();
+                expect(mockUpsertTemplate).toHaveBeenCalled();
+
+                // Verify that the normal updateTemplateWithModule was NOT called due to size mismatch
+                expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
+            });
+
+            it('should create new row when adding large module to small module row', () => {
+                // Create a template with a small module row
+                const templateWithSmallModule: PageTemplateFragment = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    {
+                                        urn: 'urn:li:pageModule:small1',
+                                        type: 'DATAHUB_PAGE_MODULE' as any,
+                                        properties: {
+                                            name: 'Small Module',
+                                            type: DataHubPageModuleType.Link,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: {},
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                // Mock the current template as having a small module
+                const { result: hookResult } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        templateWithSmallModule,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const largeModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:large1',
+                    type: 'DATAHUB_PAGE_MODULE' as any,
+                    properties: {
+                        name: 'Large Module',
+                        type: DataHubPageModuleType.OwnedAssets,
+                        visibility: { scope: PageModuleScope.Personal },
+                        params: {},
+                    },
+                };
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'right',
+                };
+
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    hookResult.current.addModule({
+                        module: largeModule,
+                        position,
+                    });
+                });
+
+                // Verify that handleModuleAdditionWithSizeMismatch was called via the template update
+                expect(mockSetPersonalTemplate).toHaveBeenCalled();
+                expect(mockUpsertTemplate).toHaveBeenCalled();
+
+                // Verify that the normal updateTemplateWithModule was NOT called due to size mismatch
+                expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
+            });
+
+            it('should use normal flow when adding same size modules', () => {
+                // Create a template with a large module row
+                const templateWithLargeModule: PageTemplateFragment = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    {
+                                        urn: 'urn:li:pageModule:large1',
+                                        type: 'DATAHUB_PAGE_MODULE' as any,
+                                        properties: {
+                                            name: 'Large Module',
+                                            type: DataHubPageModuleType.OwnedAssets,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: {},
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                const { result: hookResult } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        templateWithLargeModule,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const anotherLargeModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:large2',
+                    type: 'DATAHUB_PAGE_MODULE' as any,
+                    properties: {
+                        name: 'Another Large Module',
+                        type: DataHubPageModuleType.Domains,
+                        visibility: { scope: PageModuleScope.Personal },
+                        params: {},
+                    },
+                };
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'right',
+                };
+
+                const updatedTemplate: PageTemplateFragment = {
+                    ...templateWithLargeModule,
+                    properties: {
+                        ...templateWithLargeModule.properties!,
+                        rows: [
+                            {
+                                modules: [...templateWithLargeModule.properties!.rows![0].modules!, anotherLargeModule],
+                            },
+                        ],
+                    },
+                };
+
+                mockUpdateTemplateWithModule.mockReturnValue(updatedTemplate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    hookResult.current.addModule({
+                        module: anotherLargeModule,
+                        position,
+                    });
+                });
+
+                // Verify that normal flow was used (no size mismatch)
+                expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                    templateWithLargeModule,
+                    anotherLargeModule,
+                    position,
+                    false,
+                );
+                expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
+                expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, templateWithLargeModule);
+            });
+        });
     });
 
     describe('removeModule', () => {
@@ -1902,6 +2141,294 @@ describe('useModuleOperations', () => {
             });
 
             expect(result.current.upsertModule).not.toBe(initialUpsertModule);
+        });
+
+        describe('size mismatch functionality', () => {
+            it('should create new row when upserting small module in large module row', async () => {
+                // Create a template with a large module row
+                const templateWithLargeModule: PageTemplateFragment = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    {
+                                        urn: 'urn:li:pageModule:large1',
+                                        type: 'DATAHUB_PAGE_MODULE' as any,
+                                        properties: {
+                                            name: 'Large Module',
+                                            type: DataHubPageModuleType.OwnedAssets,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: {},
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                const { result: hookResult } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        templateWithLargeModule,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'right',
+                };
+
+                const createdModuleUrn = 'urn:li:pageModule:created-small';
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: createdModuleUrn,
+                        },
+                    },
+                });
+                mockUpsertTemplate.mockResolvedValue({});
+
+                await act(async () => {
+                    hookResult.current.upsertModule({
+                        name: 'Test Small Module',
+                        type: DataHubPageModuleType.Link,
+                        position,
+                        params: {},
+                    });
+                });
+
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
+                    variables: {
+                        input: {
+                            name: 'Test Small Module',
+                            type: DataHubPageModuleType.Link,
+                            scope: PageModuleScope.Personal,
+                            params: {},
+                            urn: undefined,
+                        },
+                    },
+                });
+
+                // Verify that handleModuleAdditionWithSizeMismatch was called (template updated)
+                expect(mockSetPersonalTemplate).toHaveBeenCalled();
+                expect(mockUpsertTemplate).toHaveBeenCalled();
+
+                // Verify that normal updateTemplateWithModule was NOT called due to size mismatch
+                expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
+            });
+
+            it('should create new row when upserting large module in small module row', async () => {
+                // Create a template with a small module row
+                const templateWithSmallModule: PageTemplateFragment = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    {
+                                        urn: 'urn:li:pageModule:small1',
+                                        type: 'DATAHUB_PAGE_MODULE' as any,
+                                        properties: {
+                                            name: 'Small Module',
+                                            type: DataHubPageModuleType.Link,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: {},
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                const { result: hookResult } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        templateWithSmallModule,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'right',
+                };
+
+                const createdModuleUrn = 'urn:li:pageModule:created-large';
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: createdModuleUrn,
+                        },
+                    },
+                });
+                mockUpsertTemplate.mockResolvedValue({});
+
+                await act(async () => {
+                    hookResult.current.upsertModule({
+                        name: 'Test Large Module',
+                        type: DataHubPageModuleType.OwnedAssets,
+                        position,
+                        params: {},
+                    });
+                });
+
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
+                    variables: {
+                        input: {
+                            name: 'Test Large Module',
+                            type: DataHubPageModuleType.OwnedAssets,
+                            scope: PageModuleScope.Personal,
+                            params: {},
+                            urn: undefined,
+                        },
+                    },
+                });
+
+                // Verify that handleModuleAdditionWithSizeMismatch was called (template updated)
+                expect(mockSetPersonalTemplate).toHaveBeenCalled();
+                expect(mockUpsertTemplate).toHaveBeenCalled();
+
+                // Verify that normal updateTemplateWithModule was NOT called due to size mismatch
+                expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
+            });
+
+            it('should use normal flow for global module replacement with size mismatch', async () => {
+                const mockGlobalModuleToEdit: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:global-to-edit',
+                    type: 'DATAHUB_PAGE_MODULE' as any,
+                    properties: {
+                        name: 'Global Module To Edit',
+                        type: DataHubPageModuleType.OwnedAssets, // Large module
+                        visibility: { scope: PageModuleScope.Global },
+                        params: {},
+                    },
+                };
+
+                // Create a template with small modules where global replacement will happen
+                const templateWithSmallModules: PageTemplateFragment = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    mockGlobalModuleToEdit,
+                                    {
+                                        urn: 'urn:li:pageModule:small1',
+                                        type: 'DATAHUB_PAGE_MODULE' as any,
+                                        properties: {
+                                            name: 'Small Module',
+                                            type: DataHubPageModuleType.Link,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: {},
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false, // isEditingGlobalTemplate
+                        templateWithSmallModules,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        true, // isEditingModule
+                        mockGlobalModuleToEdit, // originalModuleData
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    moduleIndex: 0,
+                };
+
+                const newPersonalModuleUrn = 'urn:li:pageModule:new-personal';
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: newPersonalModuleUrn,
+                        },
+                    },
+                });
+
+                const templateAfterRemoval: PageTemplateFragment = {
+                    ...templateWithSmallModules,
+                    properties: {
+                        ...templateWithSmallModules.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    templateWithSmallModules.properties!.rows![0].modules![1], // Only the small module remains
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(templateAfterRemoval);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                await act(async () => {
+                    result.current.upsertModule({
+                        name: 'Updated Global Module Name',
+                        type: DataHubPageModuleType.OwnedAssets, // Large module going to small module row after removal
+                        position,
+                        params: { newParam: 'updatedValue' },
+                        urn: mockGlobalModuleToEdit.urn,
+                    });
+                });
+
+                // Should create new module (no urn passed for replacement)
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
+                    variables: {
+                        input: {
+                            name: 'Updated Global Module Name',
+                            type: DataHubPageModuleType.OwnedAssets,
+                            scope: PageModuleScope.Personal,
+                            params: { newParam: 'updatedValue' },
+                            urn: undefined, // Should be undefined for replacement
+                        },
+                    },
+                });
+
+                // Should remove original global module
+                expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                    templateWithSmallModules,
+                    mockGlobalModuleToEdit.urn,
+                    position,
+                );
+
+                // Should handle the size mismatch properly during replacement
+                expect(mockSetPersonalTemplate).toHaveBeenCalled();
+                expect(mockUpsertTemplate).toHaveBeenCalled();
+            });
         });
     });
 });
