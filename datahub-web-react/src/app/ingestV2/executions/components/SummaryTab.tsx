@@ -1,5 +1,5 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
@@ -12,6 +12,7 @@ import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
+import { Button, Text, Tooltip } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
@@ -35,27 +36,20 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-const SubHeaderParagraph = styled(Typography.Paragraph)`
+const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
 const StatusSection = styled.div`
-    border-bottom: 1px solid ${colors.gray[1400]};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
 
-const IngestedAssetsSection = styled.div<{ isFirstSection?: boolean }>`
-    border-bottom: 1px solid ${colors.gray[1400]};
-    ${({ isFirstSection }) => !isFirstSection && `border-top: 1px solid ${colors.gray[1400]};`}
+const IngestedAssetsSection = styled.div`
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
-`;
-
-const ShowMoreButton = styled(Button)`
-    padding: 0px;
 `;
 
 const DetailsContainer = styled.div`
@@ -68,6 +62,8 @@ const DetailsContainer = styled.div`
         padding: 16px;
         margin: 0;
         color: ${colors.gray[1700]};
+        max-height: 300px;
+        overflow-y: auto;
     }
 `;
 
@@ -84,8 +80,8 @@ export const SummaryTab = ({
     data: GetIngestionExecutionRequestQuery | undefined;
     onTabChange: (tab: TabType) => void;
 }) => {
-    const [showExpandedLogs] = useState(false);
-    const [showExpandedRecipe] = useState(false);
+    const [showExpandedLogs] = useState(true);
+    const [showExpandedRecipe] = useState(true);
 
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
@@ -123,9 +119,7 @@ export const SummaryTab = ({
                     {structuredReport && structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
             )}
-            <IngestedAssetsSection
-                isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}
-            >
+            <IngestedAssetsSection>
                 {data?.executionRequest?.id && (
                     <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
                 )}
@@ -133,48 +127,52 @@ export const SummaryTab = ({
             <SectionBase>
                 <SectionHeader level={5}>Logs</SectionHeader>
                 <SectionSubHeader>
-                    <SubHeaderParagraph type="secondary">
+                    <SubHeaderParagraph color="gray" colorLevel={600}>
                         View logs that were collected during the sync.
                     </SubHeaderParagraph>
                     <ButtonGroup>
                         {areLogsExpandable && (
-                            <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Logs)}>
-                                View More
-                            </ShowMoreButton>
+                            <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
+                                View All
+                            </Button>
                         )}
-                        <Button type="text" onClick={downloadLogs}>
-                            <DownloadOutlined />
-                        </Button>
+                        <Tooltip title="Download Logs">
+                            <Button variant="text" onClick={downloadLogs}>
+                                <DownloadOutlined />
+                            </Button>
+                        </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
                 <DetailsContainer>
-                    <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}${areLogsExpandable ? '...' : ''}`}</pre>
-                    </Typography.Paragraph>
+                    <Text size="sm">
+                        <pre>{logs}</pre>
+                    </Text>
                 </DetailsContainer>
             </SectionBase>
             {recipe && (
                 <SectionBase>
                     <SectionHeader level={5}>Recipe</SectionHeader>
                     <SectionSubHeader>
-                        <SubHeaderParagraph type="secondary">
+                        <SubHeaderParagraph color="gray" colorLevel={600}>
                             The configurations used for this sync with the data source.
                         </SubHeaderParagraph>
                         <ButtonGroup>
                             {isRecipeExpandable && (
-                                <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Recipe)}>
+                                <Button variant="text" onClick={() => onTabChange(TabType.Recipe)}>
                                     View More
-                                </ShowMoreButton>
+                                </Button>
                             )}
-                            <Button type="text" onClick={downloadRecipe}>
-                                <DownloadOutlined />
-                            </Button>
+                            <Tooltip title="Download Recipe">
+                                <Button variant="text" onClick={downloadRecipe}>
+                                    <DownloadOutlined />
+                                </Button>
+                            </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>
                     <DetailsContainer>
-                        <Typography.Paragraph ellipsis>
-                            <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '...' : ''}`}</pre>
-                        </Typography.Paragraph>
+                        <Text size="sm">
+                            <pre>{recipe}</pre>
+                        </Text>
                     </DetailsContainer>
                 </SectionBase>
             )}

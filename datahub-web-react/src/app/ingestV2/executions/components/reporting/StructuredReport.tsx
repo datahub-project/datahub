@@ -41,12 +41,7 @@ export function StructuredReport({ report }: Props) {
     return (
         <Container>
             {errors.length ? (
-                <StructuredReportItemList
-                    items={errors}
-                    color={ERROR_COLOR}
-                    icon={CloseCircleOutlined}
-                    defaultActiveKey="0"
-                />
+                <StructuredReportItemList items={errors} color={ERROR_COLOR} icon={CloseCircleOutlined} />
             ) : null}
             {warnings.length ? (
                 <StructuredReportItemList items={warnings} color={WARNING_COLOR} icon={ExclamationCircleOutlined} />

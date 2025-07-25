@@ -1,11 +1,10 @@
-import { Button } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
 import {
     extractEntityTypeCountsFromFacets,
-    getEntitiesIngestedByType,
+    getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
     getOtherIngestionContents,
     getTotalEntitiesIngested,
@@ -15,7 +14,7 @@ import { Message } from '@app/shared/Message';
 import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Heading, Pill, Text } from '@src/alchemy-components';
+import { Button, Card, Heading, Pill, Text } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
@@ -27,15 +26,13 @@ const FlexContainer = styled.div`
     gap: 16px;
 `;
 
-// Base card styling
-const BaseCard = styled.div`
-    display: flex;
-    padding: 12px;
-    background-color: white;
-    border: 1px solid ${colors.gray[1400]};
-    border-radius: 12px;
-    box-shadow: 0px 4px 8px 0px rgba(33, 23, 95, 0.04);
-    min-height: 60px;
+const SectionSmallTitle = styled.div`
+    padding-top: 16px;
+    padding-bottom: 4px;
+`;
+
+const SubTitleContainer = styled.div`
+    padding-top: 8px;
 `;
 
 const MainContainer = styled(FlexContainer)`
@@ -43,28 +40,10 @@ const MainContainer = styled(FlexContainer)`
     margin-top: 16px;
 `;
 
-const CardContainer = styled(BaseCard)`
-    flex-direction: column;
-    justify-content: center;
-    align-items: flex-start;
-    flex: 1 0 0;
-    min-height: 80px;
-    max-height: 80px;
-`;
-
-const TotalContainer = styled(BaseCard)`
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    flex: 1 0 0;
-    min-height: 80px;
-    max-height: 80px;
-`;
-
-const TotalInfo = styled.div`
+const TotalSection = styled.div`
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
 `;
 
 const TypesSection = styled.div`
@@ -75,8 +54,17 @@ const TypesSection = styled.div`
     width: 100%;
 `;
 
+// the contents of this div are a bunch of cards which should take up the full width of the container
 const IngestionBoxesContainer = styled(FlexContainer)`
+    flex-direction: row;
+    flex-wrap: wrap;
     width: 100%;
+
+    /* Make cards expand to fill available space */
+    & > * {
+        flex: 1;
+        min-width: 200px; /* Ensure cards don't get too narrow */
+    }
 `;
 
 const EntityCountsContainer = styled(FlexContainer)`
@@ -85,6 +73,12 @@ const EntityCountsContainer = styled(FlexContainer)`
     align-items: stretch;
     justify-content: flex-start;
     flex-wrap: wrap;
+
+    /* Make cards expand to fill available space */
+    & > * {
+        flex: 1;
+        min-width: 130px; /* Ensure cards don't get too narrow */
+    }
 `;
 
 const TypesHeaderContainer = styled.div`
@@ -95,13 +89,7 @@ const TypesHeaderContainer = styled.div`
     position: relative;
 `;
 
-const TypesHeader = styled(Text)`
-    position: absolute;
-    top: 0;
-    left: calc(50% + 33px);
-    margin-bottom: 0;
-    z-index: 1;
-`;
+const TypesHeader = styled(Text)``;
 
 const VerticalDivider = styled.div`
     width: 2px;
@@ -150,22 +138,27 @@ type RenderIngestionContentsProps = {
 const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getKey, getLabel }) => (
     <IngestionBoxesContainer>
         {items.map((item) => (
-            <CardContainer key={getKey(item)}>
-                <IngestionBoxTopRow>
-                    <IngestionRowCount size="xl" weight="bold" color="gray" colorLevel={800}>
-                        {formatNumber(item.count)}
-                    </IngestionRowCount>
-                    <Pill
-                        size="sm"
-                        variant="filled"
-                        color="gray"
-                        label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
-                    />
-                </IngestionBoxTopRow>
-                <Text size="md" color="gray" colorLevel={600}>
-                    {getLabel(item)}
-                </Text>
-            </CardContainer>
+            <Card
+                title={
+                    <IngestionBoxTopRow>
+                        <IngestionRowCount size="xl" weight="bold" color="gray" colorLevel={800}>
+                            {formatNumber(item.count)}
+                        </IngestionRowCount>
+                        <Pill
+                            size="sm"
+                            variant="filled"
+                            color="gray"
+                            label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
+                        />
+                    </IngestionBoxTopRow>
+                }
+                subTitle={
+                    <Text size="md" color="gray" colorLevel={600}>
+                        {getLabel(item)}
+                    </Text>
+                }
+                key={getKey(item)}
+            />
         ))}
     </IngestionBoxesContainer>
 );
@@ -178,7 +171,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
 
     // Try getting the counts via the ingestion report.
     const totalEntitiesIngested = executionResult && getTotalEntitiesIngested(executionResult);
-    const entitiesIngestedByTypeFromReport = executionResult && getEntitiesIngestedByType(executionResult);
+    const entitiesIngestedByTypeFromReport = executionResult && getEntitiesIngestedByTypeOrSubtype(executionResult);
 
     // Fallback to the search across entities.
     // First thing to do is to search for all assets with the id as the run id!
@@ -202,6 +195,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     });
 
     // Parse filter values to get results.
+    console.log('entitiesIngestedByTypeFromReport', entitiesIngestedByTypeFromReport);
     const facets = data?.searchAcrossEntities?.facets;
 
     // Extract facets to construct the per-entity type breakdown stats
@@ -215,6 +209,11 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const countsByEntityType =
         entitiesIngestedByTypeFromReport ??
         (entityTypeFacets ? extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets) : []);
+
+    console.log('entityTypeFacets', entityTypeFacets);
+    console.log('subTypeFacets', subTypeFacets);
+    console.log('countsByEntityType', countsByEntityType);
+    console.log('facets', facets);
 
     // The total number of assets ingested
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
@@ -245,6 +244,9 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             <Heading type="h4" size="lg" weight="bold">
                 Assets
             </Heading>
+            <Text color="gray" colorLevel={600}>
+                Types and counts for this ingestion run.
+            </Text>
             {loading && (
                 <Text color="gray" colorLevel={600}>
                     Loading...
@@ -253,40 +255,39 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {!loading && total === 0 && <Text>No assets were ingested.</Text>}
             {!loading && total > 0 && (
                 <>
-                    <TypesHeaderContainer>
-                        <Text color="gray" colorLevel={600}>
-                            Types and counts for this ingestion run.
-                        </Text>
-                        <TypesHeader size="sm" color="gray" colorLevel={600} weight="bold">
-                            Types
-                        </TypesHeader>
-                    </TypesHeaderContainer>
                     <MainContainer>
-                        <TotalContainer>
-                            <TotalInfo>
-                                <Text size="xl" weight="bold" color="gray" colorLevel={800}>
-                                    {formatNumber(total)}
-                                </Text>
-                                <Text size="md" color="gray" colorLevel={600} style={{ marginTop: 2 }}>
-                                    Total Assets Ingested
-                                </Text>
-                            </TotalInfo>
-                            <Button type="link" onClick={() => setShowAssetSearch(true)}>
-                                View All
-                            </Button>
-                        </TotalContainer>
+                        <TotalSection>
+                            <Card
+                                title={formatNumber(total)}
+                                button={
+                                    <Button
+                                        style={{ width: '110px' }}
+                                        variant="text"
+                                        onClick={() => setShowAssetSearch(true)}
+                                    >
+                                        View All
+                                    </Button>
+                                }
+                                subTitle={
+                                    <Text size="md" color="gray" colorLevel={600} style={{ marginTop: 2 }}>
+                                        Total Assets Ingested
+                                    </Text>
+                                }
+                            />
+                        </TotalSection>
                         <VerticalDivider />
                         <TypesSection>
                             <EntityCountsContainer>
                                 {countsByEntityType.map((entityCount) => (
-                                    <CardContainer key={entityCount.displayName}>
-                                        <Text size="xl" weight="bold" color="gray" colorLevel={800}>
-                                            {formatNumber(entityCount.count)}
-                                        </Text>
-                                        <Text size="md" color="gray" colorLevel={600}>
-                                            {capitalizeFirstLetterOnly(entityCount.displayName)}
-                                        </Text>
-                                    </CardContainer>
+                                    <Card
+                                        title={formatNumber(entityCount.count)}
+                                        subTitle={
+                                            <Text size="md" color="gray" colorLevel={600}>
+                                                {capitalizeFirstLetterOnly(entityCount.displayName)}
+                                            </Text>
+                                        }
+                                        key={entityCount.displayName}
+                                    ></Card>
                                 ))}
                             </EntityCountsContainer>
                         </TypesSection>
@@ -296,12 +297,16 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             <Heading type="h5" size="lg" weight="bold">
                                 Coverage
                             </Heading>
-                            <Text color="gray" colorLevel={600}>
-                                Additional metadata collected during this ingestion run.
-                            </Text>
-                            <Text weight="semiBold" size="md">
-                                Lineage
-                            </Text>
+                            <SubTitleContainer>
+                                <Text color="gray" colorLevel={600} lineHeight="sm">
+                                    Additional metadata collected during this ingestion run.
+                                </Text>
+                            </SubTitleContainer>
+                            <SectionSmallTitle>
+                                <Text weight="bold" size="sm">
+                                    Lineage
+                                </Text>
+                            </SectionSmallTitle>
                             <IngestionContents
                                 items={ingestionContents}
                                 getKey={(item) => item.title || ''}
@@ -309,9 +314,11 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                             />
                             {otherIngestionContents && (
                                 <>
-                                    <Text weight="semiBold" size="md">
-                                        Statistics
-                                    </Text>
+                                    <SectionSmallTitle>
+                                        <Text weight="bold" size="sm">
+                                            Statistics
+                                        </Text>
+                                    </SectionSmallTitle>
                                     <IngestionContents
                                         items={otherIngestionContents}
                                         getKey={(item) => item.type || ''}
