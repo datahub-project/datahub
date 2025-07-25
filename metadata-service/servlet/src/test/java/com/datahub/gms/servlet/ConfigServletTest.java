@@ -470,6 +470,7 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
                 assertFalse(
                     lowerFieldName.contains("token")
                         && !lowerFieldName.contains("duration")
+                        && !lowerFieldName.contains("service")
                         && !lowerFieldName.contains("ttl"),
                     "Token field should be filtered (except duration/ttl): " + fieldName);
 

@@ -2,6 +2,7 @@ package com.datahub.gms.servlet;
 
 import java.util.Set;
 import javax.annotation.Nullable;
+import lombok.Getter;
 
 /**
  * Defines a rule for exposing a configuration section via the /config endpoint.
@@ -11,10 +12,24 @@ import javax.annotation.Nullable;
  * explicitly allowed fields are exposed)
  */
 public class ConfigSectionRule {
-  private final String sectionPath;
-  private final String outputPath;
+  /**
+   * -- GETTER --
+   *
+   * @return The path to the configuration section in the ConfigurationProvider
+   */
+  @Getter private final String sectionPath;
+
+  /**
+   * -- GETTER --
+   *
+   * @return The path to use in the output JSON (may be different from sectionPath for renaming)
+   */
+  @Getter private final String outputPath;
+
   private final Set<String> allowedFields;
-  private final boolean includeSection;
+
+  /** -- GETTER -- true if this section should be included in the output */
+  @Getter private final boolean includeSection;
 
   /**
    * Creates a rule to include an entire configuration section.
@@ -65,32 +80,11 @@ public class ConfigSectionRule {
   }
 
   /**
-   * @return The path to the configuration section in the ConfigurationProvider
-   */
-  public String getSectionPath() {
-    return sectionPath;
-  }
-
-  /**
-   * @return The path to use in the output JSON (may be different from sectionPath for renaming)
-   */
-  public String getOutputPath() {
-    return outputPath;
-  }
-
-  /**
    * @return Set of allowed field names, or null if all fields are allowed
    */
   @Nullable
   public Set<String> getAllowedFields() {
     return allowedFields;
-  }
-
-  /**
-   * @return true if this section should be included in the output
-   */
-  public boolean isIncludeSection() {
-    return includeSection;
   }
 
   /**
