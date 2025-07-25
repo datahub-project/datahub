@@ -48,7 +48,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.member,PROD)"
             ],
             "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:kafka,postgres.debezium.server.public.member,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,postgres.debezium.public.member,PROD)"
             ]
         }
     },
