@@ -23,8 +23,8 @@ base_requirements = {
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
-    # Airflow depends on fairly old versions of sentry-sdk, so we want to be loose with our constraints.
-    "sentry-sdk",
+    # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
+    "sentry-sdk>=1.33.1",
 }
 
 framework_common = {
