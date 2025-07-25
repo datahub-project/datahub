@@ -92,19 +92,25 @@ const TypeContainer = styled.div`
     align-items: center;
 `;
 
+const Icons = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 interface EntityAutocompleteItemProps {
     entity: Entity;
     query?: string;
     siblings?: Entity[];
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
-    customDetailsRenderer?: (entity: Entity) => void;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
-
+    dragIconRenderer?: () => React.ReactNode;
     hideSubtitle?: boolean;
     hideMatches?: boolean;
-
     padding?: string;
+    onClick?: () => void;
 }
 
 export default function AutoCompleteEntityItem({
@@ -115,9 +121,11 @@ export default function AutoCompleteEntityItem({
     variant,
     customDetailsRenderer,
     navigateOnlyOnNameClick,
+    dragIconRenderer,
     hideSubtitle,
     hideMatches,
     padding,
+    onClick,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -152,11 +160,20 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding}>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
             <ContentContainer>
-                <IconContainer $variant={variant}>
-                    <EntityIcon entity={entity} siblings={siblings} />
-                </IconContainer>
+                {dragIconRenderer ? (
+                    <Icons>
+                        {dragIconRenderer()}
+                        <IconContainer $variant={variant}>
+                            <EntityIcon entity={entity} siblings={siblings} />
+                        </IconContainer>
+                    </Icons>
+                ) : (
+                    <IconContainer $variant={variant}>
+                        <EntityIcon entity={entity} siblings={siblings} />
+                    </IconContainer>
+                )}
 
                 <DescriptionContainer>
                     <HoverEntityTooltip

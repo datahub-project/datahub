@@ -23,7 +23,8 @@
       "Bash(yarn test:*)",
       "Bash(yarn generate:*)",
       "Bash(./gradlew :datahub-web-react:yarnLintFix)",
-      "Bash(./gradlew :datahub-web-react:yarnLint)"
+      "Bash(./gradlew :datahub-web-react:yarnLint)",
+      "Bash(./gradlew :metadata-ingestion:capabilitySummary)"
     ],
     "deny": []
   }
