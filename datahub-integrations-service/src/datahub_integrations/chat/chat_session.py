@@ -92,9 +92,11 @@ class NextMessage(BaseModel):
         return v
 
 
-def respond_to_user(next_message: NextMessage) -> NextMessage:
-    assert isinstance(next_message, NextMessage)
-    return next_message
+def respond_to_user(
+    response: str,
+    follow_up_suggestions: Optional[List[str]] = None,
+) -> NextMessage:
+    return NextMessage(text=response, suggestions=follow_up_suggestions or [])
 
 
 _respond_to_user_tool = ToolWrapper.from_function(

@@ -68,7 +68,7 @@ def st_chat_history(
                     st.caption(
                         f"Tool `{message.tool_request.tool_name}` returned · {_token_count(str(message.result))}"
                     )
-                    st.json(message.result, expanded=2)
+                    st.json(message.result, expanded=1)
         elif isinstance(message, ToolCallRequest):
             if show_thinking:
                 with st.chat_message("tool", avatar="📞"):
