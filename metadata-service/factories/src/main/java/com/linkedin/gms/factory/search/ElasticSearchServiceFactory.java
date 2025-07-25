@@ -3,7 +3,6 @@ package com.linkedin.gms.factory.search;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
@@ -17,16 +16,15 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
 
 @Slf4j
 @Configuration
-@Import({EntityRegistryFactory.class, SettingsBuilderFactory.class})
 public class ElasticSearchServiceFactory {
 
   @Autowired
@@ -49,6 +47,7 @@ public class ElasticSearchServiceFactory {
   }
 
   @Bean
+  @Nullable
   protected CustomSearchConfiguration customSearchConfiguration(
       final ElasticSearchConfiguration elasticSearchConfiguration) throws IOException {
     SearchConfiguration searchConfiguration = elasticSearchConfiguration.getSearch();
@@ -62,7 +61,7 @@ public class ElasticSearchServiceFactory {
       final ConfigurationProvider configurationProvider,
       final QueryFilterRewriteChain queryFilterRewriteChain,
       final ElasticSearchConfiguration elasticSearchConfiguration,
-      final CustomSearchConfiguration customSearchConfiguration) {
+      @Nullable final CustomSearchConfiguration customSearchConfiguration) {
 
     return new ESSearchDAO(
         components.getSearchClient(),
@@ -86,7 +85,7 @@ public class ElasticSearchServiceFactory {
       final ConfigurationProvider configurationProvider,
       final QueryFilterRewriteChain queryFilterRewriteChain,
       final ElasticSearchConfiguration elasticSearchConfiguration,
-      final CustomSearchConfiguration customSearchConfiguration,
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
       final ESSearchDAO esSearchDAO,
       final ESWriteDAO esWriteDAO)
       throws IOException {

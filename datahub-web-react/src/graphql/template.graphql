@@ -1,4 +1,4 @@
-fragment pageTemplateFields on DataHubPageTemplate {
+fragment PageTemplate on DataHubPageTemplate {
     urn
     type
     properties {
@@ -10,12 +10,6 @@ fragment pageTemplateFields on DataHubPageTemplate {
         }
         visibility {
             scope
-        }
-        created {
-            time
-        }
-        lastModified {
-            time
         }
     }
 }
@@ -32,12 +26,6 @@ fragment PageModule on DataHubPageModule {
     properties {
         name
         type
-        created {
-            time
-        }
-        lastModified {
-            time
-        }
         visibility {
             scope
         }
@@ -45,6 +33,35 @@ fragment PageModule on DataHubPageModule {
             richTextParams {
                 content
             }
+            assetCollectionParams {
+                assetUrns
+            }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+                relatedEntitiesFilterJson
+            }
         }
     }
+}
+
+mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
+    upsertPageTemplate(input: $input) {
+        urn
+    }
+}
+
+mutation upsertPageModule($input: UpsertPageModuleInput!) {
+    upsertPageModule(input: $input) {
+        urn
+    }
+}
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
 }

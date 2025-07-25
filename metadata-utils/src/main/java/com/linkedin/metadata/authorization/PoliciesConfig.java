@@ -212,6 +212,12 @@ public class PoliciesConfig {
           "Get Platform Events",
           "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
 
+  public static final Privilege MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_HOME_PAGE_TEMPLATES",
+          "Manage Home Page Templates",
+          "Privilege allowing users to manage the default home page template and the global modules in it.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -249,7 +255,8 @@ public class PoliciesConfig {
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
-          GET_PLATFORM_EVENTS_PRIVILEGE);
+          GET_PLATFORM_EVENTS_PRIVILEGE,
+          MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
 
   // Resource Privileges //
 

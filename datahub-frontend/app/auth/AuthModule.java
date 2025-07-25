@@ -40,6 +40,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.core.instrument.util.HierarchicalNameMapper;
 import io.micrometer.jmx.JmxConfig;
 import io.micrometer.jmx.JmxMeterRegistry;
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import javax.annotation.Nonnull;
@@ -60,6 +61,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import play.Environment;
 import play.cache.SyncCacheApi;
 import utils.ConfigUtil;
+import utils.CustomHttpClientFactory;
+import utils.TruststoreConfig;
 
 /** Responsible for configuring, validating, and providing authentication related components. */
 @Slf4j
@@ -312,8 +315,34 @@ public class AuthModule extends AbstractModule {
 
   @Provides
   @Singleton
-  protected CloseableHttpClient provideHttpClient() {
-    return HttpClients.createDefault();
+  protected CloseableHttpClient provideCloseableHttpClient(com.typesafe.config.Config config) {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    try {
+      if (tsConfig.isValid()) {
+        return CustomHttpClientFactory.getApacheHttpClient(
+            tsConfig.path, tsConfig.password, tsConfig.type);
+      } else {
+        return HttpClients.createDefault();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to initialize CloseableHttpClient", e);
+    }
+  }
+
+  @Provides
+  @Singleton
+  protected HttpClient provideHttpClient(com.typesafe.config.Config config) {
+    TruststoreConfig tsConfig = TruststoreConfig.fromConfig(config);
+    try {
+      if (tsConfig.isValid()) {
+        return CustomHttpClientFactory.getJavaHttpClient(
+            tsConfig.path, tsConfig.password, tsConfig.type);
+      } else {
+        return HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
+      }
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to initialize HttpClient", e);
+    }
   }
 
   private com.linkedin.restli.client.Client buildRestliClient() {

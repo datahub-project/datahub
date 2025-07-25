@@ -89,6 +89,10 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+    truststore:
+      path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
+      password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
+      type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
@@ -108,6 +112,13 @@ datahub:
       path: ${RETENTION_PLUGIN_PATH:/etc/datahub/plugins/retention}
     auth:
       path: ${AUTH_PLUGIN_PATH:/etc/datahub/plugins/auth}
+
+  metrics:
+    # measures the time from request to post-MCL hook
+    hookLatency:
+      percentiles: ${DATAHUB_METRICS_HOOK_LATENCY_PERCENTILES:0.5,0.95,0.99,0.999}
+      slo: ${DATAHUB_METRICS_HOOK_LATENCY_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
+      maxExpectedValue: ${DATAHUB_METRICS_HOOK_LATENCY_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 
 entityService:
   impl: ${ENTITY_SERVICE_IMPL:ebean}
@@ -368,6 +379,10 @@ kafka:
       aspectsToDrop: ${KAFKA_CONSUMER_MCL_ASPECTS_TO_DROP:}
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+    metrics:
+      percentiles: ${KAFKA_CONSUMER_PERCENTILES:0.5,0.95,0.99,0.999}
+      slo: ${KAFKA_CONSUMER_SERVICE_LEVEL_OBJECTIVES:300,1800,3000,10800,21600,43200} # 5min, 30min, 1hr, 3hr, 6hr, 12h (seconds)
+      maxExpectedValue: ${KAFKA_CONSUMER_MAX_EXPECTED_VALUE:86000} # 24h (seconds)
 
   # Consumer Pool - Used for Our Events API
   consumerPool:
@@ -641,6 +656,8 @@ featureFlags:
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
+  logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
+  showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

@@ -105,6 +105,8 @@ query appConfig {
             showHomePageRedesign
             showProductUpdates
             lineageGraphV3
+            logicalModelsEnabled
+            showHomepageUserRole
         }
         chromeExtensionConfig {
             enabled
@@ -137,7 +139,7 @@ query getDocPropagationSettings {
 query getHomePageSettings {
     globalHomePageSettings {
         defaultTemplate {
-            ...pageTemplateFields
+            ...PageTemplate
         }
     }
 }
