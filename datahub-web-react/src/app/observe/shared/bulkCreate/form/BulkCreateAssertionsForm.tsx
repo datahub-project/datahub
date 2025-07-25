@@ -87,8 +87,9 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
                 Select the Datasets to bulk create assertions for...
             </Text>
             <Text size="md" color="gray" colorLevel={1700}>
-                Max {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} datasets can be selected for a single
-                run. Contact support if you need to create more.
+                If more than {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} datasets are selected, only the
+                first {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} will be processed. Contact support if
+                you need to create more.
             </Text>
             <LogicalFiltersBuilder
                 filters={filters}
@@ -113,16 +114,16 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
                 maxSelectableAssets={MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT}
             />
 
-            <Divider />
+            <br />
 
             {/* --------------------------------- Freshness Assertion --------------------------------- */}
             {freshnessForm}
-            <Divider />
+            <br />
 
             {/* --------------------------------- Volume Assertion --------------------------------- */}
             {volumeForm}
 
-            <Divider />
+            <br />
 
             <Alert
                 message={
@@ -130,15 +131,15 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
                         <Text size="md" color="gray" colorLevel={600} weight="semiBold">
                             More assertion types
                         </Text>
-                        <Text size="sm" color="gray" colorLevel={1700}>
+                        <Text size="sm" color="gray" colorLevel={600}>
                             For all available assertion types, use the &apos;Quality&apos; tab on individual dataset
                             pages.
                         </Text>
                     </div>
                 }
                 type="warning"
-                icon={<Info color={colors.gray[600]} size={16} />}
-                style={{ marginTop: 16 }}
+                icon={<Info color={colors.yellow[600]} size={16} />}
+                style={{ marginTop: 16, borderRadius: 12, borderColor: colors.yellow[200] }}
                 showIcon
             />
 

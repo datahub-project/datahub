@@ -35,7 +35,10 @@ export default function BulkCreateAssertionsDrawer({ open, onClose }: Props) {
             open={open}
             onCancel={onClose}
             title="Bulk Create Assertions"
-            style={{ marginTop: 24, marginBottom: 24 }}
+            bodyStyle={{
+                maxHeight: '90vh',
+                overflowY: 'auto',
+            }}
         >
             {stage === 'form' && <BulkCreateAssertionsForm onSubmit={onSubmit} />}
             {stage === 'submitted' && <BulkCreateAssertionsProgress progress={progress} onDone={onClose} />}

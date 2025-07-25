@@ -1,5 +1,5 @@
 import { CheckCircleFilled, ExclamationCircleFilled } from '@ant-design/icons';
-import { Button } from '@components';
+import { Button, colors } from '@components';
 import { Collapse, Progress, Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -70,8 +70,8 @@ const SuccessfulSummary = styled.div`
 `;
 
 const SuccessfulPill = styled.div`
-    background: ${REDESIGN_COLORS.GREEN_LIGHT};
-    color: ${REDESIGN_COLORS.GREEN_800};
+    background: ${colors.gray[100]};
+    color: ${colors.gray[600]};
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
@@ -79,19 +79,14 @@ const SuccessfulPill = styled.div`
 `;
 
 const MorePill = styled.div`
-    background: ${REDESIGN_COLORS.GREY_100};
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    background: ${colors.gray[100]};
+    color: ${colors.gray[600]};
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;
-
-    &:hover {
-        background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
-        color: white;
-    }
 `;
 
 const ErrorContainer = styled.div`
@@ -204,7 +199,7 @@ export const CreateBulkFieldSmartAssertionsProgress = ({ progress, onDone }: Pro
 
         return (
             <SuccessfulContainer>
-                <Typography.Text strong style={{ color: REDESIGN_COLORS.GREEN_800 }}>
+                <Typography.Text strong style={{ color: colors.gray[600] }}>
                     Successfully Created ({successful.length})
                 </Typography.Text>
                 <SuccessfulSummary>

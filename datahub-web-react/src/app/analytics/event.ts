@@ -182,6 +182,10 @@ export enum EventType {
     FilterStatsPage,
     FilterStatsChartLookBack,
     ClickCreateAssertion,
+    ClickBulkCreateAssertion,
+    BulkCreateAssertionSubmissionFailedEvent,
+    BulkCreateAssertionSubmissionEvent,
+    BulkCreateAssertionCompletedEvent,
     ClickUserProfile,
     ClickViewDocumentation,
     GiveAnomalyFeedback,
@@ -1337,6 +1341,39 @@ export interface ClickCreateAssertionEvent extends BaseEvent {
     chartName?: string | null;
 }
 
+export interface ClickBulkCreateAssertionEvent extends BaseEvent {
+    type: EventType.ClickBulkCreateAssertion;
+    surface: 'field-metric-assertion-builder' | 'dataset-health';
+    entityUrn?: string | null;
+}
+
+export interface BulkCreateAssertionSubmissionFailedEvent extends BaseEvent {
+    type: EventType.BulkCreateAssertionSubmissionFailedEvent;
+    surface: 'field-metric-assertion-builder' | 'dataset-health';
+    error: string;
+}
+
+export interface BulkCreateAssertionSubmissionEvent extends BaseEvent {
+    type: EventType.BulkCreateAssertionSubmissionEvent;
+    surface: 'field-metric-assertion-builder' | 'dataset-health';
+    entityCount: number;
+    hasFreshnessAssertion: boolean;
+    hasFieldMetricAssertion: boolean;
+    hasVolumeAssertion: boolean;
+}
+
+export interface BulkCreateAssertionCompletedEvent extends BaseEvent {
+    type: EventType.BulkCreateAssertionCompletedEvent;
+    surface: 'field-metric-assertion-builder' | 'dataset-health';
+    entityCount: number;
+    failedAssertionCount: number;
+    successAssertionCount: number;
+    totalAssertionCount: number;
+    hasFreshnessAssertion: boolean;
+    hasFieldMetricAssertion: boolean;
+    hasVolumeAssertion: boolean;
+}
+
 export interface ClickUserProfileEvent extends BaseEvent {
     type: EventType.ClickUserProfile;
     location?: 'statsTabTopUsers'; // add more locations here
@@ -1707,6 +1744,10 @@ export type Event =
     | FilterStatsPageEvent
     | FilterStatsChartLookBackEvent
     | ClickCreateAssertionEvent
+    | ClickBulkCreateAssertionEvent
+    | BulkCreateAssertionSubmissionEvent
+    | BulkCreateAssertionSubmissionFailedEvent
+    | BulkCreateAssertionCompletedEvent
     | ClickUserProfileEvent
     | ClickViewDocumentationEvent
     | GiveAnomalyFeedbackEvent

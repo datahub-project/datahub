@@ -1,6 +1,7 @@
 import { Button, Select, SimpleSelect, Tooltip } from '@components';
 import { Divider, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
 import { AssertionActionsForm } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/AssertionActionsForm';
 import { DEFAULT_ASSERTION_EVALUATION_SCHEDULE } from '@app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants';
@@ -23,6 +24,11 @@ import {
 import { BulkFieldAssertionSpec } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/bulk_builder/bulk_fields/useBulkCreateFieldAssertions';
 
 import { AssertionActionsInput, CronSchedule, DatasetFieldAssertionSourceType, FreshnessFieldSpecInput } from '@types';
+
+const Wrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+`;
 
 type Props = {
     entityUrn: string;
@@ -98,7 +104,65 @@ export const CreateBulkFieldSmartAssertionsForm = ({ entityUrn, columns, onSubmi
         !selectedColumnsAndMetrics.length || selectedColumnsAndMetrics.some((column) => !column.metrics.length);
 
     return (
-        <div>
+        <Wrapper>
+            {/* ----- Selected Columns ----- */}
+            <Select
+                showSearch
+                showSelectAll
+                options={columns.map((column) => ({
+                    value: column.path,
+                    label: column.path,
+                }))}
+                values={selectedColumnsAndMetrics.map((column) => column.column.path)}
+                onUpdate={(values) => {
+                    setSelectedColumnsAndMetrics((state) =>
+                        buildSelectedColumnsAndMetricsOnColumnsUpdate(values, columns, state),
+                    );
+                }}
+                onClear={() => setSelectedColumnsAndMetrics([])}
+                showClear
+                isMultiSelect
+                placeholder="Create smart assertions for..."
+                label="Select columns"
+                width="full"
+                isRequired
+            />
+            <br />
+
+            {/* ----- Metrics ----- */}
+            <Select
+                options={metricOptions.map((option) => ({
+                    value: option.value,
+                    label: option.label,
+                    description: `Applies to ${validColumnsForEachMetric.find((m) => m.metric.value === option.value)?.columns.length ?? 0}/${selectedColumnsAndMetrics.length} column${selectedColumnsAndMetrics.length > 1 ? 's' : ''}`,
+                }))}
+                showDescriptions
+                values={selectedColumnsAndMetrics.map((column) => column.metrics).flat()}
+                onUpdate={(values) => {
+                    setSelectedColumnsAndMetrics((state) =>
+                        buildSelectedColumnsAndMetricsOnMetricsUpdate(values, availableMetricsForColumns, state),
+                    );
+                }}
+                isMultiSelect
+                showSelectAll
+                onClear={() =>
+                    setSelectedColumnsAndMetrics(
+                        selectedColumnsAndMetrics.map((column) => ({
+                            ...column,
+                            metrics: [],
+                        })),
+                    )
+                }
+                width="full"
+                position="start"
+                showClear
+                isRequired
+                placeholder="Select metrics..."
+                label="Select metrics"
+            />
+
+            <br />
+
             {/* ----- Source Type ----- */}
             <SimpleSelect
                 options={sourceTypeOptions.map((option) => ({
@@ -186,64 +250,6 @@ export const CreateBulkFieldSmartAssertionsForm = ({ entityUrn, columns, onSubmi
                   ]
                 : null}
 
-            <Divider />
-
-            {/* ----- Selected Columns ----- */}
-            <Select
-                showSearch
-                showSelectAll
-                options={columns.map((column) => ({
-                    value: column.path,
-                    label: column.path,
-                }))}
-                values={selectedColumnsAndMetrics.map((column) => column.column.path)}
-                onUpdate={(values) => {
-                    setSelectedColumnsAndMetrics((state) =>
-                        buildSelectedColumnsAndMetricsOnColumnsUpdate(values, columns, state),
-                    );
-                }}
-                onClear={() => setSelectedColumnsAndMetrics([])}
-                showClear
-                isMultiSelect
-                placeholder="Create smart assertions for..."
-                label="Select columns"
-                width="full"
-                isRequired
-            />
-            <br />
-
-            {/* ----- Metrics ----- */}
-            <Select
-                options={metricOptions.map((option) => ({
-                    value: option.value,
-                    label: option.label,
-                    description: `Applies to ${validColumnsForEachMetric.find((m) => m.metric.value === option.value)?.columns.length ?? 0}/${selectedColumnsAndMetrics.length} column${selectedColumnsAndMetrics.length > 1 ? 's' : ''}`,
-                }))}
-                showDescriptions
-                values={selectedColumnsAndMetrics.map((column) => column.metrics).flat()}
-                onUpdate={(values) => {
-                    setSelectedColumnsAndMetrics((state) =>
-                        buildSelectedColumnsAndMetricsOnMetricsUpdate(values, availableMetricsForColumns, state),
-                    );
-                }}
-                isMultiSelect
-                showSelectAll
-                onClear={() =>
-                    setSelectedColumnsAndMetrics(
-                        selectedColumnsAndMetrics.map((column) => ({
-                            ...column,
-                            metrics: [],
-                        })),
-                    )
-                }
-                width="full"
-                position="start"
-                showClear
-                isRequired
-                placeholder="Select metrics..."
-                label="Select metrics"
-            />
-
             {/* ----- Inference Settings ----- */}
             <FieldMetricInferenceAdjuster
                 state={{ inferenceSettings, schedule }}
@@ -278,12 +284,12 @@ export const CreateBulkFieldSmartAssertionsForm = ({ entityUrn, columns, onSubmi
                 }
                 placement="top"
             >
-                <div style={{ width: 'fit-content' }}>
+                <div style={{ width: 'fit-content', alignSelf: 'flex-end' }}>
                     <Button disabled={disabled} onClick={onCreate}>
                         Create Assertions
                     </Button>
                 </div>
             </Tooltip>
-        </div>
+        </Wrapper>
     );
 };

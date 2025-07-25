@@ -4,6 +4,7 @@ import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { HeaderContainer, PageContainer } from '@app/govern/structuredProperties/styledComponents';
 import { AssertionsByAssertionSummary } from '@app/observe/dataset/assertion/AssertionsByAssertionSummary';
 import { AssertionsByTableSummary } from '@app/observe/dataset/assertion/AssertionsByTableSummary';
@@ -140,7 +141,13 @@ export const DatasetHealthPage = () => {
                         showBulkCreateAssertionsButton
                             ? {
                                   label: 'Bulk Create',
-                                  onClick: () => setIsBulkCreateAssertionsDrawerOpen(true),
+                                  onClick: () => {
+                                      setIsBulkCreateAssertionsDrawerOpen(true);
+                                      analytics.event({
+                                          type: EventType.ClickBulkCreateAssertion,
+                                          surface: 'dataset-health',
+                                      });
+                                  },
                                   icon: <Plus size={14} />,
                               }
                             : undefined

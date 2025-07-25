@@ -195,6 +195,10 @@ export const VOLUME_TYPE_CATEGORIES: Record<VolumeTypeCategoryEnum, VolumeTypeCa
     },
 };
 
+export const isEntityEligibleForDirectObserveQueries = (platformUrn: string) => {
+    return !!PLATFORM_ASSERTION_CONFIGS[platformUrn];
+};
+
 export const getVolumeTypeCategory = (categoryKey: VolumeTypeCategoryEnum) => {
     return VOLUME_TYPE_CATEGORIES[categoryKey];
 };
@@ -369,7 +373,8 @@ export const getVolumeSourceTypeOptions = (
     isView: boolean,
 ): DatasetVolumeSourceType[] => {
     // Views don't support Information Schema
-    return connectionForEntityExists
+    const isSupportedPlatform = connectionForEntityExists && isEntityEligibleForDirectObserveQueries(platformUrn);
+    return isSupportedPlatform
         ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.sourceTypes?.filter((sourceType) =>
               isView ? sourceType !== DatasetVolumeSourceType.InformationSchema : true,
           ) ?? [DatasetVolumeSourceType.DatahubDatasetProfile])
@@ -389,7 +394,8 @@ export const getDefaultVolumeSourceType = (
     connectionForEntityExists: boolean,
     isView?: boolean,
 ) => {
-    const result = connectionForEntityExists
+    const isSupportedPlatform = connectionForEntityExists && isEntityEligibleForDirectObserveQueries(platformUrn);
+    const result = isSupportedPlatform
         ? (PLATFORM_ASSERTION_CONFIGS[platformUrn]?.defaultSourceType ?? DatasetVolumeSourceType.DatahubDatasetProfile)
         : DatasetVolumeSourceType.DatahubDatasetProfile;
     if (isView && result === DatasetVolumeSourceType.InformationSchema) {

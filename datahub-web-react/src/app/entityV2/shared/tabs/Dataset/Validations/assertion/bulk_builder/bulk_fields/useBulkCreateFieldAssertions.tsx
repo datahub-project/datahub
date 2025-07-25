@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { getFieldMetricTypeReadableLabel } from '@app/entity/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
 
 import { useUpsertDatasetFieldAssertionMonitorMutation } from '@graphql/assertion.generated';
@@ -62,7 +63,7 @@ export const useBulkCreateFieldAssertions = () => {
     const progressReportRef = useRef<ProgressReport>(progressReport);
     progressReportRef.current = progressReport;
 
-    const upsertBulkFieldAssertions = (assertionSpec: BulkFieldAssertionSpec) => {
+    const upsertBulkFieldAssertions = async (assertionSpec: BulkFieldAssertionSpec) => {
         // 1. Build the upsert inputs
         const upsertInputs: UpsertDatasetFieldAssertionMonitorInput[] = [];
         assertionSpec.fields.forEach((field) => {
@@ -104,46 +105,78 @@ export const useBulkCreateFieldAssertions = () => {
             ...DEFAULT_PROGRESS_REPORT,
             total: upsertInputs.length,
         });
+        try {
+            analytics.event({
+                type: EventType.BulkCreateAssertionSubmissionEvent,
+                surface: 'field-metric-assertion-builder',
+                entityCount: upsertInputs.length,
+                hasFieldMetricAssertion: true,
+                hasFreshnessAssertion: false,
+                hasVolumeAssertion: false,
+            });
+        } catch (error) {
+            console.error('Error sending bulk create assertion submission event', error);
+        }
 
         // 3. Iterate through the upsert inputs and upsert each one
-        upsertInputs.forEach((upsertInput) => {
-            upsertFieldAssertionMonitorMutation({
-                variables: {
-                    input: upsertInput,
-                },
-            })
-                .then((result) => {
-                    if (result.data?.upsertDatasetFieldAssertionMonitor) {
+        await Promise.allSettled(
+            upsertInputs.map((upsertInput) =>
+                upsertFieldAssertionMonitorMutation({
+                    variables: {
+                        input: upsertInput,
+                    },
+                })
+                    .then((result) => {
+                        if (result.data?.upsertDatasetFieldAssertionMonitor) {
+                            setProgressReport((currentReport) => ({
+                                ...currentReport,
+                                completed: currentReport.completed + 1,
+                                successful: [
+                                    ...currentReport.successful,
+                                    {
+                                        field: upsertInput.fieldMetricAssertion?.field || 'Unknown',
+                                        metric: upsertInput.fieldMetricAssertion?.metric || 'Unknown',
+                                    },
+                                ],
+                            }));
+                        }
+                    })
+                    .catch((error) => {
                         setProgressReport((currentReport) => ({
                             ...currentReport,
                             completed: currentReport.completed + 1,
-                            successful: [
-                                ...currentReport.successful,
+                            errored: [
+                                ...currentReport.errored,
                                 {
                                     field: upsertInput.fieldMetricAssertion?.field || 'Unknown',
                                     metric: upsertInput.fieldMetricAssertion?.metric || 'Unknown',
+                                    error: error.message,
                                 },
                             ],
                         }));
-                    }
-                })
-                .catch((error) => {
-                    setProgressReport((currentReport) => ({
-                        ...currentReport,
-                        completed: currentReport.completed + 1,
-                        errored: [
-                            ...currentReport.errored,
-                            {
-                                field: upsertInput.fieldMetricAssertion?.field || 'Unknown',
-                                metric: upsertInput.fieldMetricAssertion?.metric || 'Unknown',
-                                error: error.message,
-                            },
-                        ],
-                    }));
-                });
-        });
+                    }),
+            ),
+        );
 
-        // 4. Return the progress report
+        // 4. Send the completed event
+        const latestProgressReport = progressReportRef.current;
+        try {
+            analytics.event({
+                type: EventType.BulkCreateAssertionCompletedEvent,
+                surface: 'field-metric-assertion-builder',
+                entityCount: upsertInputs.length,
+                failedAssertionCount: latestProgressReport.errored.length,
+                successAssertionCount: latestProgressReport.successful.length,
+                totalAssertionCount: latestProgressReport.total,
+                hasFreshnessAssertion: false,
+                hasFieldMetricAssertion: true,
+                hasVolumeAssertion: false,
+            });
+        } catch (error) {
+            console.error('Error sending bulk create assertion completed event', error);
+        }
+
+        // 5. Return the progress report
         return progressReportRef.current;
     };
 

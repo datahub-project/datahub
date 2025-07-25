@@ -3,7 +3,13 @@ import {
     getDefaultVolumeSourceType,
     getVolumeSourceTypeOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
-import { BIGQUERY_URN, DATABRICKS_URN, REDSHIFT_URN, SNOWFLAKE_URN } from '@app/ingest/source/builder/constants';
+import {
+    BIGQUERY_URN,
+    DATABRICKS_URN,
+    DBT_URN,
+    REDSHIFT_URN,
+    SNOWFLAKE_URN,
+} from '@app/ingest/source/builder/constants';
 
 import { AssertionEvaluationParametersType, DatasetVolumeSourceType } from '@types';
 
@@ -97,6 +103,18 @@ describe('getVolumeSourceTypeOptions', () => {
                 expect(result).toEqual([DatasetVolumeSourceType.DatahubDatasetProfile]);
             });
         });
+
+        describe('for unsupported platforms (DBT)', () => {
+            it('should return only DatahubDatasetProfile for DBT platform even with connection', () => {
+                const result = getVolumeSourceTypeOptions(DBT_URN, true, false);
+                expect(result).toEqual([DatasetVolumeSourceType.DatahubDatasetProfile]);
+            });
+
+            it('should return only DatahubDatasetProfile for DBT platform views even with connection', () => {
+                const result = getVolumeSourceTypeOptions(DBT_URN, true, true);
+                expect(result).toEqual([DatasetVolumeSourceType.DatahubDatasetProfile]);
+            });
+        });
     });
 
     describe('edge cases', () => {
@@ -177,6 +195,17 @@ describe('getDefaultVolumeSourceType', () => {
                     DatasetVolumeSourceType.DatahubDatasetProfile,
                 );
                 expect(getDefaultVolumeSourceType('unknown-platform', true, true)).toBe(
+                    DatasetVolumeSourceType.DatahubDatasetProfile,
+                );
+            });
+        });
+
+        describe('for unsupported platforms (DBT)', () => {
+            it('should return DatahubDatasetProfile for DBT platform even with connection', () => {
+                expect(getDefaultVolumeSourceType(DBT_URN, true, false)).toBe(
+                    DatasetVolumeSourceType.DatahubDatasetProfile,
+                );
+                expect(getDefaultVolumeSourceType(DBT_URN, true, true)).toBe(
                     DatasetVolumeSourceType.DatahubDatasetProfile,
                 );
             });
@@ -270,6 +299,26 @@ describe('getDefaultDatasetVolumeAssertionParametersState', () => {
             it('should return DatahubDatasetProfile for unknown platforms', () => {
                 const result = getDefaultDatasetVolumeAssertionParametersState('unknown-platform', true, false);
                 expect(result).toEqual({
+                    type: AssertionEvaluationParametersType.DatasetVolume,
+                    datasetVolumeParameters: {
+                        sourceType: DatasetVolumeSourceType.DatahubDatasetProfile,
+                    },
+                });
+            });
+        });
+
+        describe('for unsupported platforms (DBT)', () => {
+            it('should return DatahubDatasetProfile for DBT platform even with connection', () => {
+                const result = getDefaultDatasetVolumeAssertionParametersState(DBT_URN, true, false);
+                expect(result).toEqual({
+                    type: AssertionEvaluationParametersType.DatasetVolume,
+                    datasetVolumeParameters: {
+                        sourceType: DatasetVolumeSourceType.DatahubDatasetProfile,
+                    },
+                });
+
+                const resultView = getDefaultDatasetVolumeAssertionParametersState(DBT_URN, true, true);
+                expect(resultView).toEqual({
                     type: AssertionEvaluationParametersType.DatasetVolume,
                     datasetVolumeParameters: {
                         sourceType: DatasetVolumeSourceType.DatahubDatasetProfile,

@@ -154,9 +154,8 @@ const VerticalDivider = styled.span`
 `;
 
 const OpenNoteButton = styled(Button)`
-    display: inline-block;
-    color: inherit;
-    font-weight: bold;
+    display: flex;
+    align-items: center;
 `;
 
 type Props = {
@@ -407,18 +406,13 @@ export const AssertionResultPopoverContent = ({
                 <>
                     <ThinDivider />
                     <HorizontalRow>
-                        <Lightbulb size={16} color={colors.primary[500]} />
-                        <Typography.Paragraph style={{ color: colors.primary[500] }}>
-                            Visit the{' '}
-                            {openAssertionNote ? (
-                                <OpenNoteButton variant="link" onClick={openAssertionNote}>
-                                    Notes tab
-                                </OpenNoteButton>
-                            ) : (
-                                <b>&apos;Notes&apos; tab</b>
-                            )}{' '}
-                            for troubleshooting tips.
-                        </Typography.Paragraph>
+                        <OpenNoteButton variant="link" onClick={openAssertionNote}>
+                            <Lightbulb size={16} color={colors.primary[500]} />
+                            <Typography.Paragraph style={{ color: colors.primary[500] }}>
+                                Visit the {openAssertionNote ? <b>Notes tab</b> : <b>&apos;Notes&apos; tab</b>} for
+                                troubleshooting tips.
+                            </Typography.Paragraph>
+                        </OpenNoteButton>
                     </HorizontalRow>
                 </>
             )}

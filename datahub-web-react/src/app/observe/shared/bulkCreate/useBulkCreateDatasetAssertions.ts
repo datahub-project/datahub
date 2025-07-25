@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import {
     getDefaultVolumeSourceType,
     getVolumeSourceTypeOptions,
@@ -308,6 +309,15 @@ export const useBulkCreateDatasetAssertions = () => {
         });
 
         if (!results?.data?.searchAcrossEntities) {
+            try {
+                analytics.event({
+                    type: EventType.BulkCreateAssertionSubmissionFailedEvent,
+                    surface: 'dataset-health',
+                    error: 'No datasets found matching the provided filters.',
+                });
+            } catch (error) {
+                console.error('Error sending bulk create assertion submission failed event', error);
+            }
             throw new Error('No datasets found matching the provided filters.');
         }
 
@@ -317,6 +327,19 @@ export const useBulkCreateDatasetAssertions = () => {
             successful: [],
             errored: [],
         });
+
+        try {
+            analytics.event({
+                type: EventType.BulkCreateAssertionSubmissionEvent,
+                surface: 'dataset-health',
+                entityCount: results.data.searchAcrossEntities.total,
+                hasFreshnessAssertion: !!freshnessAssertionSpec,
+                hasFieldMetricAssertion: false,
+                hasVolumeAssertion: !!volumeAssertionSpec,
+            });
+        } catch (error) {
+            console.error('Error sending bulk create assertion submission event', error);
+        }
 
         // 1.2 Iterate over the datasets, and create the assertions
         const datasets: Dataset[] = results.data.searchAcrossEntities.searchResults
@@ -329,7 +352,24 @@ export const useBulkCreateDatasetAssertions = () => {
             ),
         );
 
-        // 2. Return the progress tracker
+        // 2. Send the completed event
+        try {
+            analytics.event({
+                type: EventType.BulkCreateAssertionCompletedEvent,
+                surface: 'dataset-health',
+                entityCount: results.data.searchAcrossEntities.total,
+                failedAssertionCount: progressRef.current.errored.length,
+                successAssertionCount: progressRef.current.successful.length,
+                totalAssertionCount: progressRef.current.total,
+                hasFreshnessAssertion: !!freshnessAssertionSpec,
+                hasVolumeAssertion: !!volumeAssertionSpec,
+                hasFieldMetricAssertion: false,
+            });
+        } catch (error) {
+            console.error('Error sending bulk create assertion completed event', error);
+        }
+
+        // 3. Return the progress tracker
         return progressRef.current;
     };
 

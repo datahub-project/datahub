@@ -237,7 +237,7 @@ describe('validateAndAdjustFreshnessSourceType', () => {
     });
 
     describe('Unknown platforms', () => {
-        it('should fallback to AuditLog default for unknown platform', () => {
+        it('should fallback to DatahubOperation default for unknown platform', () => {
             const unknownPlatformUrn = 'urn:li:dataPlatform:unknown-platform';
             const freshnessSpec = {
                 evaluationParameters: {
@@ -251,14 +251,14 @@ describe('validateAndAdjustFreshnessSourceType', () => {
                 'urn:li:dataset:(urn:li:dataPlatform:unknown-platform,test.table,PROD)',
             );
 
-            expect(result.sourceType).toBe(DatasetFreshnessSourceType.AuditLog);
+            expect(result.sourceType).toBe(DatasetFreshnessSourceType.DatahubOperation);
         });
 
         it('should accept valid source types for unknown platform (falls back to all available options)', () => {
             const unknownPlatformUrn = 'urn:li:dataPlatform:unknown-platform';
             const freshnessSpec = {
                 evaluationParameters: {
-                    sourceType: DatasetFreshnessSourceType.AuditLog,
+                    sourceType: DatasetFreshnessSourceType.DatahubOperation,
                 },
             };
 
@@ -268,7 +268,7 @@ describe('validateAndAdjustFreshnessSourceType', () => {
                 'urn:li:dataset:(urn:li:dataPlatform:unknown-platform,test.table,PROD)',
             );
 
-            expect(result.sourceType).toBe(DatasetFreshnessSourceType.AuditLog);
+            expect(result.sourceType).toBe(DatasetFreshnessSourceType.DatahubOperation);
         });
     });
 

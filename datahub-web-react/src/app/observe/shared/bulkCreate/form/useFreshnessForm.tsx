@@ -95,7 +95,7 @@ export const useFreshnessForm = ({
         >
             {/* --------------------------------- Title --------------------------------- */}
             <Text size="md" color="gray" colorLevel={1700}>
-                Monitor the freshness of datasets.
+                Find out if your data is not updating when it should.
             </Text>
 
             {/* --------------------------------- Form --------------------------------- */}

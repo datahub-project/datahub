@@ -4,6 +4,7 @@ import Typography from 'antd/lib/typography';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useConnectionForEntityExists } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionDatasetFieldBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/AssertionDatasetFieldBuilder';
 import {
@@ -112,9 +113,16 @@ export const FieldColumnBuilder = ({ value, onChange, disabled, isEditMode, onCl
                             <Button
                                 type="button"
                                 variant="text"
-                                onClick={() => setIsBulkSmartAssertionsModalOpen(true)}
+                                onClick={() => {
+                                    setIsBulkSmartAssertionsModalOpen(true);
+                                    analytics.event({
+                                        type: EventType.ClickBulkCreateAssertion,
+                                        surface: 'field-metric-assertion-builder',
+                                        entityUrn: value.entityUrn,
+                                    });
+                                }}
                                 style={{ paddingLeft: 2, paddingRight: 2, marginLeft: 4 }}
-                                disabled={!connectionForEntityExists}
+                                disabled={connectionForEntityExists}
                             >
                                 Bulk-Create Smart Assertions
                             </Button>

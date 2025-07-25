@@ -64,7 +64,7 @@ export default function AssetReviewModal({ orFilters, maxSelectableAssets }: Pro
             </StyledButton>
             {maxSelectableAssets && (
                 <Text size="sm" color="gray" colorLevel={1700}>
-                    *Max {maxSelectableAssets.toLocaleString()} assets can be selected for this action.
+                    *The first {maxSelectableAssets.toLocaleString()} assets will be used by this action.
                 </Text>
             )}
             {isModalVisible && (

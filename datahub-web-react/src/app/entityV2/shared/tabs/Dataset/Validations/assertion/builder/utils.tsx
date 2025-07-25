@@ -406,6 +406,23 @@ const allSourceOptions: SourceOption[] = [
     },
 ];
 
+/**
+ * Returns true if the entity is eligible for online assertion monitoring.
+ * Even though our native support is for Snowflake, Redshift, and BigQuery; we can monitor other platforms that self-report profiles and operations.
+ * We've disabled dbt because it's grouped with an actual dataset as a sibling.
+ */
+const ASSERTION_UNSUPPORTED_PLATFORM_URNS = [DBT_URN];
+export const isEntityEligibleForAssertionMonitoring = (platformUrn) => {
+    if (!platformUrn) {
+        return false;
+    }
+    return !ASSERTION_UNSUPPORTED_PLATFORM_URNS.includes(platformUrn);
+};
+
+export const isEntityEligibleForDirectObserveQueries = (platformUrn: string) => {
+    return !!PLATFORM_ASSERTION_CONFIGS[platformUrn];
+};
+
 /** Create a unique identifier for each source config option */
 const getSourceOptionKey = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
     return `${type}.${kind || ''}`;
@@ -753,7 +770,7 @@ export const getDefaultFreshnessSourceOption = (
     platformUrn: string,
     monitorsConnectionForEntityExists: boolean,
 ): DatasetFreshnessSourceType => {
-    if (!monitorsConnectionForEntityExists) {
+    if (!monitorsConnectionForEntityExists || !isEntityEligibleForDirectObserveQueries(platformUrn)) {
         return DatasetFreshnessSourceType.DatahubOperation;
     }
     return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
@@ -773,7 +790,8 @@ export const getDefaultDatasetFreshnessAssertionParametersState = (
 };
 
 export const getFreshnessSourceOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
-    const allowedSourceTypes: DatasetFreshnessSourceType[] | undefined = connectionForEntityExists
+    const isSupportedPlatform = connectionForEntityExists && isEntityEligibleForDirectObserveQueries(platformUrn);
+    const allowedSourceTypes: DatasetFreshnessSourceType[] | undefined = isSupportedPlatform
         ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.sourceTypes
         : [DatasetFreshnessSourceType.DatahubOperation];
     return allSourceOptions.filter((option) => allowedSourceTypes?.includes(option.type));
@@ -785,19 +803,6 @@ export const getFreshnessSourceOptionPlatformDescription = (platformUrn: string,
 
 export const getFreshnessSourceOption = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {
     return sourceOptionsByKey[getSourceOptionKey(type, kind)];
-};
-
-/**
- * Returns true if the entity is eligible for online assertion monitoring.
- * Even though our native support is for Snowflake, Redshift, and BigQuery; we can monitor other platforms that self-report profiles and operations.
- * We've disabled dbt because it's grouped with an actual dataset as a sibling.
- */
-const ASSERTION_UNSUPPORTED_PLATFORM_URNS = [DBT_URN];
-export const isEntityEligibleForAssertionMonitoring = (platformUrn) => {
-    if (!platformUrn) {
-        return false;
-    }
-    return !ASSERTION_UNSUPPORTED_PLATFORM_URNS.includes(platformUrn);
 };
 
 export const adjustCronText = (text: string) => {

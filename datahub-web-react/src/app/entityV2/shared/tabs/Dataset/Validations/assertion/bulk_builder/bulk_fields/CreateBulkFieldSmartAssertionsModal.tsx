@@ -39,9 +39,9 @@ export const CreateBulkFieldSmartAssertionsModal = ({ entityUrn, open, onClose, 
         <Modal
             open={open}
             onCancel={onClose}
-            style={{
-                marginTop: 16,
-                marginBottom: 16,
+            bodyStyle={{
+                maxHeight: '90vh',
+                overflowY: 'auto',
             }}
             title={
                 <TitleWrapper>
