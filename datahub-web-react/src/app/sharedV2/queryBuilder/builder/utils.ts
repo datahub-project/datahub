@@ -52,14 +52,16 @@ function mapOperator(operator: string): FilterOperator {
 export function convertLogicalPredicateToOrFilters(
     pred: LogicalPredicate | PropertyPredicate,
     isNegated = false,
-): AndFilterInput[] {
+): AndFilterInput[] | undefined {
     if (pred && 'property' in pred) {
+        if (!pred.property) return undefined;
+
         // it's a PropertyPredicate
         return [
             {
                 and: [
                     {
-                        field: pred.property || '',
+                        field: pred.property,
                         values: pred.values || [],
                         condition: pred.operator ? mapOperator(pred.operator) : undefined,
                         ...(isNegated && { negated: true }),
@@ -68,27 +70,32 @@ export function convertLogicalPredicateToOrFilters(
             },
         ];
     }
-    // it's a LogicalPredicate
-    switch (pred.operator) {
-        case LogicalOperatorType.AND: {
-            const andResults = (pred as LogicalPredicate).operands.map((op) =>
-                convertLogicalPredicateToOrFilters(op, isNegated),
-            );
-            return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+    if (pred && pred.operator) {
+        // it's a LogicalPredicate
+        switch (pred.operator) {
+            case LogicalOperatorType.AND: {
+                const andResults = (pred as LogicalPredicate).operands
+                    .map((op) => convertLogicalPredicateToOrFilters(op, isNegated))
+                    .filter((filters): filters is AndFilterInput[] => !!filters);
+                return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+            }
+            case LogicalOperatorType.OR:
+                return (pred as LogicalPredicate).operands
+                    .flatMap((op) => convertLogicalPredicateToOrFilters(op, isNegated))
+                    .filter((andFilter): andFilter is AndFilterInput => !!andFilter);
+            case LogicalOperatorType.NOT: {
+                const notResults = (pred as LogicalPredicate).operands
+                    .map((op) => convertLogicalPredicateToOrFilters(op, !isNegated))
+                    .filter((filters): filters is AndFilterInput[] => !!filters);
+                return notResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+            }
+            default:
+                console.error(`Unknown operator: ${pred.operator}`);
+                return undefined;
         }
-        case LogicalOperatorType.OR:
-            return (pred as LogicalPredicate).operands.flatMap((op) =>
-                convertLogicalPredicateToOrFilters(op, isNegated),
-            );
-        case LogicalOperatorType.NOT: {
-            const notResults = (pred as LogicalPredicate).operands.map((op) =>
-                convertLogicalPredicateToOrFilters(op, !isNegated),
-            );
-            return notResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
-        }
-        default:
-            throw new Error(`Unknown operator: ${pred.operator}`);
     }
+
+    return undefined;
 }
 
 export const convertToLogicalPredicate = (predicate: LogicalPredicate | PropertyPredicate): LogicalPredicate => {
