@@ -110,6 +110,11 @@ module.exports = {
           id: "docs/features/feature-guides/access-management",
         },
         {
+          label: "Applications",
+          type: "doc",
+          id: "docs/features/feature-guides/applications",
+        },
+        {
           label: "Automations",
           type: "category",
           collapsed: true,
@@ -880,6 +885,7 @@ module.exports = {
         "docs/api/tutorials/dashboard-chart",
         "docs/api/tutorials/dataflow-datajob",
         "docs/api/tutorials/mlmodel-mlmodelgroup",
+        "docs/api/tutorials/applications",
         {
           type: "doc",
           id: "docs/api/tutorials/ml",
