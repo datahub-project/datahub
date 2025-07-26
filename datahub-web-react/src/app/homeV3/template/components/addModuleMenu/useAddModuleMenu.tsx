@@ -137,10 +137,18 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         const hierarchyView = {
             title: 'Hierarchy',
             key: 'hierarchyView',
-            label: <MenuItem description="Top down view of assets" title="Hierarchy" icon="Globe" />,
+            label: (
+                <MenuItem
+                    description="Top down view of assets"
+                    title="Hierarchy"
+                    icon="Globe"
+                    isDisabled={isSmallModuleRow}
+                />
+            ),
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
             },
+            disabled: isSmallModuleRow,
         };
 
         items.push({
