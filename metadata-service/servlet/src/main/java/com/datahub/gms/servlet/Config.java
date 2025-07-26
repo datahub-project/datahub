@@ -107,6 +107,13 @@ public class Config extends HttpServlet {
           getPluginModels(servletContext);
       newConfig.put("models", pluginTree);
 
+      // Configuration Provider - NEW: expose additional configuration sections safely
+      Map<String, Object> configProviderData =
+          buildConfigurationProviderSection(configProvider, objectMapper);
+      if (!configProviderData.isEmpty()) {
+        newConfig.put("configurationProvider", configProviderData);
+      }
+
       // Update cache and timestamp
       cachedConfig = Collections.unmodifiableMap(newConfig);
       lastUpdated = Instant.now();
@@ -195,5 +202,29 @@ public class Config extends HttpServlet {
 
   private static boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
     return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
+  }
+
+  /**
+   * Builds the configurationProvider section using secure allowlist rules. This exposes additional
+   * configuration sections not currently in the /config endpoint.
+   *
+   * @param configProvider The configuration provider
+   * @param objectMapper ObjectMapper for JSON serialization
+   * @return Map containing allowed configuration sections
+   */
+  private static Map<String, Object> buildConfigurationProviderSection(
+      ConfigurationProvider configProvider, ObjectMapper objectMapper) {
+
+    try {
+      // Create allowlist with safe configuration rules
+      ConfigurationAllowlist allowlist = ConfigurationAllowlist.createDefault(objectMapper);
+
+      // Build and return the allowed configuration
+      return allowlist.buildAllowedConfiguration(configProvider);
+    } catch (Exception e) {
+      log.warn("Failed to build configuration provider section", e);
+      // Return empty map on error - don't break the entire config endpoint
+      return Map.of();
+    }
   }
 }
