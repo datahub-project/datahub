@@ -235,7 +235,7 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
  * @param result - The result of the execution request.
  * @returns {EntityTypeCount[] | null}
  */
-export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult>): EntityTypeCount[] | null => {
+export const getEntitiesIngestedByTypeOrSubtype = (result: Partial<ExecutionRequestResult>): EntityTypeCount[] | null => {
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
         return null;
@@ -262,17 +262,19 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
          *     ...
          * }
          */
-        const entities = structuredReportObject.source.report.aspects;
+        const entities = structuredReportObject.source.report.aspects_by_subtypes;
         const entitiesIngestedByType: { [key: string]: number } = {};
-        Object.entries(entities).forEach(([entityName, aspects]) => {
+        Object.entries(entities).forEach(([entityName, aspects_by_subtypes]) => {
             // Use the status aspect count instead of max count
-            const statusCount = (aspects as any)?.status;
-            if (statusCount !== undefined) {
-                entitiesIngestedByType[entityName] = statusCount;
-            } else {
-                // Get the max count of all the sub-aspects for this entity type if status is not present.
-                entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
-            }
+            Object.entries(aspects_by_subtypes as any)?.forEach(([subtype, aspects]) => {
+                const statusCount = (aspects as any)?.status;
+                if (statusCount !== undefined) {
+                    entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = statusCount;
+                } else {
+                    // Get the max count of all the sub-aspects for this entity type if status is not present.
+                    entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+                }
+            });
         });
 
         if (Object.keys(entitiesIngestedByType).length === 0) {
@@ -295,7 +297,7 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
  * @returns {number | null}
  */
 export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const entityTypeCounts = getEntitiesIngestedByType(result);
+    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result);
     if (!entityTypeCounts) {
         return null;
     }
@@ -401,9 +403,15 @@ export const getIngestionContents = (executionResult: Partial<ExecutionRequestRe
             if (percent === '0%') {
                 return;
             }
+            console.log({
+                upstreamLineage,
+                statusCount,
+                subtype,
+                percent,
+            })
             result.push({
                 title: subtype,
-                count: statusCount,
+                count: upstreamLineage,
                 percent,
             });
         });

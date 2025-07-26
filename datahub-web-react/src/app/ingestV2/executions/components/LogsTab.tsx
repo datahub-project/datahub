@@ -1,10 +1,11 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
+import { Button, Text, Tooltip } from '@src/alchemy-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
@@ -14,7 +15,7 @@ const SectionSubHeader = styled.div`
     align-items: center;
 `;
 
-const SubHeaderParagraph = styled(Typography.Paragraph)`
+const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
@@ -22,6 +23,20 @@ const LogsSection = styled.div`
     padding-top: 16px;
     padding-left: 30px;
     padding-right: 30px;
+`;
+
+const DetailsContainer = styled.div`
+    margin-top: 12px;
+
+    pre {
+        background-color: ${colors.gray[1500]};
+        border: 1px solid ${colors.gray[1400]};
+        border-radius: 8px;
+        padding: 16px;
+        margin: 0;
+        color: ${colors.gray[1700]};
+        overflow-y: auto;
+    }
 `;
 
 export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {
@@ -35,15 +50,20 @@ export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutio
         <LogsSection>
             <SectionHeader level={5}>Logs</SectionHeader>
             <SectionSubHeader>
-                <SubHeaderParagraph type="secondary">View logs that were collected during the sync.</SubHeaderParagraph>
-                <Button type="text" onClick={downloadLogs}>
-                    <DownloadOutlined />
-                    Download
-                </Button>
+                <SubHeaderParagraph color="gray" colorLevel={600}>
+                    View logs that were collected during the sync.
+                </SubHeaderParagraph>
+                <Tooltip title="Download Logs">
+                    <Button variant="text" onClick={downloadLogs}>
+                        <DownloadOutlined />
+                    </Button>
+                </Tooltip>
             </SectionSubHeader>
-            <Typography.Paragraph ellipsis>
-                <pre>{output}</pre>
-            </Typography.Paragraph>
+            <DetailsContainer>
+                <Text size="sm">
+                    <pre>{output}</pre>
+                </Text>
+            </DetailsContainer>
         </LogsSection>
     );
 };

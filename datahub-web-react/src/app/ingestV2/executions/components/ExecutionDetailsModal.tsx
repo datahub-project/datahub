@@ -23,6 +23,7 @@ import { ExecutionRequestResult } from '@types';
 
 const modalBodyStyle = {
     padding: 0,
+    height: '80vh',
 };
 
 type Props = {
@@ -82,7 +83,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             name: TabType.Logs,
         },
         {
-            component: <RecipeTab data={data} />,
+            component: <RecipeTab urn={urn} data={data} />,
             key: TabType.Recipe,
             name: TabType.Recipe,
         },
@@ -96,7 +97,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             titlePill={titlePill}
             open={open}
             onCancel={onClose}
-            buttons={[{ text: 'Close', variant: 'outline', onClick: onClose }]}
+            buttons={[]}
         >
             {!data && loading && <Message type="loading" content="Loading execution run details..." />}
             {error && message.error('Failed to load execution run details :(')}
