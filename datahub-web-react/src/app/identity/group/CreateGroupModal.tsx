@@ -1,4 +1,4 @@
-import { Collapse, Form, Input, Modal, Typography, message } from 'antd';
+import { Collapse, Form, Input, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -7,8 +7,7 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { Editor as MarkdownEditor } from '@app/entity/shared/tabs/Documentation/components/editor/Editor';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 import { useCreateGroupMutation } from '@graphql/group.generated';
 import { CorpGroup, EntityType } from '@types';
@@ -95,21 +94,21 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
             title="Create new group"
             open
             onCancel={onClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button onClick={onClose} variant="text" color="gray">
-                        Cancel
-                    </Button>
-                    <Button
-                        id="createGroupButton"
-                        data-testid="modal-create-group-button"
-                        onClick={onCreateGroup}
-                        disabled={createButtonEnabled}
-                    >
-                        Create
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    variant: 'filled',
+                    disabled: createButtonEnabled,
+                    onClick: onCreateGroup,
+                    buttonDataTestId: 'modal-create-group-button',
+                    id: 'createGroupButton',
+                },
+            ]}
         >
             <Form
                 form={form}

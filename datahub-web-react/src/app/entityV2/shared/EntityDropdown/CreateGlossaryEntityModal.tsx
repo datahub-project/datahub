@@ -1,5 +1,5 @@
 import { EditOutlined } from '@ant-design/icons';
-import { Collapse, Form, Input, Modal, Typography, message } from 'antd';
+import { Collapse, Form, Input, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
@@ -12,7 +12,7 @@ import DescriptionModal from '@app/entityV2/shared/components/legacy/Description
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useCreateGlossaryNodeMutation, useCreateGlossaryTermMutation } from '@graphql/glossaryTerm.generated';
 import { EntityType } from '@types';
@@ -131,22 +131,21 @@ function CreateGlossaryEntityModal(props: Props) {
                     ? 'Glossary'
                     : entityRegistry.getEntityName(entityType)
             }`}
-            visible
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Create',
+                    onClick: createGlossaryEntity,
+                    variant: 'filled',
+                    disabled: createButtonDisabled || !canCreateGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-create-button',
+                },
+            ]}
             onCancel={onClose}
-            footer={
-                <ButtonContainer>
-                    <Button color="gray" onClick={onClose} variant="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        data-testid="glossary-entity-modal-create-button"
-                        onClick={createGlossaryEntity}
-                        disabled={createButtonDisabled || !canCreateGlossaryEntity}
-                    >
-                        Create
-                    </Button>
-                </ButtonContainer>
-            }
         >
             <Form
                 form={form}

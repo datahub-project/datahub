@@ -1,4 +1,4 @@
-import { DatePicker, Form, Modal, Select, Skeleton, message } from 'antd';
+import { DatePicker, Form, Select, Skeleton, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import dayjs from 'dayjs';
 import React from 'react';
@@ -12,7 +12,7 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
@@ -92,7 +92,6 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, z
         <Modal
             title="Set as Deprecated"
             zIndex={zIndexOverride ?? 10}
-            visible
             onCancel={handleClose}
             keyboard
             footer={
