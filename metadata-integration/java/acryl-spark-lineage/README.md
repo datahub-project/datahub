@@ -160,7 +160,7 @@ information like tokens.
 ## Configuration Options
 
 | Field                                                  | Required | Default               | Description                                                                                                                                                                               |
-| ------------------------------------------------------ | -------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| ------------------------------------------------------ | -------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | spark.jars.packages                                    | ✅       |                       | Set with latest/required version io.acryl:acryl-spark-lineage:0.2.15                                                                                                                      |
 | spark.extraListeners                                   | ✅       |                       | datahub.spark.DatahubSparkListener                                                                                                                                                        |
 | spark.datahub.emitter                                  |          | rest                  | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                               |
