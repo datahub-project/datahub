@@ -2,6 +2,17 @@ x-executor-worker-env: &executor-worker-env
   DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}}
   DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID:-}
 
+x-executor-worker-dev-env: &executor-worker-dev-env
+  DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}}
+  DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID:-remote-ci}
+
+x-localstack-env: &localstack-env
+  AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+  AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+  AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+  AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
+  DATAHUB_EXECUTOR_ROLE_ARN: ${DATAHUB_EXECUTOR_ROLE_ARN:-arn:aws:iam::000000000000:role/test-role}
+
 #################################
 # Executor Service
 #################################
@@ -30,6 +41,19 @@ x-datahub-executor-worker: &datahub-executor-worker
     start_period: 30s
     timeout: 10s
 
+x-datahub-executor-worker-dev: &datahub-executor-worker-dev
+  hostname: datahub-executor-worker-dev
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-debug}
+  env_file: datahub-executor/env/docker-worker.env
+  environment: &datahub-executor-worker-dev-env
+    <<: *executor-worker-env
+  healthcheck:
+    test: ["CMD-SHELL", "/health_status /tmp/worker_readiness_heartbeat"]
+    interval: 30s
+    retries: 5
+    start_period: 30s
+    timeout: 10s
+
 services:
   datahub-executor-worker-quickstart-setup:
     <<: *datahub-executor-worker-setup
@@ -46,4 +70,24 @@ services:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
       datahub-executor-worker-quickstart-setup:
+        condition: service_completed_successfully
+  datahub-executor-worker-debug-aws-setup:
+    <<: *datahub-executor-worker-setup
+    environment:
+      <<: [*localstack-env, *executor-worker-dev-env]
+    profiles:
+      - debug-aws
+    depends_on:
+      datahub-gms-debug-aws:
+        condition: service_healthy
+  datahub-executor-worker-debug-aws-dev:
+    <<: *datahub-executor-worker-dev
+    environment:
+      <<: [*localstack-env, *executor-worker-dev-env]
+    profiles:
+      - debug-aws
+    depends_on:
+      datahub-gms-debug-aws:
+        condition: service_healthy
+      datahub-executor-worker-debug-aws-setup:
         condition: service_completed_successfully
