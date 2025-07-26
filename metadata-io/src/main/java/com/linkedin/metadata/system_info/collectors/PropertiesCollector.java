@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,21 @@ public class PropertiesCollector {
           "private-key",
           "privatekey");
 
-  private static final Set<String> ALLOWED_PREFIX = Set.of("cache.client.");
+  private static final Set<Pattern> ALLOWED_PATTERNS =
+      compilePatterns(
+          Set.of(
+              "cache\\.client\\..*" // Allow all cache.client.* properties
+              ));
+
+  /**
+   * Compile string patterns into Pattern objects for efficient regex matching
+   *
+   * @param patterns Set of regex pattern strings
+   * @return Set of compiled Pattern objects
+   */
+  private static Set<Pattern> compilePatterns(Set<String> patterns) {
+    return patterns.stream().map(Pattern::compile).collect(Collectors.toSet());
+  }
 
   /**
    * Collect all system properties with metadata
@@ -85,20 +100,6 @@ public class PropertiesCollector {
                 () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER)));
   }
 
-  /**
-   * Filter sensitive configuration properties This method applies filtering logic to protect
-   * sensitive data
-   *
-   * @param properties Raw configuration properties
-   * @return Filtered configuration properties
-   */
-  private Map<String, PropertyInfo> filter(Map<String, PropertyInfo> properties) {
-    // Filtering is now applied during collection in dumpPropertiesWithMetadata()
-    // This method is kept for potential future filtering enhancements
-    log.debug("Filtering configuration properties");
-    return properties;
-  }
-
   private Map<String, PropertyInfo> dumpPropertiesWithMetadata() {
     // Use TreeMap to keep properties sorted by key
     Map<String, PropertyInfo> sortedProperties = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -118,22 +119,22 @@ public class PropertiesCollector {
                   Object rawValue = enumerable.getProperty(k);
                   String resolvedValue = springEnvironment.getProperty(k);
 
-                  // Check if this is a sensitive property
-                  if (isSensitiveProperty(k)) {
-                    return PropertyInfo.builder()
-                        .key(k)
-                        .value("***REDACTED***")
-                        .source(propertySource.getName())
-                        .sourceType(propertySource.getClass().getSimpleName())
-                        .resolvedValue("***REDACTED***")
-                        .build();
-                  } else {
+                  // Check if this is an allowed property
+                  if (isAllowedProperty(k)) {
                     return PropertyInfo.builder()
                         .key(k)
                         .value(rawValue)
                         .source(propertySource.getName())
                         .sourceType(propertySource.getClass().getSimpleName())
                         .resolvedValue(resolvedValue)
+                        .build();
+                  } else {
+                    return PropertyInfo.builder()
+                        .key(k)
+                        .value("***REDACTED***")
+                        .source(propertySource.getName())
+                        .sourceType(propertySource.getClass().getSimpleName())
+                        .resolvedValue("***REDACTED***")
                         .build();
                   }
                 });
@@ -142,7 +143,7 @@ public class PropertiesCollector {
       }
     }
 
-    return filter(sortedProperties);
+    return sortedProperties;
   }
 
   private List<PropertySourceInfo> getPropertySources() {
@@ -169,9 +170,9 @@ public class PropertiesCollector {
     return sources;
   }
 
-  private boolean isSensitiveProperty(String key) {
+  private boolean isAllowedProperty(String key) {
     String lowerKey = key.toLowerCase();
-    return ALLOWED_PREFIX.stream().noneMatch(lowerKey::startsWith)
-        && SENSITIVE_PATTERNS.stream().anyMatch(lowerKey::endsWith);
+    return ALLOWED_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(lowerKey).find())
+        || SENSITIVE_PATTERNS.stream().noneMatch(lowerKey::endsWith);
   }
 }
