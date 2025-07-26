@@ -146,9 +146,9 @@ public class MappingUtil {
             Optional.ofNullable(envelopedAspect.getSystemMetadata())
                 .map(
                     systemMetadata ->
-                        objectMapper.convertValue(
-                            systemMetadata.data(),
-                            io.datahubproject.openapi.generated.SystemMetadata.class))
+                        (io.datahubproject.openapi.generated.SystemMetadata)
+                            mapAspectValue(
+                                "systemMetadata", new Aspect(systemMetadata.data()), objectMapper))
                 .orElse(null))
         .build();
   }
