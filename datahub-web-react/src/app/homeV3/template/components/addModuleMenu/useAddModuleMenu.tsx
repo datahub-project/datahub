@@ -205,7 +205,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     <ModuleMenuItem
                         module={convertModuleToModuleInfo(module)}
                         isDisabled={
-                            (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
+                            (SMALL_MODULE_TYPES.includes(module.properties.type) && isLargeModuleRow) ||
                             (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow)
                         }
                         isSmallModule={SMALL_MODULE_TYPES.includes(module.properties.type)}
@@ -213,7 +213,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 ),
                 onClick: () => handleAddExistingModule(module),
                 disabled:
-                    (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
+                    (SMALL_MODULE_TYPES.includes(module.properties.type) && isLargeModuleRow) ||
                     (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow),
             }));
 
