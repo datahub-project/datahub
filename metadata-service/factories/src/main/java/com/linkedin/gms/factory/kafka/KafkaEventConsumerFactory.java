@@ -33,6 +33,17 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 public class KafkaEventConsumerFactory {
   private int kafkaEventConsumerConcurrency;
 
+  @Bean(name = "systemInfoKafkaConsumerConfig")
+  public Map<String, Object> getConsumerConfig(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      KafkaProperties baseKafkaProperties,
+      @Qualifier("schemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    return buildCustomizedProperties(
+        baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true);
+  }
+
   @Bean(name = "kafkaConsumerFactory")
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
