@@ -182,6 +182,34 @@ describe('utils', () => {
         },
     ];
 
+    const EMPTY_PROPERTY_PREDICATE = {
+        operator: LogicalOperatorType.AND,
+        operands: [
+            {
+                property: 'test',
+                operator: 'equals',
+                values: ['dataset1'],
+            },
+            {
+                property: '',
+                operator: 'equals',
+                values: ['dataset2'],
+            },
+        ],
+    };
+
+    const EMPTY_PROPERTY_OR_FILTERS = [
+        {
+            and: [{ field: 'test', condition: 'EQUAL', values: ['dataset1'] }],
+        },
+    ];
+
+    const EMPTY_LOGICAL_PREDICATE = {};
+
+    const LOGICAL_PREDICATE_WITH_UNKNOWN_OPERATION = {
+        operator: 'UNKNOWN',
+    };
+
     describe('convertLogicalPredicateToOrFilters', () => {
         it('convert a basic AND predicate to orFilters', () => {
             expect(convertLogicalPredicateToOrFilters(BASIC_AND_LOGICAL_PREDICATE)).toEqual(BASIC_AND_OR_FILTERS);
@@ -196,6 +224,15 @@ describe('utils', () => {
         });
         it('convert a nested predicate to orFilters', () => {
             expect(convertLogicalPredicateToOrFilters(NESTED_LOGICAL_PREDICATE)).toEqual(NESTED_OR_FILTERS);
+        });
+        it('should ignore predicate with empty property', () => {
+            expect(convertLogicalPredicateToOrFilters(EMPTY_PROPERTY_PREDICATE)).toEqual(EMPTY_PROPERTY_OR_FILTERS);
+        });
+        it('should ignore empty logical predicate', () => {
+            expect(convertLogicalPredicateToOrFilters(EMPTY_LOGICAL_PREDICATE)).toEqual(undefined);
+        });
+        it('should ignore logical predicate with unknown operator', () => {
+            expect(convertLogicalPredicateToOrFilters(LOGICAL_PREDICATE_WITH_UNKNOWN_OPERATION)).toEqual(undefined);
         });
     });
 });

@@ -2,6 +2,7 @@ import {
     decodeComma,
     dictToQueryStringParams,
     encodeComma,
+    extractDatasetNameFromUrn,
     getDataProduct,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
@@ -165,5 +166,67 @@ describe('entity V2 utils test ->', () => {
         it('should return entities from EntityRelationshipsResult', () => {
             expect(isOutputPort(mockSearchResult)).toBe(true);
         });
+    });
+});
+
+describe('extractDatasetNameFromUrn', () => {
+    it('should extract dataset name from a valid PostgreSQL URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('database.schema.table');
+    });
+
+    it('should extract dataset name from a BigQuery URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,project.dataset.table,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('project.dataset.table');
+    });
+
+    it('should extract dataset name from a Snowflake URN', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:snowflake,DATABASE.SCHEMA.TABLE,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('DATABASE.SCHEMA.TABLE');
+    });
+
+    it('should handle URN with special characters in dataset name', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,my-database.my_schema.table-name,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('my-database.my_schema.table-name');
+    });
+
+    it('should handle URN with multiple commas', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:custom,dataset.name.with.dots,ENV,extra,data)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('dataset.name.with.dots');
+    });
+
+    it('should return original URN when only one part exists', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
+    });
+
+    it('should return original URN when no commas exist', () => {
+        const urn = 'simple-dataset-name';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
+    });
+
+    it('should handle empty string', () => {
+        const urn = '';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe('');
+    });
+
+    it('should handle URN with empty dataset name', () => {
+        const urn = 'urn:li:dataset:(urn:li:dataPlatform:postgres,,PROD)';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
+    });
+
+    it('should handle malformed URN with just commas', () => {
+        const urn = ',,,,';
+        const result = extractDatasetNameFromUrn(urn);
+        expect(result).toBe(urn);
     });
 });

@@ -1,7 +1,9 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
+import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 
@@ -25,13 +27,17 @@ import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.key.DataPlatformKey;
+import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -44,6 +50,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -51,6 +58,7 @@ import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections.CollectionUtils;
 
 @Slf4j
 public class UpdateGraphIndicesService implements SearchIndicesService {
@@ -58,6 +66,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   private static final String GRAPH_DIFF_MODE_REMOVE_METRIC = "diff_remove_edge";
   private static final String GRAPH_DIFF_MODE_ADD_METRIC = "diff_add_edge";
   private static final String GRAPH_DIFF_MODE_UPDATE_METRIC = "diff_update_edge";
+  private List<String> fineGrainedLineageNotAllowedForPlatforms;
+  private final String FINE_GRAINED_LINEAGE_PATH = "/fineGrainedLineages/*/upstreams/*";
 
   public static UpdateGraphIndicesService withService(GraphService graphService) {
     return new UpdateGraphIndicesService(graphService);
@@ -69,6 +79,11 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
 
   @Getter @Setter @VisibleForTesting private boolean graphDiffMode;
 
+  @VisibleForTesting
+  public void setFineGrainedLineageNotAllowedForPlatforms(List<String> platforms) {
+    this.fineGrainedLineageNotAllowedForPlatforms = platforms;
+  }
+
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
           ChangeType.CREATE,
@@ -78,14 +93,18 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           ChangeType.PATCH);
 
   public UpdateGraphIndicesService(GraphService graphService) {
-    this(graphService, true, true);
+    this(graphService, true, true, Collections.emptyList());
   }
 
   public UpdateGraphIndicesService(
-      GraphService graphService, boolean graphDiffMode, boolean graphStatusEnabled) {
+      GraphService graphService,
+      boolean graphDiffMode,
+      boolean graphStatusEnabled,
+      List<String> fineGrainedLineageNotAllowedForPlatforms) {
     this.graphService = graphService;
     this.graphDiffMode = graphDiffMode;
     this.graphStatusEnabled = graphStatusEnabled;
+    this.fineGrainedLineageNotAllowedForPlatforms = fineGrainedLineageNotAllowedForPlatforms;
   }
 
   @Override
@@ -204,7 +223,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       Urn entity,
       FineGrainedLineageArray fineGrainedLineageArray,
       List<Edge> edgesToAdd,
-      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded) {
+      HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded,
+      final EntityRegistry entityRegistry) {
     if (fineGrainedLineageArray != null) {
       for (FineGrainedLineage fineGrainedLineage : fineGrainedLineageArray) {
         if (!fineGrainedLineage.hasDownstreams() || !fineGrainedLineage.hasUpstreams()) {
@@ -219,6 +239,17 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
         for (Urn downstream : fineGrainedLineage.getDownstreams()) {
           for (Urn upstream : fineGrainedLineage.getUpstreams()) {
             // TODO: add edges uniformly across aspects
+
+            // restrict the creation of schemafield nodes and their relationships
+            // especially for platforms like hdfs
+            if (isFineGrainedLineageNotAllowedForPlatforms(downstream, upstream, entityRegistry)) {
+              log.debug(
+                  "Skipping fine grained lineage for downstream {} and upstream {}",
+                  downstream,
+                  upstream);
+              continue;
+            }
+
             edgesToAdd.add(
                 new Edge(
                     downstream,
@@ -279,28 +310,41 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nonnull final AspectSpec aspectSpec,
       @Nonnull final RecordTemplate aspect,
       @Nonnull final MetadataChangeLog event,
-      final boolean isNewAspectVersion) {
+      final boolean isNewAspectVersion,
+      final EntityRegistry entityRegistry) {
     final List<Edge> edges = new ArrayList<>();
     final HashMap<Urn, Set<String>> urnToRelationshipTypes = new HashMap<>();
 
     // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage and
     // inputFields
     // since @Relationship only links between the parent entity urn and something else.
-    if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
+    if (aspectSpec.getName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
       updateFineGrainedEdgesAndRelationships(
-          urn, upstreamLineage.getFineGrainedLineages(), edges, urnToRelationshipTypes);
+          urn,
+          upstreamLineage.getFineGrainedLineages(),
+          edges,
+          urnToRelationshipTypes,
+          entityRegistry);
     } else if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
       final InputFields inputFields = new InputFields(aspect.data());
       updateInputFieldEdgesAndRelationships(urn, inputFields, edges, urnToRelationshipTypes);
     } else if (aspectSpec.getName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
       DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(aspect.data());
       updateFineGrainedEdgesAndRelationships(
-          urn, dataJobInputOutput.getFineGrainedLineages(), edges, urnToRelationshipTypes);
+          urn,
+          dataJobInputOutput.getFineGrainedLineages(),
+          edges,
+          urnToRelationshipTypes,
+          entityRegistry);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getRelationshipFieldSpecs(), true);
+
+    // restrict the creation of schema field nodes and their relationships especially for
+    // platforms like hdfs
+    removeFineGrainedLineageForNotAllowedPlatforms(extractedFields, aspectSpec, entityRegistry);
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
       Set<String> relationshipTypes = urnToRelationshipTypes.getOrDefault(urn, new HashSet<>());
@@ -321,7 +365,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nonnull final RecordTemplate aspect,
       @Nonnull final MetadataChangeLog event) {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
+        getEdgesAndRelationshipTypesFromAspect(
+            urn, aspectSpec, aspect, event, true, opContext.getEntityRegistry());
 
     final List<Edge> edgesToAdd = edgeAndRelationTypes.getFirst();
     final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded =
@@ -352,7 +397,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
     if (oldAspect != null) {
       oldEdgeAndRelationTypes =
-          getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, oldAspect, event, false);
+          getEdgesAndRelationshipTypesFromAspect(
+              urn, aspectSpec, oldAspect, event, false, opContext.getEntityRegistry());
     }
 
     final List<Edge> oldEdges =
@@ -362,7 +408,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     final Set<Edge> oldEdgeSet = new HashSet<>(oldEdges);
 
     Pair<List<Edge>, HashMap<Urn, Set<String>>> newEdgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, newAspect, event, true);
+        getEdgesAndRelationshipTypesFromAspect(
+            urn, aspectSpec, newAspect, event, true, opContext.getEntityRegistry());
 
     final List<Edge> newEdges = newEdgeAndRelationTypes.getFirst();
     final Set<Edge> newEdgeSet = new HashSet<>(newEdges);
@@ -451,7 +498,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
 
     if (aspect != null) {
       Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-          getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
+          getEdgesAndRelationshipTypesFromAspect(
+              urn, aspectSpec, aspect, event, true, opContext.getEntityRegistry());
 
       final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingRemoved =
           edgeAndRelationTypes.getSecond();
@@ -472,5 +520,56 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
           aspectSpec.getName(),
           urn);
     }
+  }
+
+  private void removeFineGrainedLineageForNotAllowedPlatforms(
+      Map<RelationshipFieldSpec, List<Object>> extractedFields,
+      AspectSpec aspectSpec,
+      EntityRegistry entityRegistry) {
+    if (!aspectSpec.getName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
+      return;
+    }
+    RelationshipFieldSpec fineGrainedLineageFieldSpec =
+        aspectSpec.getRelationshipFieldSpecMap().get(FINE_GRAINED_LINEAGE_PATH);
+    List<Object> fineGrainedLineageUrnsList = extractedFields.get(fineGrainedLineageFieldSpec);
+    fineGrainedLineageUrnsList.removeIf(
+        fineGrainedLineageUrn -> {
+          if (fineGrainedLineageUrn instanceof Urn) {
+            Urn upstreamSchemaFieldUrn = (Urn) fineGrainedLineageUrn;
+            return isFineGrainedLineageNotAllowedForPlatforms(
+                null, upstreamSchemaFieldUrn, entityRegistry);
+          }
+          return false;
+        });
+  }
+
+  private boolean isFineGrainedLineageNotAllowedForPlatforms(
+      Urn downstream, Urn upstream, EntityRegistry entityRegistry) {
+    return !CollectionUtils.isEmpty(fineGrainedLineageNotAllowedForPlatforms)
+        && ((Objects.nonNull(downstream)
+                && downstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                && fineGrainedLineageNotAllowedForPlatforms.contains(
+                    getDatasetPlatformName(entityRegistry, downstream.getIdAsUrn())))
+            || (Objects.nonNull(upstream)
+                && upstream.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
+                && fineGrainedLineageNotAllowedForPlatforms.contains(
+                    getDatasetPlatformName(entityRegistry, upstream.getIdAsUrn()))));
+  }
+
+  private String getDatasetPlatformName(EntityRegistry entityRegistry, Urn datasetUrn) {
+    DatasetKey dsKey =
+        (DatasetKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                datasetUrn,
+                entityRegistry.getEntitySpec(datasetUrn.getEntityType()).getKeyAspectSpec());
+    DataPlatformKey dpKey =
+        (DataPlatformKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                dsKey.getPlatform(),
+                entityRegistry
+                    .getEntitySpec(dsKey.getPlatform().getEntityType())
+                    .getKeyAspectSpec());
+
+    return dpKey.getPlatformName();
   }
 }

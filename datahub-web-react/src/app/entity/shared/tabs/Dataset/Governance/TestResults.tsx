@@ -25,7 +25,7 @@ export const TestResults = ({ passing, failing }: Props) => {
                 }}
             />
             {totalTests > 0 && (
-                <TestResultsList title="Test Results" results={[...filteredFailing, ...filteredPassing]} />
+                <TestResultsList title="Governance Test Results" results={[...filteredFailing, ...filteredPassing]} />
             )}
         </>
     );

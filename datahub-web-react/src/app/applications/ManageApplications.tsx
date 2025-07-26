@@ -73,6 +73,7 @@ const ManageApplications = () => {
             start: (currentPage - 1) * PAGE_SIZE,
             count: PAGE_SIZE,
             filters: [],
+            searchFlags: { skipCache: true },
         }),
         [currentPage, debouncedSearchQuery],
     );
