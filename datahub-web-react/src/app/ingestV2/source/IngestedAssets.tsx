@@ -81,16 +81,6 @@ const EntityCountsContainer = styled(FlexContainer)`
     }
 `;
 
-const TypesHeaderContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-top: 16px;
-    position: relative;
-`;
-
-const TypesHeader = styled(Text)``;
-
 const VerticalDivider = styled.div`
     width: 2px;
     background-color: ${colors.gray[1400]};
@@ -287,7 +277,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
                                             </Text>
                                         }
                                         key={entityCount.displayName}
-                                    ></Card>
+                                    />
                                 ))}
                             </EntityCountsContainer>
                         </TypesSection>
