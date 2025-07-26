@@ -43,7 +43,6 @@ def mock_kafka_service(docker_compose_runner, test_resources_dir):
 
 @pytest.mark.parametrize("approach", ["kafka_without_schemas", "kafka"])
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_kafka_ingest(
     mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time, approach
 ):
@@ -83,7 +82,6 @@ def test_kafka_ingest(
         ),
     ],
 )
-@pytest.mark.integration
 @freeze_time(FROZEN_TIME)
 def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
     report = test_connection_helpers.run_test_connection(KafkaSource, config_dict)
@@ -106,7 +104,6 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.integration
 def test_kafka_oauth_callback(
     mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):

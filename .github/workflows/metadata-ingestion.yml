@@ -1,4 +1,4 @@
-name: metadata ingestion
+name: Metadata Ingestion
 on:
   push:
     branches:
@@ -29,7 +29,7 @@ env:
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
 
 jobs:
-  metadata-ingestion:
+  ci:
     runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
     timeout-minutes: 60
     env:
