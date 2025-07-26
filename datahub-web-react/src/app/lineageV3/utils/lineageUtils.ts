@@ -66,3 +66,22 @@ export function useGetLineageUrl(urn?: string, type?: EntityType) {
 
     return getLineageUrl(urn, type, location, entityRegistry);
 }
+
+export function downloadImage(dataUrl: string, name?: string) {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
+        now.getDate(),
+    ).padStart(2, '0')}`;
+
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(
+        now.getSeconds(),
+    ).padStart(2, '0')}`;
+
+    const fileNamePrefix = name ? `${name}_` : 'reactflow_';
+    const fileName = `${fileNamePrefix}${dateStr}_${timeStr}.png`;
+
+    const a = document.createElement('a');
+    a.setAttribute('download', fileName);
+    a.setAttribute('href', dataUrl);
+    a.click();
+}
