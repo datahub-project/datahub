@@ -15,6 +15,8 @@ from tests.test_helpers import test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_4
+
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
