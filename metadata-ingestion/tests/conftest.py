@@ -73,7 +73,8 @@ def pytest_collection_modifyitems(
         if (
             "docker_compose_runner" in item.fixturenames  # type: ignore[attr-defined]
             or any(
-                marker.name == "integration_batch_2" for marker in item.iter_markers()
+                marker.name.startswith("integration_batch_")
+                for marker in item.iter_markers()
             )
         ):
             item.add_marker(pytest.mark.slow)
