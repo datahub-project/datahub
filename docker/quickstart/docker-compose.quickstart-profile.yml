@@ -243,6 +243,7 @@ services:
     - debug-neo4j
     - debug-elasticsearch
     - debug-backend-aws
+    - debug-aws
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -319,6 +320,7 @@ services:
     - debug-consumers
     - debug-neo4j
     - debug-backend-aws
+    - debug-aws
     deploy:
       resources:
         limits:
