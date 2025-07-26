@@ -152,8 +152,8 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "ruff format scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ "
 }
 
-def pytest_default_env = "PYTHONDEVMODE=1"
-def pytest_default_args = "--durations=30 -vv --continue-on-collection-errors"
+def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed sockets
+def pytest_default_args = "--durations=20 -vv --continue-on-collection-errors"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
