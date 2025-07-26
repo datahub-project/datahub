@@ -58,6 +58,19 @@ Cypress.Commands.add("visitWithLogin", (url) => {
   cy.contains("Sign In").click();
 });
 
+// Login commands for onboarding tour testing (without setting skipOnboardingTour)
+Cypress.Commands.add("loginForOnboarding", () => {
+  cy.request({
+    method: "POST",
+    url: "/logIn",
+    body: {
+      username: Cypress.env("ADMIN_USERNAME"),
+      password: Cypress.env("ADMIN_PASSWORD"),
+    },
+    retryOnStatusCodeFailure: true,
+  });
+});
+
 Cypress.Commands.add("deleteUrn", (urn) => {
   cy.request({
     method: "POST",

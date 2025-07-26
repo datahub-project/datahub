@@ -40,7 +40,6 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
 
     border-radius: 100px;
     box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
-    color: ${REDESIGN_COLORS.BLACK};
     background-color: ${REDESIGN_COLORS.WHITE};
 
     :hover {

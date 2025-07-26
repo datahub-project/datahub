@@ -125,7 +125,7 @@
         "type-check": "tsc --noEmit",
         "type-watch": "tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' storybook build"
+        "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"
     },
     "browserslist": {
         "production": [
