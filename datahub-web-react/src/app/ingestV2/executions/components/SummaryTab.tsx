@@ -115,8 +115,10 @@ export const SummaryTab = ({
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
                 <StatusSection>
-                    <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
-                    {structuredReport && structuredReport ? <StructuredReport report={structuredReport} /> : null}
+                    {!structuredReport && resultSummaryText && (
+                        <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    )}
+                    {structuredReport && <StructuredReport report={structuredReport} />}
                 </StatusSection>
             )}
             <IngestedAssetsSection>

@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Modal, Pill } from '@components';
 import { message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
@@ -59,35 +59,37 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         const interval = setInterval(() => {
             if (status === EXECUTION_REQUEST_STATUS_RUNNING) refetch();
         }, 2000);
-
         return () => clearInterval(interval);
-    });
+    }, [status, refetch]);
 
-    const tabs: Tab[] = [
-        {
-            component: (
-                <SummaryTab
-                    urn={urn}
-                    status={status}
-                    result={result}
-                    data={data}
-                    onTabChange={(tab: TabType) => setSelectedTab(tab)}
-                />
-            ),
-            key: TabType.Summary,
-            name: TabType.Summary,
-        },
-        {
-            component: <LogsTab urn={urn} data={data} />,
-            key: TabType.Logs,
-            name: TabType.Logs,
-        },
-        {
-            component: <RecipeTab urn={urn} data={data} />,
-            key: TabType.Recipe,
-            name: TabType.Recipe,
-        },
-    ];
+    const tabs: Tab[] = useMemo(
+        () => [
+            {
+                component: (
+                    <SummaryTab
+                        urn={urn}
+                        status={status}
+                        result={result}
+                        data={data}
+                        onTabChange={(tab: TabType) => setSelectedTab(tab)}
+                    />
+                ),
+                key: TabType.Summary,
+                name: TabType.Summary,
+            },
+            {
+                component: <LogsTab urn={urn} data={data} />,
+                key: TabType.Logs,
+                name: TabType.Logs,
+            },
+            {
+                component: <RecipeTab urn={urn} data={data} />,
+                key: TabType.Recipe,
+                name: TabType.Recipe,
+            },
+        ],
+        [data, urn, result, status],
+    );
 
     return (
         <Modal

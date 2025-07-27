@@ -235,7 +235,9 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
  * @param result - The result of the execution request.
  * @returns {EntityTypeCount[] | null}
  */
-export const getEntitiesIngestedByTypeOrSubtype = (result: Partial<ExecutionRequestResult>): EntityTypeCount[] | null => {
+export const getEntitiesIngestedByTypeOrSubtype = (
+    result: Partial<ExecutionRequestResult>,
+): EntityTypeCount[] | null => {
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
         return null;
@@ -272,7 +274,9 @@ export const getEntitiesIngestedByTypeOrSubtype = (result: Partial<ExecutionRequ
                     entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = statusCount;
                 } else {
                     // Get the max count of all the sub-aspects for this entity type if status is not present.
-                    entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = Math.max(...(Object.values(aspects as object) as number[]));
+                    entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = Math.max(
+                        ...(Object.values(aspects as object) as number[]),
+                    );
                 }
             });
         });
@@ -408,7 +412,7 @@ export const getIngestionContents = (executionResult: Partial<ExecutionRequestRe
                 statusCount,
                 subtype,
                 percent,
-            })
+            });
             result.push({
                 title: subtype,
                 count: upstreamLineage,

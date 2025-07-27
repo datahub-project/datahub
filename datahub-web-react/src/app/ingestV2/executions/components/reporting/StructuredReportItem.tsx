@@ -1,83 +1,81 @@
-import { Collapse } from 'antd';
-import React from 'react';
+import { Card, Icon, Text, colors } from '@components';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { StructuredReportItemContext } from '@app/ingestV2/executions/components/reporting/StructuredReportItemContext';
 import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
-import { applyOpacity } from '@app/shared/styleUtils';
 
-const StyledCollapse = styled(Collapse)<{ color: string }>`
-    background-color: ${(props) => applyOpacity(props.color, 8)};
-    border: 1px solid ${(props) => applyOpacity(props.color, 20)};
-    display: flex;
-
-    && {
-        .ant-collapse-header {
-            display: flex;
-            align-items: center;
-            overflow: auto;
-        }
-
-        .ant-collapse-item {
-            border: none;
-            width: 100%;
-        }
-    }
-`;
-
-const Item = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: start;
-    gap: 4px;
+const StyledCard = styled(Card)`
+    padding: 8px;
+    width: 100%;
 `;
 
 const Content = styled.div`
     border-radius: 8px;
+    margin-top: 8px;
+    background-color: white;
+    padding: 8px;
 `;
 
-const Text = styled.div`
+const HeaderContainer = styled.div`
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    gap: 8px;
 `;
 
-const Type = styled.div`
-    font-weight: bold;
-    font-size: 14px;
-`;
-
-const Message = styled.div`
-    color: ${ANTD_GRAY[8]};
+const ChevronIcon = styled(Icon)`
+    color: ${colors.gray[400]};
+    font-size: 12px;
 `;
 
 interface Props {
     item: StructuredReportLogEntry;
     color: string;
-    icon?: React.ComponentType<any>;
+    textColor?: string;
+    icon?: string;
     defaultActiveKey?: string;
 }
 
-export function StructuredReportItem({ item, color, icon, defaultActiveKey }: Props) {
-    const Icon = icon;
+export function StructuredReportItem({ item, color, textColor, icon, defaultActiveKey }: Props) {
+    const [isExpanded, setIsExpanded] = useState(defaultActiveKey === '0');
+
+    const toggleExpanded = () => {
+        setIsExpanded(!isExpanded);
+    };
+
     return (
-        <StyledCollapse color={color} defaultActiveKey={defaultActiveKey}>
-            <Collapse.Panel
-                header={
-                    <Item>
-                        {Icon ? <Icon style={{ fontSize: 16, color, marginRight: 12 }} /> : null}
-                        <Text>
-                            <Type>{item.title}</Type>
-                            <Message>{item.message}</Message>
-                        </Text>
-                    </Item>
-                }
-                key="0"
-            >
+        <StyledCard
+            style={{ backgroundColor: color }}
+            icon={
+                <HeaderContainer onClick={toggleExpanded}>
+                    {icon && <Icon icon={icon} source="phosphor" style={{ color: textColor }} size="md" />}
+                    <ChevronIcon
+                        icon={isExpanded ? 'CaretUp' : 'CaretDown'}
+                        source="phosphor"
+                        style={{ color: textColor }}
+                        size="md"
+                    />
+                </HeaderContainer>
+            }
+            title={
+                <Text style={{ color: textColor }} weight="semiBold" size="md" lineHeight="normal">
+                    {item.title}
+                </Text>
+            }
+            subTitle={
+                <Text style={{ color: textColor }} size="sm">
+                    {item.message}
+                </Text>
+            }
+            width="100%"
+            isCardClickable={false}
+        >
+            {isExpanded && (
                 <Content>
                     <StructuredReportItemContext item={item} />
                 </Content>
-            </Collapse.Panel>
-        </StyledCollapse>
+            )}
+        </StyledCard>
     );
 }
