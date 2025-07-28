@@ -10,6 +10,7 @@ import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.context.Context;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
@@ -26,6 +27,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import nl.basjes.parse.useragent.UserAgent;
 import nl.basjes.parse.useragent.UserAgentAnalyzer;
+import org.slf4j.MDC;
 
 @Slf4j
 @Getter
@@ -62,6 +64,7 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String agentClass;
   @Nonnull private final String agentName;
   @Nullable private final MetricUtils metricUtils;
+  @Nullable private final String traceId;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -100,8 +103,20 @@ public class RequestContext implements ContextInterface {
       this.agentName = "Unknown";
     }
 
+    Span currentSpan = Span.current();
+    String traceId = null;
+    if (currentSpan != null) {
+      SpanContext spanContext = currentSpan.getSpanContext();
+      if (spanContext != null && spanContext.isValid()) {
+        traceId = spanContext.getTraceId();
+        MDC.put("traceId", traceId);
+      }
+    }
+    this.traceId = traceId;
+
     // Uniform common logging of requests across APIs
     log.info(toString());
+
     // API metrics
     if (metricUtils != null) {
       captureAPIMetrics(metricUtils, this);
@@ -117,10 +132,13 @@ public class RequestContext implements ContextInterface {
 
     public RequestContext build() {
       // Add context for tracing
-      Span.current()
-          .setAttribute(USER_ID_ATTR, this.actorUrn)
-          .setAttribute(REQUEST_API_ATTR, this.requestAPI.toString())
-          .setAttribute(REQUEST_ID_ATTR, this.requestID);
+      Span currentSpan = Span.current();
+      if (currentSpan != null) {
+        currentSpan
+            .setAttribute(USER_ID_ATTR, this.actorUrn)
+            .setAttribute(REQUEST_API_ATTR, this.requestAPI.toString())
+            .setAttribute(REQUEST_ID_ATTR, this.requestID);
+      }
       Optional.ofNullable(Context.current().get(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY))
           .ifPresent(eventSource -> eventSource.set(requestAPI.toString()));
       Optional.ofNullable(Context.current().get(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY))
@@ -279,6 +297,9 @@ public class RequestContext implements ContextInterface {
         + '\''
         + ", agentClass='"
         + agentClass
+        + '\''
+        + ", traceId='"
+        + traceId
         + '\''
         + '}';
   }
