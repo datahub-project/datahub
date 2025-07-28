@@ -99,7 +99,8 @@ async def test_telemetry_middleware_tracks_calls(
         assert call_args.user_urn == (
             "urn:li:corpuser:user@example.com" if is_valid_token else None
         )
-        assert call_args.user_agent is not None
-        assert call_args.user_agent.startswith("python-httpx")
+        assert call_args.user_agent is not None and call_args.user_agent.startswith(
+            "python-httpx"
+        )
         assert call_args.duration_seconds >= 0
         assert call_args.tool_name is None

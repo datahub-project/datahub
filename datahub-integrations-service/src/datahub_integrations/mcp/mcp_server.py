@@ -21,7 +21,7 @@ from datahub.errors import ItemNotFoundError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
-from datahub.sdk.search_filters import Filter, FilterDsl
+from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
 from pydantic import BaseModel
@@ -194,6 +194,10 @@ A typical workflow will involve multiple calls to this search tool, with each ca
 After the final search is performed, you'll want to use the other tools to get more details about the relevant entities.
 
 Here are some example filters:
+- All Looker assets
+```
+{"platform": ["looker"]}
+```
 - Production environment warehouse assets
 ```
 {
@@ -218,11 +222,26 @@ Here are some example filters:
 @async_background
 def search(
     query: str = "*",
-    filters: Optional[Filter] = None,
+    filters: Optional[Filter | str] = None,
     num_results: int = 10,
 ) -> dict:
     client = get_datahub_client()
 
+    # As of 2025-07-25: Our Filter type is a tagged/discriminated union.
+    #
+    # We've observed that some tools (e.g. Cursor) don't support discriminated
+    # unions in their JSON schema validation, and hence reject valid tool calls
+    # before they're even passed to our MCP server.
+    # Beyond that, older LLMs (e.g. Claude Desktop w/ Sonnet 3.5) have a tendency
+    # to pass tool args as JSON-encoded strings instead of proper objects.
+    #
+    # To work around these issues, we allow stringified JSON filters that we
+    # parse on our end. The FastMCP library used to have built-in support for
+    # handling this, but removed it in
+    # https://github.com/jlowin/fastmcp/commit/7b9696405b1427f4dc5430891166286744b3dab5
+    if isinstance(filters, str):
+        # The Filter type already has a BeforeValidator that parses JSON strings.
+        filters = load_filters(filters)
     types, compiled_filters = compile_filters(filters)
     variables = {
         "query": query,

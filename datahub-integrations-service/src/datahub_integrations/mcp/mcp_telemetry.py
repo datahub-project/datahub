@@ -56,9 +56,6 @@ class MCPTelemetryMiddleware(Middleware):
         context: MiddlewareContext[mt.Request],
         call_next: CallNext[mt.Request, Any],
     ) -> Any:
-        with PerfTimer() as timer:
-            result = await call_next(context)
-
         actor = None
         try:
             actor = _get_user()
@@ -76,17 +73,28 @@ class MCPTelemetryMiddleware(Middleware):
             method=context.method,
             user_urn=str(actor) if actor else None,
             user_agent=user_agent,
-            duration_seconds=timer.elapsed_seconds(),
+            duration_seconds=0,  # Set afterwards.
         )
         if isinstance(context.message, mt.CallToolRequestParams):
             event.tool_name = context.message.name
-        if isinstance(result, mt.CallToolResult):
-            event.tool_result_is_error = result.isError
-            event.tool_result_length = sum(
-                len(block.text)
-                for block in result.content
-                if isinstance(block, mt.TextContent)
-            )
-        track_saas_event(event)
 
-        return result
+        with PerfTimer() as timer:
+            try:
+                result = await call_next(context)
+
+                if isinstance(result, mt.CallToolResult):
+                    event.tool_result_length = sum(
+                        len(block.text)
+                        for block in result.content
+                        if isinstance(block, mt.TextContent)
+                    )
+                    event.tool_result_is_error = result.isError
+
+                return result
+            except Exception as e:
+                event.tool_result_is_error = True
+                event.tool_result_length = len(str(e))
+                raise
+            finally:
+                event.duration_seconds = timer.elapsed_seconds()
+                track_saas_event(event)
