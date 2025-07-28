@@ -638,7 +638,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return input_fields
 
-    def _extract_columns_from_sql(self, sql_expr: str | None) -> List[str]:
+    def _extract_columns_from_sql(self, sql_expr: Optional[str]) -> List[str]:
         if not sql_expr:
             return []
 
