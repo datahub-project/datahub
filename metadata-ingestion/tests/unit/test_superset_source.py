@@ -145,3 +145,123 @@ def test_column_level_lineage(requests_mock):
         in virtual_lineage.upstreams[i].get("dataset")
         for i in range(len(virtual_lineage.upstreams))
     )
+
+
+def test_construct_chart_cll_aggregate_mode(requests_mock):
+    login_url = "http://localhost:8088/api/v1/security/login"
+    requests_mock.post(login_url, json={"access_token": "dummy_token"}, status_code=200)
+    requests_mock.get(
+        "http://localhost:8088/api/v1/dashboard/", json={}, status_code=200
+    )
+
+    for entity in ["dataset", "dashboard", "chart"]:
+        requests_mock.get(
+            f"http://localhost:8088/api/v1/{entity}/related/owners",
+            json={},
+            status_code=200,
+        )
+
+    requests_mock.get(
+        "http://localhost:8088/api/v1/dataset/1",
+        json={
+            "result": {
+                "columns": [
+                    {
+                        "column_name": "time",
+                        "type": "TIMESTAMP",
+                        "description": "Event time",
+                    },
+                    {
+                        "column_name": "network",
+                        "type": "STRING",
+                        "description": "Network used",
+                    },
+                    {
+                        "column_name": "amount_usd",
+                        "type": "NUMERIC",
+                        "description": "USD amount",
+                    },
+                    {
+                        "column_name": "creation_time",
+                        "type": "TIMESTAMP",
+                        "description": "Creation time",
+                    },
+                ],
+                "metrics": [
+                    {
+                        "metric_name": "sum_usd",
+                        "expression": "SUM(amount_usd)",
+                        "metric_type": "SUM",
+                        "description": "Total USD volume",
+                    },
+                    {
+                        "metric_name": "total_requests",
+                        "expression": "COUNT(DISTINCT request_id)",
+                        "metric_type": "COUNT_DISTINCT",
+                    },
+                ],
+                "schema": "test_schema",
+                "table_name": "test_table",
+            }
+        },
+        status_code=200,
+    )
+
+    source = SupersetSource(ctx=PipelineContext(run_id="test"), config=SupersetConfig())
+
+    # Realistic chart data based on provided examples
+    chart_data = {
+        "form_data": {
+            "query_mode": "aggregate",
+            "viz_type": "ag-grid-table",
+            "groupby": [
+                "network",
+                {
+                    "sqlExpression": "CASE WHEN amount_usd > 1000 THEN 'Large' ELSE 'Small' END",
+                    "label": "transaction_size",
+                },
+            ],
+            "x_axis": "creation_time",
+            "metrics": [
+                "sum_usd",
+                {
+                    "aggregate": "SUM",
+                    "column": {"column_name": "amount_usd", "type": "NUMERIC"},
+                    "expressionType": "SIMPLE",
+                    "label": "Total Amount",
+                },
+                {
+                    "expressionType": "SQL",
+                    "sqlExpression": "AVG(CASE WHEN network = 'Test Network' THEN amount_usd * 1.5 ELSE amount_usd END)",
+                    "label": "Weighted Average",
+                },
+            ],
+            "adhoc_filters": [
+                {
+                    "clause": "WHERE",
+                    "comparator": "Test Network",
+                    "expressionType": "SIMPLE",
+                    "operator": "==",
+                    "subject": "network",
+                }
+            ],
+        },
+        "datasource_type": "table",
+        "datasource_id": 1,
+    }
+
+    datasource_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:superset,test_schema.test_table,PROD)"
+    )
+    input_fields = source.construct_chart_cll(chart_data, datasource_urn, 1)
+
+    assert len(input_fields) == 4
+
+    field_types = {
+        f.schemaField.fieldPath: f.schemaField.nativeDataType for f in input_fields
+    }
+
+    assert field_types["network"] == "STRING"
+    assert field_types["sum_usd"] == "SUM"
+    assert field_types["amount_usd"] == "NUMERIC"
+    assert field_types["creation_time"] == "TIMESTAMP"
