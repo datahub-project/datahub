@@ -26,15 +26,3 @@ class HttpFileSystem(FileSystem):
     def list(self, path: str) -> Iterable[FileInfo]:
         status = self.file_status(path)
         return [status]
-
-    def write(self, path: str, content: str, **kwargs: Any) -> None:
-        """HTTP file system does not support writing."""
-        raise NotImplementedError("HTTP file system does not support write operations")
-
-    def exists(self, path: str) -> bool:
-        """Check if an HTTP resource exists."""
-        try:
-            head = requests.head(path)
-            return head.ok
-        except Exception:
-            return False

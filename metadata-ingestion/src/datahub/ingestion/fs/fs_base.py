@@ -31,16 +31,6 @@ class FileSystem(metaclass=ABCMeta):
     def list(self, path: str) -> Iterable[FileInfo]:
         pass
 
-    @abstractmethod
-    def write(self, path: str, content: str, **kwargs: Any) -> None:
-        """Write content to a file at the given path."""
-        pass
-
-    @abstractmethod
-    def exists(self, path: str) -> bool:
-        """Check if a file exists at the given path."""
-        pass
-
 
 def get_path_schema(path: str) -> str:
     scheme = parse.urlparse(path).scheme
