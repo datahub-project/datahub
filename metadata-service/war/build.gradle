@@ -54,7 +54,7 @@ dependencies {
   annotationProcessor externalDependency.lombok
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
-  runtimeOnly externalDependency.logbackClassic
+  implementation externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity

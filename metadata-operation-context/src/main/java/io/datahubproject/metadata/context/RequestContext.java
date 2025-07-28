@@ -103,13 +103,6 @@ public class RequestContext implements ContextInterface {
       this.agentName = "Unknown";
     }
 
-    // Uniform common logging of requests across APIs
-    log.info(toString());
-    // API metrics
-    if (metricUtils != null) {
-      captureAPIMetrics(metricUtils, this);
-    }
-
     Span currentSpan = Span.current();
     String traceId = null;
     if (currentSpan != null) {
@@ -120,6 +113,14 @@ public class RequestContext implements ContextInterface {
       }
     }
     this.traceId = traceId;
+
+    // Uniform common logging of requests across APIs
+    log.info(toString());
+
+    // API metrics
+    if (metricUtils != null) {
+      captureAPIMetrics(metricUtils, this);
+    }
   }
 
   @Override
