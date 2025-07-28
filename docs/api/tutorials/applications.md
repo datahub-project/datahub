@@ -1,7 +1,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Applications
+# Applications (Experimental - Beta Feature)
 
 ## Why Would You Use Applications?
 
