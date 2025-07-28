@@ -23,8 +23,8 @@ base_requirements = {
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
-    # Airflow depends on fairly old versions of sentry-sdk, so we want to be loose with our constraints.
-    "sentry-sdk",
+    # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
+    "sentry-sdk>=1.33.1",
 }
 
 framework_common = {
@@ -340,7 +340,7 @@ abs_base = {
 
 data_lake_profiling = {
     "pydeequ>=1.1.0",
-    "pyspark~=3.5.0",
+    "pyspark~=3.5.6",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -349,8 +349,9 @@ delta_lake = {
     *s3_base,
     *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
-    "deltalake>=0.6.3, != 0.6.4, != 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
-    "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    # Version 1.0.2 breaks due to Unsupported reader features required: [DeletionVectors]: https://github.com/delta-io/delta-rs/issues/1094
+    "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
 powerbi_report_server = {"requests", "requests_ntlm"}
@@ -364,7 +365,7 @@ databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
     "databricks-sdk>=0.30.0",
-    "pyspark~=3.5.0",
+    "pyspark~=3.5.6",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
@@ -469,7 +470,7 @@ plugins: Dict[str, Set[str]] = {
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
     },
-    "grafana": {"requests"},
+    "grafana": {"requests", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common

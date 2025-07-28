@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Optional
 
 
 class TableNamingHelper:
@@ -10,7 +10,11 @@ class TableNamingHelper:
 
     @staticmethod
     def generate_table_name(
-        lineage_hops: int, lineage_fan_out: int, level: int, table_index: int
+        lineage_hops: int,
+        lineage_fan_out: int,
+        level: int,
+        table_index: int,
+        prefix: Optional[str] = None,
     ) -> str:
         """
         Generate a table name following the standard naming convention.
@@ -20,11 +24,13 @@ class TableNamingHelper:
             lineage_fan_out: Number of downstream tables per upstream table
             level: Level of the table in the lineage graph (0-based)
             table_index: Index of the table within its level (0-based)
+            prefix: Optional prefix to add to the table name
 
         Returns:
-            Table name following the pattern: "hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
+            Table name following the pattern: "{prefix}hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
         """
-        return f"hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
+        base_name = f"hops_{lineage_hops}_f_{lineage_fan_out}_h{level}_t{table_index}"
+        return f"{prefix}{base_name}" if prefix else base_name
 
     @staticmethod
     def parse_table_name(table_name: str) -> Dict[str, int]:

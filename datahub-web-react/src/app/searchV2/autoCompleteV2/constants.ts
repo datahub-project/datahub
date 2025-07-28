@@ -32,4 +32,11 @@ export const VARIANT_STYLES: VariantElementsPropsMapping = new Map([
             },
         },
     ],
+    [
+        'select',
+        {
+            ...DEFAULT_STYLES,
+            nameCanBeHovered: false,
+        },
+    ],
 ]);

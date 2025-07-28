@@ -3741,6 +3741,7 @@ export const mocks = [
                         viewStructuredPropertiesPage: true,
                         manageApplications: true,
                         manageFeatures: true,
+                        manageHomePageTemplates: true,
                     },
                 },
             },
@@ -4027,6 +4028,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewStructuredPropertiesPage: true,
     manageApplications: true,
     manageFeatures: true,
+    manageHomePageTemplates: true,
 };
 
 export const DomainMock1 = {

@@ -21,6 +21,7 @@ x-mysql-profiles-dev: &mysql-profiles-dev
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
+  - debug-aws
 x-mysql-profiles: &mysql-profiles
   - quickstart
   - quickstart-backend
@@ -36,6 +37,7 @@ x-mysql-profiles: &mysql-profiles
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
+  - debug-aws
 
 x-postgres-profiles-quickstart: &postgres-profiles-quickstart
   - quickstart-postgres
@@ -78,6 +80,7 @@ x-opensearch-profiles-dev: &opensearch-profiles-dev
   - debug-consumers
   - debug-neo4j
   - debug-backend-aws
+  - debug-aws
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -97,10 +100,12 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-consumers
   - debug-neo4j
   - debug-backend-aws
+  - debug-aws
 
 # AWS Infra profiles
 x-profiles-aws: &aws-profiles
   - debug-backend-aws
+  - debug-aws
 
 # Debug vs Quickstart Profiles
 x-profiles-quickstart: &profiles-quickstart
@@ -124,6 +129,7 @@ x-profiles-dev: &profiles-dev
   - debug-neo4j
   - debug-elasticsearch
   - debug-backend-aws
+  - debug-aws
 
 services:
   mysql:

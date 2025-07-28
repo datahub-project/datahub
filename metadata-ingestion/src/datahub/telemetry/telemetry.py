@@ -104,7 +104,7 @@ SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
 SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
 
 
-def _default_telemetry_properties() -> Dict[str, Any]:
+def _default_global_properties() -> Dict[str, Any]:
     return {
         "datahub_version": nice_version_name(),
         "python_version": platform.python_version(),
@@ -122,6 +122,7 @@ class Telemetry:
     context_properties: Dict[str, Any] = {}
 
     def __init__(self):
+        self.global_properties = _default_global_properties()
         self.context_properties = {}
 
         if SENTRY_DSN:
@@ -247,6 +248,10 @@ class Telemetry:
 
         return False
 
+    def add_global_property(self, key: str, value: Any) -> None:
+        self.global_properties[key] = value
+        self._update_sentry_properties()
+
     def set_context(
         self,
         server: Optional["DataHubGraph"] = None,
@@ -257,16 +262,20 @@ class Telemetry:
             **(properties or {}),
         }
 
+        self._update_sentry_properties()
+
+    def _update_sentry_properties(self) -> None:
+        properties = {
+            **self.global_properties,
+            **self.context_properties,
+        }
         if self.sentry_enabled:
-            from sentry_sdk import set_tag
+            import sentry_sdk
 
-            properties = {
-                **_default_telemetry_properties(),
-                **self.context_properties,
-            }
-
-            for key in properties:
-                set_tag(key, properties[key])
+            # Note: once we're on sentry-sdk 2.1.0+, we can use sentry_sdk.set_tags(properties)
+            # See https://github.com/getsentry/sentry-python/commit/6c960d752c7c7aff3fd7469d2e9ad98f19663aa8
+            for key, value in properties.items():
+                sentry_sdk.set_tag(key, value)
 
     def init_capture_exception(self) -> None:
         if self.sentry_enabled:
@@ -300,7 +309,7 @@ class Telemetry:
         try:
             self.mp.people_set(
                 self.client_id,
-                _default_telemetry_properties(),
+                self.global_properties,
             )
         except Exception as e:
             logger.debug(f"Error initializing telemetry: {e}")
@@ -334,7 +343,7 @@ class Telemetry:
                 logger.debug(f"Sending telemetry for {event_name}")
 
             properties = {
-                **_default_telemetry_properties(),
+                **self.global_properties,
                 **self.context_properties,
                 **properties,
             }

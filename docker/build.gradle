@@ -99,7 +99,8 @@ ext {
                             ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env",
+                            'METADATA_SERVICE_AUTH_ENABLED': 'false'
                     ]
             ],
             'quickstartStorage': [
@@ -370,7 +371,10 @@ quickstart_configs.each { taskName, config ->
                 
                 // Only restart containers that had their modules rebuilt
                 if (containersToRestart) {
-                    def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['restart'] + containersToRestart
+                    def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
+                    def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+
+                    def cmd = ["docker compose -p ${project_name} --profile ${config.profile}"] + composeFileArgs + ['restart'] + containersToRestart
                     println(cmd.join(" "))
                     commandLine 'bash', '-c', cmd.join(" ")
                 } else {
@@ -391,7 +395,10 @@ quickstart_configs.each { taskName, config ->
                         containersToRestart << "${containerName}-${config.profile}"
                     }
                 }
-                def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['up', '-d', '--no-deps'] + containersToRestart
+                def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
+                def composeFileArgs = composeFiles.collectMany { ['-f', it] }
+
+                def cmd = ["docker compose -p ${project_name} --profile ${config.profile}"] + composeFileArgs + ['up', '-d', '--no-deps'] + containersToRestart
                 println(cmd.join(" "))
                 commandLine 'bash', '-c', cmd.join(" ")
             }

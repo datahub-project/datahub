@@ -10,9 +10,3 @@ export type ModuleInfo = {
     description?: string;
     icon: IconNames;
 };
-
-export type ModulesAvailableToAdd = {
-    customModules: ModuleInfo[];
-    customLargeModules: ModuleInfo[];
-    adminCreatedModules: ModuleInfo[];
-};

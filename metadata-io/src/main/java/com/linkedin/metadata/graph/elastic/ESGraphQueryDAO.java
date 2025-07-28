@@ -94,7 +94,7 @@ public class ESGraphQueryDAO {
 
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
-  static final String RELATIONSHIP_TYPE = "relationshipType";
+  public static final String RELATIONSHIP_TYPE = "relationshipType";
   static final String SOURCE_TYPE = SOURCE + ".entityType";
   static final String SOURCE_URN = SOURCE + ".urn";
   static final String DESTINATION_TYPE = DESTINATION + ".entityType";

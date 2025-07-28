@@ -142,10 +142,20 @@ public class TestUtils {
     // check without time
     Assert.assertEquals(
         batchCaptor.getValue().getItems().stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()),
         proposals.stream()
-            .map(m -> m.getSystemMetadata().setLastObserved(0))
+            .map(
+                m -> {
+                  m.getSystemMetadata().removeAspectModified();
+                  m.getSystemMetadata().removeAspectCreated();
+                  return m.getSystemMetadata().setLastObserved(0);
+                })
             .collect(Collectors.toList()));
   }
 

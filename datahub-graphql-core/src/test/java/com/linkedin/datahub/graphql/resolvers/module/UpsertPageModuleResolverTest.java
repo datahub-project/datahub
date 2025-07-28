@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.module;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -15,8 +16,10 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubPageModule;
 import com.linkedin.datahub.graphql.generated.DataHubPageModuleType;
+import com.linkedin.datahub.graphql.generated.HierarchyViewModuleParamsInput;
 import com.linkedin.datahub.graphql.generated.LinkModuleParamsInput;
 import com.linkedin.datahub.graphql.generated.PageModuleParamsInput;
 import com.linkedin.datahub.graphql.generated.PageModuleScope;
@@ -31,6 +34,7 @@ import com.linkedin.module.DataHubPageModuleParams;
 import com.linkedin.module.DataHubPageModuleProperties;
 import com.linkedin.module.RichTextModuleParams;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -136,7 +140,7 @@ public class UpsertPageModuleResolverTest {
 
     PageModuleParamsInput paramsInput = new PageModuleParamsInput();
     paramsInput.setLinkParams(new LinkModuleParamsInput());
-    paramsInput.getLinkParams().setLinkUrn("urn:li:post:test-post");
+    paramsInput.getLinkParams().setLinkUrl("https://example.com/test-link");
     input.setParams(paramsInput);
 
     Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
@@ -157,6 +161,100 @@ public class UpsertPageModuleResolverTest {
     assertEquals(result.getUrn(), TEST_MODULE_URN);
     verify(mockService, times(1)).upsertPageModule(any(), any(), any(), any(), any(), any());
     verify(mockService, times(1)).getPageModuleEntityResponse(any(), eq(moduleUrn));
+  }
+
+  @Test
+  public void testUpsertPageModuleWithHierarchyParams() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.HIERARCHY);
+    input.setScope(PageModuleScope.PERSONAL);
+
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    paramsInput.setHierarchyViewParams(new HierarchyViewModuleParamsInput());
+    paramsInput.getHierarchyViewParams().setAssetUrns(List.of("urn:li:domain:test-domain"));
+    paramsInput.getHierarchyViewParams().setShowRelatedEntities(true);
+    paramsInput.getHierarchyViewParams().setRelatedEntitiesFilterJson("{}");
+    input.setParams(paramsInput);
+
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    EntityResponse mockResponse = createMockEntityResponse(moduleUrn);
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
+    when(mockService.upsertPageModule(any(), any(), any(), any(), any(), any()))
+        .thenReturn(moduleUrn);
+    when(mockService.getPageModuleEntityResponse(any(), eq(moduleUrn))).thenReturn(mockResponse);
+
+    // Act
+    CompletableFuture<DataHubPageModule> future = resolver.get(mockEnvironment);
+    DataHubPageModule result = future.get();
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(result.getUrn(), TEST_MODULE_URN);
+    verify(mockService, times(1)).upsertPageModule(any(), any(), any(), any(), any(), any());
+    verify(mockService, times(1)).getPageModuleEntityResponse(any(), eq(moduleUrn));
+  }
+
+  @Test
+  public void testUpsertGlobalPageModuleSuccessWithPermission() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.RICH_TEXT);
+    input.setScope(PageModuleScope.GLOBAL);
+
+    RichTextModuleParamsInput richTextParams = new RichTextModuleParamsInput();
+    richTextParams.setContent(TEST_RICH_TEXT_CONTENT);
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    paramsInput.setRichTextParams(richTextParams);
+
+    input.setParams(paramsInput);
+
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    EntityResponse mockResponse = createMockEntityResponse(moduleUrn);
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
+    when(mockService.upsertPageModule(any(), eq(null), any(), any(), any(), any()))
+        .thenReturn(moduleUrn);
+    when(mockService.getPageModuleEntityResponse(any(), eq(moduleUrn))).thenReturn(mockResponse);
+
+    // Act
+    CompletableFuture<DataHubPageModule> future = resolver.get(mockEnvironment);
+    DataHubPageModule result = future.get();
+
+    // Assert
+    assertNotNull(result);
+    assertEquals(result.getUrn(), TEST_MODULE_URN);
+    assertEquals(result.getType().toString(), "DATAHUB_PAGE_MODULE");
+    verify(mockService, times(1)).upsertPageModule(any(), eq(null), any(), any(), any(), any());
+    verify(mockService, times(1)).getPageModuleEntityResponse(any(), eq(moduleUrn));
+  }
+
+  @Test
+  public void testUpsertGlobalPageModuleFailureWithoutPermission() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.RICH_TEXT);
+    input.setScope(PageModuleScope.GLOBAL);
+
+    RichTextModuleParamsInput richTextParams = new RichTextModuleParamsInput();
+    richTextParams.setContent(TEST_RICH_TEXT_CONTENT);
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    paramsInput.setRichTextParams(richTextParams);
+    input.setParams(paramsInput);
+
+    QueryContext mockDenyContext = getMockDenyContext();
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockDenyContext);
+
+    // Act & Assert
+    assertThrows(AuthorizationException.class, () -> resolver.get(mockEnvironment).get());
   }
 
   @Test
@@ -198,6 +296,25 @@ public class UpsertPageModuleResolverTest {
   }
 
   @Test
+  public void testUpsertPageModuleValidationFailureHierarchyWithoutParams() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.HIERARCHY);
+    input.setScope(PageModuleScope.PERSONAL);
+
+    // Don't set hierarchy params
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    input.setParams(paramsInput);
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
+
+    // Act & Assert
+    assertThrows(RuntimeException.class, () -> resolver.get(mockEnvironment).join());
+  }
+
+  @Test
   public void testUpsertPageModuleValidationFailureUnsupportedModuleType() throws Exception {
     // Arrange
     UpsertPageModuleInput input = new UpsertPageModuleInput();
@@ -226,7 +343,7 @@ public class UpsertPageModuleResolverTest {
     // Set link params instead of rich text params
     PageModuleParamsInput paramsInput = new PageModuleParamsInput();
     paramsInput.setLinkParams(new LinkModuleParamsInput());
-    paramsInput.getLinkParams().setLinkUrn("urn:li:post:test-post");
+    paramsInput.getLinkParams().setLinkUrl("https://example.com/test-link");
     input.setParams(paramsInput);
 
     when(mockEnvironment.getArgument("input")).thenReturn(input);
@@ -249,6 +366,27 @@ public class UpsertPageModuleResolverTest {
     RichTextModuleParamsInput richTextParams = new RichTextModuleParamsInput();
     richTextParams.setContent(TEST_RICH_TEXT_CONTENT);
     paramsInput.setRichTextParams(richTextParams);
+    input.setParams(paramsInput);
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+    when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
+
+    // Act & Assert
+    assertThrows(RuntimeException.class, () -> resolver.get(mockEnvironment).join());
+  }
+
+  @Test
+  public void testUpsertPageModuleValidationFailureHierarchyWithWrongParams() throws Exception {
+    // Arrange
+    UpsertPageModuleInput input = new UpsertPageModuleInput();
+    input.setName(TEST_MODULE_NAME);
+    input.setType(DataHubPageModuleType.HIERARCHY);
+    input.setScope(PageModuleScope.PERSONAL);
+
+    // Set link params instead of hierarchy params
+    PageModuleParamsInput paramsInput = new PageModuleParamsInput();
+    paramsInput.setLinkParams(new LinkModuleParamsInput());
+    paramsInput.getLinkParams().setLinkUrl("urn:li:post:test-post");
     input.setParams(paramsInput);
 
     when(mockEnvironment.getArgument("input")).thenReturn(input);
