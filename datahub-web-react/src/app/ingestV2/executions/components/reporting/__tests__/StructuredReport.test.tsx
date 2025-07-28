@@ -411,6 +411,5 @@ describe('StructuredReport Component', () => {
             // Pill should still show total
             expect(screen.getByText('5')).toBeInTheDocument();
         });
-
     });
 });
