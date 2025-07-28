@@ -2,10 +2,9 @@ import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { DetailsContainer, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
@@ -23,20 +22,6 @@ const LogsSection = styled.div`
     padding-top: 16px;
     padding-left: 30px;
     padding-right: 30px;
-`;
-
-const DetailsContainer = styled.div`
-    margin-top: 12px;
-
-    pre {
-        background-color: ${colors.gray[1500]};
-        border: 1px solid ${colors.gray[1400]};
-        border-radius: 8px;
-        padding: 16px;
-        margin: 0;
-        color: ${colors.gray[1700]};
-        overflow-y: auto;
-    }
 `;
 
 export const LogsTab = ({ urn, data }: { urn: string; data: GetIngestionExecutionRequestQuery | undefined }) => {

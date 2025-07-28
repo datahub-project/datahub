@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
-import { SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
+import { DetailsContainer, SectionBase, SectionHeader } from '@app/ingestV2/executions/components/BaseTab';
 import { StructuredReport, hasSomethingToShow } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import { EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -13,7 +13,6 @@ import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -50,21 +49,6 @@ const IngestedAssetsSection = styled.div`
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
-`;
-
-const DetailsContainer = styled.div`
-    margin-top: 12px;
-
-    pre {
-        background-color: ${colors.gray[1500]};
-        border: 1px solid ${colors.gray[1400]};
-        border-radius: 8px;
-        padding: 16px;
-        margin: 0;
-        color: ${colors.gray[1700]};
-        max-height: 300px;
-        overflow-y: auto;
-    }
 `;
 
 export const SummaryTab = ({

@@ -185,7 +185,6 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     });
 
     // Parse filter values to get results.
-    console.log('entitiesIngestedByTypeFromReport', entitiesIngestedByTypeFromReport);
     const facets = data?.searchAcrossEntities?.facets;
 
     // Extract facets to construct the per-entity type breakdown stats
@@ -199,11 +198,6 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const countsByEntityType =
         entitiesIngestedByTypeFromReport ??
         (entityTypeFacets ? extractEntityTypeCountsFromFacets(entityRegistry, entityTypeFacets, subTypeFacets) : []);
-
-    console.log('entityTypeFacets', entityTypeFacets);
-    console.log('subTypeFacets', subTypeFacets);
-    console.log('countsByEntityType', countsByEntityType);
-    console.log('facets', facets);
 
     // The total number of assets ingested
     const total = totalEntitiesIngested ?? data?.searchAcrossEntities?.total ?? 0;
