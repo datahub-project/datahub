@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.operations.v1;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.system_info.SpringComponentsInfo;
 import com.linkedin.metadata.system_info.SystemInfoResponse;
 import com.linkedin.metadata.system_info.SystemInfoService;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SystemInfoController {
 
   private final SystemInfoService systemInfoService;
+  private final ObjectMapper objectMapper;
 
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
@@ -40,11 +42,15 @@ public class SystemInfoController {
             description = "Successfully retrieved system information"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
-  public ResponseEntity<SystemInfoResponse> getSystemInfo() {
+  public ResponseEntity<String> getSystemInfo() {
     try {
       log.debug("Request received for complete system information");
       SystemInfoResponse response = systemInfoService.getSystemInfo();
-      return ResponseEntity.ok(response);
+
+      // Return pretty-printed JSON for better readability in debugging/admin scenarios.
+      // This follows the same pattern used by /config endpoints in the codebase.
+      String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+      return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     } catch (Exception e) {
       log.error("Error retrieving system information", e);
       return ResponseEntity.internalServerError().build();
@@ -62,11 +68,15 @@ public class SystemInfoController {
             description = "Successfully retrieved Spring components information"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
-  public ResponseEntity<SpringComponentsInfo> getSpringComponentsInfo() {
+  public ResponseEntity<String> getSpringComponentsInfo() {
     try {
       log.debug("Request received for Spring components information");
       SpringComponentsInfo response = systemInfoService.getSpringComponentsInfo();
-      return ResponseEntity.ok(response);
+
+      // Return pretty-printed JSON for better readability in debugging/admin scenarios.
+      // This follows the same pattern used by /config endpoints in the codebase.
+      String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+      return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     } catch (Exception e) {
       log.error("Error retrieving Spring components information", e);
       return ResponseEntity.internalServerError().build();
@@ -85,11 +95,15 @@ public class SystemInfoController {
             description = "Successfully retrieved system properties"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
-  public ResponseEntity<SystemPropertiesInfo> getSystemPropertiesInfo() {
+  public ResponseEntity<String> getSystemPropertiesInfo() {
     try {
       log.debug("Request received for system properties information");
       SystemPropertiesInfo response = systemInfoService.getSystemPropertiesInfo();
-      return ResponseEntity.ok(response);
+
+      // Return pretty-printed JSON for better readability in debugging/admin scenarios.
+      // This follows the same pattern used by /config endpoints in the codebase.
+      String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+      return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     } catch (Exception e) {
       log.error("Error retrieving system properties information", e);
       return ResponseEntity.internalServerError().build();
@@ -108,11 +122,15 @@ public class SystemInfoController {
             description = "Successfully retrieved configuration properties"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
-  public ResponseEntity<Map<String, Object>> getPropertiesAsMap() {
+  public ResponseEntity<String> getPropertiesAsMap() {
     try {
       log.debug("Request received for configuration properties as map");
       Map<String, Object> response = systemInfoService.getPropertiesAsMap();
-      return ResponseEntity.ok(response);
+
+      // Return pretty-printed JSON for better readability in debugging/admin scenarios.
+      // This follows the same pattern used by /config endpoints in the codebase.
+      String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+      return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     } catch (Exception e) {
       log.error("Error retrieving configuration properties", e);
       return ResponseEntity.internalServerError().build();

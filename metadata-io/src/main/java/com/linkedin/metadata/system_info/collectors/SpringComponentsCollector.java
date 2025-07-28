@@ -24,6 +24,31 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+/**
+ * Collects information about Spring components (GMS, MAE Consumer, MCE Consumer).
+ *
+ * <p>DEPLOYMENT MODES: DataHub can be deployed in two ways: 1. Embedded mode (default quickstart):
+ * All components run in single GMS container 2. Separate containers: Each component runs in its own
+ * container for better scaling
+ *
+ * <p>CURRENT LIMITATION: This collector currently returns placeholder data for MAE/MCE consumers to
+ * avoid a circular dependency issue that occurs in embedded mode:
+ *
+ * <p>The Problem: - System-info endpoint (/openapi/v1/system-info) calls this collector - Collector
+ * tries to fetch consumer info by calling same endpoint on consumer URLs - In embedded mode,
+ * consumer URLs point back to the same GMS process - This creates infinite recursion / timeout
+ * after 5 seconds
+ *
+ * <p>The Solution: - Return placeholder data instead of making HTTP calls - Maintains API structure
+ * while avoiding circular dependency - Allows system-info endpoint to work properly in embedded
+ * mode
+ *
+ * <p>FUTURE IMPROVEMENTS: A proper solution would detect deployment mode and handle accordingly: -
+ * Embedded mode: Query internal component state directly (no HTTP calls) - Separate containers:
+ * Make HTTP calls to external consumer service endpoints
+ *
+ * <p>The placeholder approach provides a stable foundation for implementing this detection logic.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -89,20 +114,89 @@ public class SpringComponentsCollector {
     }
   }
 
+  /**
+   * Gets MAE (Metadata Audit Event) Consumer information.
+   *
+   * <p>CURRENT IMPLEMENTATION: Returns placeholder data to avoid circular dependency.
+   *
+   * <p>BACKGROUND: DataHub supports two deployment modes: 1. Embedded mode: MAE consumer runs
+   * inside the same JVM/container as GMS 2. Separate containers: MAE consumer runs in its own
+   * container/process
+   *
+   * <p>PROBLEM: The original implementation tried to fetch consumer info by making HTTP calls to
+   * consumer endpoints. In embedded mode, this creates a circular dependency: - /system-info
+   * endpoint calls this method - This method makes HTTP call to /system-info (same endpoint!) -
+   * Infinite loop / timeout occurs
+   *
+   * <p>PLACEHOLDER SOLUTION: Instead of making HTTP calls that cause circular dependency, we return
+   * placeholder data that maintains the API structure while avoiding the issue.
+   *
+   * <p>FUTURE IMPROVEMENT: Detect deployment mode and handle accordingly: - Embedded: Return actual
+   * component status without HTTP calls (check internal state) - Separate: Make HTTP calls to
+   * external consumer service endpoints
+   */
   private ComponentInfo getMaeConsumerInfo() {
-    if (maeConsumerUrl == null || maeConsumerUrl.isEmpty()) {
-      return createUnavailableComponent(MAE_COMPONENT_NAME);
-    }
-    return fetchRemoteComponentInfo(MAE_COMPONENT_NAME, maeConsumerUrl, MAE_COMPONENT_KEY);
+    // Return placeholder to avoid circular dependency in embedded mode
+    // In embedded mode, MAE consumer runs in the same process as this code
+    return ComponentInfo.builder()
+        .name(MAE_COMPONENT_NAME)
+        .status(ComponentStatus.AVAILABLE) // Assume available since we're running
+        .version(gitVersion.getVersion()) // Same version as GMS in embedded mode
+        .properties(
+            Map.of(
+                "mode", "placeholder",
+                "deployment", "embedded",
+                "note",
+                    "Consumer info collection temporarily disabled to avoid circular dependency"))
+        .build();
   }
 
+  /**
+   * Gets MCE (Metadata Change Event) Consumer information.
+   *
+   * <p>CURRENT IMPLEMENTATION: Returns placeholder data to avoid circular dependency.
+   *
+   * <p>BACKGROUND: DataHub supports two deployment modes: 1. Embedded mode: MCE consumer runs
+   * inside the same JVM/container as GMS 2. Separate containers: MCE consumer runs in its own
+   * container/process
+   *
+   * <p>PROBLEM: The original implementation tried to fetch consumer info by making HTTP calls to
+   * consumer endpoints. In embedded mode, this creates a circular dependency: - /system-info
+   * endpoint calls this method - This method makes HTTP call to /system-info (same endpoint!) -
+   * Results in "request timed out" errors after 5 seconds
+   *
+   * <p>PLACEHOLDER SOLUTION: Instead of making HTTP calls that cause circular dependency, we return
+   * placeholder data that maintains the API structure while avoiding the issue.
+   *
+   * <p>FUTURE IMPROVEMENT: Detect deployment mode and handle accordingly: - Embedded: Return actual
+   * component status without HTTP calls (check internal state) - Separate: Make HTTP calls to
+   * external consumer service endpoints
+   */
   private ComponentInfo getMceConsumerInfo() {
-    if (mceConsumerUrl == null || mceConsumerUrl.isEmpty()) {
-      return createUnavailableComponent(MCE_COMPONENT_NAME);
-    }
-    return fetchRemoteComponentInfo(MCE_COMPONENT_NAME, mceConsumerUrl, MCE_COMPONENT_KEY);
+    // Return placeholder to avoid circular dependency in embedded mode
+    // In embedded mode, MCE consumer runs in the same process as this code
+    return ComponentInfo.builder()
+        .name(MCE_COMPONENT_NAME)
+        .status(ComponentStatus.AVAILABLE) // Assume available since we're running
+        .version(gitVersion.getVersion()) // Same version as GMS in embedded mode
+        .properties(
+            Map.of(
+                "mode", "placeholder",
+                "deployment", "embedded",
+                "note",
+                    "Consumer info collection temporarily disabled to avoid circular dependency"))
+        .build();
   }
 
+  /**
+   * Fetches component information from a remote service via HTTP.
+   *
+   * <p>NOTE: This method is currently not used to avoid circular dependency issues in embedded
+   * mode. See getMaeConsumerInfo() and getMceConsumerInfo() for details.
+   *
+   * <p>This method would be used in a future implementation that properly detects when consumers
+   * are running in separate containers and can safely make HTTP calls.
+   */
   private ComponentInfo fetchRemoteComponentInfo(
       String name, String baseUrl, String componentField) {
     try {
