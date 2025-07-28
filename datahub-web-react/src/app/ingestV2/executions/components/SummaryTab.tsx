@@ -1,6 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
@@ -64,16 +64,12 @@ export const SummaryTab = ({
     data: GetIngestionExecutionRequestQuery | undefined;
     onTabChange: (tab: TabType) => void;
 }) => {
-    const [showExpandedLogs] = useState(true);
-    const [showExpandedRecipe] = useState(true);
-
-    const output = data?.executionRequest?.result?.report || 'No output found.';
+    const logs = data?.executionRequest?.result?.report || 'No output found.';
 
     const downloadLogs = () => {
-        downloadFile(output, `exec-${urn}.log`);
+        downloadFile(logs, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 14)?.join('\n');
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
         (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
@@ -81,18 +77,15 @@ export const SummaryTab = ({
         )) ||
         undefined;
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
-    let recipeYaml: string;
+    let recipe: string;
     try {
-        recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
+        recipe = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
-        recipeYaml = '';
+        recipe = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 14)?.join('\n');
-    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 14;
-    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 14;
 
     const downloadRecipe = () => {
-        downloadFile(recipeYaml, `recipe-${urn}.yaml`);
+        downloadFile(recipe, `recipe-${urn}.yaml`);
     };
 
     return (
@@ -117,11 +110,9 @@ export const SummaryTab = ({
                         View logs that were collected during the sync.
                     </SubHeaderParagraph>
                     <ButtonGroup>
-                        {areLogsExpandable && (
-                            <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
-                                View All
-                            </Button>
-                        )}
+                        <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
+                            View All
+                        </Button>
                         <Tooltip title="Download Logs">
                             <Button variant="text" onClick={downloadLogs}>
                                 <DownloadOutlined />
@@ -143,11 +134,9 @@ export const SummaryTab = ({
                             The configurations used for this sync with the data source.
                         </SubHeaderParagraph>
                         <ButtonGroup>
-                            {isRecipeExpandable && (
-                                <Button variant="text" onClick={() => onTabChange(TabType.Recipe)}>
-                                    View More
-                                </Button>
-                            )}
+                            <Button variant="text" onClick={() => onTabChange(TabType.Recipe)}>
+                                View More
+                            </Button>
                             <Tooltip title="Download Recipe">
                                 <Button variant="text" onClick={downloadRecipe}>
                                     <DownloadOutlined />
