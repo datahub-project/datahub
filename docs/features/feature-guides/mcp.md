@@ -51,6 +51,15 @@ To connect to the MCP server, you'll need the following:
 
 Your hosted MCP server URL is `https://<tenant>.acryl.io/integrations/ai/mcp/?token=<token>`.
 
+<details>
+  <summary>On-Premises DataHub Cloud</summary>
+
+For on-premises DataHub Cloud, your hosted MCP server URL is `https://<datahub-fqdn>/integrations/ai/mcp/?token=<token>`.
+
+For example, it might look something like `https://datahub.example.com/integrations/ai/mcp/?token=eyJh...`.
+
+</details>
+
 ### Configure
 
 <details>
