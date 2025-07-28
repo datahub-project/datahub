@@ -57,3 +57,4 @@ dependencies {
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
 
+spotlessJava.dependsOn generateTestDataTemplate

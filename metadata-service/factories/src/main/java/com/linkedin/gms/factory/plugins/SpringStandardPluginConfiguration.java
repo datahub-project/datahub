@@ -15,6 +15,7 @@ import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
+import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
@@ -526,6 +527,24 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
                             .aspectName(STRUCTURED_PROPERTY_KEY_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator systemPolicyValidator() {
+    return new SystemPolicyValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(SystemPolicyValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of(DELETE, UPDATE, UPSERT, PATCH))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(POLICY_ENTITY_NAME)
+                            .aspectName(ALL)
                             .build()))
                 .build());
   }
