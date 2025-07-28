@@ -191,23 +191,15 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch0")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_0' --junit-xml=junit.integrationbatch0.xml"
-}
-task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch1")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_1' --junit-xml=junit.integrationbatch1.xml"
-}
-task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch2")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_2' --junit-xml=junit.integrationbatch2.xml"
+// Create testIntegrationBatch0 through testIntegrationBatch5 tasks
+(0..5).each { batchNum ->
+    tasks.register("testIntegrationBatch${batchNum}", Exec) {
+        dependsOn installDevTest
+        def cvg_arg = get_coverage_args("intBatch${batchNum}")
+        commandLine 'bash', '-c',
+            venv_activate_command +
+            "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_${batchNum}' --junit-xml=junit.integrationbatch${batchNum}.xml"
+    }
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {
