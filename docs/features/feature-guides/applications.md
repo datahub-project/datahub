@@ -1,10 +1,10 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Applications
+# Applications (Experimental - Beta Feature)
 
 <FeatureAvailability/>
 
-Starting in version `1.2.0`, DataHub supports grouping data assets into collections called **Applications**. Applications reperesent the specific purpose the data assets are used for. Applications are similar to Domains in that they group data assets together based on business context.
+Starting in version `1.2.0`, DataHub supports grouping data assets into collections called **Applications**. Applications reperesent the specific purpose the data assets are used for. Applications are similar to Domains in that they group data assets together based on business context. This feature is still experimental, and is subject to change. Your team likely may not need Applications, and often teams find Domains and Data Products are sufficient for this purpose. If you are interested in trying this experimental feature, read on.
 
 Applications differ from Domains in that an Application is a smaller, more specific grouping for a single purpose, whereas Domains will often have many purposes within them. Applications differ from Data Products in the opposite direction, an Application would represent an entire purpose, and many Data Products would be expected to exist within that purpose. Applications are also not a core concept within Data Mesh- we observe organizations using Application as a grouping outside of Data Mesh principles. Applications are hidden by default because often times, they are not required for organizing your data- Domains and Data Products may be sufficient. For larger organizations with more complex Data Landscapes, Application can be a useful third grouping alongside Domain and Data Product that serve to fill the gap between those two concepts. An Application also differs from the Software Engineering concept of a Service- a Service is generally 1 distinct piece of software that is receiving API calls, etc. An Application in Datahub represents a purpose-based grouping that is not neccessarily scoped to a single Service.
 
