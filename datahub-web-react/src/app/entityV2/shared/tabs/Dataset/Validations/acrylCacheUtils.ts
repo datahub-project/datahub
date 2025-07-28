@@ -61,23 +61,27 @@ export const updateDatasetAssertionsCache = (datasetUrn: string, newAssertion: a
     const currTotal = currData?.dataset?.assertions?.total || 0;
 
     // Write our data back to the cache.
-    client.writeQuery({
-        query: GetDatasetAssertionsWithMonitorsDocument,
-        variables: {
-            urn: datasetUrn,
-        },
-        data: {
-            dataset: {
-                ...currData?.dataset,
-                assertions: {
-                    start: 0,
-                    count: currCount + (didAdd ? 1 : 0),
-                    total: currTotal + (didAdd ? 1 : 0),
-                    assertions: newAssertions,
+    try {
+        client.writeQuery({
+            query: GetDatasetAssertionsWithMonitorsDocument,
+            variables: {
+                urn: datasetUrn,
+            },
+            data: {
+                dataset: {
+                    ...currData?.dataset,
+                    assertions: {
+                        start: 0,
+                        count: currCount + (didAdd ? 1 : 0),
+                        total: currTotal + (didAdd ? 1 : 0),
+                        assertions: newAssertions,
+                    },
                 },
             },
-        },
-    });
+        });
+    } catch (e) {
+        console.error(e);
+    }
 };
 
 /**
@@ -104,23 +108,27 @@ export const removeFromDatasetAssertionsCache = (urn: string, assertionUrn: stri
     const currTotal = currData?.dataset?.assertions?.total || 0;
 
     // Write our data back to the cache.
-    client.writeQuery({
-        query: GetDatasetAssertionsWithMonitorsDocument,
-        variables: {
-            urn,
-        },
-        data: {
-            dataset: {
-                ...currData?.dataset,
-                assertions: {
-                    start: 0,
-                    count: didRemove ? currCount - 1 : currCount,
-                    total: didRemove ? currTotal - 1 : currCount,
-                    assertions: newAssertions,
+    try {
+        client.writeQuery({
+            query: GetDatasetAssertionsWithMonitorsDocument,
+            variables: {
+                urn,
+            },
+            data: {
+                dataset: {
+                    ...currData?.dataset,
+                    assertions: {
+                        start: 0,
+                        count: didRemove ? currCount - 1 : currCount,
+                        total: didRemove ? currTotal - 1 : currCount,
+                        assertions: newAssertions,
+                    },
                 },
             },
-        },
-    });
+        });
+    } catch (e) {
+        console.error(e);
+    }
 };
 
 /**
