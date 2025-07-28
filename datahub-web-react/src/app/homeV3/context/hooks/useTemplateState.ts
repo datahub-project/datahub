@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useGlobalSettings } from '@app/context/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
+import { filterOutNonExistentModulesFromTemplate } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
 
@@ -15,8 +16,12 @@ export function useTemplateState() {
 
     useEffect(() => {
         if (globalSettingsLoaded && userLoaded && !areTemplatesInitialized) {
-            setGlobalTemplate(settings.globalHomePageSettings?.defaultTemplate || null);
-            setPersonalTemplate(user?.settings?.homePage?.pageTemplate || null);
+            setGlobalTemplate(
+                filterOutNonExistentModulesFromTemplate(settings.globalHomePageSettings?.defaultTemplate) || null,
+            );
+            setPersonalTemplate(
+                filterOutNonExistentModulesFromTemplate(user?.settings?.homePage?.pageTemplate) || null,
+            );
             setAreTemplatedInitialized(true);
         }
     }, [

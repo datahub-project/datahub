@@ -13,6 +13,11 @@ type DataHubPageModule implements Entity {
   type: EntityType!
 
   """
+  Whether or not this module exists on DataHub
+  """
+  exists: Boolean
+
+  """
   The main properties of a DataHub page module
   """
   properties: DataHubPageModuleProperties!
