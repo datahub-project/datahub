@@ -638,7 +638,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return input_fields
 
-    def _extract_columns_from_sql(self, sql_expr: str) -> List[str]:
+    def _extract_columns_from_sql(self, sql_expr: str | None) -> List[str]:
         if not sql_expr:
             return []
 
@@ -674,7 +674,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 # For metrics with SIMPLE expression type
                 add_column(item.get("column", {}).get("column_name", ""), False)
             elif item.get("expressionType") == "SQL":
-                column_refs = self._extract_columns_from_sql(item.get("sqlExpression"))
+                sql_expr = item.get("sqlExpression")
+                column_refs = self._extract_columns_from_sql(sql_expr)
                 for col in column_refs:
                     add_column(col, False)
                 if not column_refs:
@@ -697,7 +698,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             metrics_data = form_data.get("metrics", [])
 
         for metric in metrics_data:
-            self._process_column_item(metric, unique_columns)
+            if metric is not None:
+                self._process_column_item(metric, unique_columns)
 
         # Process group by columns
         for group in form_data.get("groupby", []):
@@ -705,7 +707,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         # Process x-axis columns
         x_axis_data = form_data.get("x_axis")
-        if x_axis_data:
+        if x_axis_data is not None:
             self._process_column_item(x_axis_data, unique_columns)
 
         return unique_columns

@@ -257,9 +257,10 @@ def test_construct_chart_cll_aggregate_mode(requests_mock):
 
     assert len(input_fields) == 4
 
-    field_types = {
-        f.schemaField.fieldPath: f.schemaField.nativeDataType for f in input_fields
-    }
+    field_types = {}
+    for f in input_fields:
+        if f.schemaField:
+            field_types[f.schemaField.fieldPath] = f.schemaField.nativeDataType
 
     assert field_types["network"] == "STRING"
     assert field_types["sum_usd"] == "SUM"
