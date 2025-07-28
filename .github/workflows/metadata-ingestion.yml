@@ -46,6 +46,7 @@ jobs:
             "testIntegrationBatch2",
             "testIntegrationBatch3",
             "testIntegrationBatch4",
+            "testIntegrationBatch5",
           ]
         include:
           # Version compatibility tests.
