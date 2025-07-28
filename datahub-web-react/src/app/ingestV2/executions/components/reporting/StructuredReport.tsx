@@ -137,13 +137,6 @@ export function distributeVisibleItems(
 }
 
 export function StructuredReport({ report }: Props) {
-    const [visibleCount, setVisibleCount] = useState(3);
-    const [isExpanded, setIsExpanded] = useState(false);
-
-    if (!report.items.length) {
-        return null;
-    }
-
     const warnings = report.items.filter((item) => item.level === StructuredReportItemLevel.WARN);
     const errors = report.items.filter((item) => item.level === StructuredReportItemLevel.ERROR);
     const infos = report.items.filter((item) => item.level === StructuredReportItemLevel.INFO);
@@ -151,6 +144,15 @@ export function StructuredReport({ report }: Props) {
     const hasErrors = errors.length > 0;
     const hasWarnings = warnings.length > 0;
     const hasInfos = infos.length > 0;
+
+    // Show 0 items by default if only warnings and infos exist, otherwise show 3
+    const defaultVisibleCount = !hasErrors && (hasWarnings || hasInfos) ? 0 : 3;
+    const [visibleCount, setVisibleCount] = useState(defaultVisibleCount);
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    if (!report.items.length) {
+        return null;
+    }
 
     const title = generateReportTitle(hasErrors, hasWarnings, hasInfos);
     const subtitle = generateReportSubtitle(hasErrors, hasWarnings, hasInfos);
@@ -181,7 +183,7 @@ export function StructuredReport({ report }: Props) {
             setVisibleCount(totalItems);
         } else {
             // When collapsing, reset to initial page size
-            setVisibleCount(3);
+            setVisibleCount(defaultVisibleCount);
         }
     };
 

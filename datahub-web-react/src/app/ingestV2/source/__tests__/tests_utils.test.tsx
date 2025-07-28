@@ -14,7 +14,7 @@ import {
     buildOwnerEntities,
     capitalizeMonthsAndDays,
     formatTimezone,
-    getEntitiesIngestedByType,
+    getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
     getOtherIngestionContents,
     getSortInput,
@@ -37,7 +37,7 @@ const mockExecutionRequestResult = (structuredReportData: any): Partial<Executio
     } as Partial<ExecutionRequestResult>;
 };
 
-describe('getEntitiesIngestedByType', () => {
+describe('getEntitiesIngestedByTypeOrSubtype', () => {
     // Mock for console.error
     const originalConsoleError = console.error;
     console.error = vi.fn();
@@ -51,7 +51,7 @@ describe('getEntitiesIngestedByType', () => {
     });
 
     test('returns null when structured report is not available', () => {
-        const result = getEntitiesIngestedByType({} as Partial<ExecutionRequestResult>);
+        const result = getEntitiesIngestedByTypeOrSubtype({} as Partial<ExecutionRequestResult>);
         expect(result).toBeNull();
     });
 
@@ -65,7 +65,7 @@ describe('getEntitiesIngestedByType', () => {
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(malformedReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(mockExecutionRequestResult(malformedReport));
         expect(result).toBeNull();
     });
 
@@ -74,24 +74,29 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: 156,
-                            container: 117,
+                            unknown: {
+                                containerProperties: 156,
+                                container: 117,
+                                status: 156,
+                            },
                         },
                         dataset: {
-                            status: 1505,
-                            schemaMetadata: 1505,
-                            datasetProperties: 1505,
-                            container: 1505,
-                            operation: 1521,
+                            unknown: {
+                                status: 1505,
+                                schemaMetadata: 1505,
+                                datasetProperties: 1505,
+                                container: 1505,
+                                operation: 1521,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(mockExecutionRequestResult(structuredReport));
 
         expect(result).toEqual([
             {
@@ -109,12 +114,12 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {},
+                    aspects_by_subtypes: {},
                 },
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(mockExecutionRequestResult(structuredReport));
         expect(result).toBeNull();
     });
 
@@ -122,17 +127,20 @@ describe('getEntitiesIngestedByType', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: '156',
-                            container: 117,
+                            unknown: {
+                                containerProperties: '156',
+                                container: 117,
+                                status: 156,
+                            },
                         },
                     },
                 },
             },
         };
 
-        const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
+        const result = getEntitiesIngestedByTypeOrSubtype(mockExecutionRequestResult(structuredReport));
         expect(result).toEqual([
             {
                 count: 156,
@@ -173,7 +181,7 @@ describe('getTotalEntitiesIngested', () => {
         const malformedReport = {
             source: {
                 report: {
-                    // Missing aspects property to trigger exception
+                    // Missing aspects_by_subtypes property to trigger exception
                 },
             },
         };
@@ -186,7 +194,7 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {},
+                    aspects_by_subtypes: {},
                 },
             },
         };
@@ -199,21 +207,28 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: 156,
-                            container: 117,
+                            unknown: {
+                                containerProperties: 156,
+                                container: 117,
+                                status: 156,
+                            },
                         },
                         dataset: {
-                            status: 1505,
-                            schemaMetadata: 1505,
-                            datasetProperties: 1505,
-                            container: 1505,
-                            operation: 1521,
+                            unknown: {
+                                status: 1505,
+                                schemaMetadata: 1505,
+                                datasetProperties: 1505,
+                                container: 1505,
+                                operation: 1521,
+                            },
                         },
                         dashboard: {
-                            status: 42,
-                            dashboardInfo: 42,
+                            unknown: {
+                                status: 42,
+                                dashboardInfo: 42,
+                            },
                         },
                     },
                 },
@@ -228,10 +243,13 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: 156,
-                            container: 117,
+                            unknown: {
+                                containerProperties: 156,
+                                container: 117,
+                                status: 156,
+                            },
                         },
                     },
                 },
@@ -246,10 +264,13 @@ describe('getTotalEntitiesIngested', () => {
         const structuredReport = {
             source: {
                 report: {
-                    aspects: {
+                    aspects_by_subtypes: {
                         container: {
-                            containerProperties: '156',
-                            container: 117,
+                            unknown: {
+                                containerProperties: '156',
+                                container: 117,
+                                status: 156,
+                            },
                         },
                     },
                 },

@@ -250,6 +250,76 @@ describe('StructuredReport Component', () => {
         expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
     });
 
+    it('should show 0 items by default when only warnings and infos exist', () => {
+        const warningsAndInfosReport = {
+            items: [
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 1', 'First warning'),
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 2', 'Second warning'),
+                createMockItem(StructuredReportItemLevel.INFO, 'Info 1', 'First info'),
+            ],
+            infoCount: 1,
+            errorCount: 0,
+            warnCount: 2,
+        };
+
+        render(<StructuredReport report={warningsAndInfosReport} />);
+
+        // Should not show any item lists initially
+        expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-WarningCircle')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
+
+        // Should show "Show 3 more" button
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 3 more')).toBeInTheDocument();
+    });
+
+    it('should show 0 items by default when only warnings exist', () => {
+        const warningsOnlyReport = {
+            items: [
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 1', 'First warning'),
+                createMockItem(StructuredReportItemLevel.WARN, 'Warning 2', 'Second warning'),
+            ],
+            infoCount: 0,
+            errorCount: 0,
+            warnCount: 2,
+        };
+
+        render(<StructuredReport report={warningsOnlyReport} />);
+
+        // Should not show any item lists initially
+        expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-WarningCircle')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
+
+        // Should show "Show 2 more" button
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 2 more')).toBeInTheDocument();
+    });
+
+    it('should show 0 items by default when only infos exist', () => {
+        const infosOnlyReport = {
+            items: [
+                createMockItem(StructuredReportItemLevel.INFO, 'Info 1', 'First info'),
+                createMockItem(StructuredReportItemLevel.INFO, 'Info 2', 'Second info'),
+            ],
+            infoCount: 2,
+            errorCount: 0,
+            warnCount: 0,
+        };
+
+        render(<StructuredReport report={infosOnlyReport} />);
+
+        // Should not show any item lists initially
+        expect(screen.queryByTestId('item-list-WarningDiamond')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-WarningCircle')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('item-list-Info')).not.toBeInTheDocument();
+
+        // Should show "Show 2 more" button
+        expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
+        expect(screen.getByText('Show 2 more')).toBeInTheDocument();
+    });
+
     it('should show "Show X more" button when there are more items', () => {
         render(<StructuredReport report={mockReport} />);
         expect(screen.getByTestId('show-more-button')).toBeInTheDocument();
@@ -341,5 +411,6 @@ describe('StructuredReport Component', () => {
             // Pill should still show total
             expect(screen.getByText('5')).toBeInTheDocument();
         });
+
     });
 });
