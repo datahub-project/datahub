@@ -88,8 +88,9 @@ For example, it might look something like `https://datahub.example.com/integrati
 <details>
   <summary>Cursor</summary>
 
-1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server
-2. Enter the following into the file:
+1. Make sure you're using Cursor v1.0 or newer.
+2. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server
+3. Enter the following into the file:
 
 ```json
 {
@@ -170,7 +171,7 @@ You can run the [open-source MCP server](https://github.com/acryldata/mcp-server
   <summary>Cursor</summary>
 
 1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server
-1. Enter the following into the file:
+2. Enter the following into the file:
 
 ```json
 {
