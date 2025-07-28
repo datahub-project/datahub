@@ -165,7 +165,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
     }
 
     .ant-tabs-nav {
-        margin-bottom: ${(props) => props.$navMarginBottom ?? 24}px;
+        margin-bottom: ${(props) => props.$navMarginBottom ?? 0}px;
         margin-top: ${(props) => props.$navMarginTop ?? 0}px;
         &::before {
             display: none;
