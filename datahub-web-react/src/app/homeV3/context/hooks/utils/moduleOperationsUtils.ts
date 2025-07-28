@@ -252,3 +252,22 @@ export function handleModuleAdditionWithSizeMismatch(
     // Normal flow without size mismatch
     return updateTemplateWithModule(template, module, adjustedPosition, isEditingModule);
 }
+
+/**
+ * Helper function to handle references to removed modules.
+ * Removes not existing modules from row and cleans up empty rows.
+ */
+export function filterOutNonExistentModulesFromTemplate(
+    template: PageTemplateFragment | undefined | null,
+): PageTemplateFragment | undefined | null {
+    if (!template) return template;
+
+    const updatedRows = template.properties.rows
+        .map((row) => ({
+            ...row,
+            modules: row.modules.filter((module) => module.exists),
+        }))
+        .filter((row) => row.modules.length > 0);
+
+    return { ...template, ...{ properties: { ...template.properties, rows: updatedRows } } };
+}

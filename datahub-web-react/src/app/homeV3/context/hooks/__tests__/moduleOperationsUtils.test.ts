@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     adjustPositionForSizeMismatch,
     calculateAdjustedRowIndex,
+    filterOutNonExistentModulesFromTemplate,
     handleModuleAdditionWithSizeMismatch,
     hasModuleSizeMismatch,
     insertModuleIntoRows,
@@ -18,9 +19,10 @@ import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.gene
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
 // Mock data helpers
-const createMockModule = (name: string, urn: string): PageModuleFragment => ({
+const createMockModule = (name: string, urn: string, exists = true): PageModuleFragment => ({
     urn,
     type: EntityType.DatahubPageModule,
+    exists,
     properties: {
         name,
         type: DataHubPageModuleType.OwnedAssets,
@@ -624,6 +626,31 @@ describe('Module Operations Utility Functions', () => {
             expect(result?.properties?.rows?.[0]?.modules?.[0]).toBe(largeModule);
             expect(result?.properties?.rows?.[1]?.modules?.[0]).toBe(smallModule);
             expect(result?.properties?.rows?.[2]?.modules?.[0]).toBe(anotherLargeModule);
+        });
+    });
+
+    describe('filterOutNonExistentModulesFromTemplate', () => {
+        it('should remove not existing modules', () => {
+            const existingModule = createMockModule('existing', 'urn:li:module:existing');
+            const notExistingModule = createMockModule('existing', 'urn:li:module:existing', false);
+
+            const template = createMockTemplate([{ modules: [existingModule, notExistingModule] }]);
+
+            const result = filterOutNonExistentModulesFromTemplate(template);
+
+            expect(result?.properties.rows).toHaveLength(1);
+            expect(result?.properties?.rows?.[0]?.modules).toHaveLength(1);
+            expect(result?.properties?.rows?.[0]?.modules?.[0]).toBe(existingModule);
+        });
+
+        it('should clean up empty rows', () => {
+            const notExistingModule = createMockModule('existing', 'urn:li:module:existing', false);
+
+            const template = createMockTemplate([{ modules: [notExistingModule] }]);
+
+            const result = filterOutNonExistentModulesFromTemplate(template);
+
+            expect(result?.properties.rows).toHaveLength(0);
         });
     });
 });

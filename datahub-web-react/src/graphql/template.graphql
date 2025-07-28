@@ -23,6 +23,7 @@ fragment PageTemplateRow on DataHubPageTemplateRow {
 fragment PageModule on DataHubPageModule {
     urn
     type
+    exists
     properties {
         name
         type
