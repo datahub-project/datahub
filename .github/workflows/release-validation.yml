@@ -264,7 +264,8 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_REPO: ${{ env.DOCKER_REGISTRY }}
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_EXECUTOR_VERSION: ${{ matrix.remote_executor_version }}
+          DATAHUB_EXECUTOR_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_REMOTE_EXECUTOR_VERSION: ${{ matrix.remote_executor_version }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           DATAHUB_INTEGRATIONS_VERSION: ${{ needs.setup.outputs.tag }}

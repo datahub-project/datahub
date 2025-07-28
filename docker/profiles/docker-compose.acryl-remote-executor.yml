@@ -18,7 +18,7 @@ x-localstack-env: &localstack-env
 #################################
 x-datahub-executor-setup: &datahub-executor-worker-setup
   hostname: datahub-executor-worker
-  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  image: ${DATAHUB_REMOTE_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_REMOTE_EXECUTOR_VERSION:-head}
   env_file: datahub-executor/env/docker-worker.env
   environment: &datahub-executor-worker-setup-env
     <<: *executor-worker-env
@@ -30,7 +30,7 @@ x-datahub-executor-setup: &datahub-executor-worker-setup
 
 x-datahub-executor-worker: &datahub-executor-worker
   hostname: datahub-executor-worker
-  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  image: ${DATAHUB_REMOTE_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_REMOTE_EXECUTOR_VERSION:-head}
   env_file: datahub-executor/env/docker-worker.env
   environment: &datahub-executor-worker-env
     <<: *executor-worker-env
@@ -43,7 +43,7 @@ x-datahub-executor-worker: &datahub-executor-worker
 
 x-datahub-executor-worker-dev: &datahub-executor-worker-dev
   hostname: datahub-executor-worker-dev
-  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-debug}
+  image: ${DATAHUB_REMOTE_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_REMOTE_EXECUTOR_VERSION:-debug}
   env_file: datahub-executor/env/docker-worker.env
   environment: &datahub-executor-worker-dev-env
     <<: *executor-worker-env
