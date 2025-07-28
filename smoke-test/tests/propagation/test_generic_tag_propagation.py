@@ -373,7 +373,7 @@ def create_2_2_graph_lineage(
 
     field_0_propagation_expectation = TagPropagationExpectation(
         schema_field_urn=dataset_3_schema_field_urns[0],
-        propagation_found=True,
+        propagation_found=False,  # no propagation by default
         propagation_source=test_action_urn,
         propagation_via=make_schema_field_urn(dataset_2_urn, "column_0"),
         propagation_origin=make_schema_field_urn(dataset_1_urn, "column_0"),
@@ -418,29 +418,32 @@ def create_2_2_graph_lineage(
         ),
     )
 
-    post_mutation_expectations = [
-        TagPropagationExpectation(
-            schema_field_urn=dataset_3_schema_field_urns[0],
-            propagation_found=True,
-            propagated_tag="urn:li:tag:AccountBalance",
-            propagation_source=test_action_urn,
-            propagation_via=make_schema_field_urn(dataset_2_urn, "column_0"),
-            propagation_origin=make_schema_field_urn(dataset_1_urn, "column_0"),
-        ),
-        TagPropagationExpectation(
-            schema_field_urn=dataset_3_schema_field_urns[1],
-            propagation_found=True,
-            propagated_tag="urn:li:tag:AccountBalance",
-            propagation_source=test_action_urn,
-            propagation_via=None,
-            propagation_origin=make_schema_field_urn(dataset_2_urn, "column_1"),
-        ),
-    ] + [
-        x
-        for x in no_propagation_expectations
-        if x.schema_field_urn
-        not in [dataset_3_schema_field_urns[1], dataset_3_schema_field_urns[0]]
-    ]
+    post_mutation_expectations = (
+        [
+            TagPropagationExpectation(
+                schema_field_urn=dataset_3_schema_field_urns[0],
+                propagation_found=True,
+                propagated_tag="urn:li:tag:TestTagNode1.TestTag1_2",  # This comes from base scenario mutation
+                propagation_source=test_action_urn,
+                propagation_via=make_schema_field_urn(dataset_2_urn, "column_0"),
+                propagation_origin=make_schema_field_urn(dataset_1_urn, "column_0"),
+            ),
+            TagPropagationExpectation(
+                schema_field_urn=dataset_3_schema_field_urns[1],
+                propagation_found=True,
+                propagated_tag="urn:li:tag:AccountBalance",
+                propagation_source=test_action_urn,
+                propagation_via=None,
+                propagation_origin=make_schema_field_urn(dataset_2_urn, "column_1"),
+            ),
+        ]
+        + [
+            x
+            for x in no_propagation_expectations
+            if x.schema_field_urn
+            not in [dataset_3_schema_field_urns[1], dataset_3_schema_field_urns[0]]
+        ]
+    )
 
     return PropagationTestScenario(
         base_graph=base_propagation_scenario.base_graph + base_mcps,
@@ -776,14 +779,296 @@ def create_1_1_graph_lineage(
 @pytest.fixture(
     params=[
         ("1x1 graph", create_1_1_graph_lineage),
-        # ("2x2 graph", create_2_2_graph_lineage),
+        ("2x2 graph", create_2_2_graph_lineage),
         ("2x2 graph with siblings", create_2_2_graph_lineage_siblings),
     ],
     ids=lambda x: x[0],
 )
 def graph_lineage_data(request, test_action_urn, create_test_action):
-    _, graph_func = request.param
+    scenario_name, graph_func = request.param
+    # Store the scenario name for access in the test
+    request.node.scenario_name = scenario_name
     return graph_func(test_action_urn)
+
+
+def _extract_lineage_info(mcp):
+    """Extract lineage information from MCP."""
+    lineage_info: List[tuple[str, str]] = []
+    if not (
+        hasattr(mcp, "aspect")
+        and mcp.aspect
+        and hasattr(mcp.aspect, "fineGrainedLineages")
+        and mcp.aspect.fineGrainedLineages
+    ):
+        return lineage_info
+
+    for lineage in mcp.aspect.fineGrainedLineages:
+        if hasattr(lineage, "upstreams") and hasattr(lineage, "downstreams"):
+            for upstream in lineage.upstreams:
+                for downstream in lineage.downstreams:
+                    lineage_info.append((upstream, downstream))
+    return lineage_info
+
+
+def _print_lineage_relationships(lineage_info, datasets):
+    """Print lineage relationship information."""
+    if not lineage_info:
+        return
+
+    print("🔗 LINEAGE RELATIONSHIPS:")
+    for upstream, downstream in lineage_info:
+        upstream_parts = upstream.split(":")
+        downstream_parts = downstream.split(":")
+        upstream_field = upstream_parts[-1] if len(upstream_parts) > 4 else "unknown"
+        downstream_field = (
+            downstream_parts[-1] if len(downstream_parts) > 4 else "unknown"
+        )
+        upstream_dataset = (
+            ":".join(upstream_parts[:-1]) if len(upstream_parts) > 4 else upstream
+        )
+        downstream_dataset = (
+            ":".join(downstream_parts[:-1]) if len(downstream_parts) > 4 else downstream
+        )
+
+        upstream_name = datasets.get(upstream_dataset, {}).get("name", "unknown")
+        downstream_name = datasets.get(downstream_dataset, {}).get("name", "unknown")
+
+        print(
+            f"   📤 {upstream_name}.{upstream_field} → {downstream_name}.{downstream_field}"
+        )
+    print()
+
+
+def _extract_tag_dataset_info(mcp):
+    """Extract dataset information from MCP for tag propagation."""
+    if not (
+        hasattr(mcp, "entityUrn")
+        and mcp.entityUrn
+        and mcp.entityUrn.startswith("urn:li:dataset:")
+    ):
+        return None, None
+
+    try:
+        dataset_prefix = "urn:li:dataset:("
+        if mcp.entityUrn.startswith(dataset_prefix) and mcp.entityUrn.endswith(")"):
+            tuple_content = mcp.entityUrn[len(dataset_prefix) : -1]
+            platform_urn_end = tuple_content.find(",")
+            if platform_urn_end != -1:
+                platform_urn = tuple_content[:platform_urn_end]
+                remaining = tuple_content[platform_urn_end + 1 :]
+                parts = remaining.rsplit(",", 1)
+                if len(parts) == 2:
+                    dataset_name = parts[0]
+                    platform = (
+                        platform_urn.split(":")[-1]
+                        if ":" in platform_urn
+                        else "unknown"
+                    )
+                    return mcp.entityUrn, {
+                        "platform": platform,
+                        "name": dataset_name,
+                        "fields": [],
+                    }
+    except Exception:
+        pass
+
+    return mcp.entityUrn, {"platform": "unknown", "name": "unknown", "fields": []}
+
+
+def _extract_tag_schema_fields(mcp, datasets, initial_tags):
+    """Extract schema field information from MCP for tag propagation."""
+    if not (
+        hasattr(mcp, "aspect")
+        and mcp.aspect
+        and hasattr(mcp.aspect, "fields")
+        and mcp.aspect.fields
+    ):
+        return
+
+    for field in mcp.aspect.fields:
+        field_info = {"name": field.fieldPath, "tags": []}
+        if hasattr(field, "globalTags") and field.globalTags:
+            field_info["tags"] = (
+                [tag for tag in field.globalTags.tags] if field.globalTags.tags else []
+            )
+            if field_info["tags"]:
+                field_urn = f"{mcp.entityUrn}:{field.fieldPath}"
+                initial_tags[field_urn] = field_info["tags"]
+        datasets[mcp.entityUrn]["fields"].append(field_info)
+
+
+def _print_tag_datasets_setup(datasets):
+    """Print dataset setup information for tag propagation."""
+    print("📊 DATASETS SETUP:")
+    for idx, (dataset_urn, info) in enumerate(datasets.items(), 1):
+        print(f"   {idx}. {info['platform']}.{info['name']}")
+        print(f"      URN: {dataset_urn}")
+        if info["fields"]:
+            print(f"      Fields: {len(info['fields'])} fields")
+            fields_with_tags = [f for f in info["fields"] if f.get("tags")]
+            if fields_with_tags:
+                print("      🏷️  Fields with initial tags:")
+                for field in fields_with_tags:
+                    tags_str = ", ".join([t.tag.split(":")[-1] for t in field["tags"]])
+                    print(f"         • {field['name']}: {tags_str}")
+            else:
+                print("      🚫 No initial tags on any fields")
+        print()
+
+
+def _print_tag_base_expectations(scenario, datasets):
+    """Print base expectations information for tag propagation."""
+    if not scenario.base_expectations:
+        return
+
+    print("🎯 EXPECTED PROPAGATIONS (Bootstrap Phase):")
+    for _idx, expectation in enumerate(scenario.base_expectations, 1):
+        field_parts = expectation.schema_field_urn.split(":")
+        field_name = field_parts[-1] if len(field_parts) > 4 else "unknown"
+        dataset_parts = field_parts[:-1] if len(field_parts) > 4 else []
+        dataset_urn = ":".join(dataset_parts) if dataset_parts else "unknown"
+        dataset_name = datasets.get(dataset_urn, {}).get("name", "unknown")
+
+        if expectation.propagation_found:
+            if hasattr(expectation, "propagated_tag") and expectation.propagated_tag:
+                tag_name = expectation.propagated_tag.split(":")[-1]
+                origin_field = (
+                    expectation.propagation_origin.split(":")[-1]
+                    if expectation.propagation_origin
+                    else "unknown"
+                )
+                origin_dataset_urn = (
+                    ":".join(expectation.propagation_origin.split(":")[:-1])
+                    if expectation.propagation_origin
+                    else "unknown"
+                )
+                origin_dataset_name = datasets.get(origin_dataset_urn, {}).get(
+                    "name", "unknown"
+                )
+
+                print(
+                    f"   ✅ {dataset_name}.{field_name} should get tag '{tag_name}' from {origin_dataset_name}.{origin_field}"
+                )
+                if expectation.propagation_via:
+                    via_field = expectation.propagation_via.split(":")[-1]
+                    via_dataset_urn = ":".join(
+                        expectation.propagation_via.split(":")[:-1]
+                    )
+                    via_dataset_name = datasets.get(via_dataset_urn, {}).get(
+                        "name", "unknown"
+                    )
+                    print(f"      🔄 Via: {via_dataset_name}.{via_field}")
+            elif (
+                hasattr(expectation, "propagated_description")
+                and expectation.propagated_description
+            ):
+                print(
+                    f"   ✅ {dataset_name}.{field_name} should get description: '{expectation.propagated_description[:50]}...'"
+                )
+        else:
+            print(f"   ❌ {dataset_name}.{field_name} should have NO propagation")
+    print()
+
+
+def _print_tag_mutations(scenario, datasets):
+    """Print mutation information for tag propagation."""
+    if not scenario.mutations:
+        return
+
+    print("🔄 LIVE PHASE MUTATIONS:")
+    for idx, mcp in enumerate(scenario.mutations, 1):
+        if hasattr(mcp, "aspect") and hasattr(mcp.aspect, "editableSchemaFieldInfo"):
+            dataset_name = datasets.get(mcp.entityUrn, {}).get("name", "unknown")
+            print(f"   {idx}. Adding tags to {dataset_name}:")
+            for field_info in mcp.aspect.editableSchemaFieldInfo:
+                if field_info.globalTags and field_info.globalTags.tags:
+                    tags = [
+                        tag.tag.split(":")[-1] for tag in field_info.globalTags.tags
+                    ]
+                    print(f"      • {field_info.fieldPath}: {', '.join(tags)}")
+    print()
+
+
+def _print_tag_post_mutation_expectations(scenario, datasets):
+    """Print post-mutation expectations for tag propagation."""
+    if not scenario.post_mutation_expectations:
+        return
+
+    print("🎯 EXPECTED RESULTS (After Live Mutations):")
+    for _idx, expectation in enumerate(scenario.post_mutation_expectations, 1):
+        field_parts = expectation.schema_field_urn.split(":")
+        field_name = field_parts[-1] if len(field_parts) > 4 else "unknown"
+        dataset_parts = field_parts[:-1] if len(field_parts) > 4 else []
+        dataset_urn = ":".join(dataset_parts) if dataset_parts else "unknown"
+        dataset_name = datasets.get(dataset_urn, {}).get("name", "unknown")
+
+        if expectation.propagation_found:
+            if hasattr(expectation, "propagated_tag") and expectation.propagated_tag:
+                tag_name = expectation.propagated_tag.split(":")[-1]
+                origin_field = (
+                    expectation.propagation_origin.split(":")[-1]
+                    if expectation.propagation_origin
+                    else "unknown"
+                )
+                origin_dataset_urn = (
+                    ":".join(expectation.propagation_origin.split(":")[:-1])
+                    if expectation.propagation_origin
+                    else "unknown"
+                )
+                origin_dataset_name = datasets.get(origin_dataset_urn, {}).get(
+                    "name", "unknown"
+                )
+
+                print(
+                    f"   ✅ {dataset_name}.{field_name} should have tag '{tag_name}' from {origin_dataset_name}.{origin_field}"
+                )
+        else:
+            print(f"   ❌ {dataset_name}.{field_name} should have NO propagation")
+    print()
+
+
+def print_test_scenario_summary(
+    scenario: PropagationTestScenario, scenario_name: str
+) -> None:
+    """Print a clear summary of what the test scenario will do."""
+    print(f"\n{'=' * 120}")
+    print(f"🧪 TEST SCENARIO: {scenario_name.upper()}")
+    print(f"{'=' * 120}")
+
+    datasets = {}
+    lineage_info: List[tuple[str, str]] = []
+    initial_tags: dict[str, list] = {}
+
+    # Extract information from base_graph
+    for mcp in scenario.base_graph:
+        dataset_urn, dataset_info = _extract_tag_dataset_info(mcp)
+        if dataset_urn and dataset_urn not in datasets:
+            datasets[dataset_urn] = dataset_info
+
+        if dataset_urn:
+            _extract_tag_schema_fields(mcp, datasets, initial_tags)
+
+        lineage_info.extend(_extract_lineage_info(mcp))
+
+    _print_tag_datasets_setup(datasets)
+    _print_lineage_relationships(lineage_info, datasets)
+    _print_tag_base_expectations(scenario, datasets)
+    _print_tag_mutations(scenario, datasets)
+    _print_tag_post_mutation_expectations(scenario, datasets)
+
+    print("🧪 TEST PHASES:")
+    print(
+        "   1. 🏗️  Bootstrap: Set up data, run initial propagation, verify base expectations"
+    )
+    print("   2. ↩️  Rollback: Remove all propagated data, verify cleanup")
+    print(
+        "   3. 🔴 Live: Start live action, apply mutations, verify real-time propagation"
+    )
+    print(
+        "   4. ↩️  Live Rollback: Remove all propagated data again, verify final cleanup"
+    )
+
+    print(f"{'=' * 120}\n")
 
 
 def test_main_loop(
@@ -793,7 +1078,12 @@ def test_main_loop(
     test_action_urn: str,
     pytestconfig,
     load_glossary,
+    request,
 ) -> None:
+    # Print scenario summary at the start
+    scenario_name = getattr(request.node, "scenario_name", "Unknown Scenario")
+    print_test_scenario_summary(graph_lineage_data, scenario_name)
+
     test_resources_dir = pytestconfig.rootpath / "tests/propagation/"
     time_stages = {}
     time_stages["cleanup"] = time.time()

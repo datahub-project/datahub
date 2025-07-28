@@ -225,17 +225,39 @@ class TermPropagator(EntityPropagator):
             ):
                 parameters = (
                     semantic_event.parameters
-                    if semantic_event.parameters is not None
+                    if semantic_event.parameters
                     else semantic_event._inner_dict.get("__parameters_json", {})
                 )
+                context_str = parameters.get("context", "{}")
+                context = json.loads(context_str) if context_str else {}
 
-                # Determine origin and via - match docs propagator logic exactly
-                origin = parameters.get("origin")
-                origin = origin or semantic_event.entityUrn
-                via = (
-                    semantic_event.entityUrn
-                    if origin != semantic_event.entityUrn
-                    else None
+                # Determine origin and via - correct propagation logic
+                context_origin = context.get("origin")
+                logger.info(f"[MCL PROCESSOR] Origin from context: {context_origin}")
+
+                if context_origin:
+                    # This is a propagated event, keep original origin and set via to current entity
+                    origin = context_origin
+                    via = semantic_event.entityUrn
+                else:
+                    # This is the starting point of propagation
+                    origin = semantic_event.entityUrn
+                    via = None
+
+                logger.info(f"[MCL PROCESSOR] Using origin: {origin}")
+                logger.info(f"[MCL PROCESSOR] Entity Urn: {semantic_event.entityUrn}")
+                logger.info(f"[MCL PROCESSOR] VIA: {via}")
+
+                logger.info(f"[MCL PROCESSOR] VIA: {via}")
+
+                propagation_depth = int(context.get("propagation_depth", 0)) + 1
+                propagation_started_at = context.get(
+                    "propagation_started_at",
+                    int(time.time() * 1000.0),
+                )
+
+                logger.info(
+                    f"[MCL PROCESSOR] Creating directive for term {semantic_event.modifier} and parameter {parameters} with origin {origin} and via {via}, propagation depth {propagation_depth} and started at {propagation_started_at}"
                 )
 
                 # Create directive - match docs propagator logic exactly
@@ -251,8 +273,8 @@ class TermPropagator(EntityPropagator):
                         if semantic_event.auditStamp
                         else self.actor_urn
                     ),
-                    propagation_started_at=int(time.time() * 1000.0),
-                    propagation_depth=1,  # Start fresh like docs propagator
+                    propagation_started_at=propagation_started_at,
+                    propagation_depth=propagation_depth,
                 )
 
         return None
