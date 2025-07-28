@@ -407,12 +407,6 @@ export const getIngestionContents = (executionResult: Partial<ExecutionRequestRe
             if (percent === '0%') {
                 return;
             }
-            console.log({
-                upstreamLineage,
-                statusCount,
-                subtype,
-                percent,
-            });
             result.push({
                 title: subtype,
                 count: upstreamLineage,
