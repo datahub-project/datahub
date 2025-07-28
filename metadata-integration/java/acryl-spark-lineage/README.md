@@ -420,9 +420,9 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - Fix issue when Delta table was not within Warehouse location and plugin only captured the path and not the table.
   - Option for Enhanced Merge Into Extraction
   - Fix rdd map detection to correctly handle map transformations in the lineage.
-  _- **JAR Naming**: Starting from this version, separate jars are built for different Scala versions:
+  - **JAR Naming**: Starting from this version, separate jars are built for different Scala versions:
     - Scala 2.12: `io.acryl:acryl-spark-lineage_2.12:0.2.18`
-    - Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`_
+    - Scala 2.13: `io.acryl:acryl-spark-lineage_2.13:0.2.18`
   - **Column-level Lineage Enhancement**: OpenLineage's transformation types are now captured and mapped to DataHub's FinegrainedLineage `TransformOption` as per the [OpenLineage column lineage specification](https://openlineage.io/docs/spec/facets/dataset-facets/column_lineage_facet/#transformation-type)
   - **Dependency Cleanup**: Removed logback dependency to reduce potential conflicts with user applications
   - FileStreamMicroBatchStream and foreachBatch for Spark streaming
@@ -431,8 +431,6 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
       - Merge conditions (ON source.id = target.id)
       - UPDATE clauses (SET target.name = source.name)
       - INSERT clauses (VALUES (source.col1, source.col2))
-    - This extends StreamStrategy and is likely used by StreamingDataSourceV2RelationVisitor to handle file-based streaming sources specifically.
-
 
 ### Version 0.2.17
 
