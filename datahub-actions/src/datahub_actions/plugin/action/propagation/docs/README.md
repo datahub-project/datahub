@@ -18,9 +18,9 @@ The Documentation Propagation Action provides several configuration options:
 - `columns_enabled`: Controls whether column-level documentation propagation is enabled (default: `true`)
 - `datasets_enabled`: Controls whether dataset-level documentation propagation is enabled (default: `false`) - Note: Currently not implemented
 - `column_propagation_relationships`: Specifies which relationships to use for propagation. Valid values are:
-    - `UPSTREAM`: Propagate to upstream columns
-    - `DOWNSTREAM`: Propagate to downstream columns
-    - `SIBLING`: Propagate to sibling columns
+  - `UPSTREAM`: Propagate to upstream columns
+  - `DOWNSTREAM`: Propagate to downstream columns
+  - `SIBLING`: Propagate to sibling columns
 - `max_propagation_depth`: Maximum depth for propagation chains (default: `5`)
 - `max_propagation_fanout`: Maximum number of entities to propagate to in a single hop (default: `1000`)
 - `max_propagation_time_millis`: Maximum time in milliseconds for a propagation chain (default: `3600000` - 1 hour)
@@ -38,7 +38,7 @@ source:
     # Topic Routing - which topics to read from.
     topic_routes:
       #mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1} # Topic name for MetadataChangeLogEvent_v1 events.
-      pe: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1} # Topic name for PlatformEvent_v1 events.  
+      pe: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1} # Topic name for PlatformEvent_v1 events.
 filter:
   event_type: "EntityChangeEvent_v1"
   event:
@@ -49,7 +49,7 @@ action:
   config:
     enabled: true
     columns_enabled: true
-    max_propagation_depth: 3  # Optional: Limit propagation depth
+    max_propagation_depth: 3 # Optional: Limit propagation depth
 
 datahub:
   server: ${DATAHUB_GMS_HOST:-http://localhost:8080}
