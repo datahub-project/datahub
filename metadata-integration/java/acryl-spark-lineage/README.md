@@ -427,10 +427,7 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - **Dependency Cleanup**: Removed logback dependency to reduce potential conflicts with user applications
   - FileStreamMicroBatchStream and foreachBatch for Spark streaming
   - MERGE INTO operations now capture both dataset-level AND column-level lineage
-    - Can track which columns from source/target tables are used in:
-      - Merge conditions (ON source.id = target.id)
-      - UPDATE clauses (SET target.name = source.name)
-      - INSERT clauses (VALUES (source.col1, source.col2))
+
 
 ### Version 0.2.17
 
