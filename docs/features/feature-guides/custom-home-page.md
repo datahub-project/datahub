@@ -197,3 +197,44 @@ Now that you understand how to customize your home page experience:
 The Custom Home Page is designed to grow with your organization's needs, providing both the flexibility for individual workflows and the consistency that administrators need to promote important resources and best practices.
 
 ## Relevant APIs
+
+### Upserting a Template
+
+A template is what is displayed on your home page. It includes a list of rows, each row contains a list of module urns.
+
+```graphql
+mutation upsertPageTemplate {
+  upsertPageTemplate(
+    input: {
+      rows: [{ modules: ["urn:li:dataHubPageModule:your_assets"] }]
+      scope: GLOBAL
+      surfaceType: HOME_PAGE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+### Upserting a Module
+
+A module is each individual "widget" shown on the home page. These exist in the context of a template
+
+```graphql
+mutation upsertPageModule {
+  upsertPageModule(
+    input: {
+      name: "My Custom Module"
+      type: RICH_TEXT
+      scope: PERSONAL
+      params: {
+        richTextParams: {
+          content: "This is the content of my documentation module"
+        }
+      }
+    }
+  ) {
+    urn
+  }
+}
+```
