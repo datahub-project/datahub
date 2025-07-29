@@ -426,6 +426,20 @@ quickstart_configs.each { taskName, config ->
                         containersToRestart << "${containerName}-${config.profile}"
                     }
                 }
+                // Specify all environment variables specified during quickstart* for reloadEnv as well since containers are re-created.
+                environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION") ?: "v${version}"
+                environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
+                environment.put "METADATA_TESTS_ENABLED", "true"
+                environment.put "DATAHUB_REPO", "${docker_registry}"
+
+
+                // Additional environment variables if specified
+                if (config.additionalEnv) {
+                    config.additionalEnv.each { key, value ->
+                        environment.put key, value
+                    }
+                }
+
                 def composeFiles = dockerCompose."${taskName}".useComposeFiles.get()
                 def composeFileArgs = composeFiles.collectMany { ['-f', it] }
 
