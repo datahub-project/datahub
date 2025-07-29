@@ -29,26 +29,28 @@ Notifications [can be configured](../subscription-and-notification.md) in the Da
 
 With the DataHub AI in Slack, you can mention @DataHub in any channel and ask it questions about your metadata.
 
+<p align="center">
+<video width="80%" autoPlay muted loop playsInline crossOrigin="anonymous">
+  <source src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_2.mp4" type="video/mp4" />
+  <source src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_2.webm" type="video/webm" />
+  Your browser does not support the video tag.
+</video>
+</p>
+
 Key capabilities include:
 
-- Find relevant data assets.
+- Search for data assets using natural language.
 - Understand the impact of changes to data assets.
 - Dig into specific assets and their glossary terms, owners, and more.
 - Write first-drafts of SQL queries to answer specific questions.
+
+#### Enabling @DataHub AI in Slack
 
 :::warning Permissions
 
 The current version of the @DataHub AI in Slack assumes that all users have read permissions for all assets. A future version will support more granular permissions.
 
 :::
-
-<p align="center">
-<video width="70%" autoplay muted loop playsinline>
-  <source src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_2.mp4" type="video/mp4" />
-</video>
-</p>
-
-#### Enabling @DataHub AI in Slack
 
 In DataHub Cloud v0.3.13 (July 2025), the @DataHub AI command is in **public beta** and can be enabled in the Settings → AI page. In prior versions, it was in private beta and required a request to your DataHub Cloud representative to get access.
 
