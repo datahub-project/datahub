@@ -48,8 +48,6 @@ public class SystemInfoControllerTest {
                             .version("1.0.0")
                             .build())
                     .build())
-            .properties(
-                SystemPropertiesInfo.builder().totalProperties(5).redactedProperties(2).build())
             .build();
 
     String expectedJson =

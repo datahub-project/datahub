@@ -129,19 +129,8 @@ public class SystemInfoServiceTest {
                     .build())
             .build();
 
-    SystemPropertiesInfo properties =
-        SystemPropertiesInfo.builder()
-            .properties(
-                Map.of(
-                    "test.prop",
-                    PropertyInfo.builder().key("test.prop").value("test.value").build()))
-            .totalProperties(1)
-            .redactedProperties(0)
-            .build();
-
     when(mockSpringComponentsCollector.collect(any(ExecutorService.class)))
         .thenReturn(springComponents);
-    when(mockPropertiesCollector.collect()).thenReturn(properties);
 
     // When
     SystemInfoResponse result = systemInfoService.getSystemInfo();
@@ -149,10 +138,8 @@ public class SystemInfoServiceTest {
     // Then
     assertNotNull(result);
     assertEquals(result.getSpringComponents(), springComponents);
-    assertEquals(result.getProperties(), properties);
 
     verify(mockSpringComponentsCollector).collect(any(ExecutorService.class));
-    verify(mockPropertiesCollector).collect();
   }
 
   @Test
@@ -161,30 +148,15 @@ public class SystemInfoServiceTest {
     when(mockSpringComponentsCollector.collect(any(ExecutorService.class)))
         .thenThrow(new RuntimeException("Spring components collection failed"));
 
-    SystemPropertiesInfo properties =
-        SystemPropertiesInfo.builder()
-            .properties(Map.of())
-            .totalProperties(0)
-            .redactedProperties(0)
-            .build();
-    when(mockPropertiesCollector.collect()).thenReturn(properties);
-
     // When & Then
     expectThrows(SystemInfoException.class, () -> systemInfoService.getSystemInfo());
   }
 
   @Test
-  public void testGetSystemInfoWithPropertiesCollectorException() {
+  public void testGetSystemInfoWithGenericException() {
     // Given
-    SpringComponentsInfo springComponents =
-        SpringComponentsInfo.builder()
-            .gms(ComponentInfo.builder().name("GMS").status(ComponentStatus.AVAILABLE).build())
-            .build();
     when(mockSpringComponentsCollector.collect(any(ExecutorService.class)))
-        .thenReturn(springComponents);
-
-    when(mockPropertiesCollector.collect())
-        .thenThrow(new RuntimeException("Properties collection failed"));
+        .thenThrow(new RuntimeException("Generic collection failed"));
 
     // When & Then
     expectThrows(SystemInfoException.class, () -> systemInfoService.getSystemInfo());

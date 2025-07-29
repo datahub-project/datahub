@@ -2,10 +2,7 @@ package com.linkedin.metadata.system_info;
 
 import com.linkedin.metadata.system_info.collectors.PropertiesCollector;
 import com.linkedin.metadata.system_info.collectors.SpringComponentsCollector;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -15,15 +12,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Service for collecting and providing comprehensive system information.
+ * Service for collecting and providing system information.
  *
  * <p>This service orchestrates the collection of system information from various sources including:
  *
  * <ul>
- *   <li>Spring application configuration properties and their metadata
  *   <li>Spring component status (GMS, MAE Consumer, MCE Consumer)
- *   <li>System properties and environment variables
- *   <li>Property source information and filtering statistics
+ *   <li>Spring application configuration properties (available via separate methods)
+ *   <li>System properties and environment variables (available via separate methods)
+ * </ul>
+ *
+ * <p><strong>API Design:</strong>
+ *
+ * <ul>
+ *   <li>The main getSystemInfo() method returns only Spring component information
+ *   <li>Detailed system properties are available via separate getSystemPropertiesInfo() method
+ *   <li>This separation avoids duplication and improves response clarity
  * </ul>
  *
  * <p><strong>Security Considerations:</strong>
@@ -98,29 +102,19 @@ public class SystemInfoService {
   }
 
   /**
-   * Get complete system information - spring components and properties in parallel.
+   * Get system information - spring components only.
    *
-   * <p>This is the primary method for retrieving comprehensive system information. It executes both
-   * component and property collection in parallel for optimal performance.
+   * <p>This method retrieves Spring component information including GMS, MAE Consumer, and MCE
+   * Consumer status. For detailed system properties information, use the separate
+   * getSystemPropertiesInfo() method or call the /properties endpoint directly.
    *
-   * @return SystemInfoResponse containing both component and property information
+   * @return SystemInfoResponse containing component information
    * @throws SystemInfoException if collection fails or times out
    */
   public SystemInfoResponse getSystemInfo() {
-    List<CompletableFuture<?>> futures =
-        Arrays.asList(
-            CompletableFuture.supplyAsync(this::getSpringComponentsInfo, executorService),
-            CompletableFuture.supplyAsync(this::getSystemPropertiesInfo, executorService));
-
     try {
-      CompletableFuture<Void> allFutures =
-          CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-      allFutures.get(30, TimeUnit.SECONDS);
-
-      return SystemInfoResponse.builder()
-          .springComponents((SpringComponentsInfo) futures.get(0).getNow(null))
-          .properties((SystemPropertiesInfo) futures.get(1).getNow(null))
-          .build();
+      SpringComponentsInfo springComponents = getSpringComponentsInfo();
+      return SystemInfoResponse.builder().springComponents(springComponents).build();
     } catch (Exception e) {
       log.error("Error collecting system info", e);
       throw new SystemInfoException("Failed to collect system information", e);

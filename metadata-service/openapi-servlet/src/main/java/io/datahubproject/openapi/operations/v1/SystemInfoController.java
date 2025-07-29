@@ -21,13 +21,17 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * REST controller for system information endpoints.
  *
- * <p>Provides comprehensive system information including:
+ * <p>Provides system information through separate endpoints:
  *
  * <ul>
- *   <li>Spring component status (GMS, MAE Consumer, MCE Consumer)
- *   <li>System configuration properties with metadata
- *   <li>Property source information and filtering statistics
+ *   <li>/system-info - Spring component status (GMS, MAE Consumer, MCE Consumer)
+ *   <li>/system-info/spring-components - Just component information
+ *   <li>/system-info/properties - Detailed system properties with metadata
+ *   <li>/system-info/properties/simple - Simple key-value property map
  * </ul>
+ *
+ * <p>This separation allows clients to fetch only the information they need, avoiding response
+ * complexity and data duplication.
  *
  * <p>All endpoints return pretty-printed JSON for better readability in debugging/admin scenarios.
  * This follows the same pattern used by /config endpoints in the codebase.
@@ -49,10 +53,11 @@ public class SystemInfoController {
 
   @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      summary = "Get complete system information",
+      summary = "Get system information",
       description =
-          "Retrieves comprehensive system information including Spring components and system properties with metadata. "
-              + "Returns pretty-printed JSON for better readability. Sensitive properties are automatically redacted.")
+          "Retrieves Spring component information including GMS, MAE Consumer, and MCE Consumer status. "
+              + "For detailed system properties, use the /properties endpoint. "
+              + "Returns pretty-printed JSON for better readability.")
   @ApiResponses(
       value = {
         @ApiResponse(

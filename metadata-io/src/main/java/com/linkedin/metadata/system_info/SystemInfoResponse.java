@@ -9,5 +9,4 @@ import lombok.Data;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class SystemInfoResponse {
   private SpringComponentsInfo springComponents;
-  private SystemPropertiesInfo properties;
 }

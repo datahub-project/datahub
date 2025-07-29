@@ -207,7 +207,7 @@ public class SpringComponentsCollector {
   // nosec: SSRF - URL comes from admin-controlled system configuration
   // aikido:ignore
   @SuppressWarnings({"security:ssrf", "aikido:ssrf"})
-  private ComponentInfo fetchRemoteComponentInfo(
+  private CompletableFuture<ComponentInfo> fetchRemoteComponentInfo(
       String name, String baseUrl, String componentField) {
     try {
       HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
@@ -219,28 +219,43 @@ public class SpringComponentsCollector {
               .GET()
               .build();
 
-      HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+      return client
+          .sendAsync(request, HttpResponse.BodyHandlers.ofString())
+          .thenApply(
+              response -> {
+                if (response.statusCode() == 200) {
+                  try {
+                    ObjectMapper mapper = systemOperationContext.getObjectMapper();
+                    SpringComponentsInfo springInfo =
+                        mapper.readValue(response.body(), SpringComponentsInfo.class);
 
-      if (response.statusCode() == 200) {
-        ObjectMapper mapper = systemOperationContext.getObjectMapper();
-        SpringComponentsInfo springInfo =
-            mapper.readValue(response.body(), SpringComponentsInfo.class);
-
-        switch (componentField) {
-          case MAE_COMPONENT_KEY:
-            return springInfo.getMaeConsumer();
-          case MCE_COMPONENT_KEY:
-            return springInfo.getMceConsumer();
-          case GMS_COMPONENT_KEY:
-            return springInfo.getGms();
-          default:
-            throw new IllegalArgumentException("Unknown component: " + componentField);
-        }
-      }
-
-      return createUnavailableComponent(name);
+                    switch (componentField) {
+                      case MAE_COMPONENT_KEY:
+                        return springInfo.getMaeConsumer();
+                      case MCE_COMPONENT_KEY:
+                        return springInfo.getMceConsumer();
+                      case GMS_COMPONENT_KEY:
+                        return springInfo.getGms();
+                      default:
+                        throw new IllegalArgumentException("Unknown component: " + componentField);
+                    }
+                  } catch (Exception e) {
+                    log.error("Error parsing component info for {}", name, e);
+                    return createErrorComponent(name, e);
+                  }
+                } else {
+                  log.warn("Received non-200 response: {}", response.statusCode());
+                  return createUnavailableComponent(name);
+                }
+              })
+          .exceptionally(
+              e -> {
+                log.error("Error fetching remote component info for {}", name, e);
+                return createErrorComponent(name, e);
+              });
     } catch (Exception e) {
-      return createErrorComponent(name, e);
+      log.error("Error creating HTTP request for component {}", name, e);
+      return CompletableFuture.completedFuture(createErrorComponent(name, e));
     }
   }
 
@@ -252,7 +267,7 @@ public class SpringComponentsCollector {
         .build();
   }
 
-  private ComponentInfo createErrorComponent(String name, Exception e) {
+  private ComponentInfo createErrorComponent(String name, Throwable e) {
     return ComponentInfo.builder()
         .name(name)
         .status(ComponentStatus.ERROR)
