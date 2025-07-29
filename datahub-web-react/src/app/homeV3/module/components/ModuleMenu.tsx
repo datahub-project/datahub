@@ -10,12 +10,15 @@ import { ModulePositionInput } from '@app/homeV3/template/types';
 import { PageModuleFragment } from '@graphql/template.generated';
 
 const StyledIcon = styled(Icon)`
+    height: 100%;
     :hover {
         cursor: pointer;
     }
 ` as typeof Icon;
 
-const DropdownWrapper = styled.div``;
+const DropdownWrapper = styled.div`
+    height: 100%;
+`;
 
 const StyledDropdownContainer = styled.div`
     .ant-dropdown-menu {
