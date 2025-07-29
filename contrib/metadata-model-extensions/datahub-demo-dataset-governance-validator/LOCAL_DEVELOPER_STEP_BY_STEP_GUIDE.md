@@ -24,10 +24,6 @@ version = '0.1.0'
 
 repositories {
     mavenCentral()
-    maven {
-        name "LinkedIn"
-        url "https://linkedin.jfrog.io/artifactory/open-source/"
-    }
 }
 
 dependencies {
@@ -440,28 +436,34 @@ source venv/bin/activate
 python test_batch_validator.py
 ```
 
-### Method 2: Using REST API
+### Method 2: Using Python SDK
 
-Test with curl (individual proposal - should fail):
+Test with Python SDK (individual proposal - should fail):
 
-```bash
-curl -X POST "http://localhost:8080/entities?action=ingest" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "entity": {
-      "value": {
-        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,db.test_api,PROD)",
-          "aspects": [{
-            "com.linkedin.dataset.DatasetProperties": {
-              "name": "test_api",
-              "description": "Test dataset"
-            }
-          }]
-        }
-      }
-    }
-  }'
+```python
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+# Configure emitter
+emitter = DatahubRestEmitter(gms_server="http://localhost:8080", token="your-token")
+
+# Test dataset without governance metadata - should fail
+dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,db.test_api,PROD)"
+
+mcp = MetadataChangeProposalWrapper(
+    entityUrn=dataset_urn,
+    aspect=DatasetPropertiesClass(
+        name="test_api",
+        description="Test dataset"
+    )
+)
+
+try:
+    emitter.emit(mcp)
+    print("❌ UNEXPECTED: Should have failed validation")
+except Exception as e:
+    print(f"✅ EXPECTED: Validation failed - {e}")
 ```
 
 ### Expected Results

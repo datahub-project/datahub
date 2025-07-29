@@ -31,8 +31,8 @@ This creates `build/libs/datahub-dataset-governance-validator-1.0.0.jar`
 Create `Dockerfile`:
 
 ```dockerfile
-# In this example, we start with the latest open-source DataHub image- this can be any GMS image however.
-FROM acryldata/datahub-gms:latest
+# In this example, we start with the current stable DataHub image- this can be any GMS image however.
+FROM acryldata/datahub-gms:v1.2.0
 
 # Create plugins directory
 RUN mkdir -p /etc/datahub/plugins/models/dataset-governance-validator/1.0.0
@@ -50,11 +50,11 @@ COPY src/main/resources/entity-registry.yml \
 #### 3. Build and Deploy
 
 ```bash
-# Build custom image
-docker build -t your-registry/datahub-gms-with-validator:latest .
+# Build custom image (replace 'your-registry' with your Docker registry)
+docker build -t your-registry/datahub-gms-with-validator:v1.2.0 .
 
 # Push to registry
-docker push your-registry/datahub-gms-with-validator:latest
+docker push your-registry/datahub-gms-with-validator:v1.2.0
 ```
 
 #### 4. Update docker-compose.yml
@@ -62,7 +62,7 @@ docker push your-registry/datahub-gms-with-validator:latest
 ```yaml
 services:
   datahub-gms:
-    image: your-registry/datahub-gms-with-validator:latest
+    image: your-registry/datahub-gms-with-validator:v1.2.0 # Use your custom image
     # ... rest of configuration
 ```
 
@@ -83,7 +83,7 @@ This creates the plugin at `~/.datahub/plugins/models/dataset-governance-validat
 ```yaml
 services:
   datahub-gms:
-    image: acryldata/datahub-gms:latest
+    image: acryldata/datahub-gms:v1.2.0
     volumes:
       - ~/.datahub/plugins:/etc/datahub/plugins/models
     # ... rest of configuration
@@ -116,7 +116,7 @@ spec:
     spec:
       containers:
         - name: datahub-gms
-          image: acryldata/datahub-gms:latest
+          image: acryldata/datahub-gms:v1.2.0
           volumeMounts:
             - name: validator-plugin
               mountPath: /etc/datahub/plugins/models/dataset-governance-validator/1.0.0
@@ -145,7 +145,7 @@ spec:
               mountPath: /shared/plugins
       containers:
         - name: datahub-gms
-          image: acryldata/datahub-gms:latest
+          image: acryldata/datahub-gms:v1.2.0
           volumeMounts:
             - name: plugins-volume
               mountPath: /etc/datahub/plugins/models
@@ -213,30 +213,20 @@ Enabled 1 plugins. [com.linkedin.metadata.aspect.plugins.validation.DatasetGover
 
 ### Test Validation
 
-Use the test script in `LOCAL_DEVELOPER_STEP_BY_STEP_GUIDE.md` or test via REST API:
+Run the Python test script:
 
 ```bash
-# This should fail (missing governance metadata)
-curl -X POST "http://your-gms-host:8080/entities?action=ingest" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "entity": {
-      "value": {
-        "com.linkedin.metadata.snapshot.DatasetSnapshot": {
-          "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,db.test,PROD)",
-          "aspects": [{
-            "com.linkedin.dataset.DatasetProperties": {
-              "name": "test",
-              "description": "Test dataset"
-            }
-          }]
-        }
-      }
-    }
-  }'
+# Set your DataHub token
+export DATAHUB_TOKEN="your-token-here"
+
+# Run the test script
+python test_validator.py
 ```
 
-Expected response: HTTP 422 with validation error message.
+The script will test both scenarios:
+
+1. Dataset without governance metadata (should fail validation)
+2. Dataset with complete governance metadata (should succeed)
 
 ### Common Issues
 
@@ -269,16 +259,27 @@ logging:
 
 1. **MCP Batch Reception**: GMS receives batch of Metadata Change Proposals
 2. **Plugin Invocation**: DataHub calls validator for dataset entities
-3. **Dual State Check**: Validator checks both:
-   - Existing aspects in GMS database
-   - New aspects in current batch
-4. **Validation Logic**: Fails if any required aspect missing from both sources
-5. **Response**: Returns specific error messages or allows batch to proceed
+3. **Transaction-Based Validation**: The validator performs batch-level validation, meaning it considers all changes within a single transaction together. This allows for scenarios where multiple aspects are being set simultaneously.
+4. **Dual State Check**: For each required aspect, the validator checks:
+   - **Existing State**: Whether the aspect already exists in the GMS database
+   - **Batch State**: Whether the aspect is being set/updated in the current batch
+5. **Validation Logic**:
+   - **Pass**: If ANY required aspect exists in either existing state OR batch state
+   - **Fail**: If ANY required aspect is missing from BOTH existing state AND batch state
+6. **Atomic Response**: The entire batch succeeds or fails as a unit - no partial updates
+
+**Key Benefits of Batch Validation:**
+
+- Allows atomic operations where ownership, tags, and domain can be set together
+- Prevents race conditions between multiple simultaneous updates
+- Provides consistent validation across related changes
+- Supports workflows where governance metadata is added incrementally within a transaction
 
 ## File Reference
 
 - `DatasetGovernanceValidator.java` - Main validator implementation
 - `entity-registry.yml` - Plugin configuration
 - `build.gradle` - Build configuration and deployment tasks
+- `test_validator.py` - Python test script for validation testing
 - `LOCAL_DEVELOPER_STEP_BY_STEP_GUIDE.md` - Detailed development setup
 - `Dockerfile` - Custom GMS image definition

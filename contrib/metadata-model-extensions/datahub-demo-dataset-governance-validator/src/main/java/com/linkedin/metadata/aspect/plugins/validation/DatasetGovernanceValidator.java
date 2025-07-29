@@ -114,12 +114,10 @@ public class DatasetGovernanceValidator extends AspectPayloadValidator {
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
       @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
-
-    logger.debug("Pre-commit validation for {} change MCPs", changeMCPs.size());
-
-    // For pre-commit validation, we can use the same logic as proposed validation
-    // since we have access to previous aspect versions through changeMCPs
-    return validateProposedAspects(changeMCPs, retrieverContext);
+    
+    // For this simple governance validator, we only need proposed validation
+    // since we're just checking if required aspects exist
+    return Stream.empty();
   }
 
   /**
