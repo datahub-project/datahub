@@ -4,15 +4,13 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-## Overview
-
 The DataHub Slack App brings several of DataHub's key capabilities directly into your Slack experience. These include:
 
 1. Receive notifications
-2. Searching for Data Assets
-3. Subscribing to notifications for Data Assets
-4. Managing Data Incidents
-5. Chat with the @DataHub bot
+2. Chat with the @DataHub bot
+3. Searching for Data Assets
+4. Subscribing to notifications for Data Assets
+5. Managing Data Incidents
 
 _Our goal with the Slack app is to make data discovery easier and more accessible for you._
 
@@ -27,16 +25,47 @@ Notifications [can be configured](../subscription-and-notification.md) in the Da
     <img width="70%" alt="Example DataHub notification in Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/notification_1.png" />
 </p>
 
+## @DataHub AI in Slack
+
+With the DataHub AI in Slack, you can mention @DataHub in any channel and ask it questions about your metadata.
+
+Key capabilities include:
+
+- Find relevant data assets.
+- Understand the impact of changes to data assets.
+- Dig into specific assets and their glossary terms, owners, and more.
+- Write first-drafts of SQL queries to answer specific questions.
+
+:::warning Permissions
+
+The current version of the @DataHub AI in Slack assumes that all users have read permissions for all assets. A future version will support more granular permissions.
+
+:::
+
+<p align="center">
+<video width="70%" autoplay muted loop playsinline>
+  <source src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_2.mp4" type="video/mp4" />
+</video>
+</p>
+
+#### Enabling @DataHub AI in Slack
+
+In DataHub Cloud v0.3.13 (July 2025), the @DataHub AI command is in **public beta** and can be enabled in the Settings → AI page. In prior versions, it was in private beta and required a request to your DataHub Cloud representative to get access.
+
+<p align="center">
+    <img width="70%" alt="Enabling @DataHub AI in Slack" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_config.png" />
+</p>
+
 ## Slack App Commands
 
 The command-based capabilities on the Slack App revolve around search.
 
 ### Querying for Assets
 
-You can trigger a search by simplying typing `/acryl my favorite table`.
+You can trigger a search by simply typing `/datahub my favorite table`.
 
 <p align="center">
-    <img width="70%" alt="Example of an in-Slack DataHub Cloud search command being performed." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_app_search_1.png" />
+    <img width="70%" alt="Example of an in-Slack DataHub Cloud search command being performed." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_app_search_1_v2.png" />
 </p>
 
 Right within Slack, you'll be presented with results matching your query, and a handful of quick-actions for your convenience.
@@ -75,32 +104,4 @@ If you choose to `Mark as Resolved` the message will update in-place, and you wi
 
 <p align="center">
     <img width="70%" alt="Example of search results being displayed within Slack." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/slack_incidents_2.png" />
-</p>
-
-## @DataHub AI in Slack
-
-:::info
-
-As of DataHub Cloud v0.3.12, the @DataHub AI command is in **private beta**. Reach out to your DataHub Cloud representative to get access.
-
-:::
-
-With the DataHub AI in Slack, you can mention @DataHub in any channel and ask it questions about your metadata.
-
-Key capabilities include:
-
-- Find relevant data assets.
-- Understand the impact of changes to data assets.
-- Dig into specific assets and their glossary terms, owners, and more.
-- Write first-drafts of SQL queries to answer specific questions.
-- Get notified about incidents and updates.
-
-:::warning Permissions
-
-The current version of the @DataHub AI in Slack assumes that all users have read permissions for all assets. A future version will support more granular permissions.
-
-:::
-
-<p align="center">
-    <img width="60%" alt="Chat experience in Slack with @DataHub AI." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/chatbot_1.png" />
 </p>
