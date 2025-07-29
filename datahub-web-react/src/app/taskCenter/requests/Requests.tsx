@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { FORMS_MAX_AGGS_VALUE } from '@app/context/UserContextProvider';
 import { Message } from '@app/shared/Message';
 import { RequestItem } from '@app/taskCenter/requests/RequestItem';
 import { filterFormsForUser } from '@app/taskCenter/requests/utils';
@@ -38,7 +39,7 @@ export const Requests = () => {
     const location = useLocation();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { data, loading, error, refetch } = useGetFormsForActorQuery({
-        variables: { input: { searchFlags: { skipCache: true } } },
+        variables: { input: { searchFlags: { skipCache: true, maxAggValues: FORMS_MAX_AGGS_VALUE } } },
         fetchPolicy: 'no-cache',
     });
     const defaultFormView = appConfig.config.featureFlags.showBulkFormByDefault ? FormView.BY_QUESTION : undefined;

@@ -17,6 +17,11 @@ import { ActionRequestStatus, CorpUser, EntityRelationshipsResult, FormForActor,
 const LOCAL_STATE_KEY = 'userState';
 
 /**
+ * Count of forms we want to fetch from aggregations when rendering forms user needs to complete
+ */
+export const FORMS_MAX_AGGS_VALUE = 100;
+
+/**
  * Loads a persisted object from the local browser storage.
  */
 const loadLocalState = () => {
@@ -66,7 +71,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         fetchPolicy: 'no-cache',
     });
     const { data: unfinishedForms, refetch: unfinishedFormsRefetch } = useGetFormsForActorQuery({
-        variables: { input: { searchFlags: { skipCache: true } } },
+        variables: { input: { searchFlags: { skipCache: true, maxAggValues: FORMS_MAX_AGGS_VALUE } } },
         fetchPolicy: 'no-cache',
     });
 
