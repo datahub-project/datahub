@@ -229,6 +229,7 @@ The Lineage APIs support the following entity combinations:
 | Dataset         | Dataset           |
 | Dataset         | DataJob           |
 | DataJob         | DataJob           |
+| DataJob         | Dataset           |
 | Dataset         | Dashboard         |
 | Chart           | Dashboard         |
 | Dashboard       | Dashboard         |

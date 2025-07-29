@@ -120,6 +120,7 @@ export function useTemplateOperations(setPersonalTemplate: (template: PageTempla
             templateToUpdate: PageTemplateFragment | null,
             moduleUrn: string,
             position: ModulePositionInput,
+            shouldRemoveEmptyRow: boolean,
         ): PageTemplateFragment | null => {
             if (!isValidRemovalPosition(templateToUpdate, position)) {
                 return templateToUpdate;
@@ -142,7 +143,7 @@ export function useTemplateOperations(setPersonalTemplate: (template: PageTempla
             }
 
             // If the row is now empty, remove the entire row
-            if (updatedModules.length === 0) {
+            if (shouldRemoveEmptyRow && updatedModules.length === 0) {
                 newRows.splice(rowIndex!, 1);
             } else {
                 row.modules = updatedModules;
