@@ -56,7 +56,7 @@ export function createReadOnlyFormState(
     },
 ) {
     return {
-        formState: workflow.trigger?.form?.fields.reduce(
+        formState: workflow.trigger?.form?.fields?.reduce(
             (acc, field) => {
                 acc[field.id] = {
                     values: initialFormData?.fieldValues?.[field.id] || [],

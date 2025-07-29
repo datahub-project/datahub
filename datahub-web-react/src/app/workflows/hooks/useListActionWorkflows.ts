@@ -69,7 +69,7 @@ export const getHomePageWorkflowContext = (): WorkflowContext => ({
  */
 export const getEntryPointLabel = (workflow: ActionWorkflowFragment, context: WorkflowContext): string => {
     const { entrypointType } = context;
-    const workflowEntrypoint = workflow?.trigger?.form?.entrypoints.find((ep) => ep.type === entrypointType);
+    const workflowEntrypoint = workflow?.trigger?.form?.entrypoints?.find((ep) => ep.type === entrypointType);
     return workflowEntrypoint?.label || workflow.name;
 };
 

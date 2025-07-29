@@ -80,7 +80,7 @@ export const getFormattedResultText = (result?: AssertionResultType, isSmartAsse
 };
 
 const isPercentageMetric = (metricType?: FieldMetricType): boolean => {
-    return metricType?.valueOf().toLowerCase().includes('percentage') ?? false;
+    return metricType?.valueOf()?.toLowerCase().includes('percentage') ?? false;
 };
 
 // TODO: Consider supporting relative field metric assertions.

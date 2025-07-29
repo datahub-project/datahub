@@ -129,7 +129,7 @@ export const WorkflowFormModal: React.FC<Props> = ({
 
     // Filter fields based on their display conditions
     const visibleFields = useMemo(() => {
-        return workflow.trigger?.form?.fields.filter((field) => shouldDisplayField(field, currentFormValues)) || [];
+        return workflow.trigger?.form?.fields?.filter((field) => shouldDisplayField(field, currentFormValues)) || [];
     }, [workflow.trigger?.form?.fields, currentFormValues]);
 
     // Check if all required visible fields are completed

@@ -21,7 +21,7 @@ export default function LinkModal() {
         moduleModalState: { position, close, isEditing, initialState },
     } = usePageTemplateContext();
     const [form] = Form.useForm();
-    const currentName = initialState?.properties.name || '';
+    const currentName = initialState?.properties?.name || '';
     const linkParams = initialState?.properties?.params?.linkParams;
     const urn = initialState?.urn;
 

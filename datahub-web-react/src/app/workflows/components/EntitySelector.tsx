@@ -34,7 +34,7 @@ export const EntitySelector: React.FC<EntitySelectorProps> = ({
     const entityRegistry = useEntityRegistry();
 
     // Don't render if workflow doesn't require entity selection
-    if (!workflow.trigger?.form?.entityTypes || workflow.trigger?.form?.entityTypes.length === 0) {
+    if (!workflow.trigger?.form?.entityTypes || workflow.trigger?.form?.entityTypes?.length === 0) {
         return null;
     }
 

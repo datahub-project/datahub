@@ -519,7 +519,7 @@ describe('BulkCreateAssertionsForm.utils', () => {
                 const result = buildFreshnessAssertionSpec(freshnessFormState);
 
                 // The result should use the DEFAULT_CRON_SCHEDULE
-                expect(result?.criteria.type).toBe('MANUAL');
+                expect(result?.criteria?.type).toBe('MANUAL');
                 expect(result?.evaluationSchedule).toBeDefined();
                 // We can't easily test the exact default values without importing them,
                 // but we can verify the structure is correct
@@ -556,8 +556,8 @@ describe('BulkCreateAssertionsForm.utils', () => {
 
                 const result = buildFreshnessAssertionSpec(freshnessFormState);
 
-                expect(result?.criteria.type).toBe('AI');
-                if (result?.criteria.type === 'AI') {
+                expect(result?.criteria?.type).toBe('AI');
+                if (result?.criteria?.type === 'AI') {
                     expect(result.criteria.inferenceSettings.sensitivity?.level).toBe(0.9);
                     expect(result.criteria.inferenceSettings.trainingDataLookbackWindowDays).toBe(60);
                     expect(result.criteria.inferenceSettings.exclusionWindows).toEqual([
@@ -591,8 +591,8 @@ describe('BulkCreateAssertionsForm.utils', () => {
 
                 const result = buildFreshnessAssertionSpec(freshnessFormState);
 
-                expect(result?.criteria.type).toBe('AI');
-                if (result?.criteria.type === 'AI') {
+                expect(result?.criteria?.type).toBe('AI');
+                if (result?.criteria?.type === 'AI') {
                     // Should use default values
                     expect(result.criteria.inferenceSettings.exclusionWindows).toEqual([]);
                     expect(result.criteria.inferenceSettings.sensitivity).toBeDefined();

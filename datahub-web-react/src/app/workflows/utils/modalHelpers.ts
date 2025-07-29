@@ -84,7 +84,7 @@ export const getPlaceholderText = (mode: WorkflowRequestFormModalMode, defaultTe
  */
 export const isEntitySelectionRequired = (workflow: ActionWorkflowFragment, selectedEntityUrn?: string): boolean => {
     const requiresEntitySelection =
-        workflow.trigger?.form?.entityTypes && workflow.trigger?.form?.entityTypes.length > 0;
+        workflow.trigger?.form?.entityTypes && workflow.trigger?.form?.entityTypes?.length > 0;
     if (!requiresEntitySelection) {
         return false;
     }
