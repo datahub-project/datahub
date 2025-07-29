@@ -155,6 +155,7 @@ export function useModuleOperations(
         templateToUpdate: PageTemplateFragment | null,
         moduleUrn: string,
         position: ModulePositionInput,
+        shouldRemoveEmptyRow: boolean,
     ) => PageTemplateFragment | null,
     upsertTemplate: (
         templateToUpsert: PageTemplateFragment | null,
@@ -291,7 +292,7 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position);
+            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position, true);
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
@@ -402,6 +403,7 @@ export function useModuleOperations(
                             templateToUpdate,
                             originalModuleData.urn,
                             position,
+                            false,
                         );
 
                         if (updatedTemplate) {

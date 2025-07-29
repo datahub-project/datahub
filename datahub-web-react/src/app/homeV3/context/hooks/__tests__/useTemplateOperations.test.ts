@@ -231,6 +231,7 @@ describe('useTemplateOperations', () => {
                 templateWithMultipleModules,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
 
             expect(updatedTemplate).not.toBeNull();
@@ -295,6 +296,7 @@ describe('useTemplateOperations', () => {
                 templateWithDuplicateUrns,
                 'urn:li:pageModule:duplicate',
                 position,
+                true,
             );
 
             expect(updatedTemplate).not.toBeNull();
@@ -351,6 +353,7 @@ describe('useTemplateOperations', () => {
                 templateWithMultipleModules,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
 
             expect(updatedTemplate).not.toBeNull();
@@ -405,6 +408,7 @@ describe('useTemplateOperations', () => {
                 templateWithMultipleModules,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
 
             expect(updatedTemplate).not.toBeNull();
@@ -413,7 +417,7 @@ describe('useTemplateOperations', () => {
             expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:1');
         });
 
-        it('should remove entire row when last module is removed', () => {
+        it('should remove entire row when last module is removed if removing of empty rows is enabled', () => {
             const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
 
             const templateWithSingleModule: PageTemplateFragment = {
@@ -463,11 +467,71 @@ describe('useTemplateOperations', () => {
                 templateWithSingleModule,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
 
             expect(updatedTemplate).not.toBeNull();
             expect(updatedTemplate?.properties?.rows).toHaveLength(1);
             expect(updatedTemplate?.properties?.rows?.[0]?.modules?.[0]?.urn).toBe('urn:li:pageModule:2');
+        });
+
+        it('should not remove entire row when last module is removed if removing of empty rows is disabled', () => {
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+
+            const templateWithSingleModule: PageTemplateFragment = {
+                ...mockTemplate,
+                properties: {
+                    ...mockTemplate.properties!,
+                    rows: [
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:1',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 1',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                        {
+                            modules: [
+                                {
+                                    urn: 'urn:li:pageModule:2',
+                                    type: EntityType.DatahubPageModule,
+                                    properties: {
+                                        name: 'Module 2',
+                                        type: DataHubPageModuleType.Link,
+                                        visibility: { scope: PageModuleScope.Personal },
+                                        params: {},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const position: ModulePositionInput = {
+                rowIndex: 0,
+                rowSide: 'left',
+                moduleIndex: 0,
+            };
+
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                templateWithSingleModule,
+                'urn:li:pageModule:1',
+                position,
+                false,
+            );
+
+            expect(updatedTemplate).not.toBeNull();
+            expect(updatedTemplate?.properties?.rows).toHaveLength(2);
+            expect(updatedTemplate?.properties?.rows?.[0]?.modules?.length).toBe(0);
+            expect(updatedTemplate?.properties?.rows?.[1]?.modules?.[0]?.urn).toBe('urn:li:pageModule:2');
         });
 
         it('should return original template when module is not found', () => {
@@ -483,6 +547,7 @@ describe('useTemplateOperations', () => {
                 mockTemplate,
                 'urn:li:pageModule:nonexistent',
                 position,
+                true,
             );
 
             expect(updatedTemplate).toBe(mockTemplate);
@@ -501,6 +566,7 @@ describe('useTemplateOperations', () => {
                 mockTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
 
             expect(updatedTemplate).toBe(mockTemplate);
@@ -519,6 +585,7 @@ describe('useTemplateOperations', () => {
                 mockTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
 
             expect(updatedTemplate).toBe(mockTemplate);
@@ -533,7 +600,12 @@ describe('useTemplateOperations', () => {
                 moduleIndex: 0,
             };
 
-            const updatedTemplate = result.current.removeModuleFromTemplate(null, 'urn:li:pageModule:1', position);
+            const updatedTemplate = result.current.removeModuleFromTemplate(
+                null,
+                'urn:li:pageModule:1',
+                position,
+                true,
+            );
 
             expect(updatedTemplate).toBeNull();
         });
@@ -563,6 +635,7 @@ describe('useTemplateOperations', () => {
                 templateWithEmptyRow,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
 
             expect(updatedTemplate).toBe(templateWithEmptyRow);

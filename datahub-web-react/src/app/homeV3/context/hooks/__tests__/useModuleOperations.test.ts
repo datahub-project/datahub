@@ -607,6 +607,7 @@ describe('useModuleOperations', () => {
                 mockPersonalTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
@@ -661,6 +662,7 @@ describe('useModuleOperations', () => {
                 mockGlobalTemplate,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
@@ -715,6 +717,7 @@ describe('useModuleOperations', () => {
                 mockGlobalTemplate,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, null);
@@ -771,6 +774,7 @@ describe('useModuleOperations', () => {
                 mockPersonalTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
@@ -1649,6 +1653,7 @@ describe('useModuleOperations', () => {
                     mockPersonalTemplate,
                     mockGlobalModuleToEdit.urn,
                     position,
+                    false, // shouldRemoveEmptyRow = false (to replace a module we should keep empty row)
                 );
 
                 // Should add the new personal module in the same position
@@ -1903,6 +1908,7 @@ describe('useModuleOperations', () => {
                     mockPersonalTemplate,
                     mockGlobalModuleToEdit.urn,
                     position,
+                    false,
                 );
 
                 // Should not proceed with template update if removal fails
@@ -2310,6 +2316,7 @@ describe('useModuleOperations', () => {
                 const mockGlobalModuleToEdit: PageModuleFragment = {
                     urn: 'urn:li:pageModule:global-to-edit',
                     type: 'DATAHUB_PAGE_MODULE' as any,
+                    exists: true,
                     properties: {
                         name: 'Global Module To Edit',
                         type: DataHubPageModuleType.OwnedAssets, // Large module
@@ -2330,6 +2337,7 @@ describe('useModuleOperations', () => {
                                     {
                                         urn: 'urn:li:pageModule:small1',
                                         type: 'DATAHUB_PAGE_MODULE' as any,
+                                        exists: true,
                                         properties: {
                                             name: 'Small Module',
                                             type: DataHubPageModuleType.Link,
@@ -2417,6 +2425,7 @@ describe('useModuleOperations', () => {
                     templateWithSmallModules,
                     mockGlobalModuleToEdit.urn,
                     position,
+                    false,
                 );
 
                 // Should handle the size mismatch properly during replacement
