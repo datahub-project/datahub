@@ -17,7 +17,7 @@ they are not intended for high-throughput scenarios or bulk operations commonly 
 
 For programmatic metadata management, data ingestion, and bulk operations, use the **Python SDK** instead.
 The Python SDK is available as part of the `acryl-datahub` package and includes comprehensive examples for common use
-cases. For detailed usage instructions, see the [Python SDK documentation](../../metadata-ingestion/as-a-library.md).
+cases. For detailed usage instructions, see the [Python SDK documentation](../../../metadata-ingestion/as-a-library.md).
 
 ### Query Optimizations
 
