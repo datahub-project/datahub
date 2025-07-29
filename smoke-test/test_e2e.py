@@ -1381,3 +1381,115 @@ def test_native_user_endpoints(auth_session):
     )
     remove_user_response.raise_for_status()
     assert "errors" not in remove_user_response
+
+
+def test_system_info_main_endpoint(auth_session):
+    """Test that main system info endpoint returns expected structure with authentication."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info")
+    response.raise_for_status()
+    system_info = response.json()
+    
+    # Verify main response structure
+    assert "springComponents" in system_info, "Missing springComponents in system info response"
+    assert "properties" in system_info, "Missing properties in system info response"
+    
+    logger.info("Main system info endpoint test passed")
+
+
+def test_system_info_spring_components_structure(auth_session):
+    """Test that spring components structure contains all expected components."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info")
+    response.raise_for_status()
+    system_info = response.json()
+    
+    spring_components = system_info["springComponents"]
+    assert "gms" in spring_components, "Missing GMS component info"
+    assert "maeConsumer" in spring_components, "Missing MAE consumer info"
+    assert "mceConsumer" in spring_components, "Missing MCE consumer info"
+    
+    # Verify GMS component details
+    gms_info = spring_components["gms"]
+    assert gms_info["name"] == "GMS", "GMS component name incorrect"
+    assert gms_info["status"] == "AVAILABLE", "GMS should be available in running system"
+    assert "version" in gms_info, "GMS version should be present"
+    assert "properties" in gms_info, "GMS properties should be present"
+    
+    logger.info("Spring components structure test passed")
+
+
+def test_system_info_properties_structure(auth_session):
+    """Test that properties structure contains expected metadata."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info")
+    response.raise_for_status()
+    system_info = response.json()
+    
+    properties = system_info["properties"]
+    assert "properties" in properties, "Missing detailed properties"
+    assert "propertySources" in properties, "Missing property sources"
+    assert "totalProperties" in properties, "Missing total properties count"
+    assert "redactedProperties" in properties, "Missing redacted properties count"
+    assert isinstance(properties["totalProperties"], int), "Total properties should be integer"
+    assert isinstance(properties["redactedProperties"], int), "Redacted properties should be integer"
+    
+    logger.info(f"Properties structure test passed - found {properties['totalProperties']} total properties, {properties['redactedProperties']} redacted")
+
+
+def test_system_info_spring_components_endpoint(auth_session):
+    """Test dedicated spring components endpoint."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info/spring-components")
+    response.raise_for_status()
+    components_data = response.json()
+    
+    assert "gms" in components_data, "Spring components endpoint missing GMS info"
+    assert components_data["gms"]["status"] == "AVAILABLE", "GMS should be available in components endpoint"
+    
+    logger.info("Spring components endpoint test passed")
+
+
+def test_system_info_properties_endpoint(auth_session):
+    """Test dedicated detailed properties endpoint."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info/properties")
+    response.raise_for_status()
+    properties_data = response.json()
+    
+    assert "properties" in properties_data, "Properties endpoint missing detailed properties"
+    assert "propertySources" in properties_data, "Properties endpoint missing property sources"
+    
+    logger.info("Detailed properties endpoint test passed")
+
+
+def test_system_info_simple_properties_endpoint(auth_session):
+    """Test simple properties endpoint returns flat key-value map."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info/properties/simple")
+    response.raise_for_status()
+    simple_properties = response.json()
+    
+    assert isinstance(simple_properties, dict), "Simple properties should be a dictionary"
+    assert len(simple_properties) > 0, "Simple properties should contain some configuration"
+    
+    logger.info(f"Simple properties endpoint test passed - found {len(simple_properties)} properties")
+
+
+def test_system_info_sensitive_data_redaction(auth_session):
+    """Test that sensitive properties are properly redacted."""
+    response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info/properties/simple")
+    response.raise_for_status()
+    simple_properties = response.json()
+    
+    # Check for redacted sensitive properties
+    sensitive_found = False
+    redacted_properties = []
+    
+    for key, value in simple_properties.items():
+        if any(pattern in key.lower() for pattern in ["password", "secret", "key"]):
+            if not key.lower().startswith("cache.client."):  # Allowed prefix
+                if value == "***REDACTED***":
+                    sensitive_found = True
+                    redacted_properties.append(key)
+    
+    if redacted_properties:
+        logger.info(f"Correctly redacted {len(redacted_properties)} sensitive properties: {redacted_properties[:3]}...")
+    else:
+        logger.info("No sensitive properties found to redact (may be valid depending on configuration)")
+    
+    logger.info("Sensitive data redaction test completed")

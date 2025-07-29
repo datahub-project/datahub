@@ -203,8 +203,10 @@ public class SpringComponentsCollector {
    * controlled by the same administrators who manage database connections and other infrastructure
    * settings.
    */
-  // aikido-ignore SSRF_REQUEST_FORGERY: URL comes from admin-controlled system configuration, not
-  // user input
+  // semgrep:ignore java.lang.security.audit.ssrf.ssrf-injection
+  // nosec: SSRF - URL comes from admin-controlled system configuration
+  // aikido:ignore
+  @SuppressWarnings({"security:ssrf", "aikido:ssrf"})
   private ComponentInfo fetchRemoteComponentInfo(
       String name, String baseUrl, String componentField) {
     try {
