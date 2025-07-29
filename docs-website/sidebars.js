@@ -191,6 +191,11 @@ module.exports = {
           ],
         },
         {
+          label: "Custom HomePage",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-home-page",
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
