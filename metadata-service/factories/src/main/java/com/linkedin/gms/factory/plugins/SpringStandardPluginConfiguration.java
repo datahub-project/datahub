@@ -538,8 +538,7 @@ public class SpringStandardPluginConfiguration {
             AspectPluginConfig.builder()
                 .className(SystemPolicyValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(
-                    List.of(DELETE, UPDATE, UPSERT, PATCH))
+                .supportedOperations(List.of(DELETE, UPDATE, UPSERT, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

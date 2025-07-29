@@ -1,5 +1,9 @@
 package com.linkedin.metadata.aspect.validation;
 
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ONE;
+import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ZERO;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -21,11 +25,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ONE;
-import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ZERO;
-
-
 /**
  * Validator to ensure that system policies (i. e: Those can come natively with DataHub) are not
  * deleted. *
@@ -37,7 +36,8 @@ import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ZERO;
 public class SystemPolicyValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
 
-  private Set<ChangeType> MODIFY_CHANGE_TYPES = Set.of(ChangeType.PATCH, ChangeType.UPDATE, ChangeType.UPSERT);
+  private Set<ChangeType> MODIFY_CHANGE_TYPES =
+      Set.of(ChangeType.PATCH, ChangeType.UPDATE, ChangeType.UPSERT);
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -52,10 +52,14 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
           if (isSystemPolicy(entityUrn) && ChangeType.DELETE.equals(i.getChangeType())) {
             exceptions.addException(
                 AspectValidationException.forItem(i, "System policies can not be deleted."));
-          } else if (MODIFY_CHANGE_TYPES.contains(i.getChangeType()) &&
-              // We don't know actor or we know it isn't the system actor, system actor is allowed to modify to allow
-              // reingestion of base policies if they have for example been directly modified in the database
-              (i.getAuditStamp() == null || !SYSTEM_ACTOR.equals(i.getAuditStamp().getActor().toString()))) {
+          } else if (MODIFY_CHANGE_TYPES.contains(i.getChangeType())
+              &&
+              // We don't know actor or we know it isn't the system actor, system actor is allowed
+              // to modify to allow
+              // reingestion of base policies if they have for example been directly modified in the
+              // database
+              (i.getAuditStamp() == null
+                  || !SYSTEM_ACTOR.equals(i.getAuditStamp().getActor().toString()))) {
             final Aspect aspect =
                 retrieverContext
                     .getAspectRetriever()
@@ -64,7 +68,8 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
               DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo(aspect.data());
               if (!dataHubPolicyInfo.isEditable()) {
                 exceptions.addException(
-                    AspectValidationException.forItem(i, "Attempting to edit not editable policy."));
+                    AspectValidationException.forItem(
+                        i, "Attempting to edit not editable policy."));
               }
             }
           }

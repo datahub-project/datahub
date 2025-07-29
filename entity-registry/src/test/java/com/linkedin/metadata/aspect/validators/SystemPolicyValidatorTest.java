@@ -27,8 +27,10 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class SystemPolicyValidatorTest {
-  private static final Urn NON_SYSTEM_POLICY_URN = UrnUtils.getUrn("urn:li:dataHubPolicy:custom-policy");
-  private static final Urn SYSTEM_ACTOR_URN = UrnUtils.getUrn(SYSTEM_ACTOR);;
+  private static final Urn NON_SYSTEM_POLICY_URN =
+      UrnUtils.getUrn("urn:li:dataHubPolicy:custom-policy");
+  private static final Urn SYSTEM_ACTOR_URN = UrnUtils.getUrn(SYSTEM_ACTOR);
+  ;
   private static final Urn NON_SYSTEM_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:user");
 
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
@@ -68,21 +70,22 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
                                 .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
-                        .recordTemplate(new DataHubPolicyInfo()
-                            .setActors(new DataHubActorFilter())
-                            .setEditable(true)
-                            .setDescription("")
-                            .setDisplayName("")
-                            .setLastUpdatedTimestamp(123L)
-                            .setPrivileges(new StringArray())
-                            .setState("ACTIVE")
-                            .setType("")
-                        )
+                        .recordTemplate(
+                            new DataHubPolicyInfo()
+                                .setActors(new DataHubActorFilter())
+                                .setEditable(true)
+                                .setDescription("")
+                                .setDisplayName("")
+                                .setLastUpdatedTimestamp(123L)
+                                .setPrivileges(new StringArray())
+                                .setState("ACTIVE")
+                                .setType(""))
                         .build()),
                 mockRetrieverContext,
                 null)
@@ -103,15 +106,16 @@ public class SystemPolicyValidatorTest {
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ONE.getEntityType())
                                 .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
-                        .recordTemplate(new DataHubPolicyInfo()
-                            .setActors(new DataHubActorFilter())
-                            .setEditable(true)
-                            .setDescription("")
-                            .setDisplayName("")
-                            .setLastUpdatedTimestamp(123L)
-                            .setPrivileges(new StringArray())
-                            .setState("ACTIVE")
-                            .setType(""))
+                        .recordTemplate(
+                            new DataHubPolicyInfo()
+                                .setActors(new DataHubActorFilter())
+                                .setEditable(true)
+                                .setDescription("")
+                                .setDisplayName("")
+                                .setLastUpdatedTimestamp(123L)
+                                .setPrivileges(new StringArray())
+                                .setState("ACTIVE")
+                                .setType(""))
                         .build()),
                 mockRetrieverContext,
                 null)
@@ -129,20 +133,22 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.DELETE)
                         .urn(NON_SYSTEM_POLICY_URN)
-                        .entitySpec(entityRegistry.getEntitySpec(NON_SYSTEM_POLICY_URN.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(NON_SYSTEM_POLICY_URN.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(NON_SYSTEM_POLICY_URN.getEntityType())
                                 .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
-                        .recordTemplate(new DataHubPolicyInfo()
-                            .setActors(new DataHubActorFilter())
-                            .setEditable(true)
-                            .setDescription("")
-                            .setDisplayName("")
-                            .setLastUpdatedTimestamp(123L)
-                            .setPrivileges(new StringArray())
-                            .setState("ACTIVE")
-                            .setType(""))
+                        .recordTemplate(
+                            new DataHubPolicyInfo()
+                                .setActors(new DataHubActorFilter())
+                                .setEditable(true)
+                                .setDescription("")
+                                .setDisplayName("")
+                                .setLastUpdatedTimestamp(123L)
+                                .setPrivileges(new StringArray())
+                                .setState("ACTIVE")
+                                .setType(""))
                         .build()),
                 mockRetrieverContext,
                 null)
@@ -153,17 +159,19 @@ public class SystemPolicyValidatorTest {
 
   @Test
   public void testNonEditablePolicyModifyByNonSystemActorDenied() {
-    final DataHubPolicyInfo policyInfo = new DataHubPolicyInfo()
-        .setActors(new DataHubActorFilter())
-        .setEditable(false)
-        .setDescription("")
-        .setDisplayName("")
-        .setLastUpdatedTimestamp(123L)
-        .setPrivileges(new StringArray())
-        .setState("ACTIVE")
-        .setType("");
+    final DataHubPolicyInfo policyInfo =
+        new DataHubPolicyInfo()
+            .setActors(new DataHubActorFilter())
+            .setEditable(false)
+            .setDescription("")
+            .setDisplayName("")
+            .setLastUpdatedTimestamp(123L)
+            .setPrivileges(new StringArray())
+            .setState("ACTIVE")
+            .setType("");
 
-    when(mockAspectRetriever.getLatestAspectObject(SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
         .thenReturn(new Aspect(policyInfo.data()));
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -177,7 +185,8 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
@@ -199,7 +208,8 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.UPDATE)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
@@ -221,7 +231,8 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.PATCH)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
@@ -238,17 +249,19 @@ public class SystemPolicyValidatorTest {
 
   @Test
   public void testNonEditablePolicyModifyBySystemActorAllowed() {
-    final DataHubPolicyInfo policyInfo = new DataHubPolicyInfo()
-        .setActors(new DataHubActorFilter())
-        .setEditable(false)
-        .setDescription("")
-        .setDisplayName("")
-        .setLastUpdatedTimestamp(123L)
-        .setPrivileges(new StringArray())
-        .setState("ACTIVE")
-        .setType("");
+    final DataHubPolicyInfo policyInfo =
+        new DataHubPolicyInfo()
+            .setActors(new DataHubActorFilter())
+            .setEditable(false)
+            .setDescription("")
+            .setDisplayName("")
+            .setLastUpdatedTimestamp(123L)
+            .setPrivileges(new StringArray())
+            .setState("ACTIVE")
+            .setType("");
 
-    when(mockAspectRetriever.getLatestAspectObject(SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
         .thenReturn(new Aspect(policyInfo.data()));
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -261,7 +274,8 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
@@ -278,17 +292,19 @@ public class SystemPolicyValidatorTest {
 
   @Test
   public void testEditablePolicyModifyAllowed() {
-    final DataHubPolicyInfo policyInfo = new DataHubPolicyInfo()
-        .setActors(new DataHubActorFilter())
-        .setEditable(true)
-        .setDescription("")
-        .setDisplayName("")
-        .setLastUpdatedTimestamp(123L)
-        .setPrivileges(new StringArray())
-        .setState("ACTIVE")
-        .setType("");
+    final DataHubPolicyInfo policyInfo =
+        new DataHubPolicyInfo()
+            .setActors(new DataHubActorFilter())
+            .setEditable(true)
+            .setDescription("")
+            .setDisplayName("")
+            .setLastUpdatedTimestamp(123L)
+            .setPrivileges(new StringArray())
+            .setState("ACTIVE")
+            .setType("");
 
-    when(mockAspectRetriever.getLatestAspectObject(SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
         .thenReturn(new Aspect(policyInfo.data()));
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -301,7 +317,8 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
@@ -318,17 +335,19 @@ public class SystemPolicyValidatorTest {
 
   @Test
   public void testModifyWithoutAuditStampDenied() {
-    final DataHubPolicyInfo policyInfo = new DataHubPolicyInfo()
-        .setActors(new DataHubActorFilter())
-        .setEditable(false)
-        .setDescription("")
-        .setDisplayName("")
-        .setLastUpdatedTimestamp(123L)
-        .setPrivileges(new StringArray())
-        .setState("ACTIVE")
-        .setType("");
+    final DataHubPolicyInfo policyInfo =
+        new DataHubPolicyInfo()
+            .setActors(new DataHubActorFilter())
+            .setEditable(false)
+            .setDescription("")
+            .setDisplayName("")
+            .setLastUpdatedTimestamp(123L)
+            .setPrivileges(new StringArray())
+            .setState("ACTIVE")
+            .setType("");
 
-    when(mockAspectRetriever.getLatestAspectObject(SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
         .thenReturn(new Aspect(policyInfo.data()));
 
     assertEquals(
@@ -338,7 +357,8 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
@@ -356,7 +376,8 @@ public class SystemPolicyValidatorTest {
   @Test
   public void testModifyWhenNoPolicyInfoAspectExists() {
     // When no existing policy info aspect exists, modification should be allowed
-    when(mockAspectRetriever.getLatestAspectObject(SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
+    when(mockAspectRetriever.getLatestAspectObject(
+            SYSTEM_POLICY_ZERO, DATAHUB_POLICY_INFO_ASPECT_NAME))
         .thenReturn(null);
 
     final AuditStamp auditStamp = new AuditStamp();
@@ -369,20 +390,22 @@ public class SystemPolicyValidatorTest {
                     TestMCP.builder()
                         .changeType(ChangeType.UPSERT)
                         .urn(SYSTEM_POLICY_ZERO)
-                        .entitySpec(entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType()))
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ZERO.getEntityType())
                                 .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
-                        .recordTemplate(new DataHubPolicyInfo()
-                            .setActors(new DataHubActorFilter())
-                            .setEditable(true)
-                            .setDescription("")
-                            .setDisplayName("")
-                            .setLastUpdatedTimestamp(123L)
-                            .setPrivileges(new StringArray())
-                            .setState("ACTIVE")
-                            .setType(""))
+                        .recordTemplate(
+                            new DataHubPolicyInfo()
+                                .setActors(new DataHubActorFilter())
+                                .setEditable(true)
+                                .setDescription("")
+                                .setDisplayName("")
+                                .setLastUpdatedTimestamp(123L)
+                                .setPrivileges(new StringArray())
+                                .setState("ACTIVE")
+                                .setType(""))
                         .auditStamp(auditStamp)
                         .build()),
                 mockRetrieverContext,
