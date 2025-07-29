@@ -484,12 +484,12 @@ describe('getIngestionContents', () => {
         expect(result).toEqual([
             {
                 title: 'Table',
-                count: 10,
+                count: 5,
                 percent: '50%',
             },
             {
                 title: 'View',
-                count: 20,
+                count: 10,
                 percent: '50%',
             },
         ]);
@@ -519,7 +519,7 @@ describe('getIngestionContents', () => {
         expect(result).toEqual([
             {
                 title: 'View',
-                count: 20,
+                count: 5,
                 percent: '25%',
             },
         ]);
@@ -549,7 +549,7 @@ describe('getIngestionContents', () => {
         expect(result).toEqual([
             {
                 title: 'View',
-                count: 20,
+                count: 10,
                 percent: '50%',
             },
         ]);
@@ -619,12 +619,12 @@ describe('getIngestionContents', () => {
         expect(result).toEqual([
             {
                 title: 'Table',
-                count: 7,
+                count: 2,
                 percent: '29%',
             },
             {
                 title: 'View',
-                count: 3,
+                count: 1,
                 percent: '33%',
             },
         ]);
