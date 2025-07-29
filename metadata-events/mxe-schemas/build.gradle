@@ -37,3 +37,5 @@ clean {
   delete 'src/mainGeneratedAvroSchema/avro'
   delete 'src/renamed/avro'
 }
+
+generateTestDataTemplate.dependsOn spotlessJava

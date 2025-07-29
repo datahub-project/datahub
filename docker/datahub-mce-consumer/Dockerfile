@@ -48,7 +48,7 @@ RUN apk --no-cache --update-cache --available upgrade \
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 FROM base AS prod-install
-COPY mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
+COPY metadata-jobs/mce-consumer-job/build/libs/mce-consumer-job.jar /datahub/datahub-mce-consumer/bin/
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mce-consumer/resources/entity-registry.yml
 COPY docker/datahub-mce-consumer/start.sh /datahub/datahub-mce-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mce-consumer/scripts/prometheus-config.yaml

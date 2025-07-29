@@ -12,6 +12,16 @@ const NavBarMenuItemGroup = styled(Menu.ItemGroup)`
         font-weight: 700;
         line-height: normal;
         min-height: 38px;
+
+        @media (max-height: 935px) {
+            margin-top: 4px;
+        }
+        @media (max-height: 890px) {
+            margin-top: 2px;
+        }
+        @media (max-height: 835px) {
+            margin-top: 0px;
+        }
     }
 `;
 

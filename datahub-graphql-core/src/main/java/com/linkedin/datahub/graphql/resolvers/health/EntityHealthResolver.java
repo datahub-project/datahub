@@ -6,16 +6,20 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.generated.ActiveIncidentHealthDetails;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
 import com.linkedin.datahub.graphql.generated.HealthStatusType;
 import com.linkedin.datahub.graphql.generated.IncidentState;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -25,6 +29,8 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -37,6 +43,7 @@ import com.linkedin.timeseries.GroupingBucketType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -146,23 +153,70 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       final Filter filter = buildIncidentsEntityFilter(entityUrn, IncidentState.ACTIVE.toString());
       final SearchResult searchResult =
           _entityClient.filter(
-              context.getOperationContext(), Constants.INCIDENT_ENTITY_NAME, filter, null, 0, 1);
+              context.getOperationContext(),
+              Constants.INCIDENT_ENTITY_NAME,
+              filter,
+              buildIncidentsSort(),
+              0,
+              1);
       final Integer activeIncidentCount = searchResult.getNumEntities();
       if (activeIncidentCount > 0) {
         // There are active incidents.
+        final Urn latestIncidentUrn = searchResult.getEntities().get(0).getEntity();
+        final IncidentInfo latestIncidentInfo = getIncidentInfo(context, latestIncidentUrn);
+        final Long latestIncidentTimestamp =
+            latestIncidentInfo != null
+                ? latestIncidentInfo.getStatus().getLastUpdated().getTime()
+                : null;
         return new Health(
             HealthStatusType.INCIDENTS,
+            latestIncidentTimestamp != null ? latestIncidentTimestamp : 0,
             HealthStatus.FAIL,
             String.format(
                 "%s active incident%s", activeIncidentCount, activeIncidentCount > 1 ? "s" : ""),
+            new ActiveIncidentHealthDetails(
+                latestIncidentUrn.toString(),
+                latestIncidentInfo != null ? latestIncidentInfo.getTitle() : null,
+                latestIncidentTimestamp,
+                activeIncidentCount),
+            null,
             ImmutableList.of("ACTIVE_INCIDENTS"));
       }
       // Report pass if there are no active incidents.
-      return new Health(HealthStatusType.INCIDENTS, HealthStatus.PASS, null, null);
+      return new Health(
+          HealthStatusType.INCIDENTS, null, HealthStatus.PASS, null, null, null, null);
     } catch (RemoteInvocationException e) {
       log.error("Failed to compute incident health status!", e);
       return null;
+    } catch (URISyntaxException e) {
+      log.error("Failed to parse incident URN!", e);
+      return null;
     }
+  }
+
+  @Nullable
+  private IncidentInfo getIncidentInfo(final QueryContext context, final Urn incidentUrn)
+      throws URISyntaxException, RemoteInvocationException {
+    final EntityResponse entityResponse =
+        _entityClient.getV2(
+            context.getOperationContext(),
+            Constants.INCIDENT_ENTITY_NAME,
+            incidentUrn,
+            Set.of(Constants.INCIDENT_INFO_ASPECT_NAME),
+            false);
+
+    if (entityResponse == null) {
+      return null;
+    }
+    if (!entityResponse.getAspects().containsKey(Constants.INCIDENT_INFO_ASPECT_NAME)) {
+      return null;
+    }
+    return new IncidentInfo(
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME).getValue().data());
+  }
+
+  private List<SortCriterion> buildIncidentsSort() {
+    return List.of(new SortCriterion().setOrder(SortOrder.DESCENDING).setField("lastUpdated"));
   }
 
   private Filter buildIncidentsEntityFilter(final String entityUrn, final String state) {

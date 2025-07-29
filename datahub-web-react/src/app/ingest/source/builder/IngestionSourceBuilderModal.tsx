@@ -10,6 +10,8 @@ import { SelectTemplateStep } from '@app/ingest/source/builder/SelectTemplateSte
 import sourcesJson from '@app/ingest/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
 
+import { IngestionSource } from '@types';
+
 const StyledModal = styled(Modal)`
     && .ant-modal-content {
         border-radius: 16px;
@@ -67,9 +69,18 @@ type Props = {
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel?: () => void;
+    sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({
+    initialState,
+    open,
+    onSubmit,
+    onCancel,
+    sourceRefetch,
+    selectedSource,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -161,6 +172,8 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
+                sourceRefetch={sourceRefetch}
+                selectedSource={selectedSource}
             />
         </StyledModal>
     );

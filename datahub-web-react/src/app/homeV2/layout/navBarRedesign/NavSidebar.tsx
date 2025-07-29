@@ -1,7 +1,9 @@
 import {
+    AppWindow,
     BookBookmark,
     Gear,
     Globe,
+    HardDrives,
     Plugs,
     Question,
     SignOut,
@@ -26,7 +28,7 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
@@ -94,6 +96,10 @@ export const NavSidebar = () => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+    const showManageTags =
+        config?.featureFlags?.showManageTags &&
+        (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const showDataSources =
         config.managedIngestionConfig.enabled &&
@@ -151,6 +157,25 @@ export const NavSidebar = () => {
                         icon: <Tag />,
                         selectedIcon: <Tag weight="fill" />,
                         link: PageRoutes.MANAGE_TAGS,
+                        isHidden: !showManageTags,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Business Attributes',
+                        key: 'businessAttributes',
+                        icon: <HardDrives />,
+                        selectedIcon: <HardDrives weight="fill" />,
+                        link: PageRoutes.BUSINESS_ATTRIBUTE,
+                        isHidden: !businessAttributesFlag,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Applications',
+                        key: 'applications',
+                        icon: <AppWindow />,
+                        selectedIcon: <AppWindow weight="fill" />,
+                        link: PageRoutes.MANAGE_APPLICATIONS,
+                        isHidden: !(appConfig.config.visualConfig.application?.showApplicationInNavigation ?? false),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

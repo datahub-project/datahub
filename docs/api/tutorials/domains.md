@@ -236,7 +236,7 @@ Expected Response:
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_domain_execute_graphql.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_domain.py show_path_as_comment }}
 ```
 
 </TabItem>

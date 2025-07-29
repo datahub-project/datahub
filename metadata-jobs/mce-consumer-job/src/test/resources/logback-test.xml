@@ -1,0 +1,26 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>WARN</level>
+        </filter>
+    </appender>
+
+    <!-- Set root to WARN to eliminate most third-party logs -->
+    <root level="WARN">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+    <!-- Only enable INFO for your application's packages -->
+    <logger name="com.linkedin.metadata" level="INFO"/>
+    <logger name="io.datahubproject" level="INFO"/>
+
+    <!-- Silence particularly noisy packages -->
+    <logger name="org.apache.kafka" level="ERROR"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.eclipse.jetty" level="WARN"/>
+    <logger name="com.linkedin.restli" level="WARN"/>
+    <logger name="org.apache.http" level="WARN"/>
+</configuration>

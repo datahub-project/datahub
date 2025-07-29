@@ -142,7 +142,7 @@ Once these are in place, you're ready to create your Volume Assertions!
 ### Steps
 
 1. Navigate to the Table that to monitor for volume
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -201,11 +201,23 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
+dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
+requiring any manual setup.
+
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/volume-smart-assertion.png"/>
+</p>
+
 ## Stopping a Volume Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Volume** to open the Volume Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -218,24 +230,6 @@ To resume the assertion, simply click **Start**.
 <p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
-
-## Smart Assertions ⚡
-
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
-requiring any manual setup.
-
-If DataHub Cloud is able to detect a pattern in the volume of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
-a recommended Smart Assertion under the `Validations` tab on the Table profile page:
-
-<p align="left">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
-</p>
-
-In order to enable it, simply click **Turn On**. From this point forward, the Smart Assertion will check for changes on a cadence
-based on the Table history.
-
-Don't need it anymore? Smart Assertions can just as easily be turned off by clicking the three-dot "more" button and then **Stop**.
 
 ## Creating Volume Assertions via API
 
@@ -269,6 +263,36 @@ mutation upsertDatasetVolumeAssertionMonitor {
         parameters: {
           minValue: { value: "10", type: NUMBER }
           maxValue: { value: "20", type: NUMBER }
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create an AI Smart Freshness Assertion that runs every 8 hours:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      inferWithAI: true
+      type: ROW_COUNT_TOTAL
+      # you can provide any value here as it will be overwritten continuously by the AI engine
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: { value: "0", type: NUMBER }
+          maxValue: { value: "0", type: NUMBER }
         }
       }
       evaluationSchedule: {

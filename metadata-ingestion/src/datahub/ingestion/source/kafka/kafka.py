@@ -189,6 +189,22 @@ class KafkaConnectionTest:
     SourceCapability.SCHEMA_METADATA,
     "Schemas associated with each topic are extracted from the schema registry. Avro and Protobuf (certified), JSON (incubating). Schema references are supported.",
 )
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Not supported",
+    supported=False,
+)
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+    supported=False,
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Not supported",
+    supported=False,
+)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

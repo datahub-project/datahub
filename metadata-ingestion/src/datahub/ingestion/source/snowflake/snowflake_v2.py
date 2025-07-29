@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -31,6 +32,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.snowflake.constants import (
     GENERIC_PERMISSION_ERROR_KEY,
     SnowflakeEdition,
@@ -96,7 +98,14 @@ logger: logging.Logger = logging.getLogger(__name__)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
+    ],
+)
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(
     SourceCapability.DATA_PROFILING,
@@ -117,7 +126,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 @capability(
@@ -130,6 +139,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class SnowflakeV2Source(
     SnowflakeCommonMixin,
     StatefulIngestionSourceBase,
@@ -310,6 +320,7 @@ class SnowflakeV2Source(
                 SourceCapability.PLATFORM_INSTANCE,
                 SourceCapability.DOMAINS,
                 SourceCapability.DELETION_DETECTION,
+                SourceCapability.TEST_CONNECTION,
             )
         ]
 
@@ -551,11 +562,15 @@ class SnowflakeV2Source(
             and len(discovered_views) == 0
             and len(discovered_streams) == 0
         ):
-            self.structured_reporter.failure(
-                GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views/streams found. Please check permissions.",
-            )
-            return
+            if self.config.warn_no_datasets:
+                self.structured_reporter.warning(
+                    "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty.",
+                )
+            else:
+                self.structured_reporter.failure(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    "No tables/views/streams found. Verify dataset permissions in Snowflake.",
+                )
 
         self.discovered_datasets = (
             discovered_tables + discovered_views + discovered_streams
@@ -570,8 +585,13 @@ class SnowflakeV2Source(
 
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
+                    # TODO: this should be its own section in main recipe
                     config=SnowflakeQueriesExtractorConfig(
-                        window=self.config,
+                        window=BaseTimeWindowConfig(
+                            start_time=self.config.start_time,
+                            end_time=self.config.end_time,
+                            bucket_duration=self.config.bucket_duration,
+                        ),
                         temporary_tables_pattern=self.config.temporary_tables_pattern,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_stats,
@@ -580,6 +600,9 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        query_dedup_strategy=self.config.query_dedup_strategy,
+                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
@@ -732,6 +755,8 @@ class SnowflakeV2Source(
             return None
 
     def is_standard_edition(self) -> bool:
+        if self.config.known_snowflake_edition is not None:
+            return self.config.known_snowflake_edition == SnowflakeEdition.STANDARD
         try:
             self.connection.query(SnowflakeQuery.show_tags())
             return False

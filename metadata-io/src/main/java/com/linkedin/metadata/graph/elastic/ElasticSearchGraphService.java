@@ -14,6 +14,9 @@ import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
@@ -41,6 +44,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -54,22 +58,26 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.script.Script;
 import org.opensearch.script.ScriptType;
 import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
+import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
 public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
-  private final LineageRegistry _lineageRegistry;
-  private final ESBulkProcessor _esBulkProcessor;
-  private final IndexConvention _indexConvention;
-  private final ESGraphWriteDAO _graphWriteDAO;
-  private final ESGraphQueryDAO _graphReadDAO;
-  private final ESIndexBuilder _indexBuilder;
+  private final LineageRegistry lineageRegistry;
+  private final ESBulkProcessor esBulkProcessor;
+  private final IndexConvention indexConvention;
+  private final ESGraphWriteDAO graphWriteDAO;
+  private final ESGraphQueryDAO graphReadDAO;
+  private final ESIndexBuilder indexBuilder;
   private final String idHashAlgo;
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
@@ -138,20 +146,29 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
+  public GraphServiceConfiguration getGraphServiceConfig() {
+    return graphReadDAO.getGraphServiceConfig();
+  }
+
+  public ElasticSearchConfiguration getESSearchConfig() {
+    return graphReadDAO.getConfig();
+  }
+
+  @Override
   public ESIndexBuilder getIndexBuilder() {
-    return _indexBuilder;
+    return indexBuilder;
   }
 
   @Override
   public LineageRegistry getLineageRegistry() {
-    return _lineageRegistry;
+    return lineageRegistry;
   }
 
   @Override
   public void addEdge(@Nonnull final Edge edge) {
     String docId = edge.toDocId(idHashAlgo);
     String edgeDocument = toDocument(edge);
-    _graphWriteDAO.upsertDocument(docId, edgeDocument);
+    graphWriteDAO.upsertDocument(docId, edgeDocument);
   }
 
   @Override
@@ -162,7 +179,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Override
   public void removeEdge(@Nonnull final Edge edge) {
     String docId = edge.toDocId(idHashAlgo);
-    _graphWriteDAO.deleteDocument(docId);
+    graphWriteDAO.deleteDocument(docId);
   }
 
   @Override
@@ -171,13 +188,13 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
     if (graphFilters.noResultsByType()) {
       return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
     }
 
     SearchResponse response =
-        _graphReadDAO.getSearchResponse(opContext, graphFilters, offset, count);
+        graphReadDAO.getSearchResponse(opContext, graphFilters, offset, count);
 
     if (response == null) {
       return new RelatedEntitiesResult(offset, 0, 0, ImmutableList.of());
@@ -203,10 +220,11 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull Urn entityUrn,
       @Nonnull LineageGraphFilters lineageGraphFilters,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
+    count = ConfigUtils.applyLimit(getGraphServiceConfig(), count);
     ESGraphQueryDAO.LineageResponse lineageResponse =
-        _graphReadDAO.getLineage(opContext, entityUrn, lineageGraphFilters, offset, count, maxHops);
+        graphReadDAO.getLineage(opContext, entityUrn, lineageGraphFilters, offset, count, maxHops);
     return new EntityLineageResult()
         .setRelationships(new LineageRelationshipArray(lineageResponse.getLineageRelationships()))
         .setStart(offset)
@@ -229,11 +247,11 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
     Filter urnFilter = createUrnFilter(urn);
 
-    _graphWriteDAO.deleteByQuery(opContext, GraphFilters.outgoingFilter(urnFilter));
-    _graphWriteDAO.deleteByQuery(opContext, GraphFilters.incomingFilter(urnFilter));
+    graphWriteDAO.deleteByQuery(opContext, GraphFilters.outgoingFilter(urnFilter));
+    graphWriteDAO.deleteByQuery(opContext, GraphFilters.incomingFilter(urnFilter));
 
     // Delete all edges where this entity is a lifecycle owner
-    _graphWriteDAO.deleteByQuery(opContext, GraphFilters.ALL, urn.toString());
+    graphWriteDAO.deleteByQuery(opContext, GraphFilters.ALL, urn.toString());
   }
 
   @Override
@@ -254,7 +272,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
               scriptContent,
               Collections.singletonMap("newValue", removed));
 
-      _graphWriteDAO.updateByQuery(script, negativeQuery);
+      graphWriteDAO.updateByQuery(script, negativeQuery);
     }
   }
 
@@ -264,7 +282,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull final Set<String> relationshipTypes,
       @Nonnull final RelationshipFilter relationshipFilter) {
 
-    _graphWriteDAO.deleteByQuery(
+    graphWriteDAO.deleteByQuery(
         opContext, GraphFilters.from(createUrnFilter(urn), relationshipTypes, relationshipFilter));
   }
 
@@ -273,7 +291,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     log.info("Setting up elastic graph index");
     try {
       for (ReindexConfig config : buildReindexConfigs(properties)) {
-        _indexBuilder.buildIndex(config);
+        indexBuilder.buildIndex(config);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -284,16 +302,16 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   public List<ReindexConfig> buildReindexConfigs(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
     return List.of(
-        _indexBuilder.buildReindexState(
-            _indexConvention.getIndexName(INDEX_NAME),
+        indexBuilder.buildReindexState(
+            indexConvention.getIndexName(INDEX_NAME),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
 
   @Override
   public void clear() {
-    _esBulkProcessor.deleteByQuery(
-        QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
+    esBulkProcessor.deleteByQuery(
+        QueryBuilders.matchAllQuery(), true, indexConvention.getIndexName(INDEX_NAME));
   }
 
   @Override
@@ -307,12 +325,13 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
+    count = ConfigUtils.applyLimit(getGraphServiceConfig(), count);
     SearchResponse response =
-        _graphReadDAO.getSearchResponse(opContext, graphFilters, sortCriteria, scrollId, count);
+        graphReadDAO.getSearchResponse(opContext, graphFilters, sortCriteria, scrollId, count);
 
     if (response == null) {
       return new RelatedEntitiesScrollResult(0, 0, null, ImmutableList.of());
@@ -337,6 +356,100 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
         .numResults(totalCount)
         .scrollId(nextScrollId)
         .build();
+  }
+
+  /**
+   * Returns list of edge documents for the given graph node and relationship tuples. Non-directed
+   *
+   * @param opContext operation context
+   * @param edgeTuples Non-directed nodes and relationship types
+   * @return list of documents matching the input criteria
+   */
+  @Override
+  public List<Map<String, Object>> raw(OperationContext opContext, List<EdgeTuple> edgeTuples) {
+
+    if (edgeTuples == null || edgeTuples.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    List<Map<String, Object>> results = new ArrayList<>();
+
+    // Build a single query for all edge tuples
+    BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
+
+    // For each edge tuple, create a query that matches edges in either direction
+    for (EdgeTuple tuple : edgeTuples) {
+      if (tuple.getA() == null || tuple.getB() == null || tuple.getRelationshipType() == null) {
+        continue;
+      }
+
+      // Create a query for this specific edge tuple (non-directed)
+      BoolQueryBuilder tupleQuery = QueryBuilders.boolQuery();
+
+      // Match relationship type
+      tupleQuery.filter(
+          QueryBuilders.termQuery(EDGE_FIELD_RELNSHIP_TYPE, tuple.getRelationshipType()));
+
+      // Match nodes in either direction: (a->b) OR (b->a)
+      BoolQueryBuilder directionQuery = QueryBuilders.boolQuery();
+
+      // Direction 1: a is source, b is destination
+      BoolQueryBuilder direction1 = QueryBuilders.boolQuery();
+      direction1.filter(QueryBuilders.termQuery(EDGE_FIELD_SOURCE + ".urn", tuple.getA()));
+      direction1.filter(QueryBuilders.termQuery(EDGE_FIELD_DESTINATION + ".urn", tuple.getB()));
+
+      // Direction 2: b is source, a is destination
+      BoolQueryBuilder direction2 = QueryBuilders.boolQuery();
+      direction2.filter(QueryBuilders.termQuery(EDGE_FIELD_SOURCE + ".urn", tuple.getB()));
+      direction2.filter(QueryBuilders.termQuery(EDGE_FIELD_DESTINATION + ".urn", tuple.getA()));
+
+      // Either direction is acceptable
+      directionQuery.should(direction1);
+      directionQuery.should(direction2);
+      directionQuery.minimumShouldMatch(1);
+
+      // Combine relationship type and direction queries
+      tupleQuery.filter(directionQuery);
+
+      // Add this tuple query as a "should" clause (OR condition)
+      mainQuery.should(tupleQuery);
+    }
+
+    // At least one of the edge tuples must match
+    mainQuery.minimumShouldMatch(1);
+
+    // Build search request
+    SearchRequest searchRequest = new SearchRequest();
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+
+    searchSourceBuilder.query(mainQuery);
+    // Set a reasonable size limit - adjust based on expected number of edges
+    searchSourceBuilder.size(getGraphServiceConfig().getLimit().getResults().getApiDefault());
+
+    searchRequest.source(searchSourceBuilder);
+    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+
+    // Execute search using the graphReadDAO's search client
+    SearchResponse searchResponse = graphReadDAO.executeSearch(searchRequest);
+    SearchHits hits = searchResponse.getHits();
+
+    // Process each hit
+    for (SearchHit hit : hits.getHits()) {
+      Map<String, Object> sourceMap = hit.getSourceAsMap();
+
+      results.add(sourceMap);
+    }
+
+    // Log if we hit the size limit
+    if (hits.getTotalHits() != null && hits.getTotalHits().value > hits.getHits().length) {
+      log.warn(
+          "Total hits {} exceeds returned size {}. Some edges may be missing. "
+              + "Consider implementing pagination or increasing the size limit.",
+          hits.getTotalHits().value,
+          hits.getHits().length);
+    }
+
+    return results;
   }
 
   private static List<RelatedEntities> searchHitsToRelatedEntities(

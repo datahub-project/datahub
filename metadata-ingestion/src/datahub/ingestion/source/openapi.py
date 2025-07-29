@@ -82,6 +82,9 @@ class OpenApiConfig(ConfigModel):
     get_token: dict = Field(
         default={}, description="Retrieving a token from the endpoint."
     )
+    verify_ssl: bool = Field(
+        default=True, description="Enable SSL certificate verification"
+    )
 
     @validator("bearer_token", always=True)
     def ensure_only_one_token(
@@ -129,12 +132,14 @@ class OpenApiConfig(ConfigModel):
                     tok_url=url4req,
                     method=self.get_token["request_type"],
                     proxies=self.proxies,
+                    verify_ssl=self.verify_ssl,
                 )
             sw_dict = get_swag_json(
                 self.url,
                 token=self.token,
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
+                verify_ssl=self.verify_ssl,
             )  # load the swagger file
 
         else:  # using basic auth for accessing endpoints
@@ -144,6 +149,7 @@ class OpenApiConfig(ConfigModel):
                 password=self.password,
                 swagger_file=self.swagger_file,
                 proxies=self.proxies,
+                verify_ssl=self.verify_ssl,
             )
         return sw_dict
 
@@ -343,6 +349,7 @@ class APISource(Source, ABC):
                         tot_url,
                         token=config.token,
                         proxies=config.proxies,
+                        verify_ssl=config.verify_ssl,
                     )
                 else:
                     response = request_call(
@@ -350,6 +357,7 @@ class APISource(Source, ABC):
                         username=config.username,
                         password=config.password,
                         proxies=config.proxies,
+                        verify_ssl=config.verify_ssl,
                     )
                 if response.status_code == 200:
                     fields2add, root_dataset_samples[dataset_name] = extract_fields(
@@ -380,6 +388,7 @@ class APISource(Source, ABC):
                             tot_url,
                             token=config.token,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     else:
                         response = request_call(
@@ -387,6 +396,7 @@ class APISource(Source, ABC):
                             username=config.username,
                             password=config.password,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)
@@ -415,6 +425,7 @@ class APISource(Source, ABC):
                             tot_url,
                             token=config.token,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     else:
                         response = request_call(
@@ -422,6 +433,7 @@ class APISource(Source, ABC):
                             username=config.username,
                             password=config.password,
                             proxies=config.proxies,
+                            verify_ssl=config.verify_ssl,
                         )
                     if response.status_code == 200:
                         fields2add, _ = extract_fields(response, dataset_name)

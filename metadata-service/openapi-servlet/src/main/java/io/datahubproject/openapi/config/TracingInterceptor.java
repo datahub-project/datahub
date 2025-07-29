@@ -1,6 +1,6 @@
 package io.datahubproject.openapi.config;
 
-import io.datahubproject.metadata.context.TraceContext;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
 import io.opentelemetry.api.trace.StatusCode;
@@ -18,8 +18,8 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class TracingInterceptor implements HandlerInterceptor {
   @Nullable private final Tracer tracer;
 
-  public TracingInterceptor(final TraceContext traceContext) {
-    this.tracer = traceContext.getTracer();
+  public TracingInterceptor(final SystemTelemetryContext systemTelemetryContext) {
+    this.tracer = systemTelemetryContext.getTracer();
   }
 
   @Override
@@ -38,12 +38,12 @@ public class TracingInterceptor implements HandlerInterceptor {
 
       request.setAttribute("span", span);
       Context.current()
-          .with(TraceContext.EVENT_SOURCE_CONTEXT_KEY, new AtomicReference<>(""))
-          .with(TraceContext.SOURCE_IP_CONTEXT_KEY, new AtomicReference<>(""))
+          .with(SystemTelemetryContext.EVENT_SOURCE_CONTEXT_KEY, new AtomicReference<>(""))
+          .with(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY, new AtomicReference<>(""))
           .with(span)
           .makeCurrent();
 
-      TraceContext.enableLogTracing(request);
+      SystemTelemetryContext.enableLogTracing(request);
 
       if (span.getSpanContext().isValid()) {
         SpanContext spanContext = span.getSpanContext();
@@ -54,7 +54,7 @@ public class TracingInterceptor implements HandlerInterceptor {
         String flags = spanContext.getTraceFlags().isSampled() ? "01" : "00";
         response.setHeader("traceparent", String.format("00-%s-%s-%s", traceId, spanId, flags));
 
-        if (TraceContext.isLogTracingEnabled()) {
+        if (SystemTelemetryContext.isLogTracingEnabled()) {
           // Add trace context to MDC for logging
           MDC.put("telemetryId", String.format("[%s-%s] ", traceId, spanId));
         }
@@ -89,8 +89,8 @@ public class TracingInterceptor implements HandlerInterceptor {
         }
       }
 
-      if (TraceContext.isLogTracingEnabled()) {
-        TraceContext.clear();
+      if (SystemTelemetryContext.isLogTracingEnabled()) {
+        SystemTelemetryContext.clear();
         MDC.clear();
       }
     }

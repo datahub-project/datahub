@@ -1,4 +1,5 @@
 import { PartitionOutlined, PicCenterOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
@@ -12,6 +13,7 @@ import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/ut
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType } from '@app/entityV2/shared/utils';
 import { FetchedEntity } from '@app/lineage/types';
 import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
 import { downgradeV2FieldPath } from '@app/lineageV2/lineageUtils';
@@ -58,6 +60,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                         name: 'Lineage',
                         component: LineageTab,
                         icon: PartitionOutlined,
+                        supportsFullsize: true,
                     },
                     {
                         name: 'Properties',
@@ -66,11 +69,24 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
                     },
                 ]}
                 sidebarSections={this.getSidebarSections()}
+                sidebarTabs={this.getSidebarTabs()}
             />
         </TabFullsizedContext.Provider>
     );
 
     getSidebarSections = () => [{ component: SidebarEntityHeader }, { component: SidebarNotesSection }];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Lineage',
+            component: LineageTab,
+            description: "View this data asset's upstream and downstream dependencies",
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
+    ];
 
     getGraphName = () => 'schemaField';
 

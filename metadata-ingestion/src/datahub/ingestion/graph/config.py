@@ -29,6 +29,7 @@ class DatahubClientConfig(ConfigModel):
     openapi_ingestion: Optional[bool] = None
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
+    server_config_refresh_interval: Optional[int] = None
 
     class Config:
         extra = "ignore"
