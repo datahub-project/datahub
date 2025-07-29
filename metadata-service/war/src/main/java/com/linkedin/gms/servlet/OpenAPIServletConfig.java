@@ -19,7 +19,8 @@ import org.springframework.context.annotation.Configuration;
       "io.datahubproject.openapi.analytics",
       "com.linkedin.gms.factory.timeline",
       "com.linkedin.gms.factory.event",
-      "org.springdoc"
+      "org.springdoc",
+      "com.linkedin.gms.factory.system_info"
     })
 @Configuration
 public class OpenAPIServletConfig {}
