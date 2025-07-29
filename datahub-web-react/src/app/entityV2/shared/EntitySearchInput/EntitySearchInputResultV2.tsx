@@ -34,7 +34,7 @@ type Props = {
 export default function EntitySearchInputResultV2({ entity }: Props) {
     const entityRegistry = useEntityRegistry() as EntityRegistry;
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const platformIcon = entityRegistry.getPlatformProperties?.(entity.type, entity)?.properties?.logoUrl;
+    const platformIcon = properties?.platform?.properties?.logoUrl;
 
     const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, entity.type);
 
