@@ -57,6 +57,7 @@ const AssetCollectionModal = () => {
             subtitle="Create a module by selecting assets and information that will be shown to your users"
             onUpsert={handleUpsertAssetCollectionModule}
             submitButtonProps={{ disabled: isDisabled }}
+            bodyStyles={{ overflow: 'hidden' }}
         >
             <ModalContent>
                 <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
