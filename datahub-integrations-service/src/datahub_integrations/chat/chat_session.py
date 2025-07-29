@@ -54,7 +54,7 @@ assert MESSAGE_LENGTH_HARD_LIMIT >= 1.5 * MESSAGE_LENGTH_SOFT_LIMIT
 
 _MAX_SUGGESTIONS = 4
 
-_CHATBOT_MODEL = get_bedrock_model_env_variable(
+CHATBOT_MODEL = get_bedrock_model_env_variable(
     "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
 )
 
@@ -314,9 +314,9 @@ class ChatSession:
 
         response = bedrock_client.converse(
             modelId=(
-                _CHATBOT_MODEL.value
-                if isinstance(_CHATBOT_MODEL, BedrockModel)
-                else _CHATBOT_MODEL
+                CHATBOT_MODEL.value
+                if isinstance(CHATBOT_MODEL, BedrockModel)
+                else CHATBOT_MODEL
             ),
             system=[
                 {"text": _SYSTEM_PROMPT},

@@ -13,6 +13,7 @@ if JUDGE_CACHE_ENABLED and not TYPE_CHECKING:
 
     call_bedrock_llm = _cache.memoize()(call_bedrock_llm)
 
+CHATBOT_AI_JUDGE_MODEL = BedrockModel.CLAUDE_35_SONNET_V2
 
 # Derived from https://github.com/braintrustdata/autoevals/blob/main/templates/closed_q_a.yaml
 LLM_JUDGE_PROMPT = PromptTemplate(
@@ -67,7 +68,7 @@ def chatbot_llm_judge_evaluation(
     )
 
     raw_response = call_bedrock_llm(
-        prompt=prompt_text, model=BedrockModel.CLAUDE_35_SONNET_V2, max_tokens=500
+        prompt=prompt_text, model=CHATBOT_AI_JUDGE_MODEL, max_tokens=500
     )
 
     try:

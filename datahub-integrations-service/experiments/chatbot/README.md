@@ -5,7 +5,8 @@ We have a bunch of test cases / prompts, tied to specific customer instances, al
 To run the bot + evals:
 
 1. `run.py` runs the chatbot on a set of prompts and saves the results to mlflow / local files.
-2. `chat_review.py` allows you to review the results of the chatbot + runs LLM judge evals.
+2. `run_ai_eval.py` runs AI evaluation on a completed chatbot experiment using MLflow evaluate.
+3. `chat_review.py` allows you to review the results of the chatbot + runs LLM judge evals.
 
 ## Eval test case format
 
@@ -16,6 +17,11 @@ To run the bot + evals:
 - `message`: the prompt message
 - `response_guidelines`: the response guidelines for the prompt; passed to the LLM judge
 - `tags`: list of tags
+
+## AI Evaluation
+
+The `run_ai_eval.py` script provides automated evaluation of chatbot experiment results using MLflow's evaluation framework.
+Run with: `python run_ai_eval.py <run-name>`
 
 ## Other tools
 

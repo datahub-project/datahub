@@ -53,7 +53,8 @@ class ToolWrapper:
             f"run_tool_{self.name}",
             span_type=mlflow.entities.SpanType.TOOL,
             attributes={"tool_name": self.name},
-        ):
+        ) as span:
+            span.set_inputs(arguments)
             try:
                 tool_result = asyncer.syncify(self._tool.run, raise_sync_error=False)(
                     arguments

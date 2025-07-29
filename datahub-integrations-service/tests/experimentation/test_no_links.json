@@ -1,0 +1,69 @@
+{
+  "messages": [
+    {
+      "type": "human",
+      "text": "What is the definition of data governance?"
+    },
+    {
+      "type": "tool_call",
+      "tool_use_id": "tool1",
+      "tool_name": "datahub__search",
+      "tool_input": {
+        "query": "data governance"
+      }
+    },
+    {
+      "type": "tool_result",
+      "tool_request": {
+        "type": "tool_call",
+        "tool_use_id": "tool1",
+        "tool_name": "datahub__search",
+        "tool_input": {
+          "query": "data governance"
+        }
+      },
+      "result": {
+        "searchResults": [
+          {
+            "entity": {
+              "urn": "urn:li:glossaryTerm:data-governance-term-456",
+              "properties": {
+                "name": "Data Governance",
+                "description": "Framework for managing data assets"
+              }
+            }
+          },
+          {
+            "entity": {
+              "urn": "urn:li:corpuser:governance.admin@company.com",
+              "properties": {
+                "displayName": "Governance Admin"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_call",
+      "tool_use_id": "tool2",
+      "tool_name": "respond_to_user",
+      "tool_input": {
+        "response": "Data governance is a comprehensive framework that encompasses the policies, procedures, and standards for managing data assets throughout their lifecycle. It involves:\n\n**Key Components:**\n- Data quality management and validation\n- Access control and security policies\n- Data lineage and metadata management\n- Compliance with regulatory requirements\n- Data stewardship roles and responsibilities\n\n**Benefits:**\n- Improved data quality and consistency\n- Better regulatory compliance\n- Enhanced data security and privacy\n- Increased trust in data-driven decisions\n- Reduced operational risks\n\nData governance ensures that data is accurate, accessible, consistent, and secure across the organization while meeting business and regulatory requirements."
+      }
+    },
+    {
+      "type": "tool_result",
+      "tool_request": {
+        "type": "tool_call",
+        "tool_use_id": "tool2",
+        "tool_name": "respond_to_user",
+        "tool_input": {
+          "response": "Data governance is a comprehensive framework that encompasses the policies, procedures, and standards for managing data assets throughout their lifecycle. It involves:\n\n**Key Components:**\n- Data quality management and validation\n- Access control and security policies\n- Data lineage and metadata management\n- Compliance with regulatory requirements\n- Data stewardship roles and responsibilities\n\n**Benefits:**\n- Improved data quality and consistency\n- Better regulatory compliance\n- Enhanced data security and privacy\n- Increased trust in data-driven decisions\n- Reduced operational risks\n\nData governance ensures that data is accurate, accessible, consistent, and secure across the organization while meeting business and regulatory requirements."
+        }
+      },
+      "result": "Response sent to user"
+    }
+  ],
+  "extra_properties": {}
+}

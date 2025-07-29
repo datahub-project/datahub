@@ -7,6 +7,7 @@ from typing import Dict, Sequence
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from loguru import logger
 
 
 def execute_notebook_save_as_html(
@@ -43,7 +44,7 @@ def execute_notebook_save_as_html(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    print(f"Executing notebook: {notebook_path}")
+    logger.info(f"Executing notebook: {notebook_path}")
 
     param_options = []
     for k, v in params.items():
@@ -71,7 +72,7 @@ def execute_notebook_save_as_html(
     ]
     subprocess.run(papermill_command, check=True)  # , cwd=venv_path
     subprocess.run(jupyter_command, check=True)  # , cwd=venv_path
-    print(f"Executed notebook saved to: {executed_notebook_path_html}")
+    logger.info(f"Executed notebook saved to: {executed_notebook_path_html}")
     return executed_notebook_path_html
 
 
@@ -132,24 +133,24 @@ def plot_hist(
         plt.show()
 
         # Print some statistics
-        print(f"{col_name} Statistics:")
-        print(f"Total rows: {df.shape[0]}")
-        print(f"Mean: {df[col_name].mean():.2f}")
-        print(f"Median: {df[col_name].median():.2f}")
-        print(f"P90: {df[col_name].quantile(0.9):.2f}")
-        print(f"Min: {df[col_name].min():.2f}")
-        print(f"Max: {df[col_name].max():.2f}")
+        logger.info(f"{col_name} Statistics:")
+        logger.info(f"Total rows: {df.shape[0]}")
+        logger.info(f"Mean: {df[col_name].mean():.2f}")
+        logger.info(f"Median: {df[col_name].median():.2f}")
+        logger.info(f"P90: {df[col_name].quantile(0.9):.2f}")
+        logger.info(f"Min: {df[col_name].min():.2f}")
+        logger.info(f"Max: {df[col_name].max():.2f}")
 
         # Print breakdown statistics if breakdown_col is provided
         if breakdown_col is not None and breakdown_col in df.columns:
-            print(f"\nBreakdown by {breakdown_col}:")
+            logger.info(f"\nBreakdown by {breakdown_col}:")
             for cat in df[breakdown_col].unique():
                 cat_data = df[df[breakdown_col] == cat][col_name]
-                print(
+                logger.info(
                     f"  {cat}: {len(cat_data)} rows, Mean: {cat_data.mean():.2f}, Median: {cat_data.median():.2f}, P90: {cat_data.quantile(0.9):.2f}"
                 )
     else:
-        print(f"Could not find {col_name} column in the evaluation results.")
+        logger.info(f"Could not find {col_name} column in the evaluation results.")
 
 
 def plot_scatter(
