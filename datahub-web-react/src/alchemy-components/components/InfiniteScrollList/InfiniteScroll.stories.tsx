@@ -41,7 +41,7 @@ const ScrollContainer = styled.div`
 
 // Auto Docs
 const meta = {
-    title: 'Components / InfiniteScrollList',
+    title: 'Lists & Tables / InfiniteScrollList',
     component: InfiniteScrollList,
     parameters: {
         layout: 'centered',
