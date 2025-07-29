@@ -69,6 +69,9 @@ const client = new ApolloClient({
             ActionWorkflowField: {
                 keyFields: false, // Disable normalization for this type
             },
+            ActionWorkflowRequestField: {
+                keyFields: false, // Disable normalization for this type
+            },
         },
         // need to define possibleTypes to allow us to use Apollo cache with union types
         possibleTypes: possibleTypesResult.possibleTypes,

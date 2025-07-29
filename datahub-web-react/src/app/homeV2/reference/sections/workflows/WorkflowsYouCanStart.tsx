@@ -81,8 +81,6 @@ export const WorkflowsYouCanStart = ({ hideIfEmpty, trackClickInSection }: Refer
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [showAllWorkflows, setShowAllWorkflows] = useState(false);
 
-    console.log('workflows', workflows);
-
     if (!isWorkflowsEnabled || loading || (hideIfEmpty && !loading && workflows.length === 0)) {
         return null;
     }

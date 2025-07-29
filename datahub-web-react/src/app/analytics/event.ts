@@ -5,7 +5,9 @@ import { FilterMode } from '@app/search/utils/constants';
 import { ActorType } from '@app/settings/personal/notifications/constants';
 
 import {
+    ActionRequestResult,
     ActionRequestType,
+    ActionWorkflowCategory,
     AllowedValue,
     AssertionType,
     DataHubPageModuleType,
@@ -191,6 +193,9 @@ export enum EventType {
     GiveAnomalyFeedback,
     UndoAnomalyFeedback,
     RetrainAsNewNormal,
+    CreateActionWorkflowFormRequest,
+    ReviewActionWorkflowFormRequest,
+    BatchReviewActionWorkflowFormRequest,
     ClickProductUpdate,
     HomePageTemplateModuleCreate,
     HomePageTemplateModuleAdd,
@@ -1053,6 +1058,27 @@ export interface NotificationSettingsErrorEvent extends BaseEvent {
     actorType: ActorType;
 }
 
+export interface CreateActionWorkflowFormRequestEvent extends BaseEvent {
+    type: EventType.CreateActionWorkflowFormRequest;
+    workflowUrn: string;
+    workflowName: string;
+    workflowCategory?: ActionWorkflowCategory | null;
+    actionRequestUrn: string;
+}
+
+export interface ReviewActionWorkflowFormRequestEvent extends BaseEvent {
+    type: EventType.ReviewActionWorkflowFormRequest;
+    actionRequestUrn: string;
+    actionType: ActionRequestResult;
+    workflowUrn: string;
+}
+
+export interface BatchReviewActionWorkflowFormRequestEvent extends BaseEvent {
+    type: EventType.BatchReviewActionWorkflowFormRequest;
+    actionRequestUrns: string[];
+    actionType: ActionRequestResult;
+}
+
 export interface ExpandLineageEvent extends BaseEvent {
     type: EventType.ExpandLineageEvent;
     direction: LineageDirection;
@@ -1753,6 +1779,9 @@ export type Event =
     | GiveAnomalyFeedbackEvent
     | UndoAnomalyFeedbackEvent
     | RetrainAsNewNormalEvent
+    | CreateActionWorkflowFormRequestEvent
+    | BatchReviewActionWorkflowFormRequestEvent
+    | ReviewActionWorkflowFormRequestEvent
     | ClickProductUpdateEvent
     | CreateActionEvent
     | UpdateActionEvent

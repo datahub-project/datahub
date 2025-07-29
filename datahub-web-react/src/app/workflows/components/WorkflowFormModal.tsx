@@ -1,6 +1,6 @@
 import { Button, Modal } from '@components';
 import { Form } from 'antd';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { AccessFields } from '@app/workflows/components/AccessFields';
@@ -76,6 +76,13 @@ export const WorkflowFormModal: React.FC<Props> = ({
     // Entity selection state for workflows that require entity selection
     const [selectedEntityUrn, setSelectedEntityUrn] = useState<string>(entityUrn || '');
 
+    // Reset selectedEntityUrn when modal opens or entityUrn prop changes
+    useEffect(() => {
+        if (open) {
+            setSelectedEntityUrn(entityUrn || '');
+        }
+    }, [open, entityUrn]);
+
     // Use the selected entity URN if available, otherwise fall back to prop
     const finalEntityUrn = selectedEntityUrn || entityUrn;
 
@@ -95,8 +102,15 @@ export const WorkflowFormModal: React.FC<Props> = ({
     });
 
     // Use read-only state in review mode, otherwise use hook state
-    const formStateResult =
-        mode === WorkflowRequestFormModalMode.REVIEW ? createReadOnlyFormState(workflow, initialFormData) : hookResult;
+    // Memoize the read-only form state to prevent unnecessary re-renders
+    const readOnlyFormState = useMemo(() => {
+        if (mode === WorkflowRequestFormModalMode.REVIEW) {
+            return createReadOnlyFormState(workflow, initialFormData);
+        }
+        return null;
+    }, [mode, workflow, initialFormData]);
+
+    const formStateResult = readOnlyFormState || hookResult;
 
     const {
         formState,
@@ -118,6 +132,16 @@ export const WorkflowFormModal: React.FC<Props> = ({
         return workflow.trigger?.form?.fields.filter((field) => shouldDisplayField(field, currentFormValues)) || [];
     }, [workflow.trigger?.form?.fields, currentFormValues]);
 
+    // Check if all required visible fields are completed
+    const areRequiredFieldsCompleted = useMemo(() => {
+        const requiredFields = visibleFields.filter((field) => field.required);
+
+        return requiredFields.every((field) => {
+            const fieldState = formState?.[field.id];
+            return fieldState?.values?.some((value) => value !== null && value !== undefined && value !== '') ?? false;
+        });
+    }, [visibleFields, formState]);
+
     // Get modal configuration
     const modalConfig = getModalConfig(mode, workflow);
 
@@ -135,6 +159,9 @@ export const WorkflowFormModal: React.FC<Props> = ({
 
     const isEntityRequired = isEntitySelectionRequired(workflow, selectedEntityUrn);
     const isDisabled = isSubmitting || mode === WorkflowRequestFormModalMode.REVIEW;
+
+    // Disable submit button when required fields are not completed or entity selection is missing
+    const isSubmitDisabled = isSubmitting || !areRequiredFieldsCompleted || isEntityRequired;
 
     return (
         <Modal
@@ -219,7 +246,7 @@ export const WorkflowFormModal: React.FC<Props> = ({
                         color="primary"
                         onClick={handleSubmit}
                         isLoading={isSubmitting}
-                        disabled={isSubmitting || isEntityRequired || false}
+                        disabled={isSubmitDisabled}
                         data-testid="workflow-submit-button"
                     >
                         {modalConfig.submitButtonText}

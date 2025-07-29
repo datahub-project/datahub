@@ -123,11 +123,10 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                 .then(() => {
                     if (actionRequest.entity?.urn) {
                         analytics.event({
-                            type: EventType.EntityActionEvent,
-                            actionType: EntityActionType.ProposalAccepted,
-                            actionQualifier: actionRequest.type,
-                            entityType: actionRequest.entity?.type,
-                            entityUrn: actionRequest.entity?.urn,
+                            type: EventType.ReviewActionWorkflowFormRequest,
+                            actionType: ActionRequestResult.Accepted,
+                            actionRequestUrn: actionRequest.urn,
+                            workflowUrn: actionRequest.params?.workflowFormRequest?.workflowUrn || '',
                         });
                     }
                     message.success('Successfully approved the workflow request!');
@@ -199,11 +198,10 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                 .then(() => {
                     if (actionRequest.entity?.urn) {
                         analytics.event({
-                            type: EventType.EntityActionEvent,
-                            actionType: EntityActionType.ProposalRejected,
-                            actionQualifier: actionRequest.type,
-                            entityType: actionRequest.entity?.type,
-                            entityUrn: actionRequest.entity?.urn,
+                            type: EventType.ReviewActionWorkflowFormRequest,
+                            actionType: ActionRequestResult.Rejected,
+                            actionRequestUrn: actionRequest.urn,
+                            workflowUrn: actionRequest.params?.workflowFormRequest?.workflowUrn || '',
                         });
                     }
                     message.info('Workflow request declined.');

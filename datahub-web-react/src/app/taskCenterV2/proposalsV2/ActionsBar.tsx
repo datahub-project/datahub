@@ -127,6 +127,7 @@ const ActionsBar = ({
             if (workflowRequestUrns.length > 0) {
                 await Promise.all(
                     workflowRequestUrns.map((urn) =>
+                        // TODO: Migrate to use batch mutation
                         reviewWorkflowFormRequestMutation({
                             variables: {
                                 input: {
@@ -139,10 +140,10 @@ const ActionsBar = ({
                     ),
                 );
 
-                // Analytics for workflow requests
                 analytics.event({
-                    type: EventType.BatchProposalActionEvent,
-                    ...createBatchProposalActionEvent('ProposalsAccepted', workflowRequests),
+                    type: EventType.BatchReviewActionWorkflowFormRequest,
+                    actionType: ActionRequestResult.Accepted,
+                    actionRequestUrns: workflowRequestUrns,
                 });
             }
 
@@ -174,6 +175,7 @@ const ActionsBar = ({
             // Handle workflow requests individually
             if (workflowRequestUrns.length > 0) {
                 await Promise.all(
+                    // TODO: Migrate to use batch mutation
                     workflowRequestUrns.map((urn) =>
                         reviewWorkflowFormRequestMutation({
                             variables: {
@@ -186,6 +188,12 @@ const ActionsBar = ({
                         }),
                     ),
                 );
+
+                analytics.event({
+                    type: EventType.BatchReviewActionWorkflowFormRequest,
+                    actionType: ActionRequestResult.Rejected,
+                    actionRequestUrns: workflowRequestUrns,
+                });
             }
 
             message.success('Requests declined.');

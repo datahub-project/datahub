@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import { useCallback, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { convertFormStateToRequestFields } from '@app/workflows/utils/fieldValueConversion';
 import {
     type FieldValue,
@@ -91,6 +92,13 @@ export const useWorkflowFormCompletion = (options: UseWorkflowFormCompletionOpti
                     `${workflow.name} request submitted successfully! View your open requests in your Tasks center.`,
                 );
                 onSuccess?.(requestUrn);
+                analytics.event({
+                    type: EventType.CreateActionWorkflowFormRequest,
+                    workflowUrn: workflow.urn,
+                    workflowName: workflow.name,
+                    workflowCategory: workflow.category,
+                    actionRequestUrn: requestUrn,
+                });
             }
         } catch (error) {
             console.error('❌ Error submitting workflow request:', error);

@@ -1,6 +1,6 @@
 import { Avatar, Button } from '@components';
 import { Skeleton } from 'antd';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -13,7 +13,7 @@ import { useListActionWorkflows } from '@app/workflows/hooks/useListActionWorkfl
 import { convertWorkflowRequestFieldsToFormData } from '@app/workflows/utils/fieldValueConversion';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
-import { ActionRequest, ActionWorkflow, ActionWorkflowEntrypointType, EntityType } from '@types';
+import { ActionRequest, ActionWorkflowEntrypointType, EntityType } from '@types';
 
 const StyledSkeleton = styled(Skeleton.Input)`
     border-radius: 4px;
@@ -52,7 +52,6 @@ const ViewDetailsButton = styled(Button)`
 export default function WorkflowFormRequestItem({ actionRequest }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const [showDetailsModal, setShowDetailsModal] = useState(false);
-    const [selectedWorkflow, setSelectedWorkflow] = useState<ActionWorkflow | null>(null);
 
     const workflowFormRequest = actionRequest.params?.workflowFormRequest;
 
@@ -68,27 +67,42 @@ export default function WorkflowFormRequestItem({ actionRequest }: Props) {
     const { workflows, loading } = useListActionWorkflows({
         context,
         enabled: !!workflowFormRequest?.workflowUrn,
-        fetchPolicy: 'cache-first', // First request loads from network, subsequent requests use cache
+        fetchPolicy: 'cache-first', // Cache sharing is a feature, not a bug
     });
 
-    // Find the specific workflow from loaded workflows
-    useEffect(() => {
-        // Helper function to find the specific workflow for this request
-        const findWorkflowForRequest = (): any => {
-            if (!workflows || !workflowFormRequest?.workflowUrn) {
-                return undefined;
-            }
-            return workflows.find((w) => w.urn === workflowFormRequest.workflowUrn);
-        };
-
-        if (workflows.length > 0 && workflowFormRequest?.workflowUrn) {
-            const foundWorkflow = findWorkflowForRequest();
-            if (foundWorkflow) {
-                setSelectedWorkflow(foundWorkflow as ActionWorkflow);
-            }
+    // Find the specific workflow for this request - simplified logic
+    const selectedWorkflow = useMemo(() => {
+        if (!workflows.length || !workflowFormRequest?.workflowUrn) {
+            return null;
         }
+        const found = workflows.find((w) => w.urn === workflowFormRequest.workflowUrn);
+        return found || null;
     }, [workflows, workflowFormRequest?.workflowUrn]);
 
+    // Memoize the modal data to ensure fresh computation for each request
+    const modalInitialFormData = useMemo(
+        () => ({
+            description: actionRequest.description || '',
+            expiresAt: workflowFormRequest?.access?.expiresAt || undefined,
+            fieldValues: workflowFormRequest?.fields
+                ? convertWorkflowRequestFieldsToFormData(workflowFormRequest.fields)
+                : {},
+        }),
+        [actionRequest.description, workflowFormRequest?.access?.expiresAt, workflowFormRequest?.fields],
+    );
+
+    const modalReviewContext = useMemo(
+        () => ({
+            currentStep: workflowFormRequest?.stepState?.stepId,
+            requestUrn: actionRequest.urn,
+            createdBy: actionRequest.created?.actor?.username || 'Unknown User',
+            createdAt: actionRequest.created?.time,
+            createdActor: actionRequest.created?.actor,
+        }),
+        [workflowFormRequest?.stepState?.stepId, actionRequest.urn, actionRequest.created],
+    );
+
+    // Early return after all hooks
     if (!workflowFormRequest) {
         return null;
     }
@@ -170,23 +184,14 @@ export default function WorkflowFormRequestItem({ actionRequest }: Props) {
 
             {showDetailsModal && selectedWorkflow && (
                 <WorkflowFormModal
+                    key={actionRequest.urn} // Force remount when switching between different requests
                     workflow={selectedWorkflow}
                     entityUrn={actionRequest.entity?.urn}
                     open={showDetailsModal}
                     onClose={() => setShowDetailsModal(false)}
                     mode={WorkflowRequestFormModalMode.REVIEW}
-                    initialFormData={{
-                        description: actionRequest.description || '',
-                        expiresAt: workflowFormRequest.access?.expiresAt || undefined,
-                        fieldValues: convertWorkflowRequestFieldsToFormData(workflowFormRequest.fields),
-                    }}
-                    reviewContext={{
-                        currentStep: workflowFormRequest.stepState.stepId,
-                        requestUrn: actionRequest.urn,
-                        createdBy: actionRequest.created?.actor?.username || 'Unknown User',
-                        createdAt: actionRequest.created?.time,
-                        createdActor: actionRequest.created?.actor,
-                    }}
+                    initialFormData={modalInitialFormData}
+                    reviewContext={modalReviewContext}
                 />
             )}
         </>
