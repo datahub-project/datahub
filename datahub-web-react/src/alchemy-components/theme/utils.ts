@@ -5,7 +5,6 @@ import { Theme } from '@conf/theme/types';
 
 import { ColorOptions, DEFAULT_VALUE, FontSizeOptions, MiscColorOptions, RotationOptions } from './config';
 import { foundations } from './foundations';
-import { semanticTokens } from './semantic-tokens';
 
 const { colors, typography, transform } = foundations;
 /*
@@ -67,5 +66,5 @@ export const getStatusColors = (isSuccess?: boolean, warning?: string, isInvalid
     if (warning) {
         return colors.yellow[600];
     }
-    return semanticTokens.colors['border-color'];
+    return colors.gray[100];
 };
