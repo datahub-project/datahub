@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 const meta = {
-    title: 'Media / Carousel',
+    title: 'Components / Carousel',
     component: Carousel,
     parameters: {
         layout: 'centered',
@@ -28,6 +28,15 @@ const meta = {
         dots: {
             description: 'Whether to show dot indicators',
             control: 'boolean',
+        },
+        animateDot: {
+            description: 'Whether to animate the active dot scaling from 0 to full size',
+            control: 'boolean',
+        },
+        dotDuration: {
+            description:
+                'Duration in milliseconds for the dot scale animation. When autoplay is enabled, this automatically matches autoplaySpeed.',
+            control: 'number',
         },
     },
 } satisfies Meta<typeof Carousel>;
@@ -119,6 +128,54 @@ export const WithoutDots: Story = {
                 <SampleSlide title="No Dots 2" color="#fff0f5" />
                 <SampleSlide title="No Dots 3" color="#f0fff5" />
             </Carousel>
+        </div>
+    ),
+};
+
+export const WithAnimatedDot: Story = {
+    args: {
+        autoplay: false,
+        arrows: false,
+        dots: true,
+        animateDot: true,
+    },
+    render: (args) => (
+        <div style={{ width: '400px' }}>
+            <Carousel {...args}>
+                <SampleSlide title="Manual Navigation" color="#e6f3ff" />
+                <SampleSlide title="Click Dots" color="#ffe6f3" />
+                <SampleSlide title="Watch Animation" color="#f3ffe6" />
+            </Carousel>
+            <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+                🖱️ Manual navigation: Click dots to see 3-second grow animation.
+                <br />
+                💡 For autoplay, use the &quot;AutoplayWithProgressDots&quot; story.
+            </p>
+        </div>
+    ),
+};
+
+export const AutoplayWithProgressDots: Story = {
+    args: {
+        autoplay: true,
+        autoplaySpeed: 3000,
+        arrows: false,
+        dots: true,
+        infinite: false, // Stops on last slide instead of looping
+        animateDot: true,
+    },
+    render: (args) => (
+        <div style={{ width: '400px' }}>
+            <Carousel {...args}>
+                <SampleSlide title="Slide 1" color="#ffe6e6" />
+                <SampleSlide title="Slide 2" color="#e6ffe6" />
+                <SampleSlide title="Final Slide" color="#e6e6ff" />
+            </Carousel>
+            <p style={{ marginTop: '16px', textAlign: 'center', fontSize: '14px', color: '#666' }}>
+                🎯 Autoplay: Dot animation duration automatically matches autoplay speed (3s).
+                <br />
+                ⏹️ Stops on last slide (no infinite loop).
+            </p>
         </div>
     ),
 };

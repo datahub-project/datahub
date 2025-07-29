@@ -1,14 +1,23 @@
 import { Carousel as AntCarousel, CarouselProps as AntCarouselProps } from 'antd';
 import React, { ReactNode, forwardRef } from 'react';
-import styled from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 
 import colors from '@components/theme/foundations/colors';
+
+const scaleProgress = keyframes`
+    0% {
+        transform: scale(0);
+    }
+    100% {
+        transform: scale(1);
+    }
+`;
 
 const CarouselContainer = styled.div`
     position: relative;
 `;
 
-const StyledCarousel = styled(AntCarousel)`
+const StyledCarousel = styled(AntCarousel)<{ $animateDot?: boolean; $dotDuration?: number }>`
     .slick-dots {
         display: flex !important;
         justify-content: center;
@@ -29,22 +38,42 @@ const StyledCarousel = styled(AntCarousel)`
                 margin: 0 !important;
                 padding: 0 !important;
                 border-radius: 50%;
-                background: rgba(0, 0, 0, 0.3);
+                background: ${colors.gray[300]};
                 border: none;
                 opacity: 0.6;
                 transition:
                     background-color 0.2s ease,
                     opacity 0.2s ease;
+                transform-origin: center;
 
                 &:hover {
-                    background: rgba(0, 0, 0, 0.7);
+                    background: ${colors.gray[500]};
                     opacity: 1;
                 }
             }
 
             &.slick-active button {
-                background: ${colors.primary[600]};
+                background: ${({ $animateDot }) => ($animateDot ? colors.gray[300] : colors.primary[600])};
                 opacity: 1;
+                position: relative;
+
+                ${({ $animateDot, $dotDuration }) =>
+                    $animateDot && $dotDuration
+                        ? css`
+                              &::before {
+                                  content: '';
+                                  position: absolute;
+                                  top: 0;
+                                  left: 0;
+                                  width: 100%;
+                                  height: 100%;
+                                  border-radius: 50%;
+                                  background: ${colors.primary[600]};
+                                  transform: scale(0);
+                                  animation: ${scaleProgress} ${$dotDuration}ms ease-out forwards;
+                              }
+                          `
+                        : ''}
             }
         }
     }
@@ -57,7 +86,7 @@ const StyledCarousel = styled(AntCarousel)`
 
         &:before {
             font-size: 20px;
-            color: rgba(0, 0, 0, 0.6);
+            color: ${colors.gray[600]};
             transition: color 0.2s ease;
         }
 
@@ -101,6 +130,8 @@ const LeftComponentContainer = styled.div`
 interface CarouselProps extends AntCarouselProps {
     rightComponent?: ReactNode;
     leftComponent?: ReactNode;
+    animateDot?: boolean;
+    dotDuration?: number;
 }
 
 export const Carousel = forwardRef<any, CarouselProps>(
@@ -112,10 +143,16 @@ export const Carousel = forwardRef<any, CarouselProps>(
             dots = true,
             rightComponent,
             leftComponent,
+            animateDot = false,
+            dotDuration,
             ...props
         },
         ref,
     ) => {
+        // When animateDot is enabled, use autoplaySpeed as the dot duration
+        // This ensures the visual progress matches the actual timing
+        const effectiveDotDuration = animateDot && autoplay ? autoplaySpeed : dotDuration;
+
         return (
             <CarouselContainer>
                 <StyledCarousel
@@ -124,6 +161,8 @@ export const Carousel = forwardRef<any, CarouselProps>(
                     autoplaySpeed={autoplaySpeed}
                     arrows={arrows}
                     dots={dots}
+                    $animateDot={animateDot}
+                    $dotDuration={effectiveDotDuration}
                     {...props}
                 />
                 {leftComponent && <LeftComponentContainer>{leftComponent}</LeftComponentContainer>}

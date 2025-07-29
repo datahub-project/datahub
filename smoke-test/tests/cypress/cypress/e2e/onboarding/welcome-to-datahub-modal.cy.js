@@ -1,12 +1,12 @@
 import { aliasQuery, hasOperationName } from "../utils";
 
 describe("WelcomeToDataHubModal", () => {
-  const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
+  const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
   const THEME_V2_STATUS_KEY = "isThemeV2Enabled";
 
   beforeEach(() => {
     cy.window().then((win) => {
-      win.localStorage.removeItem(SKIP_ONBOARDING_TOUR_KEY);
+      win.localStorage.removeItem(SKIP_WELCOME_MODAL_KEY);
       cy.skipIntroducePage();
       win.localStorage.setItem(THEME_V2_STATUS_KEY, "true");
     });
@@ -28,12 +28,14 @@ describe("WelcomeToDataHubModal", () => {
 
   afterEach(() => {
     cy.window().then((win) => {
-      win.localStorage.removeItem(SKIP_ONBOARDING_TOUR_KEY);
+      win.localStorage.removeItem(SKIP_WELCOME_MODAL_KEY);
       win.localStorage.removeItem(THEME_V2_STATUS_KEY);
     });
   });
 
   it("should display the modal for first-time users", () => {
+    cy.intercept("POST", "**/track**", { statusCode: 200 }).as("trackEvents");
+
     cy.loginForOnboarding();
     cy.visit("/");
 
@@ -47,15 +49,13 @@ describe("WelcomeToDataHubModal", () => {
     cy.findByRole("dialog").should("not.exist");
 
     cy.window().then((win) => {
-      expect(win.localStorage.getItem(SKIP_ONBOARDING_TOUR_KEY)).to.equal(
-        "true",
-      );
+      expect(win.localStorage.getItem(SKIP_WELCOME_MODAL_KEY)).to.equal("true");
     });
   });
 
   it("should not display the modal if user has already seen it", () => {
     cy.window().then((win) => {
-      win.localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
+      win.localStorage.setItem(SKIP_WELCOME_MODAL_KEY, "true");
     });
 
     cy.loginForOnboarding();
@@ -87,10 +87,9 @@ describe("WelcomeToDataHubModal", () => {
       expect(modalExitEvent.request.body.currentSlide).to.be.a("number");
       expect(modalExitEvent.request.body.totalSlides).to.be.a("number");
     });
+
     cy.window().then((win) => {
-      expect(win.localStorage.getItem(SKIP_ONBOARDING_TOUR_KEY)).to.equal(
-        "true",
-      );
+      expect(win.localStorage.getItem(SKIP_WELCOME_MODAL_KEY)).to.equal("true");
     });
   });
 });

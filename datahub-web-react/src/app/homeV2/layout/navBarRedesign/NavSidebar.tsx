@@ -14,8 +14,10 @@ import {
     UserCircle,
 } from '@phosphor-icons/react';
 import React, { useContext, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
@@ -89,6 +91,8 @@ export const NavSidebar = () => {
     const userContext = useUserContext();
     const me = useUserContext();
     const isHomePage = useIsHomePage();
+    const showHomepageRedesign = useShowHomePageRedesign();
+    const location = useLocation();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
@@ -263,6 +267,11 @@ export const NavSidebar = () => {
                             if (isHomePage) {
                                 triggerModalTour();
                             } else {
+                                // Track Product Tour button click for non-home pages
+                                analytics.event({
+                                    type: EventType.ProductTourButtonClickEvent,
+                                    originPage: location.pathname,
+                                });
                                 showOnboardingTour();
                             }
                         },

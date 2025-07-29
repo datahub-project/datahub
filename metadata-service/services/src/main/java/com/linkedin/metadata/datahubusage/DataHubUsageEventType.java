@@ -136,7 +136,8 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_INTERACT_EVENT("WelcomeToDataHubModalInteractEvent"),
   WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
-      "WelcomeToDataHubModalClickViewDocumentationEvent");
+      "WelcomeToDataHubModalClickViewDocumentationEvent"),
+  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent");
 
   private final String type;
 

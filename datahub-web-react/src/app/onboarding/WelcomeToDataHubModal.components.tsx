@@ -7,12 +7,11 @@ import colors from '@components/theme/foundations/colors';
 /**
  * Container for individual carousel slides with centered content
  */
-export const SlideContainer = styled.div<{ isActive?: boolean }>`
+export const SlideContainer = styled.div`
     position: relative; /* Provide positioning context for absolutely positioned children */
     text-align: left;
     margin-bottom: 32px;
     min-height: 470px;
-    visibility: ${(props) => (props.isActive === false ? 'hidden' : 'visible')};
 `;
 
 /**

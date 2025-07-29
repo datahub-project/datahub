@@ -141,6 +141,7 @@ export enum EventType {
     WelcomeToDataHubModalInteractEvent,
     WelcomeToDataHubModalExitEvent,
     WelcomeToDataHubModalClickViewDocumentationEvent,
+    ProductTourButtonClickEvent,
 }
 
 /**
@@ -910,7 +911,6 @@ export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
 
 export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalInteractEvent;
-    direction: 'forward' | 'backward';
     currentSlide: number;
     totalSlides: number;
 }
@@ -925,6 +925,11 @@ export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
 export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
     url: string;
+}
+
+export interface ProductTourButtonClickEvent extends BaseEvent {
+    type: EventType.ProductTourButtonClickEvent;
+    originPage: string; // Page where the button was clicked
 }
 
 export interface ClickProductUpdateEvent extends BaseEvent {
@@ -1128,4 +1133,5 @@ export type Event =
     | WelcomeToDataHubModalViewEvent
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
-    | WelcomeToDataHubModalClickViewDocumentationEvent;
+    | WelcomeToDataHubModalClickViewDocumentationEvent
+    | ProductTourButtonClickEvent;

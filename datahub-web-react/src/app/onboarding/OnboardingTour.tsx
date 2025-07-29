@@ -45,6 +45,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     const filteredStepIds: string[] = filteredSteps.map((step) => step?.id).filter((stepId) => !!stepId) as string[];
 
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
+    const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
 
     function closeTour() {
         setIsOpen(false);
@@ -60,7 +61,7 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         });
     }
 
-    if (!filteredSteps.length) return null;
+    if (!filteredSteps.length || shouldSkipOnboardingTour) return null;
 
     return (
         <Tour

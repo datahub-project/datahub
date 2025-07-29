@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import analytics, { EventType } from '@app/analytics';
 import { useIsDocumentationInferenceEnabled } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
-import useShouldSkipOnboardingTour, { SKIP_ONBOARDING_TOUR_KEY } from '@app/onboarding/useShouldSkipOnboardingTour';
 import {
     LoadingContainer,
     SlideContainer,
@@ -18,6 +17,7 @@ import welcomeModalHomeScreenshot from '@images/welcome-modal-home-screenshot.pn
 const SLIDE_DURATION_MS = 10000;
 const DATAHUB_DOCS_URL = 'https://docs.datahub.com/docs/category/features';
 const WELCOME_TO_DATAHUB_MODAL_TITLE = 'Welcome to DataHub';
+const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 
 interface VideoSources {
     search: string;
@@ -26,18 +26,20 @@ interface VideoSources {
     aiDocs?: string;
 }
 
+function checkShouldSkipWelcomeModal() {
+    return localStorage.getItem(SKIP_WELCOME_MODAL_KEY) === 'true';
+}
+
 export const WelcomeToDataHubModal = () => {
     const [shouldShow, setShouldShow] = useState(false);
     const [currentSlide, setCurrentSlide] = useState(0);
-    const [isTransitioning, setIsTransitioning] = useState(false);
     const [videoSources, setVideoSources] = useState<VideoSources | null>(null);
     const [videoLoading, setVideoLoading] = useState(false);
     const [videosReady, setVideosReady] = useState<{ [key in keyof VideoSources]?: boolean }>({});
     const hasTrackedView = useRef(false);
-    const slideTimer = useRef<NodeJS.Timeout | null>(null);
     const carouselRef = useRef<any>(null);
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
-    const shouldSkipTour = useShouldSkipOnboardingTour();
+    const shouldSkipWelcomeModal = checkShouldSkipWelcomeModal();
     const isDocumentationSlideEnabled = useIsDocumentationInferenceEnabled();
     const TOTAL_CAROUSEL_SLIDES = isDocumentationSlideEnabled ? 5 : 4;
     const MODAL_IMAGE_WIDTH_RAW = 620;
@@ -47,19 +49,17 @@ export const WelcomeToDataHubModal = () => {
 
     // Automatic tour for first-time home page visitors
     useEffect(() => {
-        if (!shouldSkipTour) {
+        if (!shouldSkipWelcomeModal) {
             setShouldShow(true);
             setCurrentSlide(0);
-            setIsTransitioning(false);
         }
-    }, [shouldSkipTour]);
+    }, [shouldSkipWelcomeModal]);
 
     // Manual tour trigger from Product Tour buttons
     useEffect(() => {
         if (isModalTourOpen) {
             setShouldShow(true);
             setCurrentSlide(0);
-            setIsTransitioning(false);
         }
     }, [isModalTourOpen]);
 
@@ -117,85 +117,17 @@ export const WelcomeToDataHubModal = () => {
         }
     }, [shouldShow]);
 
-    // Auto-advance slides
-    useEffect(() => {
-        if (shouldShow && videoSources) {
-            slideTimer.current = setInterval(() => {
-                setCurrentSlide((prev) => {
-                    const nextSlide = (prev + 1) % TOTAL_CAROUSEL_SLIDES;
-                    if (carouselRef.current) {
-                        carouselRef.current.goTo(nextSlide);
-                    }
-                    return nextSlide;
-                });
-            }, SLIDE_DURATION_MS);
-
-            return () => {
-                if (slideTimer.current) {
-                    clearInterval(slideTimer.current);
-                }
-            };
-        }
-
-        return undefined;
-    }, [TOTAL_CAROUSEL_SLIDES, shouldShow, videoSources]);
-
-    // Add keyboard navigation
-    useEffect(() => {
-        const handleKeyPress = (event: KeyboardEvent) => {
-            if (!shouldShow) return;
-
-            if (event.key === 'ArrowLeft') {
-                const prevSlide = currentSlide > 0 ? currentSlide - 1 : TOTAL_CAROUSEL_SLIDES - 1;
-                carouselRef.current?.goTo(prevSlide);
-            } else if (event.key === 'ArrowRight') {
-                const nextSlide = (currentSlide + 1) % TOTAL_CAROUSEL_SLIDES;
-                carouselRef.current?.goTo(nextSlide);
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyPress);
-        return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [shouldShow, currentSlide, TOTAL_CAROUSEL_SLIDES]);
-
-    const handleBeforeSlideChange = (_from: number, _to: number) => {
-        // Start transition when carousel animation begins
-        setIsTransitioning(true);
-    };
-
     const handleSlideChange = (current: number) => {
         // Called after carousel animation completes
         if (current >= 0 && current < TOTAL_CAROUSEL_SLIDES) {
-            const direction = current > currentSlide ? 'forward' : 'backward';
-
             analytics.event({
                 type: EventType.WelcomeToDataHubModalInteractEvent,
-                direction,
                 currentSlide: current + 1,
                 totalSlides: TOTAL_CAROUSEL_SLIDES,
             });
 
             setCurrentSlide(current);
-            // End transition now that animation is complete
-            setIsTransitioning(false);
         }
-
-        // Clear and restart timer on manual navigation
-        if (slideTimer.current) {
-            clearInterval(slideTimer.current);
-        }
-
-        slideTimer.current = setInterval(() => {
-            setCurrentSlide((prev) => {
-                const nextSlide = (prev + 1) % TOTAL_CAROUSEL_SLIDES;
-                if (carouselRef.current) {
-                    carouselRef.current.goTo(nextSlide);
-                }
-                return nextSlide;
-            });
-        }, SLIDE_DURATION_MS);
-
-        return undefined;
     };
 
     function closeTour(
@@ -210,19 +142,12 @@ export const WelcomeToDataHubModal = () => {
 
         setShouldShow(false);
         setCurrentSlide(0); // Reset to first slide for next opening
-        setIsTransitioning(false); // Reset transition state
 
-        // Clean up timer
-        if (slideTimer.current) {
-            clearInterval(slideTimer.current);
-        }
-
-        // Close modal tour context if it was manually triggered
         if (isModalTourOpen) {
             closeModalTour();
         } else {
             // Only set localStorage for automatic first-time tours, not manual triggers
-            localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, 'true');
+            localStorage.setItem(SKIP_WELCOME_MODAL_KEY, 'true');
         }
     }
 
@@ -243,7 +168,7 @@ export const WelcomeToDataHubModal = () => {
                     },
                 ]}
             >
-                <SlideContainer isActive>
+                <SlideContainer>
                     <Heading type="h2">&nbsp;</Heading>
                     <VideoContainer>
                         <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading...</LoadingContainer>
@@ -264,10 +189,11 @@ export const WelcomeToDataHubModal = () => {
         <Modal title={WELCOME_TO_DATAHUB_MODAL_TITLE} width={MODAL_WIDTH} onCancel={() => closeTour('close_button')}>
             <Carousel
                 ref={carouselRef}
-                autoplay={false}
-                beforeChange={handleBeforeSlideChange}
+                autoplay
+                autoplaySpeed={SLIDE_DURATION_MS}
                 afterChange={handleSlideChange}
                 arrows={false}
+                animateDot
                 leftComponent={
                     currentSlide === TOTAL_CAROUSEL_SLIDES - 1 ? (
                         <StyledDocsLink
@@ -293,8 +219,9 @@ export const WelcomeToDataHubModal = () => {
                         </Button>
                     ) : undefined
                 }
+                infinite={false}
             >
-                <SlideContainer isActive={isTransitioning || currentSlide === 0}>
+                <SlideContainer>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Find Any Asset, Anywhere
                     </Heading>
@@ -310,7 +237,7 @@ export const WelcomeToDataHubModal = () => {
                         />
                     </VideoContainer>
                 </SlideContainer>
-                <SlideContainer isActive={isTransitioning || currentSlide === 1}>
+                <SlideContainer>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Understand Your Data&apos;s Origin
                     </Heading>
@@ -326,7 +253,7 @@ export const WelcomeToDataHubModal = () => {
                         />
                     </VideoContainer>
                 </SlideContainer>
-                <SlideContainer isActive={isTransitioning || currentSlide === 2}>
+                <SlideContainer>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Manage Breaking Changes Confidently
                     </Heading>
@@ -343,7 +270,7 @@ export const WelcomeToDataHubModal = () => {
                     </VideoContainer>
                 </SlideContainer>
                 {videoSources.aiDocs && (
-                    <SlideContainer isActive={isTransitioning || currentSlide === 3}>
+                    <SlideContainer>
                         <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                             Documentation Without the Work
                         </Heading>
@@ -360,7 +287,7 @@ export const WelcomeToDataHubModal = () => {
                         </VideoContainer>
                     </SlideContainer>
                 )}
-                <SlideContainer isActive={isTransitioning || currentSlide === TOTAL_CAROUSEL_SLIDES - 1}>
+                <SlideContainer>
                     <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
                         Ready to Get Started?
                     </Heading>
