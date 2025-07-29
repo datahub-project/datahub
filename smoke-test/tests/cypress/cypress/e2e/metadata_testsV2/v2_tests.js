@@ -67,7 +67,8 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTestIdVisible(`preview-${urn}`)
       .parent()
       .contains("Run Test")
-      .click();
+      .as("runTest");
+    cy.get("@runTest").click();
     cy.waitTextVisible("Passed");
     cy.get('[role="dialog"] [data-testid="embedded-search-bar"]')
       .clear()
@@ -92,6 +93,7 @@ describe("create, edit and remove metadata test", () => {
     cy.reload();
     cy.waitTextVisible("No results found");
     // edit the test to make it fail, verify the result, save test
+    cy.wait(2000);
     cy.visit("/tests");
     cy.contains(testName).click();
     cy.waitTextVisible("Edit Metadata Test");

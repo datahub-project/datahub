@@ -10,12 +10,12 @@ const clickElement = (locator) => {
 
 const setAssertionMonitorsFlag = (isOn) => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
-    if (hasOperationName(req, "appConfig")) {
-      req.reply((res) => {
+    req.on("response", (res) => {
+      if (hasOperationName(req, "appConfig")) {
         // Modify the response body directly
         res.body.data.appConfig.featureFlags.assertionMonitorsEnabled = isOn;
-      });
-    }
+      }
+    });
   });
 };
 
