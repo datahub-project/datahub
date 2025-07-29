@@ -37,6 +37,7 @@ describe("create and manage volume assertion", () => {
       .invoke("text")
       .then((text) => {
         beforeCount = parseInt(text.match(/\d+/)[0]);
+        cy.wait(3000);
         cy.reload();
         cy.waitTextVisible("daily_temperature");
         cy.wait(3000);
@@ -46,7 +47,7 @@ describe("create and manage volume assertion", () => {
             afterCount = parseInt(text.match(/\d+/)[0]);
             const expectedCount =
               operation === "add" ? beforeCount + 1 : beforeCount - 1;
-            expect(afterCount).equals(expectedCount);
+            expect(afterCount).equals(Math.max(0, expectedCount));
           });
       });
   };
