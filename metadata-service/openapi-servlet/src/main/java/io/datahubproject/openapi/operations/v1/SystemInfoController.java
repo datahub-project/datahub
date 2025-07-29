@@ -18,6 +18,23 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST controller for system information endpoints.
+ *
+ * <p>Provides comprehensive system information including:
+ *
+ * <ul>
+ *   <li>Spring component status (GMS, MAE Consumer, MCE Consumer)
+ *   <li>System configuration properties with metadata
+ *   <li>Property source information and filtering statistics
+ * </ul>
+ *
+ * <p>All endpoints return pretty-printed JSON for better readability in debugging/admin scenarios.
+ * This follows the same pattern used by /config endpoints in the codebase.
+ *
+ * <p><strong>Security Note:</strong> These endpoints expose system configuration data. Sensitive
+ * properties (passwords, secrets, keys) are automatically redacted as ***REDACTED***.
+ */
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -34,7 +51,8 @@ public class SystemInfoController {
   @Operation(
       summary = "Get complete system information",
       description =
-          "Retrieves comprehensive system information including Spring components and system properties with metadata")
+          "Retrieves comprehensive system information including Spring components and system properties with metadata. "
+              + "Returns pretty-printed JSON for better readability. Sensitive properties are automatically redacted.")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -60,7 +78,9 @@ public class SystemInfoController {
   @GetMapping(path = "/spring-components", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
       summary = "Get Spring components information",
-      description = "Retrieves information about Spring beans and components")
+      description =
+          "Retrieves information about Spring components including GMS, MAE Consumer, and MCE Consumer status. "
+              + "Returns pretty-printed JSON for better readability.")
   @ApiResponses(
       value = {
         @ApiResponse(
@@ -85,14 +105,15 @@ public class SystemInfoController {
 
   @GetMapping(path = "/properties", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      summary = "Get system properties with metadata",
+      summary = "Get detailed system properties",
       description =
-          "Retrieves system properties with detailed metadata including sources and filtering information")
+          "Retrieves detailed system properties information with metadata including property sources and filtering. "
+              + "Returns pretty-printed JSON for better readability. Sensitive properties are automatically redacted.")
   @ApiResponses(
       value = {
         @ApiResponse(
             responseCode = "200",
-            description = "Successfully retrieved system properties"),
+            description = "Successfully retrieved system properties information"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
   public ResponseEntity<String> getSystemPropertiesInfo() {
@@ -112,19 +133,20 @@ public class SystemInfoController {
 
   @GetMapping(path = "/properties/simple", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
-      summary = "Get configuration properties as simple map",
+      summary = "Get simple system properties map",
       description =
-          "Retrieves system configuration properties as a simple key-value map (for backward compatibility)")
+          "Retrieves system properties as a simple key-value map for backward compatibility. "
+              + "Returns pretty-printed JSON for better readability. Sensitive properties are automatically redacted.")
   @ApiResponses(
       value = {
         @ApiResponse(
             responseCode = "200",
-            description = "Successfully retrieved configuration properties"),
+            description = "Successfully retrieved system properties map"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
       })
   public ResponseEntity<String> getPropertiesAsMap() {
     try {
-      log.debug("Request received for configuration properties as map");
+      log.debug("Request received for simple system properties map");
       Map<String, Object> response = systemInfoService.getPropertiesAsMap();
 
       // Return pretty-printed JSON for better readability in debugging/admin scenarios.
@@ -132,7 +154,7 @@ public class SystemInfoController {
       String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
       return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(json);
     } catch (Exception e) {
-      log.error("Error retrieving configuration properties", e);
+      log.error("Error retrieving system properties map", e);
       return ResponseEntity.internalServerError().build();
     }
   }

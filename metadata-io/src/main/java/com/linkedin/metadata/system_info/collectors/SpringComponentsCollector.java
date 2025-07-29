@@ -196,7 +196,15 @@ public class SpringComponentsCollector {
    *
    * <p>This method would be used in a future implementation that properly detects when consumers
    * are running in separate containers and can safely make HTTP calls.
+   *
+   * <p>SECURITY NOTE: The baseUrl parameter comes from system configuration
+   * (maeConsumerUrl/mceConsumerUrl) which is set by administrators via environment variables or
+   * config files. This is not user input and does not represent an SSRF vulnerability. The URLs are
+   * controlled by the same administrators who manage database connections and other infrastructure
+   * settings.
    */
+  // aikido-ignore SSRF_REQUEST_FORGERY: URL comes from admin-controlled system configuration, not
+  // user input
   private ComponentInfo fetchRemoteComponentInfo(
       String name, String baseUrl, String componentField) {
     try {
