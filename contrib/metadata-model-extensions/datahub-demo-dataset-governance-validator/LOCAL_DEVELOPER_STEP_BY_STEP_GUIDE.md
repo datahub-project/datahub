@@ -15,26 +15,51 @@ Create `build.gradle` with the following content:
 
 ```gradle
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
 }
 
-group = 'com.linkedin.metadata'
-version = '1.0.0'
+group = 'com.linkedin.datahub'
+version = '0.1.0'
 
 repositories {
     mavenCentral()
     maven {
+        name "LinkedIn"
         url "https://linkedin.jfrog.io/artifactory/open-source/"
     }
 }
 
 dependencies {
-    implementation 'io.acryl:datahub-entity-registry:0.13.2'
-    implementation 'com.linkedin.datahub:datahub-metadata-models:0.13.2'
-    implementation 'org.slf4j:slf4j-api:1.7.36'
+    // DataHub dependencies (using file dependencies that work from contrib/)
+    // Check if we're building from within DataHub repo
+    def datahubRoot = file('../../../')
+    def entityRegistryJar = file("${datahubRoot}/entity-registry/build/libs/entity-registry.jar")
+    def liUtilsJar = file("${datahubRoot}/li-utils/build/libs/li-utils.jar")
+    def metadataModelsJar = file("${datahubRoot}/metadata-models/build/libs/metadata-models.jar")
 
-    compileOnly 'org.projectlombok:lombok:1.18.24'
-    annotationProcessor 'org.projectlombok:lombok:1.18.24'
+    if (entityRegistryJar.exists()) {
+        implementation files(entityRegistryJar)
+        implementation files("${datahubRoot}/li-utils/build/libs/li-utils-data-template.jar")
+        implementation files("${datahubRoot}/metadata-models/build/libs/metadata-models-data-template.jar")
+        implementation files("${datahubRoot}/entity-registry/build/libs/entity-registry-data-template.jar")
+        implementation files(liUtilsJar)
+        implementation files(metadataModelsJar)
+    } else {
+        // Fallback for standalone usage
+        println "Warning: DataHub JARs not found. Build DataHub first or provide JAR files."
+    }
+
+    // Core dependencies needed for compilation
+    implementation 'com.linkedin.pegasus:data:29.65.7'
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    implementation 'com.google.guava:guava:31.1-jre'
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    testImplementation 'org.mockito:mockito-core:4.11.0'
+    testImplementation 'org.mockito:mockito-junit-jupiter:4.11.0'
 }
 
 java {
@@ -42,19 +67,56 @@ java {
     targetCompatibility = JavaVersion.VERSION_11
 }
 
-// Create model plugin structure
-task createModelPlugin(type: Copy) {
-    dependsOn jar
-    from jar
-    from 'src/main/resources/entity-registry.yml'
-    into "$buildDir/model-plugin"
+test {
+    useJUnitPlatform()
 }
 
-// Deploy to DataHub plugins directory
-task deployPlugin(type: Copy) {
-    dependsOn createModelPlugin
-    from "$buildDir/model-plugin"
-    into "${System.properties['user.home']}/.datahub/plugins/models/dataset-governance-validator/1.0.0"
+// Build plugin JAR
+jar {
+    archiveBaseName = 'datahub-demo-dataset-governance-validator'
+    manifest {
+        attributes(
+            'Implementation-Title': 'DataHub Demo Dataset Governance Validator',
+            'Implementation-Version': project.version
+        )
+    }
+}
+
+// Create model plugin directory structure and deploy
+task createModelPlugin(type: Copy, dependsOn: jar) {
+    def pluginDir = file("build/model-plugin/dataset-governance-validator/1.0.0")
+    pluginDir.mkdirs()
+
+    from jar.archiveFile
+    into pluginDir
+
+    doLast {
+        // Copy the entity registry to the plugin directory
+        copy {
+            from 'src/main/resources/entity-registry.yml'
+            into pluginDir
+        }
+        println "Created model plugin in build/model-plugin/"
+    }
+}
+
+// Deploy to local DataHub plugins directory
+task deployPlugin(type: Copy, dependsOn: createModelPlugin) {
+    def pluginBaseDir = "${System.getProperty('user.home')}/.datahub/plugins/models"
+    def localPluginDir = file("${pluginBaseDir}/dataset-governance-validator/1.0.0")
+
+    from file("build/model-plugin/dataset-governance-validator/1.0.0")
+    into localPluginDir
+
+    doLast {
+        println "Deployed model plugin to ${localPluginDir}"
+        println "Plugin structure:"
+        fileTree(localPluginDir).visit { element ->
+            if (!element.isDirectory()) {
+                println "  ${element.relativePath}"
+            }
+        }
+    }
 }
 ```
 
@@ -255,7 +317,7 @@ This creates the plugin structure at:
 ~/.datahub/plugins/models/
 └── dataset-governance-validator/
     └── 1.0.0/
-        ├── datahub-dataset-governance-validator-1.0.0.jar
+        ├── datahub-demo-dataset-governance-validator-0.1.0.jar
         └── entity-registry.yml
 ```
 
