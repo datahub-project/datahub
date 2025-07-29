@@ -9,6 +9,16 @@ DataHub’s GraphQL API is designed to power the UI. The following guidelines ar
 
 ## General Best Practices
 
+### Avoid Using Mutations
+
+GraphQL's mutations in DataHub are primarily designed to support user interface interactions and should generally be
+avoided in programmatic use cases. While mutations are implemented and available through the GraphQL API,
+they are not intended for high-throughput scenarios or bulk operations commonly found in data integration workflows.
+
+For programmatic metadata management, data ingestion, and bulk operations, use the **Python SDK** instead.
+The Python SDK is available as part of the `acryl-datahub` package and includes comprehensive examples for common use
+cases. For detailed usage instructions, see the [Python SDK documentation](../../metadata-ingestion/as-a-library.md).
+
 ### Query Optimizations
 
 > One of GraphQL's biggest advantages over a traditional REST API is its support for **declarative data fetching**. Each component can (and should) query exactly the fields it requires to render, with no superfluous data sent over the network. If instead your root component executes a single, enormous query to obtain data for all of its children, it might query on behalf of components that _aren't even rendered_ given the current state. This can result in a delayed response, and it drastically reduces the likelihood that the query's result can be reused by a **server-side response cache**. [[ref](https://www.apolloGraphQL.com/docs/react/data/operation-best-practices#query-only-the-data-you-need-where-you-need-it)]
