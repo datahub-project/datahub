@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p>DataHub Secures $35 Million Series B</p><a href="https://datahub.com/news/series-b-announcement/" target="_blank" class="button"><div>Read the announcement<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p><strong>Town Hall August 21:</strong> The Latest in DataHub Lineage</p><a href="https://events.datahub.com/august-town-hall-2025?utm_source=webinar&utm_medium=&utm_campaign=17099074-FY25-Q3-Town-Hall" target="_blank" class="button"><div>Save your spot<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
