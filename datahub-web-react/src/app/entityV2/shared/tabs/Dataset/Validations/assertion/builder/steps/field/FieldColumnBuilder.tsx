@@ -122,7 +122,7 @@ export const FieldColumnBuilder = ({ value, onChange, disabled, isEditMode, onCl
                                     });
                                 }}
                                 style={{ paddingLeft: 2, paddingRight: 2, marginLeft: 4 }}
-                                disabled={connectionForEntityExists}
+                                disabled={!connectionForEntityExists}
                             >
                                 Bulk-Create Smart Assertions
                             </Button>
