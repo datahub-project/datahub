@@ -27,17 +27,3 @@ class LocalFileSystem(FileSystem):
             return FileInfo(path, os.path.getsize(path), is_file=True)
         else:
             return FileInfo(path, 0, is_file=False)
-
-    def write(self, path: str, content: str, **kwargs: Any) -> None:
-        """Write content to a local file."""
-        # Create parent directories if they don't exist
-        p = pathlib.Path(path)
-        p.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write the content
-        with p.open("w", **kwargs) as f:
-            f.write(content)
-
-    def exists(self, path: str) -> bool:
-        """Check if a file exists locally."""
-        return pathlib.Path(path).exists()

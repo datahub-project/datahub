@@ -105,32 +105,3 @@ class S3FileSystem(FileSystem):
     def list(self, path: str) -> Iterable[FileInfo]:
         s3_path = parse_s3_path(path)
         return S3ListIterator(self.s3, s3_path.bucket, s3_path.key)
-
-    def write(self, path: str, content: str, **kwargs: Any) -> None:
-        """Write content to S3."""
-        s3_path = parse_s3_path(path)
-
-        # Convert string content to bytes for S3
-        content_bytes = content.encode("utf-8")
-
-        # Upload to S3
-        response = self.s3.put_object(
-            Bucket=s3_path.bucket, Key=s3_path.key, Body=content_bytes, **kwargs
-        )
-        assert_ok_status(response)
-
-    def exists(self, path: str) -> bool:
-        """Check if an object exists in S3."""
-        s3_path = parse_s3_path(path)
-        try:
-            self.s3.head_object(Bucket=s3_path.bucket, Key=s3_path.key)
-            return True
-        except Exception as e:
-            if (
-                hasattr(e, "response")
-                and e.response["ResponseMetadata"]["HTTPStatusCode"] == 404
-            ):
-                return False
-            else:
-                # Re-raise other exceptions (access denied, etc.)
-                raise e
