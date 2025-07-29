@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ONE;
 import static com.linkedin.metadata.Constants.SYSTEM_POLICY_ZERO;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -20,6 +21,7 @@ import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -35,9 +37,10 @@ import lombok.extern.slf4j.Slf4j;
 @Accessors(chain = true)
 public class SystemPolicyValidator extends AspectPayloadValidator {
   @Nonnull private AspectPluginConfig config;
+  @Nullable private Set<Urn> systemPolicyUrns;
 
   private Set<ChangeType> MODIFY_CHANGE_TYPES =
-      Set.of(ChangeType.PATCH, ChangeType.UPDATE, ChangeType.UPSERT);
+      ImmutableSet.of(ChangeType.PATCH, ChangeType.UPDATE, ChangeType.UPSERT);
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -79,7 +82,9 @@ public class SystemPolicyValidator extends AspectPayloadValidator {
   }
 
   private boolean isSystemPolicy(Urn entityUrn) {
-    return SYSTEM_POLICY_ZERO.equals(entityUrn) || SYSTEM_POLICY_ONE.equals(entityUrn);
+    return SYSTEM_POLICY_ZERO.equals(entityUrn)
+        || SYSTEM_POLICY_ONE.equals(entityUrn)
+        || (systemPolicyUrns != null && systemPolicyUrns.contains(entityUrn));
   }
 
   @Override

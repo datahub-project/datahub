@@ -2,6 +2,9 @@ package com.linkedin.gms.factory.plugins;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -18,6 +21,7 @@ import com.linkedin.metadata.aspect.validation.PrivilegeConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.SystemPolicyValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
+import com.linkedin.metadata.config.PoliciesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -36,7 +40,10 @@ import com.linkedin.metadata.structuredproperties.validation.StructuredPropertie
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -532,8 +539,15 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectPayloadValidator systemPolicyValidator() {
+  public AspectPayloadValidator systemPolicyValidator(ConfigurationProvider configProvider) {
+    PoliciesConfiguration policiesConfiguration = configProvider.getDatahub().getPolicies();
+    Set<Urn> policyUrns = null;
+    if (StringUtils.isNotBlank(policiesConfiguration.getSystemPolicyUrnList())) {
+      List<String> urnStrings = List.of(policiesConfiguration.getSystemPolicyUrnList().split(","));
+      policyUrns = urnStrings.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+    }
     return new SystemPolicyValidator()
+        .setSystemPolicyUrns(policyUrns)
         .setConfig(
             AspectPluginConfig.builder()
                 .className(SystemPolicyValidator.class.getName())

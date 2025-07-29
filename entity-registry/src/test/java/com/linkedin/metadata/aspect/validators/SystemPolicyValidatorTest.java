@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -29,6 +30,8 @@ import org.testng.annotations.Test;
 public class SystemPolicyValidatorTest {
   private static final Urn NON_SYSTEM_POLICY_URN =
       UrnUtils.getUrn("urn:li:dataHubPolicy:custom-policy");
+  private static final Urn CUSTOM_SYSTEM_POLICY_URN =
+      UrnUtils.getUrn("urn:li:dataHubPolicy:custom-system-policy");
   private static final Urn SYSTEM_ACTOR_URN = UrnUtils.getUrn(SYSTEM_ACTOR);
   ;
   private static final Urn NON_SYSTEM_ACTOR_URN = UrnUtils.getUrn("urn:li:corpuser:user");
@@ -62,6 +65,7 @@ public class SystemPolicyValidatorTest {
 
   @Test
   public void testSystemPolicyDeleteDenied() {
+    validator.setSystemPolicyUrns(ImmutableSet.of(CUSTOM_SYSTEM_POLICY_URN));
     // Test deletion of SYSTEM_POLICY_ZERO is denied
     assertEquals(
         validator
@@ -105,6 +109,37 @@ public class SystemPolicyValidatorTest {
                         .aspectSpec(
                             entityRegistry
                                 .getEntitySpec(SYSTEM_POLICY_ONE.getEntityType())
+                                .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
+                        .recordTemplate(
+                            new DataHubPolicyInfo()
+                                .setActors(new DataHubActorFilter())
+                                .setEditable(true)
+                                .setDescription("")
+                                .setDisplayName("")
+                                .setLastUpdatedTimestamp(123L)
+                                .setPrivileges(new StringArray())
+                                .setState("ACTIVE")
+                                .setType(""))
+                        .build()),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "Expected deletion of system policy one to be denied");
+
+    // Test deletion of Custum system policy urn is denied
+    assertEquals(
+        validator
+            .validateProposed(
+                Set.of(
+                    TestMCP.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(CUSTOM_SYSTEM_POLICY_URN)
+                        .entitySpec(
+                            entityRegistry.getEntitySpec(CUSTOM_SYSTEM_POLICY_URN.getEntityType()))
+                        .aspectSpec(
+                            entityRegistry
+                                .getEntitySpec(CUSTOM_SYSTEM_POLICY_URN.getEntityType())
                                 .getAspectSpec(DATAHUB_POLICY_INFO_ASPECT_NAME))
                         .recordTemplate(
                             new DataHubPolicyInfo()
