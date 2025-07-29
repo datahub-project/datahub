@@ -220,7 +220,7 @@ After successful ingestion, you can view detailed information about what was ext
 3. Click on individual entities to validate the extracted metadata
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_details_view_all.png"/>
+  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/ingestion/ingestion-run-summary.png"/>
 </p>
 
 ### Cancelling Running Ingestion
@@ -258,7 +258,7 @@ When ingestion fails, the most common causes include:
 To diagnose ingestion failures, click on a run history status (Failed, Aborted) value to view and download comprehensive ingestion run logs.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-logs.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/ingestion/ingestion-run-log.png"/>
 </p>
 
 The logs provide detailed information about:
@@ -273,7 +273,7 @@ The logs provide detailed information about:
 If your DataHub instance has [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md) enabled, you'll need to provide a Personal Access Token in your configuration.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-with-token.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-run-log.png"/>
 </p>
 
 ## Advanced Configuration with YAML
