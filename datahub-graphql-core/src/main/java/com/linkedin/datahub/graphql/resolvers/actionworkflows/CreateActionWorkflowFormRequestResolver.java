@@ -81,7 +81,7 @@ public class CreateActionWorkflowFormRequestResolver
   }
 
   private com.linkedin.actionworkflow.ActionWorkflowFormRequestField mapWorkflowFormRequestField(
-      @Nonnull final ActionWorkflowRequestFieldInput input) {
+      @Nonnull final ActionWorkflowFormRequestFieldInput input) {
     final com.linkedin.actionworkflow.ActionWorkflowFormRequestField field =
         new com.linkedin.actionworkflow.ActionWorkflowFormRequestField();
     field.setId(input.getId());

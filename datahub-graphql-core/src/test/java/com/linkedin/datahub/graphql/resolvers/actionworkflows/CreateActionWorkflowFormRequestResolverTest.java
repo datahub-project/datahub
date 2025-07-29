@@ -139,13 +139,13 @@ public class CreateActionWorkflowFormRequestResolverTest {
     input.setDescription(TEST_DESCRIPTION);
 
     // Create fields
-    ActionWorkflowRequestFieldInput field1 = new ActionWorkflowRequestFieldInput();
+    ActionWorkflowFormRequestFieldInput field1 = new ActionWorkflowFormRequestFieldInput();
     field1.setId("field1");
     PropertyValueInput value1 = new PropertyValueInput();
     value1.setStringValue("test value");
     field1.setValues(ImmutableList.of(value1));
 
-    ActionWorkflowRequestFieldInput field2 = new ActionWorkflowRequestFieldInput();
+    ActionWorkflowFormRequestFieldInput field2 = new ActionWorkflowFormRequestFieldInput();
     field2.setId("field2");
     PropertyValueInput value2 = new PropertyValueInput();
     value2.setNumberValue(42.0f);
@@ -167,7 +167,7 @@ public class CreateActionWorkflowFormRequestResolverTest {
     input.setDescription(TEST_DESCRIPTION);
 
     // Create minimal fields
-    ActionWorkflowRequestFieldInput field1 = new ActionWorkflowRequestFieldInput();
+    ActionWorkflowFormRequestFieldInput field1 = new ActionWorkflowFormRequestFieldInput();
     field1.setId("field1");
     PropertyValueInput value1 = new PropertyValueInput();
     value1.setStringValue("test value");
@@ -183,7 +183,7 @@ public class CreateActionWorkflowFormRequestResolverTest {
     input.setWorkflowUrn(TEST_WORKFLOW_URN);
 
     // Create minimal fields
-    ActionWorkflowRequestFieldInput field1 = new ActionWorkflowRequestFieldInput();
+    ActionWorkflowFormRequestFieldInput field1 = new ActionWorkflowFormRequestFieldInput();
     field1.setId("field1");
     PropertyValueInput value1 = new PropertyValueInput();
     value1.setStringValue("test value");

@@ -750,7 +750,7 @@ public class ActionRequestUtilsTest {
     assertEquals(mappedWorkflowRequest.getFields().size(), 2);
 
     // Verify field 1 (string value)
-    com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField mappedField1 =
+    com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequestField mappedField1 =
         mappedWorkflowRequest.getFields().get(0);
     assertEquals(mappedField1.getId(), "field1");
     assertEquals(mappedField1.getValues().size(), 1);
@@ -762,7 +762,7 @@ public class ActionRequestUtilsTest {
     assertEquals(stringVal.getStringValue(), "test value");
 
     // Verify field 2 (number value)
-    com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField mappedField2 =
+    com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequestField mappedField2 =
         mappedWorkflowRequest.getFields().get(1);
     assertEquals(mappedField2.getId(), "field2");
     assertEquals(mappedField2.getValues().size(), 1);

@@ -4,7 +4,7 @@ import { ActionWorkflowFragment } from '@graphql/actionWorkflow.generated';
 import {
     ActionWorkflowField,
     ActionWorkflowFieldValueType,
-    ActionWorkflowRequestFieldInput,
+    ActionWorkflowFormRequestFieldInput,
     PropertyValue,
     PropertyValueInput,
 } from '@types';
@@ -105,12 +105,12 @@ export const convertToPropertyValue = (
 };
 
 /**
- * Convert form state to ActionWorkflowRequestFieldInput array for GraphQL mutations
+ * Convert form state to ActionWorkflowFormRequestFieldInput array for GraphQL mutations
  */
 export const convertFormStateToRequestFields = (
     workflowFields: ActionWorkflowField[],
     formState: Record<string, { values: FieldValue[] }>,
-): ActionWorkflowRequestFieldInput[] => {
+): ActionWorkflowFormRequestFieldInput[] => {
     return workflowFields.map((field) => {
         const fieldState = formState[field.id];
         if (!fieldState) {

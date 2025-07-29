@@ -1865,7 +1865,7 @@ type ActionWorkflowFormRequest {
   Field values provided by the requestor.
   Each corresponds to a defined field in the workflow template.
   """
-  fields: [ActionWorkflowRequestField!]!
+  fields: [ActionWorkflowFormRequestField!]!
 
   """
   Access request related fields.
@@ -1898,7 +1898,7 @@ A value provided for a specific field within a workflow request.
 
 Each field includes an ID (matching the workflow template) and a set of values.
 """
-type ActionWorkflowRequestField {
+type ActionWorkflowFormRequestField {
   """
   ID of the field being populated (local to the workflow definition).
   """
@@ -1924,7 +1924,7 @@ input ActionWorkflowRequestInput {
   """
   Field values submitted with the request.
   """
-  fields: [ActionWorkflowRequestFieldInput!]!
+  fields: [ActionWorkflowFormRequestFieldInput!]!
 
   """
   Optional expiration timestamp for the request (epoch millis).
@@ -1935,7 +1935,7 @@ input ActionWorkflowRequestInput {
 """
 Input for a specific field value within a workflow request.
 """
-input ActionWorkflowRequestFieldInput {
+input ActionWorkflowFormRequestFieldInput {
   """
   ID of the field being populated (must match a defined field in the workflow).
   """
@@ -1971,7 +1971,7 @@ input CreateActionWorkflowFormRequestInput {
   Custom field values submitted by the user initiating the request.
   Must correspond to the template's expected field definitions.
   """
-  fields: [ActionWorkflowRequestFieldInput!]!
+  fields: [ActionWorkflowFormRequestFieldInput!]!
 
   """
   Optional access-specific fields (e.g. expiration time).

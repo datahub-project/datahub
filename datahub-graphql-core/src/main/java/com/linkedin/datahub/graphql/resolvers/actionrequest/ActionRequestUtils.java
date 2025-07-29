@@ -553,11 +553,11 @@ public class ActionRequestUtils {
     }
 
     // Map fields
-    final List<com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField> mappedFields =
+    final List<com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequestField> mappedFields =
         new ArrayList<>();
     for (final com.linkedin.actionworkflow.ActionWorkflowFormRequestField field :
         workflowRequest.getFields()) {
-      mappedFields.add(mapActionWorkflowRequestField(field));
+      mappedFields.add(mapActionWorkflowFormRequestField(field));
     }
     result.setFields(mappedFields);
 
@@ -580,11 +580,11 @@ public class ActionRequestUtils {
     return result;
   }
 
-  public static com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField
-      mapActionWorkflowRequestField(
+  public static com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequestField
+      mapActionWorkflowFormRequestField(
           final com.linkedin.actionworkflow.ActionWorkflowFormRequestField field) {
-    final com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField result =
-        new com.linkedin.datahub.graphql.generated.ActionWorkflowRequestField();
+    final com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequestField result =
+        new com.linkedin.datahub.graphql.generated.ActionWorkflowFormRequestField();
 
     result.setId(field.getId());
 
