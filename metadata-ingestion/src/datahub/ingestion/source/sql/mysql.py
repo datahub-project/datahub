@@ -9,6 +9,7 @@ from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -62,6 +63,17 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
     def get_identifier(self, *, schema: str, table: str) -> str:
         return f"{schema}.{table}"
+
+    include_stored_procedures: bool = Field(
+        default=True,
+        description="Include ingest of stored procedures.",
+    )
+
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion."
+        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
 
 
 @platform_name("MySQL")

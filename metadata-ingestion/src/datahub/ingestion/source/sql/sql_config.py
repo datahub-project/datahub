@@ -111,17 +111,6 @@ class SQLCommonConfig(
         description="Whether to use a file backed cache for the view definitions.",
     )
 
-    include_stored_procedures: bool = Field(
-        default=True,
-        description="Include ingest of stored procedures.",
-    )
-
-    procedure_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for stored procedures to filter in ingestion."
-        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
-    )
-
     profiling: GEProfilingConfig = GEProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None

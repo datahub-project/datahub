@@ -27,6 +27,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -536,7 +537,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if self.config.include_views:
             yield from self.loop_views(inspector, schema, self.config)
 
-        if self.config.include_stored_procedures:
+        if getattr(self.config, "include_stored_procedures", False):
             try:
                 yield from self.loop_stored_procedures(inspector, schema, self.config)
             except NotImplementedError as e:
@@ -1491,7 +1492,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     inspector=inspector,
                 )
 
-                if not self.config.procedure_pattern.allowed(procedure_qualified_name):
+                procedure_pattern = getattr(
+                    self.config, "procedure_pattern", AllowDenyPattern.allow_all()
+                )
+                if not procedure_pattern.allowed(procedure_qualified_name):
                     self.report.report_dropped(procedure_qualified_name)
                 else:
                     procedures.append(procedure)
