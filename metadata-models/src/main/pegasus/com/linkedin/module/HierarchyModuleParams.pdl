@@ -1,13 +1,23 @@
 namespace com.linkedin.module
 
 import com.linkedin.common.Urn
+import com.linkedin.metadata.query.filter.Filter
 
 /**
 * The params required if the module is type HIERARCHY_VIEW
-* TODO: add filters
-* relatedEntitiesFilter: optional Filter
 */
 record HierarchyModuleParams {
+
   assetUrns: optional array[Urn]
+
   showRelatedEntities: boolean
+
+  /**
+   * Optional filters to filter relatedEntities (assetUrns) out
+   *
+   * The stringified json representing the logical predicate built in the UI to select assets.
+   * This predicate is turned into orFilters to send through graphql since graphql doesn't support
+   * arbitrary nesting. This string is used to restore the UI for this logical predicate.
+   */
+  relatedEntitiesFilterJson: optional string
 }

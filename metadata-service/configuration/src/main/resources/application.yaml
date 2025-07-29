@@ -89,6 +89,10 @@ datahub:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
     useSSL: ${DATAHUB_GMS_USE_SSL:${GMS_USE_SSL:false}}
+    truststore:
+      path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
+      password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
+      type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
@@ -654,6 +658,7 @@ featureFlags:
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
+  fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

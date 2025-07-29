@@ -2,6 +2,8 @@ import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment } from '@graphql/template.generated';
 
+const MAX_MODULES_PER_ROW = 3;
+
 /**
  * Helper function to remove a module from rows and clean up empty rows
  */
@@ -68,18 +70,37 @@ export function insertModuleIntoRows(
         // Insert a new row at the specified position
         const newRow = { modules: [module] };
         newRows.splice(adjustedRowIndex, 0, newRow);
-    } else if (adjustedRowIndex >= newRows.length) {
+        return newRows;
+    }
+    if (adjustedRowIndex >= newRows.length) {
         // Create new row at the end
         newRows.push({ modules: [module] });
-    } else {
-        // Insert into existing row
-        const toRow = { ...newRows[adjustedRowIndex] };
-        const toModules = [...(toRow.modules || [])];
-        const insertIndex = toModuleIndex !== undefined ? toModuleIndex : toModules.length;
+        return newRows;
+    }
 
+    const toRow = { ...newRows[adjustedRowIndex] };
+    const toModules = [...(toRow.modules || [])];
+    const insertIndex = toModuleIndex !== undefined ? toModuleIndex : toModules.length;
+
+    // Row has space, insert the module
+    if (toModules.length < MAX_MODULES_PER_ROW) {
         toModules.splice(insertIndex, 0, module);
         toRow.modules = toModules;
         newRows[adjustedRowIndex] = toRow;
+        return newRows;
+    }
+    // Row is full with 3 modules
+    // Insert new module at the position
+    toModules.splice(insertIndex, 0, module);
+
+    // Remove the last module
+    const lastModule = toModules.pop();
+    toRow.modules = toModules;
+    newRows[adjustedRowIndex] = toRow;
+
+    if (lastModule) {
+        // Insert new row after the current row with last module
+        newRows.splice(adjustedRowIndex + 1, 0, { modules: [lastModule] });
     }
 
     return newRows;
@@ -100,14 +121,6 @@ export function validateModuleMoveConstraints(
     const targetRow = template.properties.rows[toPosition.rowIndex];
     if (!targetRow) {
         return null;
-    }
-
-    const currentModuleCount = targetRow.modules?.length || 0;
-    const isDraggedFromSameRow = fromPosition.rowIndex === toPosition.rowIndex;
-
-    // Only enforce the 3-module limit when moving between different rows
-    if (!isDraggedFromSameRow && currentModuleCount >= 3) {
-        return 'Cannot move module: Target row already has maximum number of modules';
     }
 
     return null;

@@ -17,6 +17,7 @@ export default function TreeViewContextProvider({
     selectedValues,
     expandedValues,
     updateExpandedValues,
+    onExpand,
     selectable,
     updateSelectedValues,
     loadChildren: loadAsyncChildren,
@@ -25,6 +26,7 @@ export default function TreeViewContextProvider({
     explicitlyUnselectChildren,
     explicitlySelectParent,
     explicitlyUnselectParent,
+    enableIntermediateSelectState,
     numberOfChildrenToLoad = DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD,
 }: React.PropsWithChildren<TreeViewContextProviderProps>) {
     const [internalExpandedValues, setInternalExpandedValues] = useState<string[]>(expandedValues ?? []);
@@ -94,8 +96,9 @@ export default function TreeViewContextProvider({
             const newExpandedValues = [...internalExpandedValues, ...parentValues, node.value];
             setInternalExpandedValues(newExpandedValues);
             updateExpandedValues?.(newExpandedValues);
+            onExpand?.(node);
         },
-        [initialChildrenLoad, updateExpandedValues, valueToTreeNodeMap, internalExpandedValues],
+        [initialChildrenLoad, updateExpandedValues, onExpand, valueToTreeNodeMap, internalExpandedValues],
     );
 
     const collapse = useCallback(
@@ -261,6 +264,7 @@ export default function TreeViewContextProvider({
                 explicitlyUnselectChildren,
                 explicitlySelectParent,
                 explicitlyUnselectParent,
+                enableIntermediateSelectState,
 
                 // Async loading of children
                 getIsChildrenLoading,

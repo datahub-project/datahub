@@ -3,9 +3,15 @@ import { message } from 'antd';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
+import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
+import {
+    PageModuleFragment,
+    PageTemplateFragment,
+    useDeletePageModuleMutation,
+    useUpsertPageModuleMutation,
+} from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
 // Mock GraphQL hooks
@@ -20,6 +26,7 @@ vi.mock('antd', () => ({
 }));
 
 const mockUpsertPageModuleMutation = vi.fn();
+const mockDeletePageModuleMutation = vi.fn();
 
 // Mock template data
 const mockPersonalTemplate: PageTemplateFragment = {
@@ -94,6 +101,7 @@ describe('useModuleOperations', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         (useUpsertPageModuleMutation as any).mockReturnValue([mockUpsertPageModuleMutation]);
+        (useDeletePageModuleMutation as any).mockReturnValue([mockDeletePageModuleMutation]);
     });
 
     describe('addModule', () => {
@@ -109,6 +117,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -161,6 +170,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -208,6 +218,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false,
+                    null, // originalModuleData
                 ),
             );
 
@@ -256,6 +267,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false,
+                    null, // originalModuleData
                 ),
             );
 
@@ -322,6 +334,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -332,7 +345,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -355,9 +368,13 @@ describe('useModuleOperations', () => {
                 mockPersonalTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
+            expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
+                variables: { input: { urn: 'urn:li:pageModule:1' } },
+            });
         });
 
         it('should remove module from global template when editing global', () => {
@@ -372,6 +389,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -382,7 +400,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:2',
+                module: mockGlobalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -405,9 +423,13 @@ describe('useModuleOperations', () => {
                 mockGlobalTemplate,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
+            expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
+                variables: { input: { urn: 'urn:li:pageModule:2' } },
+            });
         });
 
         it('should use global template when personal template is null', () => {
@@ -422,6 +444,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -432,7 +455,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:2',
+                module: mockGlobalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -455,9 +478,12 @@ describe('useModuleOperations', () => {
                 mockGlobalTemplate,
                 'urn:li:pageModule:2',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, null);
+            // Should NOT delete global module when removing from personal template
+            expect(mockDeletePageModuleMutation).not.toHaveBeenCalled();
         });
 
         it('should revert state on template upsert error', async () => {
@@ -475,6 +501,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -485,7 +512,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -508,16 +535,21 @@ describe('useModuleOperations', () => {
                 mockPersonalTemplate,
                 'urn:li:pageModule:1',
                 position,
+                true,
             );
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
             expect(consoleSpy).toHaveBeenCalledWith('Failed to remove module:', error);
+            // Should still attempt to delete module even if template upsert fails
+            expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
+                variables: { input: { urn: 'urn:li:pageModule:1' } },
+            });
 
             consoleSpy.mockRestore();
         });
 
-        it('should validate input and show error for missing moduleUrn', () => {
+        it('should validate input and show error for missing module URN', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
             const messageSpy = vi.spyOn(message, 'error').mockReturnValue({ key: 'test-message' } as any);
 
@@ -532,6 +564,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -542,7 +575,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: '', // Invalid empty URN
+                module: { ...mockPersonalTemplate.properties!.rows![0].modules![0], urn: '' }, // Invalid empty URN
                 position,
             };
 
@@ -577,11 +610,12 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position: null as any, // Invalid null position
             };
 
@@ -616,6 +650,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -626,7 +661,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -661,6 +696,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -671,7 +707,7 @@ describe('useModuleOperations', () => {
             };
 
             const removeModuleInput = {
-                moduleUrn: 'urn:li:pageModule:1',
+                module: mockPersonalTemplate.properties!.rows![0].modules![0],
                 position,
             };
 
@@ -686,6 +722,260 @@ describe('useModuleOperations', () => {
 
             consoleSpy.mockRestore();
             messageSpy.mockRestore();
+        });
+
+        describe('module deletion logic', () => {
+            it('should NOT delete global module when removing from personal template', () => {
+                const globalModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:global',
+                    type: EntityType.DatahubPageModule,
+                    properties: {
+                        name: 'Global Module',
+                        type: DataHubPageModuleType.Link,
+                        visibility: { scope: PageModuleScope.Global },
+                        params: {},
+                    },
+                };
+
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false, // isEditingGlobalTemplate - editing personal
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'left',
+                    moduleIndex: 0,
+                };
+
+                const removeModuleInput = {
+                    module: globalModule,
+                    position,
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(mockPersonalTemplate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    result.current.removeModule(removeModuleInput);
+                });
+
+                expect(mockDeletePageModuleMutation).not.toHaveBeenCalled();
+            });
+
+            it('should NOT delete default module from DEFAULT_MODULE_URNS', () => {
+                const defaultModule: PageModuleFragment = {
+                    urn: DEFAULT_MODULE_URNS[0], // Use first default module URN
+                    type: EntityType.DatahubPageModule,
+                    properties: {
+                        name: 'Default Module',
+                        type: DataHubPageModuleType.OwnedAssets,
+                        visibility: { scope: PageModuleScope.Personal },
+                        params: {},
+                    },
+                };
+
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'left',
+                    moduleIndex: 0,
+                };
+
+                const removeModuleInput = {
+                    module: defaultModule,
+                    position,
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(mockPersonalTemplate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    result.current.removeModule(removeModuleInput);
+                });
+
+                expect(mockDeletePageModuleMutation).not.toHaveBeenCalled();
+            });
+
+            it('should DELETE regular personal module when removing from personal template', () => {
+                const regularModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:regular',
+                    type: EntityType.DatahubPageModule,
+                    properties: {
+                        name: 'Regular Module',
+                        type: DataHubPageModuleType.Link,
+                        visibility: { scope: PageModuleScope.Personal },
+                        params: {},
+                    },
+                };
+
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'left',
+                    moduleIndex: 0,
+                };
+
+                const removeModuleInput = {
+                    module: regularModule,
+                    position,
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(mockPersonalTemplate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    result.current.removeModule(removeModuleInput);
+                });
+
+                expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
+                    variables: { input: { urn: 'urn:li:pageModule:regular' } },
+                });
+            });
+
+            it('should DELETE global module when removing from global template', () => {
+                const globalModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:global',
+                    type: EntityType.DatahubPageModule,
+                    properties: {
+                        name: 'Global Module',
+                        type: DataHubPageModuleType.Link,
+                        visibility: { scope: PageModuleScope.Global },
+                        params: {},
+                    },
+                };
+
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        true, // isEditingGlobalTemplate - editing global
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'left',
+                    moduleIndex: 0,
+                };
+
+                const removeModuleInput = {
+                    module: globalModule,
+                    position,
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(mockGlobalTemplate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                act(() => {
+                    result.current.removeModule(removeModuleInput);
+                });
+
+                expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
+                    variables: { input: { urn: 'urn:li:pageModule:global' } },
+                });
+            });
+
+            it('should handle deletion error gracefully', () => {
+                const error = new Error('Delete failed');
+                mockDeletePageModuleMutation.mockRejectedValue(error);
+
+                const regularModule: PageModuleFragment = {
+                    urn: 'urn:li:pageModule:regular',
+                    type: EntityType.DatahubPageModule,
+                    properties: {
+                        name: 'Regular Module',
+                        type: DataHubPageModuleType.Link,
+                        visibility: { scope: PageModuleScope.Personal },
+                        params: {},
+                    },
+                };
+
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false,
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        false,
+                        null,
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    rowSide: 'left',
+                    moduleIndex: 0,
+                };
+
+                const removeModuleInput = {
+                    module: regularModule,
+                    position,
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(mockPersonalTemplate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                // Should not throw error even if deletion fails
+                expect(() => {
+                    act(() => {
+                        result.current.removeModule(removeModuleInput);
+                    });
+                }).not.toThrow();
+
+                expect(mockDeletePageModuleMutation).toHaveBeenCalledWith({
+                    variables: { input: { urn: 'urn:li:pageModule:regular' } },
+                });
+            });
         });
     });
 
@@ -702,6 +992,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false,
+                    null, // originalModuleData
                 ),
             );
 
@@ -802,6 +1093,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false,
+                    null, // originalModuleData
                 ),
             );
 
@@ -858,6 +1150,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false,
+                    null, // originalModuleData
                 ),
             );
 
@@ -914,6 +1207,7 @@ describe('useModuleOperations', () => {
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
                     false,
+                    null, // originalModuleData
                 ),
             );
 
@@ -1000,6 +1294,392 @@ describe('useModuleOperations', () => {
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(updatedTemplate);
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
         });
+
+        // Tests for global module replacement functionality
+        describe('global module replacement', () => {
+            const mockGlobalModuleToEdit: PageModuleFragment = {
+                urn: 'urn:li:pageModule:globalToEdit',
+                type: EntityType.DatahubPageModule,
+                properties: {
+                    name: 'Global Module To Edit',
+                    type: DataHubPageModuleType.Link,
+                    visibility: { scope: PageModuleScope.Global },
+                    params: {},
+                },
+            };
+
+            const mockPersonalModuleToEdit: PageModuleFragment = {
+                urn: 'urn:li:pageModule:personalToEdit',
+                type: EntityType.DatahubPageModule,
+                properties: {
+                    name: 'Personal Module To Edit',
+                    type: DataHubPageModuleType.Link,
+                    visibility: { scope: PageModuleScope.Personal },
+                    params: {},
+                },
+            };
+
+            it('should create new personal module when editing global module on personal template', async () => {
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false, // isEditingGlobalTemplate = false (editing personal template)
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        true, // isEditingModule = true
+                        mockGlobalModuleToEdit, // originalModuleData = global module
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    moduleIndex: 0,
+                };
+
+                const upsertModuleInput = {
+                    urn: mockGlobalModuleToEdit.urn,
+                    name: 'Updated Global Module Name',
+                    type: DataHubPageModuleType.Link,
+                    position,
+                    params: { newParam: 'updatedValue' },
+                };
+
+                const newPersonalModuleUrn = 'urn:li:pageModule:newPersonal';
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: newPersonalModuleUrn,
+                        },
+                    },
+                });
+
+                const templateAfterRemoval = {
+                    ...mockPersonalTemplate,
+                    properties: {
+                        ...mockPersonalTemplate.properties!,
+                        rows: [{ modules: [] }], // Global module removed
+                    },
+                };
+
+                const templateAfterReplacement = {
+                    ...templateAfterRemoval,
+                    properties: {
+                        ...templateAfterRemoval.properties!,
+                        rows: [
+                            {
+                                modules: [
+                                    {
+                                        urn: newPersonalModuleUrn,
+                                        type: EntityType.DatahubPageModule,
+                                        properties: {
+                                            name: 'Updated Global Module Name',
+                                            type: DataHubPageModuleType.Link,
+                                            visibility: { scope: PageModuleScope.Personal },
+                                            params: { newParam: 'updatedValue' },
+                                        },
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                };
+
+                mockRemoveModuleFromTemplate.mockReturnValue(templateAfterRemoval);
+                mockUpdateTemplateWithModule.mockReturnValue(templateAfterReplacement);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                await act(async () => {
+                    result.current.upsertModule(upsertModuleInput);
+                });
+
+                // Should create new module WITHOUT the original urn (creates new instead of updating)
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
+                    variables: {
+                        input: {
+                            name: 'Updated Global Module Name',
+                            type: DataHubPageModuleType.Link,
+                            scope: PageModuleScope.Personal, // Should use personal scope
+                            params: { newParam: 'updatedValue' },
+                            urn: undefined, // Should NOT pass original urn (creates new module)
+                        },
+                    },
+                });
+
+                // Should remove the original global module
+                expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                    mockPersonalTemplate,
+                    mockGlobalModuleToEdit.urn,
+                    position,
+                    false, // shouldRemoveEmptyRow = false (to replace a module we should keep empty row)
+                );
+
+                // Should add the new personal module in the same position
+                expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                    templateAfterRemoval,
+                    {
+                        urn: newPersonalModuleUrn,
+                        type: EntityType.DatahubPageModule,
+                        properties: {
+                            name: 'Updated Global Module Name',
+                            type: DataHubPageModuleType.Link,
+                            visibility: { scope: PageModuleScope.Personal },
+                            params: { newParam: 'updatedValue' },
+                        },
+                    },
+                    position,
+                    false, // isEditing = false (adding new module)
+                );
+
+                // Should update the personal template
+                expect(mockSetPersonalTemplate).toHaveBeenCalledWith(templateAfterReplacement);
+                expect(mockUpsertTemplate).toHaveBeenCalledWith(templateAfterReplacement, true, mockPersonalTemplate);
+            });
+
+            it('should edit global module in place when editing global template', async () => {
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        true, // isEditingGlobalTemplate = true (editing global template)
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        true, // isEditingModule = true
+                        mockGlobalModuleToEdit, // originalModuleData = global module
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    moduleIndex: 0,
+                };
+
+                const upsertModuleInput = {
+                    urn: mockGlobalModuleToEdit.urn,
+                    name: 'Updated Global Module Name',
+                    type: DataHubPageModuleType.Link,
+                    position,
+                    params: { newParam: 'updatedValue' },
+                };
+
+                const updatedModuleUrn = mockGlobalModuleToEdit.urn; // Same urn (editing in place)
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: updatedModuleUrn,
+                        },
+                    },
+                });
+
+                const templateAfterUpdate = {
+                    ...mockGlobalTemplate,
+                    // Template updated with modified module
+                };
+
+                mockUpdateTemplateWithModule.mockReturnValue(templateAfterUpdate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                await act(async () => {
+                    result.current.upsertModule(upsertModuleInput);
+                });
+
+                // Should edit the existing module (pass the original urn)
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
+                    variables: {
+                        input: {
+                            name: 'Updated Global Module Name',
+                            type: DataHubPageModuleType.Link,
+                            scope: PageModuleScope.Global, // Should keep global scope
+                            params: { newParam: 'updatedValue' },
+                            urn: mockGlobalModuleToEdit.urn, // Should pass original urn (edit in place)
+                        },
+                    },
+                });
+
+                // Should NOT remove and replace - just add the updated module normally
+                expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
+
+                // Should use normal addModule flow (not replacement flow)
+                expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                    mockGlobalTemplate,
+                    {
+                        urn: updatedModuleUrn,
+                        type: EntityType.DatahubPageModule,
+                        properties: {
+                            name: 'Updated Global Module Name',
+                            type: DataHubPageModuleType.Link,
+                            visibility: { scope: PageModuleScope.Global },
+                            params: { newParam: 'updatedValue' },
+                        },
+                    },
+                    position,
+                    true, // isEditingModule = true (normal editing flow)
+                );
+
+                // Should update the global template
+                expect(mockSetGlobalTemplate).toHaveBeenCalledWith(templateAfterUpdate);
+                expect(mockUpsertTemplate).toHaveBeenCalledWith(templateAfterUpdate, false, mockPersonalTemplate);
+            });
+
+            it('should edit personal module in place when editing personal template', async () => {
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false, // isEditingGlobalTemplate = false (editing personal template)
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        true, // isEditingModule = true
+                        mockPersonalModuleToEdit, // originalModuleData = personal module
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    moduleIndex: 0,
+                };
+
+                const upsertModuleInput = {
+                    urn: mockPersonalModuleToEdit.urn,
+                    name: 'Updated Personal Module Name',
+                    type: DataHubPageModuleType.Link,
+                    position,
+                    params: { newParam: 'updatedValue' },
+                };
+
+                const updatedModuleUrn = mockPersonalModuleToEdit.urn; // Same urn (editing in place)
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: updatedModuleUrn,
+                        },
+                    },
+                });
+
+                const templateAfterUpdate = {
+                    ...mockPersonalTemplate,
+                    // Template updated with modified module
+                };
+
+                mockUpdateTemplateWithModule.mockReturnValue(templateAfterUpdate);
+                mockUpsertTemplate.mockResolvedValue({});
+
+                await act(async () => {
+                    result.current.upsertModule(upsertModuleInput);
+                });
+
+                // Should edit the existing personal module (pass the original urn)
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalledWith({
+                    variables: {
+                        input: {
+                            name: 'Updated Personal Module Name',
+                            type: DataHubPageModuleType.Link,
+                            scope: PageModuleScope.Personal, // Should keep personal scope
+                            params: { newParam: 'updatedValue' },
+                            urn: mockPersonalModuleToEdit.urn, // Should pass original urn (edit in place)
+                        },
+                    },
+                });
+
+                // Should NOT use replacement flow for personal modules
+                expect(mockRemoveModuleFromTemplate).not.toHaveBeenCalled();
+
+                // Should use normal addModule flow (not replacement flow)
+                expect(mockUpdateTemplateWithModule).toHaveBeenCalledWith(
+                    mockPersonalTemplate,
+                    {
+                        urn: updatedModuleUrn,
+                        type: EntityType.DatahubPageModule,
+                        properties: {
+                            name: 'Updated Personal Module Name',
+                            type: DataHubPageModuleType.Link,
+                            visibility: { scope: PageModuleScope.Personal },
+                            params: { newParam: 'updatedValue' },
+                        },
+                    },
+                    position,
+                    true, // isEditingModule = true (normal editing flow)
+                );
+
+                // Should update the personal template
+                expect(mockSetPersonalTemplate).toHaveBeenCalledWith(templateAfterUpdate);
+                expect(mockUpsertTemplate).toHaveBeenCalledWith(templateAfterUpdate, true, mockPersonalTemplate);
+            });
+
+            it('should handle error when replacement flow fails during global module edit', async () => {
+                const { result } = renderHook(() =>
+                    useModuleOperations(
+                        false, // isEditingGlobalTemplate = false
+                        mockPersonalTemplate,
+                        mockGlobalTemplate,
+                        mockSetPersonalTemplate,
+                        mockSetGlobalTemplate,
+                        mockUpdateTemplateWithModule,
+                        mockRemoveModuleFromTemplate,
+                        mockUpsertTemplate,
+                        true, // isEditingModule = true
+                        mockGlobalModuleToEdit, // originalModuleData = global module
+                    ),
+                );
+
+                const position: ModulePositionInput = {
+                    rowIndex: 0,
+                    moduleIndex: 0,
+                };
+
+                const upsertModuleInput = {
+                    urn: mockGlobalModuleToEdit.urn,
+                    name: 'Updated Global Module Name',
+                    type: DataHubPageModuleType.Link,
+                    position,
+                };
+
+                const newPersonalModuleUrn = 'urn:li:pageModule:newPersonal';
+                mockUpsertPageModuleMutation.mockResolvedValue({
+                    data: {
+                        upsertPageModule: {
+                            urn: newPersonalModuleUrn,
+                        },
+                    },
+                });
+
+                // Mock template update failure
+                mockRemoveModuleFromTemplate.mockReturnValue(null);
+
+                const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+                await act(async () => {
+                    result.current.upsertModule(upsertModuleInput);
+                });
+
+                // Should still create the new module
+                expect(mockUpsertPageModuleMutation).toHaveBeenCalled();
+
+                // Should attempt to remove the original module
+                expect(mockRemoveModuleFromTemplate).toHaveBeenCalledWith(
+                    mockPersonalTemplate,
+                    mockGlobalModuleToEdit.urn,
+                    position,
+                    false,
+                );
+
+                // Should not proceed with template update if removal fails
+                expect(mockUpdateTemplateWithModule).not.toHaveBeenCalled();
+                expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
+                expect(mockUpsertTemplate).not.toHaveBeenCalled();
+
+                consoleSpy.mockRestore();
+            });
+        });
     });
 
     describe('moveModule with 3-module row constraints', () => {
@@ -1069,15 +1749,16 @@ describe('useModuleOperations', () => {
         it('should allow rearranging modules within a row that has 3 modules', () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
-                    false,
-                    templateWith3ModulesInFirstRow,
-                    null,
+                    false, // isEditingGlobalTemplate
+                    null, // personalTemplate
+                    templateWith3ModulesInFirstRow, // globalTemplate
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
-                    false,
+                    false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -1094,23 +1775,24 @@ describe('useModuleOperations', () => {
             expect(mockSetPersonalTemplate).toHaveBeenCalled();
         });
 
-        it('should prevent moving a module from another row to a row with 3 modules', () => {
+        it('should allow moving a module from another row to a full row, creating new row', () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
-                    false,
-                    templateWith3ModulesInFirstRow,
-                    null,
+                    false, // isEditingGlobalTemplate
+                    null, // personalTemplate
+                    templateWith3ModulesInFirstRow, // globalTemplate
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
-                    false,
+                    false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
             act(() => {
-                // Try to move module from row 1 to row 0 (which has 3 modules)
+                // Move module from row 1 to row 0 (which has 3 modules)
                 result.current.moveModule({
                     module: templateWith3ModulesInFirstRow.properties.rows[1].modules[0],
                     fromPosition: { rowIndex: 1, moduleIndex: 0 },
@@ -1118,23 +1800,22 @@ describe('useModuleOperations', () => {
                 });
             });
 
-            // Should not call upsert template because move was prevented
-            expect(mockUpsertTemplate).not.toHaveBeenCalled();
-            expect(mockSetPersonalTemplate).not.toHaveBeenCalled();
+            expect(mockUpsertTemplate).toHaveBeenCalled();
+            expect(mockSetPersonalTemplate).toHaveBeenCalled();
         });
-
         it('should allow moving a module from a row with 3 modules to another row', () => {
             const { result } = renderHook(() =>
                 useModuleOperations(
-                    false,
-                    templateWith3ModulesInFirstRow,
-                    null,
+                    false, // isEditingGlobalTemplate
+                    null, // personalTemplate
+                    templateWith3ModulesInFirstRow, // globalTemplate
                     mockSetPersonalTemplate,
                     mockSetGlobalTemplate,
                     mockUpdateTemplateWithModule,
                     mockRemoveModuleFromTemplate,
                     mockUpsertTemplate,
-                    false,
+                    false, // isEditingModule
+                    null, // originalModuleData
                 ),
             );
 
@@ -1166,6 +1847,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null, // originalModuleData
                     ),
                 {
                     initialProps: {
@@ -1200,6 +1882,7 @@ describe('useModuleOperations', () => {
                         mockRemoveModuleFromTemplate,
                         mockUpsertTemplate,
                         false,
+                        null, // originalModuleData
                     ),
                 {
                     initialProps: {

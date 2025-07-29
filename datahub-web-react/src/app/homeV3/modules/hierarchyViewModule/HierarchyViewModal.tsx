@@ -24,12 +24,16 @@ export default function HierarchyViewModal() {
         const assetType = getAssetTypeFromAssetUrns(originalAssetUrns);
         const assetUrns = filterAssetUrnsByAssetType(originalAssetUrns, assetType);
 
+        const relatedEntitiesFilterJson =
+            initialState?.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson;
+
         return {
             name: initialState?.properties.name || '',
             assetsType: assetType,
             domainAssets: assetType === ASSET_TYPE_DOMAINS ? assetUrns : [],
             glossaryAssets: assetType === ASSET_TYPE_GLOSSARY ? assetUrns : [],
             showRelatedEntities: !!initialState?.properties.params.hierarchyViewParams?.showRelatedEntities,
+            relatedEntitiesFilter: relatedEntitiesFilterJson ? JSON.parse(relatedEntitiesFilterJson) : undefined,
         };
     }, [initialState]);
 
@@ -55,6 +59,9 @@ export default function HierarchyViewModal() {
                     hierarchyViewParams: {
                         assetUrns,
                         showRelatedEntities: values.showRelatedEntities,
+                        relatedEntitiesFilterJson: values.relatedEntitiesFilter
+                            ? JSON.stringify(values.relatedEntitiesFilter)
+                            : undefined,
                     },
                 },
             });
@@ -67,6 +74,7 @@ export default function HierarchyViewModal() {
             title={`${isEditing ? 'Edit' : 'Add'} Hierarchy View`}
             subtitle="Create a widget by selecting assets and information that will be shown to your users"
             onUpsert={handleUpsertAssetCollectionModule}
+            maxWidth="900px"
         >
             <Form form={form} initialValues={initialFormState}>
                 <HierarchyFormContextProvider initialValues={initialFormState}>

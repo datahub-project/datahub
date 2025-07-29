@@ -7,7 +7,11 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import AssetsTreeView from '@app/homeV3/modules/hierarchyViewModule/components/AssetsTreeView';
 import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
 import { filterAssetUrnsByAssetType, getAssetTypeFromAssetUrns } from '@app/homeV3/modules/hierarchyViewModule/utils';
+import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
+import { convertLogicalPredicateToOrFilters } from '@app/sharedV2/queryBuilder/builder/utils';
 import { PageRoutes } from '@conf/Global';
+
+import { AndFilterInput } from '@types';
 
 export default function HierarchyViewModule(props: ModuleProps) {
     const history = useHistory();
@@ -41,6 +45,22 @@ export default function HierarchyViewModule(props: ModuleProps) {
         [props.module.properties.params.hierarchyViewParams?.showRelatedEntities],
     );
 
+    const relatedEntitiesLogicalPredicate: LogicalPredicate | undefined = useMemo(
+        () =>
+            props.module.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson
+                ? JSON.parse(props.module.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson)
+                : undefined,
+        [props.module.properties.params.hierarchyViewParams?.relatedEntitiesFilterJson],
+    );
+
+    const relatedEntitiesOrFilters: AndFilterInput[] | undefined = useMemo(
+        () =>
+            relatedEntitiesLogicalPredicate
+                ? convertLogicalPredicateToOrFilters(relatedEntitiesLogicalPredicate)
+                : undefined,
+        [relatedEntitiesLogicalPredicate],
+    );
+
     const onClickViewAll = useCallback(() => {
         if (assetType === ASSET_TYPE_DOMAINS) {
             history.push(PageRoutes.DOMAINS);
@@ -63,6 +83,7 @@ export default function HierarchyViewModule(props: ModuleProps) {
                         assetType={assetType}
                         assetUrns={assetUrns}
                         shouldShowRelatedEntities={shouldShowRelatedEntities}
+                        relatedEntitiesOrFilters={relatedEntitiesOrFilters}
                     />
                 )
             )}
