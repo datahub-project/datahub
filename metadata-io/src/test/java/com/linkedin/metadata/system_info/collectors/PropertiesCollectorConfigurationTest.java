@@ -96,16 +96,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.salt");
 
   /**
-   * Property name patterns that should NOT be redacted. These handle dynamic properties where the
-   * exact name varies (e.g., process IDs).
-   */
-  private static final Set<String> NON_SENSITIVE_PROPERTY_PATTERNS =
-      Set.of(
-          "JAVA_MAIN_CLASS_\\d+", // JAVA_MAIN_CLASS_12345 (process ID)
-          "org\\.gradle\\.test\\.worker" // Gradle test worker properties
-          );
-
-  /**
    * Template patterns for non-sensitive properties that contain dynamic parts. Use [*] for numeric
    * indices and * for single property segments.
    */
@@ -123,7 +113,10 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
 
           // Dynamic Java main class with process IDs
-          "JAVA_MAIN_CLASS_*");
+          "JAVA_MAIN_CLASS_*",
+
+          // Gradle test worker properties
+          "org.gradle.test.worker*");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -789,11 +782,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // either SENSITIVE_PROPERTIES or NON_SENSITIVE_PROPERTIES
           );
 
-  /** Check if a property key matches any of the non-sensitive patterns */
-  private boolean matchesNonSensitivePattern(String key) {
-    return NON_SENSITIVE_PROPERTY_PATTERNS.stream().anyMatch(pattern -> key.matches(pattern));
-  }
-
   /**
    * Convert a template pattern to a regex pattern. Templates use [*] for numeric indices and * for
    * single property segments.
@@ -802,7 +790,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     return template
         .replace(".", "\\.") // Escape dots: . → \.
         .replace("[*]", "\\[\\d+\\]") // Array indices: [*] → [\d+]
-        .replace("*", "[^.]+"); // Segments: * → [^.]+
+        .replace("*", "[^.]*"); // Segments: * → [^.]* (zero or more non-dot chars)
   }
 
   /** Check if a property key matches any of the sensitive templates */
@@ -856,9 +844,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
         }
       } else {
         nonSensitiveCount++;
-        if (!NON_SENSITIVE_PROPERTIES.contains(key)
-            && !matchesNonSensitiveTemplate(key)
-            && !matchesNonSensitivePattern(key)) {
+        if (!NON_SENSITIVE_PROPERTIES.contains(key) && !matchesNonSensitiveTemplate(key)) {
           unclassifiedProperties.add(
               key + " (not redacted, needs to be added to NON_SENSITIVE_PROPERTIES or templates)");
         }
@@ -918,7 +904,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     // Test segment wildcards
     String template2 = "cache.client.entityClient.entityAspectTTLSeconds.*.*";
     String regex2 = templateToRegex(template2);
-    assertEquals(regex2, "cache\\.client\\.entityClient\\.entityAspectTTLSeconds\\.[^.]+\\.[^.]+");
+    assertEquals(regex2, "cache\\.client\\.entityClient\\.entityAspectTTLSeconds\\.[^.]*\\.[^.]*");
 
     // Verify the regex matches actual cache properties
     assertTrue(
@@ -932,11 +918,21 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     // Test simple wildcard
     String template3 = "JAVA_MAIN_CLASS_*";
     String regex3 = templateToRegex(template3);
-    assertEquals(regex3, "JAVA_MAIN_CLASS_[^.]+");
+    assertEquals(regex3, "JAVA_MAIN_CLASS_[^.]*");
 
     assertTrue("JAVA_MAIN_CLASS_12345".matches(regex3));
     assertTrue("JAVA_MAIN_CLASS_67890".matches(regex3));
+    assertTrue("JAVA_MAIN_CLASS_".matches(regex3)); // Empty suffix should match
     assertFalse("JAVA_MAIN_CLASS_12345.extra".matches(regex3)); // Contains dots
+
+    // Test wildcard for Gradle properties (exact match and with suffix)
+    String template4 = "org.gradle.test.worker*";
+    String regex4 = templateToRegex(template4);
+    assertEquals(regex4, "org\\.gradle\\.test\\.worker[^.]*");
+
+    assertTrue("org.gradle.test.worker".matches(regex4)); // Exact match (zero chars after *)
+    assertTrue("org.gradle.test.worker1".matches(regex4)); // With suffix
+    assertFalse("org.gradle.test.worker.something".matches(regex4)); // Contains dots after *
 
     log.info("✅ Template-to-regex conversion working correctly");
   }
