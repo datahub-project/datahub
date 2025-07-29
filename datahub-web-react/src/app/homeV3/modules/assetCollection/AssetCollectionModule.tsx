@@ -14,7 +14,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
             (urn): urn is string => typeof urn === 'string',
         ) || [];
 
-    const { entities, loading } = useGetEntities(assetUrns);
+    const { entities, loading } = useGetEntities(assetUrns, true);
 
     return (
         <LargeModule {...props} loading={loading}>

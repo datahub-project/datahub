@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.ValidationException;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -221,5 +222,21 @@ public class ResolverUtils {
             ImmutableList.of(new ConjunctiveCriterion().setAnd(criterionArray))));
 
     return filter;
+  }
+
+  public static boolean filterEntitiesForExistence(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final EntityClient entityClient,
+      @Nullable final Boolean checkForExistence) {
+    try {
+      if (Boolean.TRUE.equals(checkForExistence) && !entityClient.exists(opContext, urn)) {
+        return false;
+      }
+      return true;
+    } catch (Exception e) {
+      _logger.error("Error when filtering urns when getting entities", e);
+      return false;
+    }
   }
 }

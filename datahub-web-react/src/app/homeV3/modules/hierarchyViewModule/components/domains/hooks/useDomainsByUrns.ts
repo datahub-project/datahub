@@ -8,6 +8,7 @@ export default function useDomainsByUrns(urns: string[]) {
     const { data, loading } = useGetEntitiesQuery({
         variables: {
             urns,
+            checkForExistence: true,
         },
         fetchPolicy: 'cache-and-network',
         skip: urns.length === 0,
