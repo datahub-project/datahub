@@ -273,7 +273,7 @@ The logs provide detailed information about:
 If your DataHub instance has [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md) enabled, you'll need to provide a Personal Access Token in your configuration.
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-run-log.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-with-token.png"/>
 </p>
 
 ## Advanced Configuration with YAML
