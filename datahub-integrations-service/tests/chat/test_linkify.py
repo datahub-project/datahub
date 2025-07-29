@@ -1,4 +1,10 @@
-from datahub_integrations.chat.linkify import datahub_linkify
+from datahub_integrations.chat.linkify import datahub_linkify, slackify_markdown
+
+
+def test_slackify_markdown() -> None:
+    text = "\n\nThis is a **bold** and _italic_ text.\nMy list:\n- item 1\n- item 2"
+    expected = "This is a *bold* and _italic_ text.\nMy list:\n• item 1\n• item 2"
+    assert slackify_markdown(text) == expected
 
 
 def test_datahub_linkify_dataset_link() -> None:

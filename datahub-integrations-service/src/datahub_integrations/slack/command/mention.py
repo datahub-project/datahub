@@ -2,6 +2,7 @@ from typing import Callable, List, Optional, Tuple
 
 import slack_sdk
 import slack_sdk.errors
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.sdk.main_client import DataHubClient
 from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
@@ -33,6 +34,16 @@ from datahub_integrations.telemetry.telemetry import track_saas_event
 
 DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID = "datahub_mention_followup_question"
 DATAHUB_MENTION_FEEDBACK_BUTTON_ID = "datahub_mention_feedback"
+
+# If true, follow-up questions are displayed as text.
+# Otherwise, they are displayed as buttons.
+# Note that buttons in Slack are visually truncated after 30 characters.
+# See https://claude.ai/share/e02f52ca-0972-4f4c-a3ae-cdeeee7729ca
+# Because our follow-up questions are typically longer than 30 characters,
+# we display them as text by default.
+_SLACK_FOLLOWUPS_AS_TEXT = get_boolean_env_variable(
+    "DATAHUB_SLACK_FOLLOWUPS_AS_TEXT", default=True
+)
 
 
 class SlackMentionEvent(BaseModel):
@@ -258,18 +269,31 @@ def _build_response(
     # Prepare blocks for the response
     blocks: List[dict] = []
 
-    # Create the main message block with user mention
+    # Create the main message block with user mention.
+    message = f"Hey <@{user_id}>! {message}"
+    if _SLACK_FOLLOWUPS_AS_TEXT and followup_questions:
+        followup_message = "**Suggested follow-up questions:**\n"
+        for question in followup_questions:
+            followup_message += f"\n- {question}"
+        followup_message = slackify_markdown(followup_message)
+        # With Slack, text within a section block has a hard limit of 3000 characters.
+        if len(message) + len(followup_message) < 3000 - 2:  # -2 for the newlines
+            message = f"{message}\n\n{followup_message}"
+        else:
+            logger.debug(
+                "Not including follow-up questions due to Slack message length limit"
+            )
+
     blocks.append(
         {
             "type": "section",
-            "text": {"type": "mrkdwn", "text": f"Hey <@{user_id}>! {message}"},
+            "text": {"type": "mrkdwn", "text": message},
         }
     )
 
-    # Add a divider before the footer
     blocks.append({"type": "divider"})
 
-    # Add feedback prompt in a context block
+    # Add feedback prompt + buttons.
     blocks.append(
         {
             "type": "context",
@@ -278,8 +302,6 @@ def _build_response(
             ],
         }
     )
-
-    # Add feedback buttons
     blocks.append(
         {
             "type": "actions",
@@ -322,8 +344,7 @@ def _build_response(
     )
 
     # Add follow-up question buttons if available
-    if followup_questions and len(followup_questions) > 0:
-        # Add a divider before follow-up questions
+    if not _SLACK_FOLLOWUPS_AS_TEXT and followup_questions:
         blocks.append({"type": "divider"})
         buttons = []
         for i, question in enumerate(followup_questions):
