@@ -457,7 +457,7 @@ class TestMetricClient:
                 customOperationType=(
                     op.type if op.type not in ["INSERT", "UPDATE", "DELETE"] else None
                 ),
-                lastUpdatedTimestamp=0,
+                lastUpdatedTimestamp=op.timestamp_ms,
             )
             for op in sample_operations
         ]
@@ -514,7 +514,7 @@ class TestMetricClient:
                 customOperationType=(
                     op.type if op.type not in ["INSERT", "UPDATE", "DELETE"] else None
                 ),
-                lastUpdatedTimestamp=0,
+                lastUpdatedTimestamp=op.timestamp_ms,
             )
             for op in sample_operations
         ]
@@ -549,13 +549,13 @@ class TestMetricClient:
 
         # Time range filters
         assert any(
-            cond.get("field") == "timestampMillis"
+            cond.get("field") == "lastUpdatedTimestamp"
             and cond.get("condition") == "GREATER_THAN_OR_EQUAL_TO"
             and cond.get("value") == str(int(start_time.timestamp() * 1000))
             for cond in filter_conditions
         )
         assert any(
-            cond.get("field") == "timestampMillis"
+            cond.get("field") == "lastUpdatedTimestamp"
             and cond.get("condition") == "LESS_THAN_OR_EQUAL_TO"
             and cond.get("value") == str(int(end_time.timestamp() * 1000))
             for cond in filter_conditions

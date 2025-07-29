@@ -268,12 +268,12 @@ class MetricClient:
                     {
                         "and": [
                             {
-                                "field": "timestampMillis",
+                                "field": "lastUpdatedTimestamp",
                                 "condition": "GREATER_THAN_OR_EQUAL_TO",
                                 "value": str(int(start_time.timestamp() * 1000)),
                             },
                             {
-                                "field": "timestampMillis",
+                                "field": "lastUpdatedTimestamp",
                                 "condition": "LESS_THAN_OR_EQUAL_TO",
                                 "value": str(int(end_time.timestamp() * 1000)),
                             },
@@ -302,7 +302,7 @@ class MetricClient:
 
         return [
             Operation(
-                timestamp_ms=operation.timestampMillis,
+                timestamp_ms=operation.lastUpdatedTimestamp,
                 type=str(
                     operation.operationType
                     if operation.operationType is not OperationTypeClass.CUSTOM
