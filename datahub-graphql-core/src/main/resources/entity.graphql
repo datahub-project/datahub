@@ -200,8 +200,9 @@ type Query {
 
   """
   Gets entities based on their urns
+  checkForExistence will do n+1 sql calls to check for existence of each entity requested if set to true
   """
-  entities(urns: [String!]!): [Entity]
+  entities(urns: [String!]!, checkForExistence: Boolean): [Entity]
 
   """
   List all DataHub Roles
