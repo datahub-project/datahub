@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
@@ -42,7 +43,7 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
     return rowIndex !== undefined && rowIndex >= 0 && rowIndex < rows.length;
 };
 
-export function useTemplateOperations() {
+export function useTemplateOperations(setPersonalTemplate: (template: PageTemplateFragment | null) => void) {
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
 
@@ -86,17 +87,20 @@ export function useTemplateOperations() {
                         modules: [module],
                     });
                 } else {
-                    const row = { ...newRows[rowIndex] };
-                    const newModules = [...(row.modules || [])];
+                    const rowModules = newRows[rowIndex]?.modules || [];
+                    // Find index to insert
+                    let moduleIndex: number;
 
-                    if (position.rowSide === 'left') {
-                        newModules.unshift(module);
+                    if (position.moduleIndex !== undefined) {
+                        moduleIndex = position.moduleIndex;
+                    } else if (position.rowSide === 'left') {
+                        moduleIndex = 0;
                     } else {
-                        newModules.push(module);
+                        moduleIndex = rowModules.length;
                     }
 
-                    row.modules = newModules;
-                    newRows[rowIndex] = row;
+                    // Insert module into the rows at given position
+                    newRows = insertModuleIntoRows(newRows, module, { ...position, moduleIndex }, rowIndex);
                 }
             }
 
@@ -116,6 +120,7 @@ export function useTemplateOperations() {
             templateToUpdate: PageTemplateFragment | null,
             moduleUrn: string,
             position: ModulePositionInput,
+            shouldRemoveEmptyRow: boolean,
         ): PageTemplateFragment | null => {
             if (!isValidRemovalPosition(templateToUpdate, position)) {
                 return templateToUpdate;
@@ -138,7 +143,7 @@ export function useTemplateOperations() {
             }
 
             // If the row is now empty, remove the entire row
-            if (updatedModules.length === 0) {
+            if (shouldRemoveEmptyRow && updatedModules.length === 0) {
                 newRows.splice(rowIndex!, 1);
             } else {
                 row.modules = updatedModules;
@@ -190,9 +195,21 @@ export function useTemplateOperations() {
         [upsertPageTemplateMutation, updateUserHomePageSettings],
     );
 
+    const resetTemplateToDefault = () => {
+        setPersonalTemplate(null);
+        updateUserHomePageSettings({
+            variables: {
+                input: {
+                    removePageTemplate: true,
+                },
+            },
+        });
+    };
+
     return {
         updateTemplateWithModule,
         removeModuleFromTemplate,
         upsertTemplate,
+        resetTemplateToDefault,
     };
 }

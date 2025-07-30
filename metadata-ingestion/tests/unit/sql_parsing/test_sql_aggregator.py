@@ -2,7 +2,7 @@ import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from freezegun import freeze_time
@@ -1026,6 +1026,48 @@ def test_sql_aggreator_close_cleans_tmp(tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         aggregator.close()
         assert len(os.listdir(tmp_path)) == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_override_dialect_passed_to_sqlglot_lineage() -> None:
+    """Test that override_dialect is correctly passed to sqlglot_lineage"""
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    base_query = ObservedQuery(
+        query="create table foo as select a, b from bar",
+        default_db="dev",
+        default_schema="public",
+    )
+
+    with patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.sqlglot_lineage"
+    ) as mock_sqlglot_lineage:
+        mock_sqlglot_lineage.return_value = MagicMock()
+
+        # Test with override_dialect set
+
+        base_query.override_dialect = "snowflake"
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] == "snowflake"
+
+        # Reset mock
+        mock_sqlglot_lineage.reset_mock()
+
+        # Test without override_dialect (should be None)
+
+        base_query.override_dialect = None
+        aggregator.add_observed_query(base_query)
+
+        mock_sqlglot_lineage.assert_called_once()
+        call_args = mock_sqlglot_lineage.call_args
+        assert call_args.kwargs["override_dialect"] is None
 
 
 @freeze_time(FROZEN_TIME)

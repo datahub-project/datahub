@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { ModuleModalState } from '@app/homeV3/context/types';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
@@ -19,14 +20,32 @@ export function useModuleModalState(): ModuleModalState {
         setPosition(positionToCreate);
         setIsEditing(false);
         setInitialState(null);
+
+        analytics.event({
+            type: EventType.HomePageTemplateModuleModalCreateOpen,
+            moduleType: moduleTypeToCreate,
+        });
     }, []);
 
-    const openToEdit = useCallback((moduleTypeToEdit: DataHubPageModuleType, currentData: PageModuleFragment) => {
-        setModuleType(moduleTypeToEdit);
-        setIsEditing(true);
-        setInitialState(currentData);
-        setIsOpen(true);
-    }, []);
+    const openToEdit = useCallback(
+        (
+            moduleTypeToEdit: DataHubPageModuleType,
+            currentData: PageModuleFragment,
+            currentPosition: ModulePositionInput,
+        ) => {
+            setModuleType(moduleTypeToEdit);
+            setIsEditing(true);
+            setInitialState(currentData);
+            setPosition(currentPosition);
+            setIsOpen(true);
+
+            analytics.event({
+                type: EventType.HomePageTemplateModuleModalEditOpen,
+                moduleType: moduleTypeToEdit,
+            });
+        },
+        [],
+    );
 
     const close = useCallback(() => {
         setModuleType(null);
@@ -34,7 +53,14 @@ export function useModuleModalState(): ModuleModalState {
         setIsOpen(false);
         setIsEditing(false);
         setInitialState(null);
-    }, []);
+
+        if (moduleType) {
+            analytics.event({
+                type: EventType.HomePageTemplateModuleModalCancel,
+                moduleType,
+            });
+        }
+    }, [moduleType]);
 
     return {
         moduleType,

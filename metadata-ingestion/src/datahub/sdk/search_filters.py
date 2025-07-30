@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import json
 from typing import (
     TYPE_CHECKING,
     Annotated,
@@ -81,7 +82,7 @@ class _EntityTypeFilter(_BaseFilter):
     ENTITY_TYPE_FIELD: ClassVar[str] = "_entityType"
 
     entity_type: List[str] = pydantic.Field(
-        description="The entity type to filter on. Can be 'dataset', 'chart', 'dashboard', 'corpuser', etc.",
+        description="The entity type to filter on. Can be 'dataset', 'chart', 'dashboard', 'corpuser', 'dataProduct', etc.",
     )
 
     def _build_rule(self) -> SearchFilterRule:
@@ -406,26 +407,45 @@ if TYPE_CHECKING or not PYDANTIC_SUPPORTS_CALLABLE_DISCRIMINATOR:
 else:
     from pydantic import Discriminator, Tag
 
+    def _parse_json_from_string(value: Any) -> Any:
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        else:
+            return value
+
     # TODO: Once we're fully on pydantic 2, we can use a RootModel here.
     # That way we'd be able to attach methods to the Filter type.
     # e.g. replace load_filters(...) with Filter.load(...)
     Filter = Annotated[
-        Union[
-            Annotated[_And, Tag(_And._field_discriminator())],
-            Annotated[_Or, Tag(_Or._field_discriminator())],
-            Annotated[_Not, Tag(_Not._field_discriminator())],
-            Annotated[_EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())],
-            Annotated[
-                _EntitySubtypeFilter, Tag(_EntitySubtypeFilter._field_discriminator())
+        Annotated[
+            Union[
+                Annotated[_And, Tag(_And._field_discriminator())],
+                Annotated[_Or, Tag(_Or._field_discriminator())],
+                Annotated[_Not, Tag(_Not._field_discriminator())],
+                Annotated[
+                    _EntityTypeFilter, Tag(_EntityTypeFilter._field_discriminator())
+                ],
+                Annotated[
+                    _EntitySubtypeFilter,
+                    Tag(_EntitySubtypeFilter._field_discriminator()),
+                ],
+                Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
+                Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
+                Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
+                Annotated[
+                    _ContainerFilter, Tag(_ContainerFilter._field_discriminator())
+                ],
+                Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
+                Annotated[
+                    _CustomCondition, Tag(_CustomCondition._field_discriminator())
+                ],
             ],
-            Annotated[_StatusFilter, Tag(_StatusFilter._field_discriminator())],
-            Annotated[_PlatformFilter, Tag(_PlatformFilter._field_discriminator())],
-            Annotated[_DomainFilter, Tag(_DomainFilter._field_discriminator())],
-            Annotated[_ContainerFilter, Tag(_ContainerFilter._field_discriminator())],
-            Annotated[_EnvFilter, Tag(_EnvFilter._field_discriminator())],
-            Annotated[_CustomCondition, Tag(_CustomCondition._field_discriminator())],
+            Discriminator(_filter_discriminator),
         ],
-        Discriminator(_filter_discriminator),
+        pydantic.BeforeValidator(_parse_json_from_string),
     ]
 
     # Required to resolve forward references to "Filter"
