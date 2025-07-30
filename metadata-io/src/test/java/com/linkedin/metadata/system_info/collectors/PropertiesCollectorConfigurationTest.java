@@ -360,6 +360,14 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "sun.java.launcher",
           "sun.jnu.encoding",
           "sun.management.compiler",
+
+          // JNA (Java Native Access) properties
+          "jna.loaded",
+          "jna.platform.library.path",
+          "jnidispatch.path",
+
+          // Java CRaC (Coordinated Restore at Checkpoint) properties
+          "sun.java.crac_command",
           "user.country",
           "user.dir",
           "user.home",
