@@ -99,7 +99,7 @@ module.exports = {
               label: "Assertion Notes (Troubleshooting & Documentation)",
               type: "doc",
               id: "docs/managed-datahub/observe/assertion-notes",
-              className: "saasOnly"
+              className: "saasOnly",
             },
             {
               label: "Open Assertions Specification",
