@@ -713,9 +713,6 @@ class TestTableauPageSizeConfig:
         assert config.effective_database_table_page_size == any_page_size
 
 
-# Virtual connection tests are now in test_tableau_virtual_connections.py
-
-
 def test_virtual_connection_config_validation():
     """Test virtual connection configuration validation."""
     # Test default config
