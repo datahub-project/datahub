@@ -29,7 +29,6 @@ export const DetailsContainer = styled.div`
     }
 `;
 
-
 export const ScrollableDetailsContainer = styled(DetailsContainer)`
     pre {
         max-height: 300px;
