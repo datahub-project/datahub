@@ -18,7 +18,7 @@ export default function useSelectableDomainTree(initialSelectedDomainUrns: strin
     const initialSelectedTreeNodes = useTreeNodesFromFlatDomains(initialDomains);
 
     const { domains: rootDomains, loading: rootDomainsLoading } = useRootDomains();
-    const rootTreeNodes = useTreeNodesFromDomains(rootDomains);
+    const rootTreeNodes = useTreeNodesFromDomains(rootDomains, false);
 
     useEffect(() => {
         if (
