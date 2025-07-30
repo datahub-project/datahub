@@ -1,7 +1,8 @@
 # Assertions
 
-:::note Contract Monitoring Support
-Currently we support Snowflake, Redshift, BigQuery, and Databricks for out-of-the-box contract monitoring as part of DataHub Cloud Observe.
+:::note Assertion Monitoring Support
+Currently we fully support Snowflake, Redshift, BigQuery, and Databricks for out-of-the-box assertion monitoring as part of DataHub Cloud Observe.
+For all other sources, DataHub Cloud Observe can only monitor assertions against dataset metrics (such as volume, or column nullness) and dataset freshenss by using the ingested metadata for each asset. As a result, column value validation, and custom SQL assertions will not work for these other sources.
 :::
 
 An assertion is **a data quality test that finds data that violates a specified rule.**
