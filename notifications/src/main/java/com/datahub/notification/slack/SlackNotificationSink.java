@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -1089,7 +1090,8 @@ public class SlackNotificationSink implements NotificationSink {
         request.getMessage().getParameters().getOrDefault("sourceType", null);
     final String assertionTypeText =
         AssertionSourceType.INFERRED.toString().equals(maybeSourceType)
-            ? "Smart Assertion"
+            ? String.format(
+                "Smart %s Assertion", AssertionUtils.getAssertionTypeName(assertionType))
             : String.format("%s Assertion", AssertionUtils.getAssertionTypeName(assertionType));
     final String resultString = AssertionUtils.getAssertionResultString(result);
     final String resultEmoji = AssertionUtils.getAssertionResultEmoji(result);
@@ -1100,18 +1102,23 @@ public class SlackNotificationSink implements NotificationSink {
                 : String.format("<%s|View original results>", maybeExternalUrl)
             : String.format("<%s|View results>", resultsUrl);
 
+    final String formattedReason =
+        AssertionResultType.SUCCESS.toString().equals(result)
+            ? ""
+            : String.format("\n> %s", resultReason);
+
     /*
-     * Example: Assertion `column x must not be null` has failed for Dataset SampleHiveDataset! View results in dbt
+     * Example: Assertion `column x must not be null` has failed for Dataset SampleHiveDataset! Expected 0 rows to fail, but 100 failed. View results in dbt
      */
     return String.format(
-        "%s  *%s* `%s` has *%s* for *<%s|%s>*!\n> %s\n%s",
+        "*<%s|%s>*\n%s *%s* `%s` has %s!%s\n%s",
+        entityUrl,
+        entityName,
         resultEmoji,
         assertionTypeText,
         description,
         resultString,
-        entityUrl,
-        entityName,
-        resultReason,
+        formattedReason,
         resultsLink);
   }
 

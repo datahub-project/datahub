@@ -530,10 +530,10 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    "%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*!\n> The assertion met the expected criteria.\n<%s|View results>",
-                    ":white_check_mark:",
+                    "*<%s|%s>*\n%s *Smart Column Assertion* `column x is greater than y` has passed!\n<%s|View results>",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
+                    ":white_check_mark:",
                     "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
@@ -583,7 +583,7 @@ public class SlackNotificationSinkTest {
                         "description",
                         "column x is greater than y",
                         "sourceType",
-                        "NATIVE"))));
+                        "INFERRED"))));
 
     notificationRequest.setRecipients(
         new NotificationRecipientArray(
@@ -734,10 +734,10 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    "%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*!\n> Expected criteria has been met.\n<%s|View results in dbt>",
-                    ":white_check_mark:",
+                    "*<%s|%s>*\n%s *External Assertion* `urn:li:assertion:test` has passed!\n<%s|View results in dbt>",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
+                    ":white_check_mark:",
                     "http://localhost:8084/dbt/results"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
@@ -843,10 +843,10 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    "%s  *External Assertion* `urn:li:assertion:test` has *passed* for *<%s|%s>*!\n> Expected criteria has been met.\n<%s|View results in dbt>",
-                    ":white_check_mark:",
+                    "*<%s|%s>*\n%s *External Assertion* `urn:li:assertion:test` has passed!\n<%s|View results in dbt>",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
+                    ":white_check_mark:",
                     "http://localhost:8084/dbt/results"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
@@ -975,10 +975,10 @@ public class SlackNotificationSinkTest {
             .channel("12345")
             .text(
                 String.format(
-                    "%s  *Column Assertion* `column x is greater than y` has *passed* for *<%s|%s>*!\n> Expected criteria has been met.\n<%s|View results>",
-                    ":white_check_mark:",
+                    "*<%s|%s>*\n%s *Column Assertion* `column x is greater than y` has failed!\n> Expected 0 rows to fail, but found 1000.\n<%s|View results>",
                     "http://localhost:9002/datasets/test",
                     "SampleName",
+                    ":x:",
                     "http://localhost:9002/datasets/test/Validation/Assertions?assertion_urn=urn%3Ali%3Aassertion%3Atest"))
             .iconUrl(String.format("http://localhost:9002%s", ACRYL_LOGO_FILE_PATH))
             .build();
@@ -1024,9 +1024,9 @@ public class SlackNotificationSinkTest {
                         "entityPath",
                         "/datasets/test",
                         "result",
-                        "SUCCESS",
+                        "FAILURE",
                         "resultReason",
-                        "Expected criteria has been met.",
+                        "Expected 0 rows to fail, but found 1000.",
                         "description",
                         "column x is greater than y",
                         "sourceType",
