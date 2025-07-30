@@ -105,9 +105,14 @@ module.exports = {
           ],
         },
         {
-          label: "Access Management",
+          label: "Data Access Workflows",
           type: "doc",
-          id: "docs/features/feature-guides/access-management",
+          id: "docs/managed-datahub/workflows/access-workflows",
+        },
+        {
+          label: "Data Access Roles",
+          type: "doc",
+          id: "docs/features/feature-guides/access-roles",
         },
         {
           label: "Automations",
@@ -410,7 +415,7 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "docs/managed-datahub/approval-workflows",
+      id: "docs/managed-datahub/change-proposals",
       className: "saasOnly",
     },
     {

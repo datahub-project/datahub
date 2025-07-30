@@ -2,13 +2,20 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Access Management
+# Data Access Roles
 
 <FeatureAvailability/>
 
+> **Note**: This feature is under active development and subject to significant change.
+
 ## Introduction
 
-DataHub's Access Management feature allows you to associate external roles from your source systems with your data assets in DataHub. This creates a unified view of access control across your data ecosystem, helping data consumers:
+DataHub's Access Roles feature allows you to ingest external roles from your source systems with your data assets in DataHub so that users can understand which roles they need in order to access a given asset. 
+
+Whereas [Data Access Workflows](../../managed-datahub/workflows/access-workflows.md) enable you to create workflows for requesting and reviewing access for tables, dashboards, etc, this feature enables users to understand the roles
+that already have access for a given asset, and redirect to an external platform to request access to the role. 
+
+This creates a unified view of access control across your data ecosystem, helping data consumers:
 
 1. **Discover available access** - Find what roles are already provisioned for them across different data platforms
 2. **Request appropriate access** - Easily identify and request to join the appropriate role for the access they need
