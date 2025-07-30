@@ -336,13 +336,11 @@ For example, by:
 - Assigning a particular Snowflake role for the user
 - Generating an AWS IAM policy granting access to an S3 bucket
 
-Because access management varies widely across organizations, provisioning is left up to the customer to implement.
-
 For full documentation on building a custom action, check out [Developing an Action](https://docs.datahub.com/docs/actions/guides/developing-an-action).
 
 ### Event Schema Reference
 
-For detailed event schemas and integration examples emitted throughout the lifecycle of an access workflow request, see the [DataHub Actions Framework documentation](https://docs.datahub.com/docs/actions) and [Workflow Event Schemas](https://docs.datahub.com/docs/actions/events/entity-change-event).
+For event schemas & examples, see [Entity Change Events](https://docs.datahub.com/docs/actions/events/entity-change-event).
 
 ## Additional Resources
 
