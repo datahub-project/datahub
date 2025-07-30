@@ -23,6 +23,7 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 - [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
 ### Bulk Create Assertions
+
 You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md):
 
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
