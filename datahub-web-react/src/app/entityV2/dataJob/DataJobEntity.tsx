@@ -37,11 +37,11 @@ import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@graphql/dataJob.generated';
 import { DataJob, DataProcessInstanceResult, EntityType, SearchResult } from '@types';
 
-const getPlatformForDataJob = (data?: DataJob) => {
+const getPlatformForDataJob = (data?: DataJob | null) => {
     return data?.platform || data?.dataFlow?.platform;
 };
 
-const getDataJobPlatformName = (data?: DataJob): string => {
+const getDataJobPlatformName = (data?: DataJob | null): string => {
     const platform = getPlatformForDataJob(data);
     return platform?.properties?.displayName || capitalizeFirstLetterOnly(platform?.name) || '';
 };
