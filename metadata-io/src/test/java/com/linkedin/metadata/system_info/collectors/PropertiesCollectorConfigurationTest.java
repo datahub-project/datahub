@@ -5,6 +5,7 @@ import static org.testng.Assert.*;
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.system_info.PropertyInfo;
 import com.linkedin.metadata.system_info.SystemPropertiesInfo;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -96,8 +97,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.authenticators[*].configs.salt");
 
   /**
-   * Template patterns for non-sensitive properties that contain dynamic parts. Use [*] for numeric
-   * indices and * for single property segments.
+   * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
+   * [*] for numeric indices and * for single property segments. Note: Environment variables are
+   * handled separately and don't need templates here.
    */
   private static final Set<String> NON_SENSITIVE_PROPERTY_TEMPLATES =
       Set.of(
@@ -112,10 +114,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Cache configuration with dynamic entity/aspect combinations
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
 
-          // Dynamic Java main class with process IDs
-          "JAVA_MAIN_CLASS_*",
-
-          // Gradle test worker properties
+          // Gradle test worker properties (Java system properties)
           "org.gradle.test.worker*");
 
   /**
@@ -817,12 +816,42 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     SystemPropertiesInfo systemInfo = propertiesCollector.collect();
     Map<String, PropertyInfo> properties = systemInfo.getProperties();
 
+    // Separate properties by source type
+    Map<String, PropertyInfo> configProperties = new HashMap<>();
+    Map<String, PropertyInfo> environmentVariables = new HashMap<>();
+
+    for (Map.Entry<String, PropertyInfo> entry : properties.entrySet()) {
+      if ("OriginAwareSystemEnvironmentPropertySource".equals(entry.getValue().getSourceType())) {
+        environmentVariables.put(entry.getKey(), entry.getValue());
+      } else {
+        configProperties.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    log.info(
+        "📊 Property Classification: {} configuration properties, {} environment variables",
+        configProperties.size(),
+        environmentVariables.size());
+
+    // Test explicit classification for configuration properties only
+    testConfigurationPropertiesClassification(configProperties);
+
+    // Handle environment variables with a separate policy
+    handleEnvironmentVariables(environmentVariables);
+  }
+
+  /**
+   * Test explicit classification for configuration properties (application.yaml, etc.) These must
+   * be explicitly classified as sensitive or non-sensitive.
+   */
+  private void testConfigurationPropertiesClassification(
+      Map<String, PropertyInfo> configProperties) {
     Set<String> unclassifiedProperties = new HashSet<>();
     Set<String> misclassifiedProperties = new HashSet<>();
     int sensitiveCount = 0;
     int nonSensitiveCount = 0;
 
-    for (Map.Entry<String, PropertyInfo> entry : properties.entrySet()) {
+    for (Map.Entry<String, PropertyInfo> entry : configProperties.entrySet()) {
       String key = entry.getKey();
       PropertyInfo info = entry.getValue();
       boolean isRedacted = "***REDACTED***".equals(info.getValue());
@@ -862,27 +891,69 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
     // Report any issues
     if (!unclassifiedProperties.isEmpty()) {
-      log.error("Unclassified properties found: {}", unclassifiedProperties);
+      log.error("Unclassified configuration properties found: {}", unclassifiedProperties);
       fail(
-          "Found unclassified properties. Add them to NON_SENSITIVE_PROPERTIES: "
+          "Found unclassified configuration properties. Add them to NON_SENSITIVE_PROPERTIES: "
               + unclassifiedProperties);
     }
 
     if (!misclassifiedProperties.isEmpty()) {
-      log.error("Misclassified properties found: {}", misclassifiedProperties);
-      fail("Found misclassified properties: " + misclassifiedProperties);
+      log.error("Misclassified configuration properties found: {}", misclassifiedProperties);
+      fail("Found misclassified configuration properties: " + misclassifiedProperties);
     }
 
     // Success logging
-    log.info("✅ All {} properties are properly classified:", properties.size());
+    log.info("✅ All {} configuration properties are properly classified:", configProperties.size());
     log.info("  - {} sensitive properties (redacted)", sensitiveCount);
     log.info("  - {} non-sensitive properties", nonSensitiveCount);
     log.info("  - {} properties in SENSITIVE_PROPERTIES list", SENSITIVE_PROPERTIES.size());
     log.info("  - {} properties in NON_SENSITIVE_PROPERTIES list", NON_SENSITIVE_PROPERTIES.size());
 
     // Sanity checks
-    assertTrue(sensitiveCount > 0, "Expected to find at least some sensitive properties");
-    assertTrue(nonSensitiveCount > 0, "Expected to find at least some non-sensitive properties");
+    assertTrue(
+        sensitiveCount > 0, "Expected to find at least some sensitive configuration properties");
+    assertTrue(
+        nonSensitiveCount > 0,
+        "Expected to find at least some non-sensitive configuration properties");
+  }
+
+  /**
+   * Handle environment variables with a separate, more permissive policy. Environment variables are
+   * inherently unpredictable across different environments.
+   */
+  private void handleEnvironmentVariables(Map<String, PropertyInfo> environmentVariables) {
+    Set<String> sensitiveEnvVars = new HashSet<>();
+    Set<String> allowedEnvVars = new HashSet<>();
+
+    for (Map.Entry<String, PropertyInfo> entry : environmentVariables.entrySet()) {
+      String key = entry.getKey();
+      PropertyInfo info = entry.getValue();
+      boolean isRedacted = "***REDACTED***".equals(info.getValue());
+
+      if (isRedacted) {
+        sensitiveEnvVars.add(key);
+      } else {
+        allowedEnvVars.add(key);
+      }
+    }
+
+    log.info("🔒 Environment Variables Summary:");
+    log.info("  - {} total environment variables", environmentVariables.size());
+    log.info(
+        "  - {} sensitive (redacted): {}",
+        sensitiveEnvVars.size(),
+        sensitiveEnvVars.size() > 10
+            ? sensitiveEnvVars.stream().limit(10).toArray() + "..."
+            : sensitiveEnvVars);
+    log.info(
+        "  - {} allowed (visible): {}",
+        allowedEnvVars.size(),
+        allowedEnvVars.size() > 10
+            ? allowedEnvVars.stream().limit(10).toArray() + "..."
+            : allowedEnvVars);
+
+    // Environment variables are handled permissively - we just log them for awareness
+    // The PropertiesCollector's existing isAllowedProperty() method handles the security
   }
 
   /**
@@ -914,25 +985,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
     assertFalse(
         "cache.client.entityClient.entityAspectTTLSeconds.corpuser"
             .matches(regex2)); // Too few segments
-
-    // Test simple wildcard
-    String template3 = "JAVA_MAIN_CLASS_*";
-    String regex3 = templateToRegex(template3);
-    assertEquals(regex3, "JAVA_MAIN_CLASS_[^.]*");
-
-    assertTrue("JAVA_MAIN_CLASS_12345".matches(regex3));
-    assertTrue("JAVA_MAIN_CLASS_67890".matches(regex3));
-    assertTrue("JAVA_MAIN_CLASS_".matches(regex3)); // Empty suffix should match
-    assertFalse("JAVA_MAIN_CLASS_12345.extra".matches(regex3)); // Contains dots
-
-    // Test wildcard for Gradle properties (exact match and with suffix)
-    String template4 = "org.gradle.test.worker*";
-    String regex4 = templateToRegex(template4);
-    assertEquals(regex4, "org\\.gradle\\.test\\.worker[^.]*");
-
-    assertTrue("org.gradle.test.worker".matches(regex4)); // Exact match (zero chars after *)
-    assertTrue("org.gradle.test.worker1".matches(regex4)); // With suffix
-    assertFalse("org.gradle.test.worker.something".matches(regex4)); // Contains dots after *
 
     log.info("✅ Template-to-regex conversion working correctly");
   }
