@@ -29,9 +29,9 @@ You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahu
 
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
-To bulk create column metric assertions on a given dataset, follow the steps under the [Anomaly Detection section of the Column Assertion docs](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
+To bulk create column metric assertions on a given dataset, follow the steps under the **Anomaly Detection** section of [Column Assertion](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
 
-### AI Anomaly detection (Smart Assertions)
+### AI Anomaly Detection (Smart Assertions)
 
 There are many cases where either you do not have the time to figure out what a good rule for an assertion is, or strict rules simply do not suffice for your data validation needs. Traditional rule-based assertions can become inadequate when dealing with complex data patterns or large-scale operations.
 
