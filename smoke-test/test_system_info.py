@@ -1,5 +1,9 @@
 import logging
 import pytest
+import requests
+
+from tests.utils import login_as, get_gms_url, get_admin_credentials, get_frontend_url
+from tests.privileges.utils import create_user, remove_user
 
 logger = logging.getLogger(__name__)
 
@@ -166,4 +170,142 @@ def test_system_info_endpoint_separation(auth_session):
     assert "properties" in gms_info, "GMS component should have properties field with system properties"
     assert isinstance(gms_info["properties"], dict), "GMS properties should be a dictionary"
     
-    logger.info("Endpoint separation test passed - no duplication detected") 
+    logger.info("Endpoint separation test passed - no duplication detected")
+
+
+def extract_api_token_from_session(session):
+    """Extract API token from frontend session cookies for OpenAPI authentication.
+    
+    Based on TestSessionWrapper pattern in tests/utils.py
+    """
+    # Extract actor URN from session cookies
+    actor_urn = session.cookies["actor"] 
+    
+    # Generate personal access token via GraphQL
+    json_payload = {
+        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
+            createAccessToken(input: $input) {
+              accessToken
+              metadata {
+                id
+              }
+            }
+        }""",
+        "variables": {
+            "input": {
+                "type": "PERSONAL",
+                "actorUrn": actor_urn,
+                "duration": "ONE_HOUR",
+                "name": "Test API Token",
+                "description": "Token for smoke test authentication",
+            }
+        },
+    }
+    
+    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json_payload)
+    response.raise_for_status()
+    
+    token_data = response.json()["data"]["createAccessToken"]
+    return token_data["accessToken"], token_data["metadata"]["id"]
+
+
+def test_system_info_authenticated_non_admin_user_returns_403():
+    """Test that system info endpoints return HTTP 403 for authenticated users without MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.
+    
+    This test creates a limited-privilege user, extracts their API token, and verifies they get HTTP 403,
+    proving that our authorization logic correctly checks for the specific privilege.
+    """
+    # Get admin session to create test user
+    (admin_user, admin_pass) = get_admin_credentials()
+    admin_session = login_as(admin_user, admin_pass)
+    
+    test_user_urn = "urn:li:corpuser:limited_test_user"
+    token_id = None
+    
+    try:
+        # Create a limited-privilege user (no special privileges by default)
+        create_user(admin_session, "limited_test_user", "testpass123")
+        
+        # Login as the limited user
+        limited_user_session = login_as("limited_test_user", "testpass123")
+        
+        # Extract API token from the session
+        api_token, token_id = extract_api_token_from_session(limited_user_session)
+        logger.info(f"✓ Successfully extracted API token for limited user")
+        
+        # Test all system info endpoints with API token authentication
+        base_url = get_gms_url()
+        endpoints = [
+            "/openapi/v1/system-info",
+            "/openapi/v1/system-info/spring-components", 
+            "/openapi/v1/system-info/properties",
+            "/openapi/v1/system-info/properties/simple"
+        ]
+        
+        for endpoint in endpoints:
+            # Make request with Authorization header (not cookies)
+            headers = {"Authorization": f"Bearer {api_token}"}
+            response = requests.get(f"{base_url}{endpoint}", headers=headers)
+            
+            logger.info(f"Endpoint {endpoint}: HTTP {response.status_code}")
+            if response.status_code != 403:
+                logger.info(f"Response body: {response.text[:200]}...")
+            
+            # Should return HTTP 403 FORBIDDEN for authenticated user without privilege
+            assert response.status_code == 403, f"Endpoint {endpoint} should return HTTP 403 for authenticated non-admin user but returned HTTP {response.status_code}. Response: {response.text}"
+            
+            # Verify the error message mentions authorization
+            assert "not authorized for system operations" in response.text, f"Error message should mention authorization: {response.text}"
+            
+            logger.info(f"✓ Endpoint {endpoint} correctly returns HTTP 403 for authenticated non-admin user")
+    
+    finally:
+        # Clean up: revoke the API token and remove the test user
+        try:
+            if token_id:
+                # Revoke the API token
+                revoke_json = {
+                    "query": """mutation revokeAccessToken($tokenId: String!) {
+                        revokeAccessToken(tokenId: $tokenId)
+                    }""",
+                    "variables": {"tokenId": token_id},
+                }
+                limited_user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=revoke_json)
+                
+            # Remove the test user
+            admin_cleanup_session = login_as(admin_user, admin_pass)
+            remove_user(admin_cleanup_session, test_user_urn)
+            logger.info("✓ Test user and token cleaned up successfully")
+        except Exception as e:
+            logger.warning(f"Failed to clean up test user or token: {e}")
+    
+    logger.info("✓ Authorization test PASSED - authenticated users without MANAGE_SYSTEM_OPERATIONS_PRIVILEGE correctly receive HTTP 403")
+
+
+
+
+
+def test_system_info_unauthorized_access_returns_403():
+    """Test that system info endpoints return 401/403 for unauthenticated users."""
+    # Make unauthenticated requests (no session) to verify 401/403 responses
+    base_url = get_gms_url()
+    endpoints = [
+        "/openapi/v1/system-info",
+        "/openapi/v1/system-info/spring-components", 
+        "/openapi/v1/system-info/properties",
+        "/openapi/v1/system-info/properties/simple"
+    ]
+    
+    for endpoint in endpoints:
+        response = requests.get(f"{base_url}{endpoint}")
+        
+        # Should return 403 Forbidden or 401 Unauthorized for unauthenticated requests
+        # Both status codes indicate that access is properly restricted
+        assert response.status_code in [401, 403], f"Endpoint {endpoint} should require authentication but returned {response.status_code}"
+        
+        logger.info(f"✓ Endpoint {endpoint} properly restricts unauthenticated access (HTTP {response.status_code})")
+    
+    logger.info("Unauthenticated access test passed - all system info endpoints require proper authentication")
+
+
+ 
