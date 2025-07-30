@@ -28,3 +28,10 @@ export const DetailsContainer = styled.div`
         overflow-y: auto;
     }
 `;
+
+
+export const ScrollableDetailsContainer = styled(DetailsContainer)`
+    pre {
+        max-height: 300px;
+    }
+`;
