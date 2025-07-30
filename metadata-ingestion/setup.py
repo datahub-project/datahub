@@ -458,8 +458,7 @@ plugins: Dict[str, Set[str]] = {
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-        # Temporarily allowing numpy>=2 for Python 3.13 compatibility during Docusaurus migration
-        "numpy>=1.24,<3",
+        "numpy<2",
         *cachetools_lib,
     },
     "feast": {
@@ -469,8 +468,7 @@ plugins: Dict[str, Set[str]] = {
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
         # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
-        # Temporarily allowing numpy>=2 for Python 3.13 compatibility during Docusaurus migration
-        "numpy>=1.24,<3",
+        "numpy<2",
     },
     "grafana": {"requests", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,

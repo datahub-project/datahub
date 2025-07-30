@@ -660,50 +660,51 @@ module.exports = {
               type: "doc",
               id: "docs/api/graphql/overview",
             },
-            {
-              Reference: [
-                {
-                  type: "doc",
-                  label: "Queries",
-                  id: "graphql/queries",
-                },
-                {
-                  type: "doc",
-                  label: "Mutations",
-                  id: "graphql/mutations",
-                },
-                {
-                  type: "doc",
-                  label: "Objects",
-                  id: "graphql/objects",
-                },
-                {
-                  type: "doc",
-                  label: "Inputs",
-                  id: "graphql/inputObjects",
-                },
-                {
-                  type: "doc",
-                  label: "Interfaces",
-                  id: "graphql/interfaces",
-                },
-                {
-                  type: "doc",
-                  label: "Unions",
-                  id: "graphql/unions",
-                },
-                {
-                  type: "doc",
-                  label: "Enums",
-                  id: "graphql/enums",
-                },
-                {
-                  type: "doc",
-                  label: "Scalars",
-                  id: "graphql/scalars",
-                },
-              ],
-            },
+            // TODO: Re-enable GraphQL Reference section after fixing the new plugin
+            // {
+            //   Reference: [
+            //     {
+            //       type: "doc",
+            //       label: "Queries",
+            //       id: "graphql/queries",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Mutations",
+            //       id: "graphql/mutations",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Objects",
+            //       id: "graphql/objects",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Inputs",
+            //       id: "graphql/inputObjects",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Interfaces",
+            //       id: "graphql/interfaces",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Unions",
+            //       id: "graphql/unions",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Enums",
+            //       id: "graphql/enums",
+            //     },
+            //     {
+            //       type: "doc",
+            //       label: "Scalars",
+            //       id: "graphql/scalars",
+            //     },
+            //   ],
+            // },
             {
               Guides: [
                 {

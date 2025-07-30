@@ -481,9 +481,9 @@ module.exports = {
       "@graphql-markdown/docusaurus",
       {
         schema: "./graphql/combined.graphql",
-        rootPath: "./docs", // output location
+        rootPath: "./genDocs", // output location
         baseURL: "graphql",
-        homepage: "./docs/graphql/index.md",
+        homepage: "./genDocs/graphql/index.md",
         linkRoot: "/docs",
       },
     ],
