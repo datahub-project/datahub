@@ -4,6 +4,12 @@ const wrong_url = "https://www.linkedincom";
 const correct_url = "https://www.linkedin.com";
 
 describe("edit documentation and link to dataset", () => {
+  beforeEach(() => {
+    cy.window().then((win) => {
+      win.localStorage.setItem("isThemeV2Enabled", "false");
+    });
+  });
+
   it("open test dataset page, edit documentation", () => {
     // edit documentation and verify changes saved
     cy.loginWithCredentials();

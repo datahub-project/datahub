@@ -2,7 +2,6 @@ import { aliasQuery, hasOperationName } from "../utils";
 
 const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
-const datasetName = "SampleCypressHdfsDataset";
 const number = Math.floor(Math.random() * 100000);
 const testName = `Cypress Tag Test ${number}`;
 const testDescription = "Cyprress test description";
@@ -64,11 +63,16 @@ describe("create, edit and remove metadata test", () => {
     // test conditions
     cy.clickOptionWithText("Test Conditions");
     cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hdfs");
-    cy.waitTestIdVisible(`preview-${urn}`)
-      .parent()
-      .contains("Run Test")
-      .as("runTest");
-    cy.get("@runTest").click();
+
+    const datasetName = urn.split(",")[1]; // Extract dataset name from URN
+
+    cy.get(".ant-modal-body")
+      .contains("a", datasetName)
+      .closest("ul")
+      .contains("button", "Run Test")
+      .as("runTest1");
+    cy.get("@runTest1").click();
+
     cy.waitTextVisible("Passed");
     cy.get('[role="dialog"] [data-testid="embedded-search-bar"]')
       .clear()
@@ -104,12 +108,15 @@ describe("create, edit and remove metadata test", () => {
     cy.clickOptionWithText("Edit Metadata Test");
     // test conditions, verify that test fails
     cy.clickOptionWithText("Test Conditions");
+
     cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hdfs");
-    cy.waitTestIdVisible(`preview-${urn}`)
-      .parent()
-      .contains("Run Test")
-      .click();
-    cy.clickOptionWithText("Run Test");
+    cy.get(".ant-modal-body")
+      .contains("a", datasetName)
+      .closest("ul")
+      .contains("button", "Run Test")
+      .as("runTest2");
+    cy.get("@runTest2").click();
+
     cy.waitTextVisible("Failed");
     cy.clickOptionWithText("Close");
     // save edited test
