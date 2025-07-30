@@ -1,5 +1,5 @@
-import { ANTD_GRAY } from '../../constants';
-import { percentileToColor, percentileToLabel } from '../statsUtils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { percentileToColor, percentileToLabel } from '@app/entityV2/shared/stats/statsUtils';
 
 describe('percentileToLabel', () => {
     it('should return "Low" when percentile is <= 30', () => {

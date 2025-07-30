@@ -1,10 +1,10 @@
-import analyticsConfig from '../../../conf/analytics';
+import analyticsConfig from '@conf/analytics';
 
 const { datahub } = analyticsConfig;
 const isEnabled: boolean = (datahub && datahub.enabled) || false;
 
 const track = (payload) => {
-    fetch('/track', {
+    fetch('/openapi/v1/tracking/track', {
         method: 'POST',
         cache: 'no-cache',
         credentials: 'same-origin',

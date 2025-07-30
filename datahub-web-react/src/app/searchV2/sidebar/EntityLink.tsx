@@ -1,15 +1,18 @@
+import Icon from '@ant-design/icons/lib/components/Icon';
 import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import Icon from '@ant-design/icons/lib/components/Icon';
-import { useBrowseDisplayName, useIsBrowsePathSelected } from './BrowseContext';
-import ExpandableNode from './ExpandableNode';
-import ExternalLink from '../../../images/link-out.svg?react';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { Entity, Maybe } from '../../../types.generated';
-import useSidebarAnalytics from './useSidebarAnalytics';
-import { BrowseV2EntityLinkClickEvent } from '../../analytics';
+
+import { BrowseV2EntityLinkClickEvent } from '@app/analytics';
+import { useBrowseDisplayName, useIsBrowsePathSelected } from '@app/searchV2/sidebar/BrowseContext';
+import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
+import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, Maybe } from '@types';
+
+import ExternalLink from '@images/link-out.svg?react';
 
 const Linkicon = styled(Icon)<{ $isSelected: boolean }>`
     && {

@@ -1,10 +1,11 @@
-import React from 'react';
-import styled from 'styled-components/macro';
-import { Link } from 'react-router-dom';
 import { Tooltip } from '@components';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../shared/formatNumber';
-import { generateColor } from '../../entityV2/shared/components/styled/StyledTag';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components/macro';
+
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 const Card = styled(Link)`
     align-items: center;

@@ -1,11 +1,13 @@
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { getPlatformName } from '../../entity/shared/utils';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getPlatformName } from '@app/entity/shared/utils';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity } from '@types';
 
 const EntityWrapper = styled.div<{ shrinkPadding?: boolean }>`
     border-bottom: 1px solid ${ANTD_GRAY[4]};

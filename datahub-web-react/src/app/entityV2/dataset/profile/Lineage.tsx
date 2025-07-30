@@ -2,10 +2,12 @@ import { Button, List, Space, Typography } from 'antd';
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
-import { DownstreamEntityRelationships, EntityType, UpstreamEntityRelationships } from '../../../../types.generated';
-import { navigateToLineageUrl } from '../../../lineage/utils/navigateToLineageUrl';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import { navigateToLineageUrl } from '@app/lineage/utils/navigateToLineageUrl';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DownstreamEntityRelationships, EntityType, UpstreamEntityRelationships } from '@types';
 
 export type Props = {
     upstreamLineage?: UpstreamEntityRelationships | null;

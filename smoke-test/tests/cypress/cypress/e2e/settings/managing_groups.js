@@ -5,9 +5,16 @@ const password = "Example password";
 const group_name = `Test group ${test_id}`;
 
 describe("create and manage group", () => {
+  beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
+    cy.skipIntroducePage();
+    cy.on("uncaught:exception", (err, runnable) => false);
+  });
+
   it("add test user", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/users");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.waitTextVisible("Invite Users");
     cy.clickOptionWithText("Invite Users");
     cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
@@ -31,6 +38,7 @@ describe("create and manage group", () => {
   it("create a group", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.waitTextVisible("Create group");
     cy.clickOptionWithText("Create group");
     cy.waitTextVisible("Create new group");
@@ -47,6 +55,7 @@ describe("create and manage group", () => {
   it("add test user to a group", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/users");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
     cy.clickOptionWithText(group_name);
     cy.get(".ant-typography").contains(group_name).should("be.visible");
@@ -66,6 +75,7 @@ describe("create and manage group", () => {
   it("update group info", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.clickOptionWithText(group_name);
     cy.contains(group_name).find('[aria-label="Edit"]').click();
     cy.focused().clear().type(`Test group EDITED ${test_id}{enter}`);
@@ -101,6 +111,7 @@ describe("create and manage group", () => {
   it("test User verify group participation", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.hideOnboardingTour();
     cy.clickOptionWithText(`Test group EDITED ${test_id}`);
     cy.get(".ant-tabs-tab").contains("Members").click();
@@ -110,6 +121,7 @@ describe("create and manage group", () => {
   it("assign role to group ", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`).next().click();
     cy.get(".ant-select-item-option").contains("Admin").click();
     cy.get("button.ant-btn-primary").contains("OK").click();
@@ -121,6 +133,7 @@ describe("create and manage group", () => {
   it("remove group", () => {
     cy.loginWithCredentials();
     cy.visit("/settings/identities/groups");
+    cy.get('[data-testid="manage-users-groups-v1"]');
     cy.get(
       `[href="/group/urn:li:corpGroup:${test_id}"]`,
     ).openThreeDotDropdown();

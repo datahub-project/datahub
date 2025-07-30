@@ -1,12 +1,15 @@
 import React from 'react';
-
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../../../../constants';
-import { AssertionResult } from '../../../../../../../../../../types.generated';
-import { getResultColor } from '../../../../assertionUtils';
-import { ResultStatusType, getResultStatusText } from './resultMessageUtils';
-import { applyOpacityToHexColor } from '../../../../../../../../../shared/styleUtils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import {
+    ResultStatusType,
+    getResultStatusText,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { applyOpacityToHexColor } from '@app/shared/styleUtils';
+
+import { AssertionResult } from '@types';
 
 const Pill = styled.div<{ color: string; highlightColor: string }>`
     display: flex;

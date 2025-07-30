@@ -26,12 +26,14 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
+    StructuredPropertyInputType,
     TagInputType,
     TagsInputType,
     TermInputType,
@@ -70,12 +72,17 @@ UpstreamLineageInputType: TypeAlias = Union[
     Dict[DatasetUrnOrStr, ColumnLineageMapping],
 ]
 
+ViewDefinitionInputType: TypeAlias = Union[
+    str,
+    models.ViewPropertiesClass,
+]
+
 
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
 ) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
-    if isinstance(upstream_input, models.UpstreamClass) or isinstance(
-        upstream_input, models.FineGrainedLineageClass
+    if isinstance(
+        upstream_input, (models.UpstreamClass, models.FineGrainedLineageClass)
     ):
         return upstream_input
     elif isinstance(upstream_input, (str, DatasetUrn)):
@@ -87,7 +94,7 @@ def _parse_upstream_input(
         assert_never(upstream_input)
 
 
-def _parse_cll_mapping(
+def parse_cll_mapping(
     *,
     upstream: DatasetUrnOrStr,
     downstream: DatasetUrnOrStr,
@@ -142,7 +149,7 @@ def _parse_upstream_lineage_input(
                 )
             )
             cll.extend(
-                _parse_cll_mapping(
+                parse_cll_mapping(
                     upstream=dataset_urn,
                     downstream=downstream_urn,
                     cll_mapping=column_lineage,
@@ -428,12 +435,25 @@ class Dataset(
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
+    """Represents a dataset in DataHub.
+
+    A dataset represents a collection of data, such as a table, view, or file.
+    This class provides methods for managing dataset metadata including schema,
+    lineage, and various aspects like ownership, tags, and terms.
+    """
+
     __slots__ = ()
 
     @classmethod
     def get_urn_type(cls) -> Type[DatasetUrn]:
+        """Get the URN type for datasets.
+
+        Returns:
+            The DatasetUrn class.
+        """
         return DatasetUrn
 
     def __init__(
@@ -452,6 +472,7 @@ class Dataset(
         custom_properties: Optional[Dict[str, str]] = None,
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
+        view_definition: Optional[ViewDefinitionInputType] = None,
         # Standard aspects.
         parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
@@ -459,13 +480,39 @@ class Dataset(
         links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
-        # TODO structured_properties
         domain: Optional[DomainInputType] = None,
-        extra_aspects: ExtraAspectsType = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
+        """Initialize a new Dataset instance.
+
+        Args:
+            platform: The platform this dataset belongs to (e.g. "mysql", "snowflake").
+            name: The name of the dataset.
+            platform_instance: Optional platform instance identifier.
+            env: The environment this dataset belongs to (default: DEFAULT_ENV).
+            description: Optional description of the dataset.
+            display_name: Optional display name for the dataset.
+            qualified_name: Optional qualified name for the dataset.
+            external_url: Optional URL to external documentation or source.
+            custom_properties: Optional dictionary of custom properties.
+            created: Optional creation timestamp.
+            last_modified: Optional last modification timestamp.
+            view_definition: Optional view definition for the dataset.
+            parent_container: Optional parent container for this dataset.
+            subtype: Optional subtype of the dataset.
+            owners: Optional list of owners.
+            links: Optional list of links.
+            tags: Optional list of tags.
+            terms: Optional list of glossary terms.
+            domain: Optional domain this dataset belongs to.
+            extra_aspects: Optional list of additional aspects.
+            schema: Optional schema definition for the dataset.
+            upstreams: Optional upstream lineage information.
+        """
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
             table_name=name,
@@ -496,6 +543,8 @@ class Dataset(
             self.set_created(created)
         if last_modified is not None:
             self.set_last_modified(last_modified)
+        if view_definition is not None:
+            self.set_view_definition(view_definition)
 
         if parent_container is not unset:
             self._set_container(parent_container)
@@ -511,6 +560,9 @@ class Dataset(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -539,6 +591,11 @@ class Dataset(
 
     @property
     def description(self) -> Optional[str]:
+        """Get the description of the dataset.
+
+        Returns:
+            The description if set, None otherwise.
+        """
         editable_props = self._get_editable_props()
         return first_non_null(
             [
@@ -548,6 +605,15 @@ class Dataset(
         )
 
     def set_description(self, description: str) -> None:
+        """Set the description of the dataset.
+
+        Args:
+            description: The description to set.
+
+        Note:
+            If called during ingestion, this will warn if overwriting
+            a non-ingestion description.
+        """
         if is_ingestion_attribution():
             editable_props = self._get_editable_props()
             if editable_props is not None and editable_props.description is not None:
@@ -565,45 +631,135 @@ class Dataset(
 
     @property
     def display_name(self) -> Optional[str]:
+        """Get the display name of the dataset.
+
+        Returns:
+            The display name if set, None otherwise.
+        """
         return self._ensure_dataset_props().name
 
     def set_display_name(self, display_name: str) -> None:
+        """Set the display name of the dataset.
+
+        Args:
+            display_name: The display name to set.
+        """
         self._ensure_dataset_props().name = display_name
 
     @property
     def qualified_name(self) -> Optional[str]:
+        """Get the qualified name of the dataset.
+
+        Returns:
+            The qualified name if set, None otherwise.
+        """
         return self._ensure_dataset_props().qualifiedName
 
     def set_qualified_name(self, qualified_name: str) -> None:
+        """Set the qualified name of the dataset.
+
+        Args:
+            qualified_name: The qualified name to set.
+        """
         self._ensure_dataset_props().qualifiedName = qualified_name
 
     @property
     def external_url(self) -> Optional[str]:
+        """Get the external URL of the dataset.
+
+        Returns:
+            The external URL if set, None otherwise.
+        """
         return self._ensure_dataset_props().externalUrl
 
     def set_external_url(self, external_url: str) -> None:
+        """Set the external URL of the dataset.
+
+        Args:
+            external_url: The external URL to set.
+        """
         self._ensure_dataset_props().externalUrl = external_url
 
     @property
     def custom_properties(self) -> Dict[str, str]:
+        """Get the custom properties of the dataset.
+
+        Returns:
+            Dictionary of custom properties.
+        """
         return self._ensure_dataset_props().customProperties
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
+        """Set the custom properties of the dataset.
+
+        Args:
+            custom_properties: Dictionary of custom properties to set.
+        """
         self._ensure_dataset_props().customProperties = custom_properties
 
     @property
     def created(self) -> Optional[datetime]:
+        """Get the creation timestamp of the dataset.
+
+        Returns:
+            The creation timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().created)
 
     def set_created(self, created: datetime) -> None:
+        """Set the creation timestamp of the dataset.
+
+        Args:
+            created: The creation timestamp to set.
+        """
         self._ensure_dataset_props().created = make_time_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
+        """Get the last modification timestamp of the dataset.
+
+        Returns:
+            The last modification timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().lastModified)
 
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataset_props().lastModified = make_time_stamp(last_modified)
+
+    @property
+    def view_definition(self) -> Optional[models.ViewPropertiesClass]:
+        """Get the view definition of the dataset.
+
+        Under typical usage, this will be present if the subtype is "View".
+
+        Returns:
+            The view definition if set, None otherwise.
+        """
+        return self._get_aspect(models.ViewPropertiesClass)
+
+    def set_view_definition(self, view_definition: ViewDefinitionInputType) -> None:
+        """Set the view definition of the dataset.
+
+        If you're setting a view definition, subtype should typically be set to "view".
+
+        If a string is provided, it will be treated as a SQL view definition. To set
+        a custom language or other properties, provide a ViewPropertiesClass object.
+
+        Args:
+            view_definition: The view definition to set.
+        """
+        if isinstance(view_definition, models.ViewPropertiesClass):
+            self._set_aspect(view_definition)
+        elif isinstance(view_definition, str):
+            self._set_aspect(
+                models.ViewPropertiesClass(
+                    materialized=False,
+                    viewLogic=view_definition,
+                    viewLanguage="SQL",
+                )
+            )
+        else:
+            assert_never(view_definition)
 
     def _schema_dict(self) -> Dict[str, models.SchemaFieldClass]:
         schema_metadata = self._get_aspect(models.SchemaMetadataClass)
@@ -614,6 +770,11 @@ class Dataset(
     @property
     def schema(self) -> List[SchemaField]:
         # TODO: Add some caching here to avoid iterating over the schema every time.
+        """Get the schema fields of the dataset.
+
+        Returns:
+            List of SchemaField objects representing the dataset's schema.
+        """
         schema_dict = self._schema_dict()
         return [SchemaField(self, field_path) for field_path in schema_dict]
 
@@ -669,6 +830,17 @@ class Dataset(
 
     def __getitem__(self, field_path: str) -> SchemaField:
         # TODO: Automatically deal with field path v2?
+        """Get a schema field by its path.
+
+        Args:
+            field_path: The path of the field to retrieve.
+
+        Returns:
+            A SchemaField instance.
+
+        Raises:
+            SchemaFieldKeyError: If the field is not found.
+        """
         schema_dict = self._schema_dict()
         if field_path not in schema_dict:
             raise SchemaFieldKeyError(f"Field {field_path} not found in schema")

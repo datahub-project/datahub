@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonPOJOBuilder;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -15,6 +16,9 @@ import lombok.ToString;
 @ToString
 @JsonDeserialize(builder = CustomSearchConfiguration.CustomSearchConfigurationBuilder.class)
 public class CustomSearchConfiguration {
+
+  @Builder.Default
+  private Map<String, FieldConfiguration> fieldConfigurations = Collections.emptyMap();
 
   @Builder.Default private List<QueryConfiguration> queryConfigurations = Collections.emptyList();
 

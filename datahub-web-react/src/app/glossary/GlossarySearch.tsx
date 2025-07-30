@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import { EntityType } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { SearchBar } from '../search/SearchBar';
-import ClickOutside from '../shared/ClickOutside';
-import { useEntityRegistry } from '../useEntityRegistry';
-import GloassarySearchResultItem from './GloassarySearchResultItem';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import GloassarySearchResultItem from '@app/glossary/GloassarySearchResultItem';
+import { SearchBar } from '@app/search/SearchBar';
+import ClickOutside from '@app/shared/ClickOutside';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const GlossarySearchWrapper = styled.div`
     position: relative;
@@ -15,7 +17,10 @@ const GlossarySearchWrapper = styled.div`
 const ResultsWrapper = styled.div`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgb(0 0 0 / 12%), 0 6px 16px 0 rgb(0 0 0 / 8%), 0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow:
+        0 3px 6px -4px rgb(0 0 0 / 12%),
+        0 6px 16px 0 rgb(0 0 0 / 8%),
+        0 9px 28px 8px rgb(0 0 0 / 5%);
     max-height: 380px;
     overflow: auto;
     padding: 8px;

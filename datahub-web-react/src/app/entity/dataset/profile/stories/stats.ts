@@ -1,4 +1,4 @@
-import { DatasetProfile } from '../../../../../types.generated';
+import { DatasetProfile } from '@types';
 
 export const completeSampleProfile: DatasetProfile = {
     rowCount: 1000,

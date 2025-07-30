@@ -1,18 +1,12 @@
 import {
-    DataHubViewType,
-    Entity,
-    EntityType,
-    FacetFilter,
-    FacetFilterInput,
-    LogicalOperator,
-} from '../../../../types.generated';
-import {
     ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    UnionType,
     FILTER_DELIMITER,
     TYPE_NAMES_FILTER_NAME,
-} from '../../../search/utils/constants';
+    UnionType,
+} from '@app/search/utils/constants';
+
+import { DataHubViewType, Entity, EntityType, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
 
 /**
  * Extract the special "Entity Type" filter values from a list

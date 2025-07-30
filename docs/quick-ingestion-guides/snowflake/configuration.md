@@ -1,6 +1,7 @@
 ---
 title: Configuration
 ---
+
 # Configuring Your Snowflake Connector to DataHub
 
 Now that you have created a DataHub-specific user with the relevant roles in Snowflake in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
@@ -25,12 +26,12 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 3. Create a Password secret
 
-  This will securely store your Snowflake password within DataHub
+This will securely store your Snowflake password within DataHub
 
-   * Enter a name like `SNOWFLAKE_PASSWORD` - we will use this later to refer to the secret
-   * Enter the password configured for the DataHub user in the previous step
-   * Optionally add a description
-   * Click **Create**
+- Enter a name like `SNOWFLAKE_PASSWORD` - we will use this later to refer to the secret
+- Enter the password configured for the DataHub user in the previous step
+- Optionally add a description
+- Click **Create**
 
 <p align="center">
    <img width="70%" alt="Snowflake Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret.png"/>
@@ -58,11 +59,12 @@ Enter the Snowflake Account Identifier as **Account ID** field. Account identifi
    <img width="70%" alt="Account Id Field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_account_id.png"/>
 </p>
 
-*Learn more about Snowflake Account Identifiers [here](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#account-identifiers)*
+_Learn more about Snowflake Account Identifiers [here](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html#account-identifiers)_
 
 Add the previously added Password secret to **Password** field:
-   * Click on the Password input field
-   * Select `SNOWFLAKE_PASSWORD` secret
+
+- Click on the Password input field
+- Select `SNOWFLAKE_PASSWORD` secret
 
 <p align="center">
      <img width="70%" alt="Password field" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_password_secret_field.png"/>
@@ -92,12 +94,12 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_schedule.png"/>
-</p>  
+</p>
 
 9. Ensure you've configured your correct timezone
 <p align="center">
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_set_execution_timezone.png"/>
-</p>  
+</p>
 
 10. Click **Next** when you are done
 
@@ -106,13 +108,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 11. Name your ingestion source, then click **Save and Run**
 <p align="center">
   <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/common/common_ingestion_name_ingestion_source.png"/>
-</p>  
+</p>
 
 You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_source_running.png"/>
-</p>  
+</p>
 
 ## Validate Ingestion Runs
 
@@ -120,7 +122,7 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_ingestion_succeded.png"/>
-</p>  
+</p>
 
 13. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
@@ -132,13 +134,12 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_details_view_all.png"/>
-</p>  
+</p>
 
-15. Pick an entity from the list to manually validate if it contains the detail you expected  
+15. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/snowflake/snowflake_ingestion_view_ingested_assets.png"/>
-</p>  
+</p>
 
 **Congratulations!** You've successfully set up Snowflake as an ingestion source for DataHub!
-

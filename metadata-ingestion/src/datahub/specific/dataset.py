@@ -292,3 +292,15 @@ class DatasetPatchBuilder(
                 value=timestamp,
             )
         return self
+
+    def set_external_url(
+        self, external_url: Optional[str] = None
+    ) -> "DatasetPatchBuilder":
+        if external_url is not None:
+            self._add_patch(
+                DatasetProperties.ASPECT_NAME,
+                "add",
+                path=("externalUrl",),
+                value=external_url,
+            )
+        return self

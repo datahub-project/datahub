@@ -1,7 +1,9 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { EntityCard } from '../../homeV2/content/recent/EntityCard';
-import { Entity } from '../../../types.generated';
+
+import { EntityCard } from '@app/homeV2/content/recent/EntityCard';
+
+import { Entity } from '@types';
 
 const StyledEntityCard = styled(EntityCard)`
     min-width: 150px;

@@ -15,7 +15,13 @@ from typing import (
 
 import avro
 import yaml
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictStr,
+    root_validator,
+    validator,
+)
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
 
@@ -25,6 +31,7 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
+    make_domain_urn,
     make_schema_field_urn,
     make_tag_urn,
     make_term_urn,
@@ -37,6 +44,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
@@ -90,7 +98,7 @@ class StrictModel(BaseModel):
 
 
 # Define type aliases for the complex types
-PropertyValue: TypeAlias = Union[float, str]
+PropertyValue: TypeAlias = Union[StrictStr, float]
 PropertyValueList: TypeAlias = List[PropertyValue]
 StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
 
@@ -366,12 +374,6 @@ class Ownership(ConfigModel):
         return v
 
 
-class StructuredPropertyValue(ConfigModel):
-    value: Union[str, int, float, List[str], List[int], List[float]]
-    created: Optional[str] = None
-    lastModified: Optional[str] = None
-
-
 class DatasetRetrievalConfig(BaseModel):
     include_downstreams: Optional[bool] = False
 
@@ -383,7 +385,7 @@ class Dataset(StrictModel):
     urn: Optional[str] = None
     description: Optional[str] = None
     name: Optional[str] = None
-    schema_metadata: Optional[SchemaSpecification] = Field(alias="schema")
+    schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None
     subtype: Optional[str] = None
@@ -393,6 +395,7 @@ class Dataset(StrictModel):
     owners: Optional[List[Union[str, Ownership]]] = None
     structured_properties: Optional[StructuredProperties] = None
     external_url: Optional[str] = None
+    domains: Optional[List[str]] = None
 
     @property
     def platform_urn(self) -> str:
@@ -483,7 +486,7 @@ class Dataset(StrictModel):
                                 f"{urn_prefix}:{prop_key}"
                                 if not prop_key.startswith(urn_prefix)
                                 else prop_key
-                                for prop_key in field.structured_properties.keys()
+                                for prop_key in field.structured_properties
                             ]
                         )
                     if field.glossaryTerms:
@@ -497,7 +500,7 @@ class Dataset(StrictModel):
                     f"{urn_prefix}:{prop_key}"
                     if not prop_key.startswith(urn_prefix)
                     else prop_key
-                    for prop_key in self.structured_properties.keys()
+                    for prop_key in self.structured_properties
                 ]
             )
         if self.glossary_terms:
@@ -506,19 +509,17 @@ class Dataset(StrictModel):
         # We don't check references for tags
         return list(set(references))
 
-    def generate_mcp(  # noqa: C901
+    def generate_mcp(
         self,
     ) -> Iterable[Union[MetadataChangeProposalClass, MetadataChangeProposalWrapper]]:
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=self.urn,
-            aspect=DatasetPropertiesClass(
-                description=self.description,
-                name=self.name,
-                customProperties=self.properties,
-                externalUrl=self.external_url,
-            ),
-        )
-        yield mcp
+        patch_builder = self.patch_builder()
+
+        patch_builder.set_custom_properties(self.properties or {})
+        patch_builder.set_description(self.description)
+        patch_builder.set_display_name(self.name)
+        patch_builder.set_external_url(self.external_url)
+
+        yield from patch_builder.build()
 
         if self.schema_metadata:
             schema_fields = set()
@@ -643,33 +644,6 @@ class Dataset(StrictModel):
                     )
                     assert field_urn.startswith("urn:li:schemaField:")
 
-                    if field.globalTags:
-                        mcp = MetadataChangeProposalWrapper(
-                            entityUrn=field_urn,
-                            aspect=GlobalTagsClass(
-                                tags=[
-                                    TagAssociationClass(tag=make_tag_urn(tag))
-                                    for tag in field.globalTags
-                                ]
-                            ),
-                        )
-                        yield mcp
-
-                    if field.glossaryTerms:
-                        mcp = MetadataChangeProposalWrapper(
-                            entityUrn=field_urn,
-                            aspect=GlossaryTermsClass(
-                                terms=[
-                                    GlossaryTermAssociationClass(
-                                        urn=make_term_urn(term)
-                                    )
-                                    for term in field.glossaryTerms
-                                ],
-                                auditStamp=self._mint_auditstamp("yaml"),
-                            ),
-                        )
-                        yield mcp
-
                     if field.structured_properties:
                         urn_prefix = f"{StructuredPropertyUrn.URN_PREFIX}:{StructuredPropertyUrn.LI_DOMAIN}:{StructuredPropertyUrn.ENTITY_TYPE}"
                         mcp = MetadataChangeProposalWrapper(
@@ -764,7 +738,14 @@ class Dataset(StrictModel):
                     )
                 )
                 yield from patch_builder.build()
-
+        if self.domains:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=DomainsClass(
+                    [make_domain_urn(domain) for domain in self.domains]
+                ),
+            )
+            yield mcp
         logger.info(f"Created dataset {self.urn}")
 
     @staticmethod
@@ -815,6 +796,7 @@ class Dataset(StrictModel):
         if schema_metadata:
             # If the schema is built off of an avro schema, we only extract the fields if they have structured properties
             # Otherwise, we extract all fields
+            schema_fields = []
             if (
                 schema_metadata.platformSchema
                 and isinstance(schema_metadata.platformSchema, models.OtherSchemaClass)
@@ -925,6 +907,7 @@ class Dataset(StrictModel):
                     structured_properties_map[sp.propertyUrn].extend(sp.values)  # type: ignore[arg-type,union-attr]
                 else:
                     structured_properties_map[sp.propertyUrn] = sp.values
+        domains: Optional[DomainsClass] = graph.get_aspect(urn, DomainsClass)
 
         if config.include_downstreams:
             related_downstreams = graph.get_related_entities(
@@ -965,6 +948,7 @@ class Dataset(StrictModel):
             structured_properties=(
                 structured_properties_map if structured_properties else None
             ),
+            domains=[domain for domain in domains.domains] if domains else None,
             downstreams=downstreams if config.include_downstreams else None,
         )
 
@@ -1008,7 +992,7 @@ class Dataset(StrictModel):
 
         def model_dump(self, **kwargs):
             """Custom model_dump method for Pydantic v2 to handle YAML serialization properly."""
-            exclude = kwargs.pop("exclude", set())
+            exclude = kwargs.pop("exclude", None) or set()
 
             # If id and name are identical, exclude name from the output
             if self.id == self.name and self.id is not None:

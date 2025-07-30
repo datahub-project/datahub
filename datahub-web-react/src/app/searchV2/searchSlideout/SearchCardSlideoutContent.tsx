@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
-
 import styled from 'styled-components';
-import { ExpandedOwner } from '../../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { PreviewSection } from '../../shared/MatchesContext';
-import TagTermGroup from '../../sharedV2/tags/TagTermGroup';
-import { useEntityRegistryV2 } from '../../useEntityRegistry';
-import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
-import EntityPaths from '../../previewV2/EntityPaths/EntityPaths';
-import { useSearchContext } from '../../search/context/SearchContext';
+
+import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import EntityPaths from '@app/previewV2/EntityPaths/EntityPaths';
+import { useSearchContext } from '@app/search/context/SearchContext';
+import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { PreviewSection } from '@app/shared/MatchesContext';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 type Props = {
     item?: CombinedSearchResult | null;

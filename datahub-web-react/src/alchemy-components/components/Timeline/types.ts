@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { TimelineContentDetails } from '@src/app/entityV2/shared/tabs/Incident/types';
+
 export type TimelineItem = {
     key: string;
     content: React.ReactNode;
@@ -11,7 +13,7 @@ export interface BaseItemType {
 }
 
 export type TimelineProps<ItemType extends BaseItemType> = {
-    items: ItemType[];
-    renderContent: (item: ItemType) => React.ReactNode;
+    items: ItemType[] | TimelineContentDetails[];
+    renderContent: (item: ItemType) => React.ReactNode | JSX.Element;
     renderDot?: (item: ItemType) => React.ReactNode;
 };

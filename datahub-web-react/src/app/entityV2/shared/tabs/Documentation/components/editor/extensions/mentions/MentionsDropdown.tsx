@@ -1,13 +1,15 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Typography } from 'antd';
-import styled from 'styled-components';
-import { useDebounce } from 'react-use';
 import { useCommands } from '@remirror/react';
-import { AutoCompleteResultForEntity, Entity, EntityType } from '../../../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../../../../constants';
-import { useDataHubMentions } from './useDataHubMentions';
-import AutoCompleteItem from '../../../../../../../../search/autoComplete/AutoCompleteItem';
+import { Typography } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useDataHubMentions } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/useDataHubMentions';
+import AutoCompleteItem from '@app/search/autoComplete/AutoCompleteItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AutoCompleteResultForEntity, Entity, EntityType } from '@types';
 
 const HeaderItem = styled(Typography.Text)`
     display: block;

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useGetEntitiesQuery } from '../../../graphql/entity.generated';
+
+import { useGetEntitiesQuery } from '@graphql/entity.generated';
 
 export interface PropagationContext {
     propagated?: boolean;

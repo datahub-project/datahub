@@ -1,6 +1,7 @@
-import { AndFilterInput, FacetFilterInput } from '../../../types.generated';
-import { UnionType } from './constants';
-import { generateOrFilters } from './generateOrFilters';
+import { UnionType } from '@app/searchV2/utils/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+
+import { AndFilterInput, FacetFilterInput } from '@types';
 
 // Swap in new overrides at the same filter positions, with the remainder at the end
 // Assumes we find matches just by field name, so if multiple filters for the same field were passed, we replace those

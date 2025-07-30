@@ -1,4 +1,4 @@
-import { EntityType } from '../types.generated';
+import { EntityType } from '@types';
 
 /**
  * Common helpers

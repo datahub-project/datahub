@@ -1,21 +1,28 @@
-import React, { useContext, useEffect, useState } from 'react';
 import { Group } from '@visx/group';
 import { Pagination } from 'antd';
+import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { NodeData, EntitySelectParams } from './types';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { getTitleHeight } from './utils/titleUtils';
-import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import { centerY, EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT, iconX, NUM_COLUMNS_PER_PAGE, width } from './constants';
-import ColumnNode from './ColumnNode';
-import NodeColumnsHeader from './NodeColumnsHeader';
-import usePrevious from '../shared/usePrevious';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ColumnNode from '@app/lineage/ColumnNode';
+import NodeColumnsHeader from '@app/lineage/NodeColumnsHeader';
+import {
+    EXPAND_COLLAPSE_COLUMNS_TOGGLE_HEIGHT,
+    NUM_COLUMNS_PER_PAGE,
+    centerY,
+    iconX,
+    width,
+} from '@app/lineage/constants';
+import { EntitySelectParams, NodeData } from '@app/lineage/types';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
 import {
     convertInputFieldsToSchemaFields,
     filterColumns,
     haveDisplayedFieldsChanged,
-} from './utils/columnLineageUtils';
-import { useResetPageIndexAfterSelect } from './utils/useResetPageIndexAfterSelect';
+} from '@app/lineage/utils/columnLineageUtils';
+import { getTitleHeight } from '@app/lineage/utils/titleUtils';
+import { useResetPageIndexAfterSelect } from '@app/lineage/utils/useResetPageIndexAfterSelect';
+import usePrevious from '@app/shared/usePrevious';
 
 const StyledPagination = styled(Pagination)`
     display: flex;

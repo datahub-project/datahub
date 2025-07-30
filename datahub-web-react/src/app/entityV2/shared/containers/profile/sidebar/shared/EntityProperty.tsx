@@ -1,8 +1,9 @@
-import { EntityLink } from '@src/app/homeV2/reference/sections/EntityLink';
-import { Entity } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
-import { LabelText } from './styledComponents';
+
+import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { EntityLink } from '@src/app/homeV2/reference/sections/EntityLink';
+import { Entity } from '@src/types.generated';
 
 const PropertyContainer = styled.div`
     display: flex;

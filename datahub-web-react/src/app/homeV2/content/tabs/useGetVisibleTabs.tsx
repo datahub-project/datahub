@@ -1,13 +1,24 @@
-import { getHomePagePostsFilters } from '@app/utils/queryUtils';
-import { useListPostsQuery } from '../../../../graphql/post.generated';
-import { PostContentType, PostType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { useUpdateLastViewedAnnouncementTime } from '../../shared/updateLastViewedAnnouncementTime';
-import { useGetLastViewedAnnouncementTime } from '../../shared/useGetLastViewedAnnouncementTime';
-import { hasViewedAnnouncement } from '../../shared/utils';
-import { TabType } from './tabs';
+import { Tab } from '@components/components/Tabs/Tabs';
 
-const useGetAnnouncementsExists = (): ActiveTab | null => {
+import analytics, { EventType, HomePageModule } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ANNOUNCEMENTS_TAB, DISCOVER_TAB, TabType } from '@app/homeV2/content/tabs/tabs';
+import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLastViewedAnnouncementTime';
+import { useGetLastViewedAnnouncementTime } from '@app/homeV2/shared/useGetLastViewedAnnouncementTime';
+import { hasViewedAnnouncement } from '@app/homeV2/shared/utils';
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
+
+import { useListPostsQuery } from '@graphql/post.generated';
+import { PostContentType, PostType } from '@types';
+
+const handleTabClick = (module: HomePageModule) => {
+    analytics.event({
+        type: EventType.HomePageClick,
+        module,
+    });
+};
+
+const useGetAnnouncementsExists = (): Tab | null => {
     const { user } = useUserContext();
     const { time: lastViewedAnnouncementsTime, refetch } = useGetLastViewedAnnouncementTime();
     const { updateLastViewedAnnouncementTime } = useUpdateLastViewedAnnouncementTime();
@@ -28,6 +39,7 @@ const useGetAnnouncementsExists = (): ActiveTab | null => {
                 refetch();
             });
         }
+        handleTabClick(HomePageModule.Announcements);
     };
 
     const activePosts = data?.listPosts?.posts?.filter(
@@ -42,7 +54,7 @@ const useGetAnnouncementsExists = (): ActiveTab | null => {
 
     if (activePostsCount >= 0) {
         return {
-            type: TabType.Announcements,
+            ...ANNOUNCEMENTS_TAB,
             count: unseenPostsCount,
             onSelectTab,
         };
@@ -50,23 +62,19 @@ const useGetAnnouncementsExists = (): ActiveTab | null => {
     return null;
 };
 
-const useGetActivityExists = (): ActiveTab | null => {
+const useGetActivityExists = (): Tab | null => {
     // TODO: Activity tab
     return null;
 };
 
 export type ActiveTab = {
-    type: TabType;
+    key: TabType;
     count?: number;
     onSelectTab?: () => void; // Refetch count, etc
 };
 
-export const useGetActiveTabs = (): ActiveTab[] => {
-    const activeTabs = [
-        {
-            type: TabType.Discover,
-        },
-    ];
+export const useGetActiveTabs = (): Tab[] => {
+    const activeTabs: Tab[] = [{ ...DISCOVER_TAB, onSelectTab: () => handleTabClick(HomePageModule.Discover) }];
 
     const activityTab = useGetActivityExists();
     const announcementsTab = useGetAnnouncementsExists();

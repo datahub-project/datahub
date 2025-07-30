@@ -1,10 +1,11 @@
-import React from 'react';
 import { Tooltip } from '@components';
 import moment from 'moment';
+import React from 'react';
 import styled from 'styled-components';
-import { LabelText } from './styledComponents';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { toLocalDateString, toRelativeTimeString } from '../../../../../../shared/time/timeUtils';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
+import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 const PropertyContainer = styled.div`
     display: flex;

@@ -1,9 +1,10 @@
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
+import { UnionType } from '@app/searchV2/utils/constants';
 import { combineSiblingsInSearchResults } from '@src/app/search/utils/combineSiblingsInSearchResults';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../../../../graphql/search.generated';
-import { EntityType, SortCriterion } from '../../../../../../../../types.generated';
-import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
-import { UnionType } from '../../../../../../../searchV2/utils/constants';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { EntityType, SortCriterion } from '@types';
 
 const buildOrFilters = (filters: FilterSet) => {
     if (filters.unionType === UnionType.AND) {

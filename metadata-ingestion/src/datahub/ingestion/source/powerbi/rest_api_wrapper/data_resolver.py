@@ -63,10 +63,10 @@ class SessionWithTimeout(requests.Session):
         super().__init__(*args, **kwargs)
         self.timeout = timeout
 
-    def request(self, method, url, **kwargs):
+    def request(self, method, url, *args, **kwargs):
         # Set the default timeout if none is provided
         kwargs.setdefault("timeout", self.timeout)
-        return super().request(method, url, **kwargs)
+        return super().request(method, url, *args, **kwargs)
 
 
 class DataResolverBase(ABC):

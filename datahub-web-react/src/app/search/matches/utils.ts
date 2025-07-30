@@ -1,12 +1,14 @@
 import * as QueryString from 'query-string';
-import { EntityType, MatchedField } from '../../../types.generated';
+
 import {
     HIGHLIGHTABLE_ENTITY_TYPES,
     MATCHED_FIELD_CONFIG,
     MatchedFieldConfig,
     MatchedFieldName,
     MatchesGroupedByFieldName,
-} from './constants';
+} from '@app/search/matches/constants';
+
+import { EntityType, MatchedField } from '@types';
 
 const getFieldConfigsByEntityType = (entityType: EntityType | undefined): Array<MatchedFieldConfig> => {
     return entityType && entityType in MATCHED_FIELD_CONFIG

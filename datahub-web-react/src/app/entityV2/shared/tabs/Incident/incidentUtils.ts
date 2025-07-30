@@ -1,6 +1,7 @@
-import { GetEntityIncidentsDocument } from '../../../../../graphql/incident.generated';
+import { getExistingIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 
-import { IncidentType, IncidentState, Incident } from '../../../../../types.generated';
+import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
+import { Incident, IncidentState, IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 
@@ -50,9 +51,12 @@ export const addOrUpdateIncidentInList = (existingIncidents, newIncidents) => {
     const updatedIncidents = incidents.map((incident) => {
         if (incident.urn === newIncidents.urn) {
             didUpdate = true;
-            return newIncidents;
+            return {
+                ...incident,
+                ...newIncidents,
+            };
         }
-        return { incident, siblings: null };
+        return incident;
     });
     return didUpdate ? updatedIncidents : [newIncidents, ...existingIncidents];
 };
@@ -75,8 +79,9 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
         return;
     }
 
+    const existingIncidents = getExistingIncidents(currData);
+
     // Add our new incidents into the existing list.
-    const existingIncidents = [...(currData?.entity?.incidents?.incidents || [])];
     const newIncidents = addOrUpdateIncidentInList(existingIncidents, incident);
     const didAddIncident = newIncidents.length > existingIncidents.length;
 
@@ -137,7 +142,7 @@ export const getIncidentsStatusSummary = (incidents: Array<Incident>) => {
 /**
  * Add raised incident to cache
  */
-export const addActiveIncidentToCache = (client, urn, incident, pageSize) => {
+export const updateActiveIncidentInCache = (client, urn, incident, pageSize) => {
     // Add to active and overall list
     updateListIncidentsCache(client, urn, incident, pageSize);
 };

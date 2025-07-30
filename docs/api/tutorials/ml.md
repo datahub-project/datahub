@@ -5,16 +5,17 @@ import TabItem from '@theme/TabItem';
 
 ## Why Integrate Your AI/ML System with DataHub?
 
-As a data practitioner, keeping track of your AI experiments, models, and their relationships can be challenging. 
+As a data practitioner, keeping track of your AI experiments, models, and their relationships can be challenging.
 DataHub makes this easier by providing a central place to organize and track your AI assets.
 
-This guide will show you how to integrate your AI workflows with DataHub. 
+This guide will show you how to integrate your AI workflows with DataHub.
 With integrations for popular ML platforms like MLflow and Amazon SageMaker, DataHub enables you to easily find and share AI models across your organization, track how models evolve over time, and understand how training data connects to each model.
 Most importantly, it enables seamless collaboration on AI projects by making everything discoverable and connected.
 
 ## Goals Of This Guide
 
 In this guide, you'll learn how to:
+
 - Create your basic AI components (models, experiments, runs)
 - Connect these components to build a complete AI system
 - Track relationships between models, data, and experiments
@@ -33,22 +34,24 @@ Here's what you need to know about the key components in DataHub:
 </p>
 
 The hierarchy works like this:
+
 1. Every run belongs to an experiment
 2. Successful runs can be registered as models
 3. Models belong to a model group
 4. Not every run becomes a model
 
 :::note Terminology Mapping
-Different AI platforms (MLflow, Amazon SageMaker) have their own terminology. 
+Different AI platforms (MLflow, Amazon SageMaker) have their own terminology.
 To keep things consistent, we'll use DataHub's terms throughout this guide.
 Here's how DataHub's terminology maps to these platforms:
 
-| DataHub | Description                         | MLflow | SageMaker |
-|---------|-------------------------------------|---------|-----------|
-| ML Model Group | Collection of related models        | Model | Model Group |
-| ML Model | Versioned artifact in a model group | Model Version | Model Version |
-| ML Training Run | Single training attempt             | Run | Training Job |
-| ML Experiment | Collection of training runs         | Experiment | Experiment |
+| DataHub         | Description                         | MLflow        | SageMaker     |
+| --------------- | ----------------------------------- | ------------- | ------------- |
+| ML Model Group  | Collection of related models        | Model         | Model Group   |
+| ML Model        | Versioned artifact in a model group | Model Version | Model Version |
+| ML Training Run | Single training attempt             | Run           | Training Job  |
+| ML Experiment   | Collection of training runs         | Experiment    | Experiment    |
+
 :::
 
 For platform-specific details, see our integration guides for [MLflow](/docs/generated/ingestion/sources/mlflow.md) and [Amazon SageMaker](/docs/generated/ingestion/sources/sagemaker.md).
@@ -73,7 +76,7 @@ Throughout this guide, we'll show how to verify changes using GraphQL queries.
 You can run these queries in the DataHub UI at `https://localhost:9002/api/graphiql`.
 :::
 
-## Create Simple AI Assets
+## Create AI Assets
 
 Let's create the basic building blocks of your ML system. These components will help you organize your AI work and make it discoverable by your team.
 
@@ -86,9 +89,12 @@ A model group contains different versions of a similar model. For example, all v
 Create a basic model group with just an identifier:
 
 ```python
-client.create_model_group(
-    group_id="airline_forecast_models_group",
+model_group = MLModelGroup(
+    id="airline_forecast_models_group",
+    platform="mlflow",
 )
+
+client._emit_mcps(model_group.as_mcps())
 ```
 
 </TabItem>
@@ -96,16 +102,21 @@ client.create_model_group(
 Add rich metadata like descriptions, creation timestamps, and team information:
 
 ```python
-client.create_model_group(
-    group_id="airline_forecast_models_group",
-    properties=models.MLModelGroupPropertiesClass(
-        name="Airline Forecast Models Group",
-        description="Group of models for airline passenger forecasting",
-        created=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-    ),
+model_group = MLModelGroup(
+    id="airline_forecast_models_group",
+    platform="mlflow",
+    name="Airline Forecast Models Group",
+    description="Group of models for airline passenger forecasting",
+    created=datetime.now(),
+    last_modified=datetime.now(),
+    owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+    external_url="https://www.linkedin.com/in/datahub",
+    tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
+    terms=["urn:li:glossaryTerm:forecasting"],
+    custom_properties={"team": "forecasting"},
 )
+
+client._emit_mcps(model_group.as_mcps())
 ```
 
 </TabItem>
@@ -128,10 +139,15 @@ Query your model group to check its properties:
 ```graphql
 query {
   mlModelGroup(
-    urn:"urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group,PROD)"
+    urn: "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group,PROD)"
   ) {
-    name
-    description
+    properties {
+      name
+      description
+      created {
+        time
+      }
+    }
   }
 }
 ```
@@ -142,10 +158,16 @@ The response will show your model group's details:
 {
   "data": {
     "mlModelGroup": {
-      "name": "airline_forecast_models_group",
-      "description": "Group of models for airline passenger forecasting"
+      "properties": {
+        "name": "Airline Forecast Models Group",
+        "description": "Group of models for airline passenger forecasting",
+        "created": {
+          "time": 1744356062485
+        }
+      }
     }
-  }
+  },
+  "extensions": {}
 }
 ```
 
@@ -161,10 +183,12 @@ Next, let's create a specific model version that represents a trained model read
 Create a model with just the required version:
 
 ```python
-client.create_model(
-    model_id="arima_model",
-    version="1.0",
+model = MLModel(
+    id="arima_model",
+    platform="mlflow",
 )
+
+client._emit_mcps(model.as_mcps())
 ```
 
 </TabItem>
@@ -172,32 +196,25 @@ client.create_model(
 Include metrics, parameters, and metadata for production use:
 
 ```python
-client.create_model(
-    model_id="arima_model",
-    properties=models.MLModelPropertiesClass(
-        name="ARIMA Model",
-        description="ARIMA model for airline passenger forecasting",
-        customProperties={"team": "forecasting"},
-        trainingMetrics=[
-            models.MLMetricClass(name="accuracy", value="0.9"),
-            models.MLMetricClass(name="precision", value="0.8"),
-        ],
-        hyperParams=[
-            models.MLHyperParamClass(name="learning_rate", value="0.01"),
-            models.MLHyperParamClass(name="batch_size", value="32"),
-        ],
-        externalUrl="https:localhost:5000",
-        created=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-        lastModified=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-        tags=["forecasting", "arima"],
-    ),
-    version="1.0",
-    alias="champion",
+model = MLModel(
+    id="arima_model",
+    platform="mlflow",
+    name="ARIMA Model",
+    description="ARIMA model for airline passenger forecasting",
+    created=datetime.now(),
+    last_modified=datetime.now(),
+    owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+    external_url="https://www.linkedin.com/in/datahub",
+    tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
+    terms=["urn:li:glossaryTerm:forecasting"],
+    custom_properties={"team": "forecasting"},
+    version="1",
+    aliases=["champion"],
+    hyper_params={"learning_rate": "0.01"},
+    training_metrics={"accuracy": "0.9"},
 )
+
+client._emit_mcps(model.as_mcps())
 ```
 
 </TabItem>
@@ -219,11 +236,11 @@ Query your model's information:
 
 ```graphql
 query {
-  mlModel(
-    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
-  ) {
-    name
-    description
+  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)") {
+    properties {
+      name
+      description
+    }
     versionProperties {
       version {
         versionTag
@@ -239,15 +256,18 @@ The response will show your model's details:
 {
   "data": {
     "mlModel": {
-      "name": "arima_model",
-      "description": "ARIMA model for airline passenger forecasting",
+      "properties": {
+        "name": "ARIMA Model",
+        "description": "ARIMA model for airline passenger forecasting"
+      },
       "versionProperties": {
         "version": {
-          "versionTag": "1.0"
+          "versionTag": "1"
         }
       }
     }
-  }
+  },
+  "extensions": {}
 }
 ```
 
@@ -263,9 +283,15 @@ An experiment helps organize multiple training runs for a specific project.
 Create a basic experiment:
 
 ```python
-client.create_experiment(
-    experiment_id="airline_forecast_experiment",
+experiment = Container(
+    container_key=ContainerKey(
+        platform="mlflow",
+        name="airline_forecast_experiment"
+    ),
+    display_name="Airline Forecast Experiment"
 )
+
+client._emit_mcps(experiment.as_mcps())
 ```
 
 </TabItem>
@@ -273,20 +299,20 @@ client.create_experiment(
 Add context and metadata:
 
 ```python
-client.create_experiment(
-    experiment_id="airline_forecast_experiment",
-    properties=models.ContainerPropertiesClass(
-        name="Airline Forecast Experiment",
-        description="Experiment to forecast airline passenger numbers",
-        customProperties={"team": "forecasting"},
-        created=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
-        lastModified=models.TimeStampClass(
-            time=1628580000000, actor="urn:li:corpuser:datahub"
-        ),
+experiment = Container(
+    container_key=ContainerKey(
+        platform="mlflow",
+        name="airline_forecast_experiment"
     ),
+    display_name="Airline Forecast Experiment",
+    description="Experiment to forecast airline passenger numbers",
+    extra_properties={"team": "forecasting"},
+    created=datetime(2025, 4, 9, 22, 30),
+    last_modified=datetime(2025, 4, 9, 22, 30),
+    subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
 )
+
+client._emit_mcps(experiment.as_mcps())
 ```
 
 </TabItem>
@@ -308,13 +334,10 @@ Query your experiment's information:
 
 ```graphql
 query {
-  container(
-    urn:"urn:li:container:airline_forecast_experiment"
-  ) {
-    name
-    description
+  container(urn: "urn:li:container:airline_forecast_experiment") {
     properties {
-      customProperties
+      name
+      description
     }
   }
 }
@@ -326,15 +349,13 @@ Check the response:
 {
   "data": {
     "container": {
-      "name": "Airline Forecast Experiment",
-      "description": "Experiment to forecast airline passenger numbers",
       "properties": {
-        "customProperties": {
-          "team": "forecasting"
-        }
+        "name": "Airline Forecast Experiment",
+        "description": "Experiment to forecast airline passenger numbers"
       }
     }
-  }
+  },
+  "extensions": {}
 }
 ```
 
@@ -351,7 +372,7 @@ Create a basic training run:
 
 ```python
 client.create_training_run(
-    run_id="simple_training_run_4",
+    run_id="simple_training_run",
 )
 ```
 
@@ -361,19 +382,19 @@ Include metrics, parameters, and other important metadata:
 
 ```python
 client.create_training_run(
-    run_id="simple_training_run_4",
-    properties=models.DataProcessInstancePropertiesClass(
-        name="Simple Training Run 4",
-        created=models.AuditStampClass(
+    run_id="simple_training_run",
+    properties=DataProcessInstancePropertiesClass(
+        name="Simple Training Run",
+        created=AuditStampClass(
             time=1628580000000, actor="urn:li:corpuser:datahub"
         ),
         customProperties={"team": "forecasting"},
     ),
-    training_run_properties=models.MLTrainingRunPropertiesClass(
-        id="simple_training_run_4",
+    training_run_properties=MLTrainingRunPropertiesClass(
+        id="simple_training_run",
         outputUrls=["s3://my-bucket/output"],
-        trainingMetrics=[models.MLMetricClass(name="accuracy", value="0.9")],
-        hyperParams=[models.MLHyperParamClass(name="learning_rate", value="0.01")],
+        trainingMetrics=[MLMetricClass(name="accuracy", value="0.9")],
+        hyperParams=[MLHyperParamClass(name="learning_rate", value="0.01")],
         externalUrl="https:localhost:5000",
     ),
     run_result=RunResultType.FAILURE,
@@ -401,9 +422,7 @@ Query your training run:
 
 ```graphql
 query {
-  dataProcessInstance(
-    urn:"urn:li:dataProcessInstance:simple_training_run_4"
-  ) {
+  dataProcessInstance(urn: "urn:li:dataProcessInstance:simple_training_run") {
     name
     created {
       time
@@ -421,7 +440,7 @@ Check the response:
 {
   "data": {
     "dataProcessInstance": {
-      "name": "Simple Training Run 4",
+      "name": "Simple Training Run",
       "created": {
         "time": 1628580000000
       },
@@ -438,7 +457,118 @@ Check the response:
 </TabItem>
 </Tabs>
 
-## Define Entity Relationships
+### Create a Dataset
+
+Datasets are crucial components in your ML system, serving as inputs and outputs for your training runs. Creating a dataset in DataHub allows you to track data lineage and understand how data flows through your ML pipeline.
+
+<Tabs>
+<TabItem value="basic" label="Basic">
+Create a basic dataset with minimal information:
+
+```python
+input_dataset = Dataset(
+    platform="snowflake",
+    name="iris_input",
+)
+client._emit_mcps(input_dataset.as_mcps())
+```
+
+</TabItem> 
+<TabItem value="advanced" label="Advanced">
+
+Create a dataset with more detailed information:
+
+```python
+input_dataset = Dataset(
+    platform="snowflake",
+    name="iris_input",
+    description="Raw Iris dataset used for training ML models",
+    schema=[("id", "number"), ("name", "string"), ("species", "string")],
+    display_name="Iris Training Input Data",
+    tags=["urn:li:tag:ml_data", "urn:li:tag:iris"],
+    terms=["urn:li:glossaryTerm:raw_data"],
+    owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+    custom_properties={
+        "data_source": "UCI Repository",
+        "records": "150",
+        "features": "4",
+    },
+)
+client._emit_mcps(input_dataset.as_mcps())
+
+output_dataset = Dataset(
+    platform="snowflake",
+    name="iris_output",
+    description="Processed Iris dataset with model predictions",
+    schema=[("id", "number"), ("name", "string"), ("species", "string")],
+    display_name="Iris Model Output Data",
+    tags=["urn:li:tag:ml_data", "urn:li:tag:predictions"],
+    terms=["urn:li:glossaryTerm:model_output"],
+    owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+    custom_properties={
+        "model_version": "1.0",
+        "records": "150",
+        "accuracy": "0.95",
+    },
+)
+client._emit_mcps(output_dataset.as_mcps())
+```
+
+</TabItem> 
+</Tabs>
+
+Verify your datasets:
+
+<Tabs> 
+<TabItem value="UI" label="UI"> View dataset details in the DataHub UI:
+
+<p align="center"> 
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/dataset.png"/> 
+</p>
+
+</TabItem> 
+<TabItem value="graphql" label="GraphQL">
+
+Query your dataset's information:
+
+```graphql
+query {
+  dataset(
+    urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,iris_input,PROD)"
+  ) {
+    name
+    properties {
+      customProperties
+    }
+  }
+}
+```
+
+Check the response:
+
+```graphql
+{
+  "data": {
+    "dataset": {
+      "name": "iris_input",
+      "properties": {
+        "customProperties": {
+          "data_source": "UCI Repository",
+          "records": "150",
+          "features": "4"
+        }
+      }
+    }
+  }
+}
+```
+
+</TabItem> 
+</Tabs>
+
+Datasets in DataHub can also include schema information, data quality metrics, and lineage details, which are particularly valuable for ML workflows where understanding data characteristics is crucial for model performance.
+
+## Define Relationships
 
 Now let's connect these components to create a comprehensive ML system. These connections enable you to track model lineage, monitor model evolution, understand dependencies, and search effectively across your ML assets.
 
@@ -447,7 +577,9 @@ Now let's connect these components to create a comprehensive ML system. These co
 Connect your model to its group:
 
 ```python
-client.add_model_to_model_group(model_urn=model_urn, group_urn=model_group_urn)
+model.add_group(model_group.urn)
+
+client._emit_mcps(model.as_mcps())
 ```
 
 <Tabs>
@@ -460,6 +592,7 @@ View model versions in the **Model Group** under the **Models** section:
 </p>
 
 Find group information in the **Model** page under the **Group** tab:
+
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/model-with-model-group.png"/>
 </p>
@@ -470,9 +603,7 @@ Query the model-group relationship:
 
 ```graphql
 query {
-  mlModel(
-    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
-  ) {
+  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)") {
     name
     properties {
       groups {
@@ -492,13 +623,13 @@ Check the response:
 {
   "data": {
     "mlModel": {
-      "name": "arima_model",
+      "name": "ARIMA Model",
       "properties": {
         "groups": [
           {
-            "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_model_group,PROD)",
+            "urn": "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group)",
             "properties": {
-              "name": "Airline Forecast Model Group"
+              "name": "Airline Forecast Models Group"
             }
           }
         ]
@@ -529,6 +660,7 @@ Find your runs in the **Experiment** page under the **Entities** tab:
 </p>
 
 See the experiment details in the **Run** page:
+
 <p align="center">
   <img width="40%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-with-experiment.png"/>
 </p>
@@ -539,9 +671,7 @@ Query the run-experiment relationship:
 
 ```graphql
 query {
-  dataProcessInstance(
-    urn:"urn:li:dataProcessInstance:simple_training_run"
-  ) {
+  dataProcessInstance(urn: "urn:li:dataProcessInstance:simple_training_run") {
     name
     parentContainers {
       containers {
@@ -585,10 +715,13 @@ View the relationship details:
 Connect a training run to its resulting model:
 
 ```python
-client.add_run_to_model(model_urn=model_urn, run_urn=run_urn)
+model.add_training_job(DataProcessInstanceUrn(run_id))
+
+client._emit_mcps(model.as_mcps())
 ```
 
 This relationship enables you to:
+
 - Track which runs produced each model
 - Understand model provenance
 - Debug model issues
@@ -619,9 +752,7 @@ Query the model's training jobs:
 
 ```graphql
 query {
-  mlModel(
-    urn:"urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)"
-  ) {
+  mlModel(urn: "urn:li:mlModel:(urn:li:dataPlatform:mlflow,arima_model,PROD)") {
     name
     properties {
       mlModelLineageInfo {
@@ -638,12 +769,10 @@ View the relationship:
 {
   "data": {
     "mlModel": {
-      "name": "arima_model",
+      "name": "ARIMA Model",
       "properties": {
         "mlModelLineageInfo": {
-          "trainingJobs": [
-            "urn:li:dataProcessInstance:simple_training_run_test"
-          ]
+          "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"]
         }
       }
     }
@@ -659,10 +788,13 @@ View the relationship:
 Create a direct connection between a run and a model group:
 
 ```python
-client.add_run_to_model_group(model_group_urn=model_group_urn, run_urn=run_urn)
+model_group.add_training_job(DataProcessInstanceUrn(run_id))
+
+client._emit_mcps(model_group.as_mcps())
 ```
 
 This connection lets you:
+
 - View model groups in the run's lineage
 - Query training jobs at the group level
 - Track training history for model families
@@ -686,7 +818,7 @@ Query the model group's training jobs:
 ```graphql
 query {
   mlModelGroup(
-    urn:"urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_model_group,PROD)"
+    urn: "urn:li:mlModelGroup:(urn:li:dataPlatform:mlflow,airline_forecast_models_group)"
   ) {
     name
     properties {
@@ -704,12 +836,10 @@ Check the relationship:
 {
   "data": {
     "mlModelGroup": {
-      "name": "airline_forecast_model_group",
+      "name": "Airline Forecast Models Group",
       "properties": {
         "mlModelLineageInfo": {
-          "trainingJobs": [
-            "urn:li:dataProcessInstance:simple_training_run_test"
-          ]
+          "trainingJobs": ["urn:li:dataProcessInstance:simple_training_run"]
         }
       }
     }
@@ -726,26 +856,117 @@ Track input and output datasets for your training runs:
 
 ```python
 client.add_input_datasets_to_run(
-    run_urn=run_urn, 
+    run_urn=run_urn,
     dataset_urns=[str(input_dataset_urn)]
 )
 
 client.add_output_datasets_to_run(
-    run_urn=run_urn, 
+    run_urn=run_urn,
     dataset_urns=[str(output_dataset_urn)]
 )
 ```
 
 These connections help you:
+
 - Track data lineage
 - Understand data dependencies
 - Ensure reproducibility
 - Monitor data quality impacts
 
 Find dataset relationships in the **Lineage** tab of either the **Dataset** or **Run** page:
+
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/ml/run-lineage-dataset-graph.png"/>
 </p>
+
+## Update Properties
+
+### Update Model Group Properties
+
+Model groups can be updated with additional information:
+
+```python
+# Update description
+model_group.set_description("Updated description for airline forecast models")
+
+# Add tags and terms
+model_group.add_tag(TagUrn("production"))
+model_group.add_term(GlossaryTermUrn("time-series"))
+
+# Update custom properties
+model_group.set_custom_properties({
+    "team": "forecasting",
+    "business_unit": "operations",
+    "status": "active"
+})
+
+# Save the changes
+client._emit_mcps(model_group.as_mcps())
+```
+
+These updates allow you to:
+
+- Improve documentation with detailed descriptions
+- Apply consistent business context with tags and terms
+- Track organizational ownership and status
+
+### Update Model Properties
+
+Models can be updated with additional information as they evolve:
+
+```python
+# Update model version
+model.set_version("2")
+
+# Add tags and terms
+model.add_tag(TagUrn("marketing"))
+model.add_term(GlossaryTermUrn("marketing"))
+
+# Add version alias
+model.add_version_alias("challenger")
+
+# Save the changes
+client._emit_mcps(model.as_mcps())
+```
+
+These updates allow you to:
+
+- Track model iterations through versioning
+- Apply business context with tags and terms
+- Manage deployment aliases like "champion" and "challenger"
+
+### Update Experiment Properties
+
+Experiments can be updated with additional metadata as your project evolves:
+
+```python
+# Create a container object for the existing experiment
+existing_experiment = Container(
+    container_key=ContainerKey(
+        platform="mlflow",
+        name="airline_forecast_experiment"
+    ),
+)
+
+# Update properties
+existing_experiment.set_description("Updated experiment for forecasting passenger numbers")
+existing_experiment.add_tag(TagUrn("time-series"))
+existing_experiment.add_term(GlossaryTermUrn("forecasting"))
+existing_experiment.set_custom_properties({
+    "team": "forecasting",
+    "priority": "high",
+    "status": "active"
+})
+
+# Save the changes
+client._emit_mcps(existing_experiment.as_mcps())
+```
+
+These updates help you:
+
+- Document evolving experiment objectives
+- Categorize experiments with consistent tags
+- Track experiment status and priority
 
 ## Full Overview
 
@@ -758,9 +979,11 @@ Here's your complete ML system with all components connected:
 You now have a complete lineage view of your ML assets, from training data through runs to production models!
 
 You can check out the full code for this tutorial [here](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/ai/dh_ai_client_sample.py).
+
 ## What's Next?
 
 To see these integrations in action:
+
 - Watch our [Townhall demo](https://youtu.be/_WUoVqkF2Zo?feature=shared&t=1932) showcasing the MLflow integration
 - Explore our detailed documentation:
   - [MLflow Integration Guide](/docs/generated/ingestion/sources/mlflow.md)

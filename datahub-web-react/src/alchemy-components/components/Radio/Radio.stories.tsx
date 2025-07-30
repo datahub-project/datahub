@@ -1,9 +1,10 @@
-import React from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
+
 import { GridList } from '@components/.docs/mdx-components';
-import { Radio, radioDefaults, RadioGroup } from './Radio';
-import { Heading } from '../Heading';
-import { RadioProps } from './types';
+import { Heading } from '@components/components/Heading';
+import { Radio, RadioGroup, radioDefaults } from '@components/components/Radio/Radio';
+import { RadioProps } from '@components/components/Radio/types';
 
 const MOCK_RADIOS: RadioProps[] = [
     {

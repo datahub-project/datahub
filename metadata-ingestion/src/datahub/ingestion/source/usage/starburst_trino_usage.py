@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from email.utils import parseaddr
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -15,7 +15,9 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -98,8 +100,10 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
     options: dict = Field(default={}, description="")
     database: str = Field(description="The name of the catalog from getting the usage")
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
+        return super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
 
 
 @dataclasses.dataclass
@@ -110,6 +114,7 @@ class TrinoUsageReport(SourceReport):
 @platform_name("Trino")
 @config_class(TrinoUsageConfig)
 @support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
 @dataclasses.dataclass
 class TrinoUsageSource(Source):
     """

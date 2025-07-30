@@ -1,34 +1,36 @@
+import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
+import { Edge, MarkerType, Node } from 'reactflow';
+
+import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV2/LineageEdge/LineageTableEdge';
+import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV2/LineageEntityNode/LineageEntityNode';
 import {
     SCHEMA_FIELD_NODE_HEIGHT,
     SCHEMA_FIELD_NODE_WIDTH,
 } from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
-import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
-import { Edge, MarkerType, Node } from 'reactflow';
-import { EntityType, LineageDirection } from '../../types.generated';
+import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV2/LineageFilterNode/LineageFilterNodeBasic';
 import {
-    createEdgeId,
+    LINEAGE_TRANSFORMATION_NODE_NAME,
+    TRANSFORMATION_NODE_SIZE,
+} from '@app/lineageV2/LineageTransformationNode/LineageTransformationNode';
+import {
     EdgeId,
-    getEdgeId,
-    getParents,
-    isGhostEntity,
-    isTransformational,
     LINEAGE_FILTER_TYPE,
     LineageEntity,
     LineageFilter,
     LineageNode,
     LineageTableEdgeData,
     NodeContext,
+    createEdgeId,
+    getEdgeId,
+    getParents,
+    isGhostEntity,
+    isTransformational,
     parseEdgeId,
     setDefault,
-} from './common';
-import { LINEAGE_TABLE_EDGE_NAME } from './LineageEdge/LineageTableEdge';
-import { LINEAGE_ENTITY_NODE_NAME } from './LineageEntityNode/LineageEntityNode';
-import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from './LineageEntityNode/useDisplayedColumns';
-import { LINEAGE_FILTER_NODE_NAME } from './LineageFilterNode/LineageFilterNodeBasic';
-import {
-    LINEAGE_TRANSFORMATION_NODE_NAME,
-    TRANSFORMATION_NODE_SIZE,
-} from './LineageTransformationNode/LineageTransformationNode';
+} from '@app/lineageV2/common';
+
+import { EntityType, LineageDirection } from '@types';
 
 const MAIN_X_SEP_RATIO = 0.75;
 const MAIN_TO_MINI_X_SEP_RATIO = 0.375;

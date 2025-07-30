@@ -155,8 +155,6 @@ Expected Response:
 
 You can now see the dataset `fct_users_created` has been marked as `Deprecated.`
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/deprecation-updated.png"/>
 </p>
-

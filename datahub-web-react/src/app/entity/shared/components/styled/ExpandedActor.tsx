@@ -2,9 +2,11 @@ import { Popover, Tag } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { CorpGroup, CorpUser, EntityType } from '../../../../../types.generated';
-import { CustomAvatar } from '../../../../shared/avatar';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+
+import { CustomAvatar } from '@app/shared/avatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpGroup, CorpUser, EntityType } from '@types';
 
 type Props = {
     actor: CorpUser | CorpGroup;

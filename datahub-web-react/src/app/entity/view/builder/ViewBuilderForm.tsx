@@ -1,13 +1,15 @@
+import { Form, Input, Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components';
-import { Form, Input, Select, Typography } from 'antd';
-import { ViewBuilderState } from '../types';
-import { DataHubViewType } from '../../../../types.generated';
-import { ViewTypeLabel } from '../ViewTypeLabel';
-import { ViewDefinitionBuilder } from './ViewDefinitionBuilder';
-import { ANTD_GRAY } from '../../shared/constants';
-import { useUserContext } from '../../../context/useUserContext';
-import { ViewBuilderMode } from './types';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ViewTypeLabel } from '@app/entity/view/ViewTypeLabel';
+import { ViewDefinitionBuilder } from '@app/entity/view/builder/ViewDefinitionBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { ViewBuilderState } from '@app/entity/view/types';
+
+import { DataHubViewType } from '@types';
 
 const StyledFormItem = styled(Form.Item)`
     margin-bottom: 8px;

@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { AssertionInfo } from '../../../../../../types.generated';
+import React from 'react';
+
+import { AssertionInfo } from '@types';
 
 type Props = {
     assertionInfo: AssertionInfo;

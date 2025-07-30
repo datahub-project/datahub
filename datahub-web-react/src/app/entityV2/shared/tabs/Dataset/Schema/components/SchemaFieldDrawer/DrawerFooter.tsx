@@ -1,10 +1,11 @@
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import React from 'react';
 import styled from 'styled-components';
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { pluralize } from '../../../../../../../shared/textUtil';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
+
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { pluralize } from '@app/shared/textUtil';
 
 const HeaderWrapper = styled.div`
     position: absolute;

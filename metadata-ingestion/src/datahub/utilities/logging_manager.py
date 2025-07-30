@@ -161,6 +161,7 @@ class _LogBuffer:
         self._buffer: Deque[str] = collections.deque(maxlen=maxlen)
 
     def write(self, line: str) -> None:
+        # We do not expect `line` to have a trailing newline.
         if len(line) > IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH:
             line = line[:IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH] + "[truncated]"
 
@@ -188,7 +189,13 @@ class _BufferLogHandler(logging.Handler):
             message = self.format(record)
         except TypeError as e:
             message = f"Error formatting log message: {e}\nMessage: {record.msg}, Args: {record.args}"
-        self._storage.write(message)
+
+        # For exception stack traces, the message is split over multiple lines,
+        # but we store it as a single string. Because we truncate based on line
+        # length, it's better for us to split it into multiple lines so that we
+        # don't lose any information on deeper stack traces.
+        for line in message.split("\n"):
+            self._storage.write(line)
 
 
 def _remove_all_handlers(logger: logging.Logger) -> None:

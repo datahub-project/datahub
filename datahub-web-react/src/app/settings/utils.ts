@@ -1,4 +1,4 @@
-import { AccessTokenDuration, AccessTokenType } from '../../types.generated';
+import { AccessTokenDuration, AccessTokenType } from '@types';
 
 /** A type of DataHub Access Token. */
 export const ACCESS_TOKEN_TYPES = [{ text: 'Personal', type: AccessTokenType.Personal }];

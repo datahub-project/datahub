@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Form, Input, Modal, Typography } from 'antd';
-import { useCommands } from '@remirror/react';
 import { Image } from '@phosphor-icons/react';
+import { useCommands } from '@remirror/react';
+import { Form, Input, Modal, Typography } from 'antd';
+import React, { useState } from 'react';
+
+import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+
 import { colors } from '@src/alchemy-components/theme';
-import { CommandButton } from './CommandButton';
 
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);

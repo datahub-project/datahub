@@ -1,6 +1,7 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 export const SeeMore = styled(Button)`
     margin-top: -20px;

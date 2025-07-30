@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Text = styled.div`
     font-size: 14px;
@@ -14,7 +15,7 @@ export const EmptyGlossaryNodesYouOwn = () => {
             <a
                 target="_blank"
                 rel="noreferrer noopener"
-                href="https://datahubproject.io/docs/glossary/business-glossary/"
+                href="https://docs.datahub.com/docs/glossary/business-glossary/"
             >
                 Learn more
             </a>{' '}

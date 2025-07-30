@@ -1,8 +1,11 @@
 import { Menu } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
-import { useEntityData } from '../../shared/EntityContext';
-import GlossaryRelatedTermsResult, { RelatedTermTypes } from './GlossaryRelatedTermsResult';
+
+import GlossaryRelatedTermsResult, {
+    RelatedTermTypes,
+} from '@app/entity/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import { useEntityData } from '@app/entity/shared/EntityContext';
 
 const DetailWrapper = styled.div`
     display: inline-flex;

@@ -65,7 +65,7 @@ publishing {
                 groupId = 'io.acryl'
                 artifactId = 'datahub-schematron'
                 description = 'DataHub schema translation library for converting between different schema formats using DataHub as an intermediate representation'
-                url = 'https://datahubproject.io'
+                url = 'https://docs.datahub.com'
 
                 scm {
                     connection = 'scm:git:git://github.com/datahub-project/datahub.git'

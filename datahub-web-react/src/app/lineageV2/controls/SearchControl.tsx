@@ -1,13 +1,14 @@
 import { SearchOutlined } from '@ant-design/icons';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV2/common';
-import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { Button } from '@components';
 import { Input, InputRef } from 'antd';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { Panel } from 'reactflow';
 import styled from 'styled-components';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
+import { LineageDisplayContext, LineageNodesContext } from '@app/lineageV2/common';
 
 const StyledPanel = styled(Panel)`
     margin-top: 20px;
@@ -93,9 +94,24 @@ export default function SearchControl() {
                                 {matchedNodes.length ? searchIndex + 1 : 0} / {matchedNodes.length}
                             </span>
                             <VerticalDivider margin={8} />
-                            <Button icon="KeyboardArrowUp" variant="outline" size="sm" onClick={prev} />
-                            <Button icon="KeyboardArrowDown" variant="outline" size="sm" onClick={next} />
-                            <Button icon="Close" variant="outline" size="sm" onClick={close} />
+                            <Button
+                                icon={{ icon: 'KeyboardArrowUp', source: 'material' }}
+                                variant="outline"
+                                size="sm"
+                                onClick={prev}
+                            />
+                            <Button
+                                icon={{ icon: 'KeyboardArrowDown', source: 'material' }}
+                                variant="outline"
+                                size="sm"
+                                onClick={next}
+                            />
+                            <Button
+                                icon={{ icon: 'Close', source: 'material' }}
+                                variant="outline"
+                                size="sm"
+                                onClick={close}
+                            />
                         </>
                     )
                 }

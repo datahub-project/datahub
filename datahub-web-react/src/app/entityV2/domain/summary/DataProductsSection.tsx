@@ -1,25 +1,27 @@
-import React from 'react';
-import styled from 'styled-components';
-import { useHistory } from 'react-router';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import ContentSectionLoading from './ContentSectionLoading';
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { DataProduct, EntityType } from '../../../../types.generated';
-import { DOMAINS_FILTER_NAME } from '../../../searchV2/utils/constants';
-import { DataProductMiniPreview } from '../../shared/links/DataProductMiniPreview';
+import React from 'react';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { navigateToDomainDataProducts } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { DataProductMiniPreview } from '@app/entityV2/shared/links/DataProductMiniPreview';
 import {
     SectionContainer,
+    SummaryHeaderButtonGroup,
     SummaryTabHeaderTitle,
     SummaryTabHeaderWrapper,
-    SummaryHeaderButtonGroup,
-} from '../../shared/summary/HeaderComponents';
-import { navigateToDomainDataProducts } from '../../shared/containers/profile/sidebar/Domain/utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../../entity/Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { Carousel } from '../../../sharedV2/carousel/Carousel';
-import SectionActionButton from '../../shared/containers/profile/sidebar/SectionActionButton';
+} from '@app/entityV2/shared/summary/HeaderComponents';
+import { DOMAINS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { Carousel } from '@app/sharedV2/carousel/Carousel';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { DataProduct, EntityType } from '@types';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};

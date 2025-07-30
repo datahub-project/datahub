@@ -34,6 +34,7 @@ import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.Set;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermsQueryBuilder;
@@ -142,13 +143,13 @@ public class DomainExpansionRewriterTest
 
     // Setup nested
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -191,13 +192,13 @@ public class DomainExpansionRewriterTest
     // Setup nested
     // Page 1
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(grandParentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -219,13 +220,13 @@ public class DomainExpansionRewriterTest
 
     // Page 2
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(grandParentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             eq("page2"),
@@ -246,13 +247,13 @@ public class DomainExpansionRewriterTest
                         null))));
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),
@@ -269,13 +270,13 @@ public class DomainExpansionRewriterTest
                         "IsPartOf", childUrn, parentUrn, RelationshipDirection.INCOMING, null))));
 
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn2, parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             eq("page2"),
@@ -319,13 +320,13 @@ public class DomainExpansionRewriterTest
 
     // Setup nested
     when(mockGraphRetriever.scrollRelatedEntities(
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(
                 QueryUtils.newDisjunctiveFilter(
                     buildCriterion("urn", Condition.EQUAL, List.of(parentUrn)))),
-            eq(List.of(DOMAIN_ENTITY_NAME)),
+            eq(Set.of(DOMAIN_ENTITY_NAME)),
             eq(EMPTY_FILTER),
-            eq(List.of("IsPartOf")),
+            eq(Set.of("IsPartOf")),
             eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Edge.EDGE_SORT_CRITERION),
             nullable(String.class),

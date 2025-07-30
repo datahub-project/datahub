@@ -1,16 +1,17 @@
 /* eslint-disable import/no-cycle */
 import { PlusOutlined } from '@ant-design/icons';
-import { Dropdown, Menu } from 'antd';
 import { Button, Popover } from '@components';
+import { Dropdown, Menu } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { IconStyleType } from '../../entity/Entity';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { DEFAULT_FILTER_FIELDS } from './field/fields';
-import { FieldType, FilterField, FilterPredicate } from './types';
-import { getDefaultFieldOperatorType } from './value/utils';
-import ValueMenu from './value/ValueMenu';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
+import { FieldType, FilterField, FilterPredicate } from '@app/searchV2/filters/types';
+import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
+import { getDefaultFieldOperatorType } from '@app/searchV2/filters/value/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledPlusOutlined = styled(PlusOutlined)`
     && {

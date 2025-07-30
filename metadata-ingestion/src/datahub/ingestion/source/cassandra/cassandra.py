@@ -80,7 +80,7 @@ class KeyspaceKey(ContainerKey):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 class CassandraSource(StatefulIngestionSourceBase):
@@ -123,16 +123,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(
-        self,
-    ) -> Iterable[MetadataWorkUnit]:
-        for metadata in self._get_metadata():
-            if isinstance(metadata, MetadataWorkUnit):
-                yield metadata
-            else:
-                yield from metadata.as_workunits()
-
-    def _get_metadata(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         if not self.cassandra_api.authenticate():
             return
         keyspaces: List[CassandraKeyspace] = self.cassandra_api.get_keyspaces()
@@ -305,13 +296,11 @@ class CassandraSource(StatefulIngestionSourceBase):
             qualified_name=dataset_name,
             description=view.comment,
             custom_properties=self._get_dataset_custom_props(view),
-            extra_aspects=[
-                ViewPropertiesClass(
-                    materialized=True,
-                    viewLogic=view.where_clause,  # Use the WHERE clause as view logic
-                    viewLanguage="CQL",  # Use "CQL" as the language
-                ),
-            ],
+            view_definition=ViewPropertiesClass(
+                materialized=True,
+                viewLogic=view.where_clause,  # Use the WHERE clause as view logic
+                viewLanguage="CQL",  # Use "CQL" as the language
+            ),
         )
 
         # Construct and emit lineage off of 'base_table_name'

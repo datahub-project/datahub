@@ -1,5 +1,5 @@
-import React from 'react';
 import { Alert, Button } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
 const StyledAlert = styled(Alert)`

@@ -1,5 +1,6 @@
 import { useContext, useEffect } from 'react';
-import { EducationStepsContext } from '../../providers/EducationStepsContext';
+
+import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 // function use
 

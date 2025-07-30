@@ -1,8 +1,10 @@
+import { Affix, Row, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
-import { Affix, Row, Typography } from 'antd';
-import { DatasetProfile } from '../../../../../../types.generated';
-import DataProfileView from './SnapshotStatsView';
+
+import DataProfileView from '@app/entityV2/dataset/profile/stats/snapshot/SnapshotStatsView';
+
+import { DatasetProfile } from '@types';
 
 const HeaderRow = styled(Row)`
     padding-top: 24px;

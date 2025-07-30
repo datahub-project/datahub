@@ -1,14 +1,16 @@
-import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
-import ChangeTransactionView, {
-    ChangeTransactionEntry,
-} from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ChangeTransactionView, {
+    ChangeTransactionEntry,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/history/ChangeTransactionView';
+
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
 import { ChangeCategoryType, ChangeTransaction, DataPlatform, SemanticVersionStruct } from '@types';
-import { REDESIGN_COLORS } from '../../../../constants';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -34,7 +36,7 @@ const FieldHeaderWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+    background: ${(p) => p.theme.styles['primary-color']};
     color: #fff;
     font-size: 14px;
     font-weight: 700;

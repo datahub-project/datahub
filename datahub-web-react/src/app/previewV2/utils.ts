@@ -1,9 +1,11 @@
 import { Modal, message } from 'antd';
+
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
-import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
-import { BrowsePathV2, GlobalTags, Owner } from '../../types.generated';
-import { EntityCapabilityType } from '../entityV2/Entity';
-import { useEntityContext } from '../entity/shared/EntityContext';
+
+import { useRemoveTermMutation, useUnsetDomainMutation } from '@graphql/mutations.generated';
+import { BrowsePathV2, GlobalTags, Owner } from '@types';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
     const uniqueOwnerUrns = new Set();

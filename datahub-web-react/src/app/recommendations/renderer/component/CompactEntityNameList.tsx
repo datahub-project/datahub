@@ -1,7 +1,8 @@
-import { Entity } from '@src/types.generated';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
-import { CompactEntityNameComponent } from './CompactEntityNameComponent';
+
+import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
+import { Entity } from '@src/types.generated';
 
 type CompactEntityNameListProps = {
     entities: Array<Entity>;

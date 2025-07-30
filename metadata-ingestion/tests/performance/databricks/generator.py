@@ -14,7 +14,7 @@ from performance.data_model import ColumnType, Container, Table, View
 from performance.databricks.unity_proxy_mock import _convert_column_type
 from sqlalchemy import create_engine
 
-from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")

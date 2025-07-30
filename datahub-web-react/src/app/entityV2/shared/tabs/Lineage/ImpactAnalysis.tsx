@@ -1,12 +1,14 @@
 import React from 'react';
-import { FacetFilterInput, LineageDirection } from '../../../../../types.generated';
+
+import { EmbeddedListSearchEmbed } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchEmbed';
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
+import generateUseDownloadScrollAcrossLineageSearchResultsHook from '@app/entityV2/shared/tabs/Lineage/generateUseDownloadScrollAcrossLineageSearchResultsHook';
 import generateUseSearchResultsViaRelationshipHook, {
     generateUseSearchResultsCountViaRelationshipHook,
-} from './generateUseSearchResultsViaRelationshipHook';
-import { EmbeddedListSearchSection } from '../../components/styled/search/EmbeddedListSearchSection';
-import { EmbeddedListSearchEmbed } from '../../components/styled/search/EmbeddedListSearchEmbed';
-import generateUseDownloadScrollAcrossLineageSearchResultsHook from './generateUseDownloadScrollAcrossLineageSearchResultsHook';
-import { FilterSet } from '../../components/styled/search/types';
+} from '@app/entityV2/shared/tabs/Lineage/generateUseSearchResultsViaRelationshipHook';
+
+import { FacetFilterInput, LineageDirection } from '@types';
 
 type Props = {
     type?: 'default' | 'compact';

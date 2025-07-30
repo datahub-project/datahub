@@ -1,9 +1,11 @@
-import { message, Modal } from 'antd';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
-import ActionDropdown from './ActionDropdown';
-import { handleBatchError } from '../../../../utils';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import SetDataProductModal from '../../../../containers/profile/sidebar/DataProduct/SetDataProductModal';
+
+import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
+import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 
 type Props = {
     urns: Array<string>;

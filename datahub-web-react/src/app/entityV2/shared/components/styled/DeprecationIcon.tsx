@@ -1,29 +1,34 @@
+import { Tooltip, colors } from '@components';
+import { Divider, Modal, Typography, message } from 'antd';
+import { TooltipPlacement } from 'antd/es/tooltip';
+import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
-import { Popover, Tooltip } from '@components';
-import { Divider, Modal, Typography, message } from 'antd';
-import moment from 'moment';
-import { TooltipPlacement } from 'antd/es/tooltip';
-import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
-import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
-import { Deprecation, SubResourceType } from '../../../../../types.generated';
-import { EntityLink } from '../../../../homeV2/reference/sections/EntityLink';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
-import { getLocaleTimezone, toLocalDateString } from '../../../../shared/time/timeUtils';
-import { REDESIGN_COLORS } from '../../constants';
-import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
+
+import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { toLocalDateString } from '@app/shared/time/timeUtils';
+import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
+import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
+
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
+import { Deprecation, SubResourceType } from '@types';
+
+import DeprecatedIcon from '@images/deprecated-status.svg?react';
 
 const DeprecatedContainer = styled.div`
     display: flex;
     justify-content: center;
     gap: 4px;
     align-items: center;
-    color: ${REDESIGN_COLORS.DEPRECATION_RED};
+    color: ${colors.red[500]};
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
     display: block;
-    font-size: 14px;
+    font-size: 16px;
     margin-bottom: 5px;
     font-weight: bold;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
@@ -32,10 +37,8 @@ const DeprecatedTitle = styled(Typography.Text)`
 const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
+    font-size: 12px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     max-width: 100%;
 `;
 
@@ -44,7 +47,8 @@ const LastEvaluatedAtLabel = styled.div`
     margin: 0;
     display: flex;
     align-items: center;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
+    color: ${colors.gray[1800]};
+    font-size: 14px;
 `;
 
 const ReplacementContainer = styled.span`
@@ -66,18 +70,8 @@ const IconGroup = styled.div`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
         cursor: pointer;
-    }
-`;
-
-const StyledDeprecatedIcon = styled(DeprecatedIcon)`
-    color: inherit;
-    path {
-        fill: currentColor;
-    }
-    && {
-        fill: currentColor;
     }
 `;
 
@@ -105,7 +99,6 @@ export const DeprecationIcon = ({
     popoverPlacement = 'bottom',
 }: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
-    const localeTimezone = getLocaleTimezone(); // Deprecation Decommission Timestamp
 
     let decommissionTimeSeconds;
     if (deprecation.decommissionTime) {
@@ -118,9 +111,7 @@ export const DeprecationIcon = ({
     }
     const decommissionTimeLocal =
         (decommissionTimeSeconds &&
-            `Scheduled to be decommissioned on ${toLocalDateString(
-                decommissionTimeSeconds * 1000,
-            )} (${localeTimezone})`) ||
+            `Scheduled to be decommissioned on ${toLocalDateString(decommissionTimeSeconds * 1000)}`) ||
         undefined;
     const decommissionTimeGMT =
         decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
@@ -156,15 +147,14 @@ export const DeprecationIcon = ({
     const entityTypeDisplayName = subResourceType === SubResourceType.DatasetField ? 'column' : 'asset';
 
     return (
-        <Popover
-            overlayStyle={{ maxWidth: 240 }}
+        <StructuredPopover
             zIndex={zIndexOverride || 999} // set to 999 to ensure it is below the 1000 mark of the entity popover if on the entity level
             placement={popoverPlacement}
-            content={
+            width={340}
+            title={
                 hasDetails ? (
                     <>
                         <DeprecatedTitle>This {entityTypeDisplayName} is deprecated</DeprecatedTitle>
-                        {isDividerNeeded && <ThinDivider />}
                         {deprecation.replacement && (
                             <DeprecatedSubTitle>
                                 {isReplacementSchemaField ? (
@@ -181,13 +171,15 @@ export const DeprecationIcon = ({
                                 )}
                             </DeprecatedSubTitle>
                         )}
-                        {deprecation?.note !== '' && <DeprecatedSubTitle>{deprecation.note}</DeprecatedSubTitle>}
+                        {deprecation?.note && (
+                            <DeprecatedSubTitle>
+                                <CompactMarkdownViewer content={deprecation.note} />
+                            </DeprecatedSubTitle>
+                        )}
                         {deprecation?.decommissionTime !== null && (
-                            <Typography.Text type="secondary">
-                                <Tooltip placement="right" title={decommissionTimeGMT}>
-                                    <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
-                                </Tooltip>
-                            </Typography.Text>
+                            <Tooltip placement="right" title={decommissionTimeGMT}>
+                                <LastEvaluatedAtLabel>{decommissionTimeLocal}</LastEvaluatedAtLabel>
+                            </Tooltip>
                         )}
                         {isDividerNeeded && showUndeprecate ? <ThinDivider /> : null}
                         {showUndeprecate && (
@@ -216,9 +208,9 @@ export const DeprecationIcon = ({
             }
         >
             <DeprecatedContainer>
-                <StyledDeprecatedIcon />
+                <DeprecatedIcon />
                 {showText ? 'Deprecated' : null}
             </DeprecatedContainer>
-        </Popover>
+        </StructuredPopover>
     );
 };

@@ -1,16 +1,22 @@
-import React, { useState } from 'react';
-import { message, Button } from 'antd';
-import styled from 'styled-components';
+import { Button, message } from 'antd';
 import lodash from 'lodash';
-import { DataContract, AssertionType, Assertion } from '../../../../../../../../types.generated';
-import { DataContractBuilderState, DataContractCategoryType, DEFAULT_BUILDER_STATE } from './types';
-import { buildUpsertDataContractMutationVariables } from './utils';
-import { useUpsertDataContractMutation } from '../../../../../../../../graphql/contract.generated';
-import { createAssertionGroups } from '../../utils';
-import { DataContractAssertionGroupSelect } from './DataContractAssertionGroupSelect';
-import { ANTD_GRAY } from '../../../../../constants';
-import { DATA_QUALITY_ASSERTION_TYPES } from '../utils';
-import { useGetDatasetAssertionsQuery } from '../../../../../../../../graphql/dataset.generated';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DataContractAssertionGroupSelect } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/DataContractAssertionGroupSelect';
+import {
+    DEFAULT_BUILDER_STATE,
+    DataContractBuilderState,
+    DataContractCategoryType,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
+import { buildUpsertDataContractMutationVariables } from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/utils';
+import { DATA_QUALITY_ASSERTION_TYPES } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
+import { createAssertionGroups } from '@app/entity/shared/tabs/Dataset/Validations/utils';
+
+import { useUpsertDataContractMutation } from '@graphql/contract.generated';
+import { useGetDatasetAssertionsQuery } from '@graphql/dataset.generated';
+import { Assertion, AssertionType, DataContract } from '@types';
 
 const AssertionsSection = styled.div`
     border: 0.5px solid ${ANTD_GRAY[4]};

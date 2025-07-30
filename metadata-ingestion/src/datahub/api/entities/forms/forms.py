@@ -26,6 +26,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     FormActorAssignmentClass,
     FormInfoClass,
@@ -133,47 +134,46 @@ class Forms(ConfigModel):
     def create(file: str) -> None:
         emitter: DataHubGraph
 
-        with get_default_graph() as emitter:
-            with open(file) as fp:
-                forms: List[dict] = yaml.safe_load(fp)
-                for form_raw in forms:
-                    form = Forms.parse_obj(form_raw)
+        with get_default_graph(ClientMode.CLI) as emitter, open(file) as fp:
+            forms: List[dict] = yaml.safe_load(fp)
+            for form_raw in forms:
+                form = Forms.parse_obj(form_raw)
 
-                    try:
-                        if not FormType.has_value(form.type):
-                            logger.error(
-                                f"Form type {form.type} does not exist. Please try again with a valid type."
-                            )
-
-                        mcp = MetadataChangeProposalWrapper(
-                            entityUrn=form.urn,
-                            aspect=FormInfoClass(
-                                name=form.name,
-                                description=form.description,
-                                prompts=form.validate_prompts(emitter),
-                                type=form.type,
-                                actors=form.create_form_actors(form.actors),
-                            ),
+                try:
+                    if not FormType.has_value(form.type):
+                        logger.error(
+                            f"Form type {form.type} does not exist. Please try again with a valid type."
                         )
-                        emitter.emit_mcp(mcp)
 
-                        logger.info(f"Created form {form.urn}")
+                    mcp = MetadataChangeProposalWrapper(
+                        entityUrn=form.urn,
+                        aspect=FormInfoClass(
+                            name=form.name,
+                            description=form.description,
+                            prompts=form.validate_prompts(emitter),
+                            type=form.type,
+                            actors=form.create_form_actors(form.actors),
+                        ),
+                    )
+                    emitter.emit_mcp(mcp)
 
-                        if form.owners or form.group_owners:
-                            form.add_owners(emitter)
+                    logger.info(f"Created form {form.urn}")
 
-                        if form.entities:
-                            if form.entities.urns:
-                                # Associate specific entities with a form
-                                form.upload_entities_for_form(emitter)
+                    if form.owners or form.group_owners:
+                        form.add_owners(emitter)
 
-                            if form.entities.filters:
-                                # Associate groups of entities with a form based on filters
-                                form.create_form_filters(emitter)
+                    if form.entities:
+                        if form.entities.urns:
+                            # Associate specific entities with a form
+                            form.upload_entities_for_form(emitter)
 
-                    except Exception as e:
-                        logger.error(e)
-                        return
+                        if form.entities.filters:
+                            # Associate groups of entities with a form based on filters
+                            form.create_form_filters(emitter)
+
+                except Exception as e:
+                    logger.error(e)
+                    return
 
     def validate_prompts(self, emitter: DataHubGraph) -> List[FormPromptClass]:
         prompts = []

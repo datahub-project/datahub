@@ -4,7 +4,7 @@ import json
 import re
 import textwrap
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union, Set
 
 import avro.schema
 import click
@@ -323,7 +323,7 @@ ASPECT_NAME_MAP: Dict[str, Type[_Aspect]] = {{
     for aspect in ASPECT_CLASSES
 }}
 
-from typing import Literal
+from typing import Literal, Set
 from typing_extensions import TypedDict
 
 class AspectBag(TypedDict, total=False):
@@ -333,6 +333,8 @@ class AspectBag(TypedDict, total=False):
 KEY_ASPECTS: Dict[str, Type[_Aspect]] = {{
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}': {aspect['name']}Class" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
 }}
+
+KEY_ASPECT_NAMES: Set[str] = {{cls.ASPECT_NAME for cls in KEY_ASPECTS.values()}}
 
 ENTITY_TYPE_NAMES: List[str] = [
     {f",{newline}    ".join(f"'{aspect['Aspect']['keyForEntity']}'" for aspect in aspects if aspect["Aspect"].get("keyForEntity"))}
@@ -842,9 +844,9 @@ def generate(
     )
 
     if enable_custom_loader:
-        # Move schema_classes.py -> _schema_classes.py
+        # Move schema_classes.py -> _internal_schema_classes.py
         # and add a custom loader.
-        (Path(outdir) / "_schema_classes.py").write_text(
+        (Path(outdir) / "_internal_schema_classes.py").write_text(
             (Path(outdir) / "schema_classes.py").read_text()
         )
         (Path(outdir) / "schema_classes.py").write_text(
@@ -861,16 +863,16 @@ from datahub.utilities._custom_package_loader import get_custom_models_package
 _custom_package_path = get_custom_models_package()
 
 if TYPE_CHECKING or not _custom_package_path:
-    from ._schema_classes import *
+    from ._internal_schema_classes import *
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
-    from ._schema_classes import __SCHEMA_TYPES
+    from ._internal_schema_classes import __SCHEMA_TYPES
 
     if IS_SPHINX_BUILD:
         # Set __module__ to the current module so that Sphinx will document the
         # classes as belonging to this module instead of the custom package.
         for _cls in list(globals().values()):
-            if hasattr(_cls, "__module__") and "datahub.metadata._schema_classes" in _cls.__module__:
+            if hasattr(_cls, "__module__") and "datahub.metadata._internal_schema_classes" in _cls.__module__:
                 _cls.__module__ = __name__
 else:
     _custom_package = importlib.import_module(_custom_package_path)

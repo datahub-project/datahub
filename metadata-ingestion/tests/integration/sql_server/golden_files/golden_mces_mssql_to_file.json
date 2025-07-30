@@ -195,15 +195,16 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "ae341aad-8ab2-421e-b46b-147afd4b0705",
+                "job_id": "6caffb8a-9084-48ee-8c76-f5c50432d946",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2025-03-04 16:55:50.893000",
-                "date_modified": "2025-03-04 16:55:51.043000",
+                "date_created": "2025-06-10 16:10:27.240000",
+                "date_modified": "2025-06-10 16:10:27.540000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
-                "command": "ALTER DATABASE DemoData SET READ_ONLY"
+                "command": "ALTER DATABASE DemoData SET READ_ONLY",
+                "database_name": "DemoData"
             },
             "name": "Weekly Demo Data Backup",
             "type": {
@@ -1473,7 +1474,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.dbo.Products,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.dbo.products,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1490,7 +1491,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.dbo.Products,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.dbo.products,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1506,7 +1507,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "DemoData.dbo.Products",
+                        "schemaName": "demodata.dbo.products",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -1562,7 +1563,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.dbo.Products,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.dbo.products,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1579,7 +1580,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.dbo.Products,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.dbo.products,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1597,7 +1598,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.dbo.Products,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.dbo.products,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1742,7 +1743,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.age_dist,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1759,7 +1760,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.age_dist,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1775,7 +1776,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "DemoData.Foo.age_dist",
+                        "schemaName": "demodata.foo.age_dist",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -1831,7 +1832,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.age_dist,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1848,7 +1849,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.age_dist,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1866,7 +1867,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.age_dist,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1895,7 +1896,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Items,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1912,7 +1913,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Items,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -1922,14 +1923,13 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {},
-                        "name": "Items",
-                        "description": "Description for table Items of schema Foo.",
+                        "name": "EphemeralItems",
                         "tags": []
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "DemoData.Foo.Items",
+                        "schemaName": "demodata.foo.ephemeralitems",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -1985,7 +1985,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Items,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2002,7 +2002,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Items,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2020,7 +2020,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Items,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2049,7 +2049,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2066,7 +2066,314 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "FinalItems",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "demodata.foo.finalitems",
+                        "platform": "urn:li:dataPlatform:mssql",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "ItemName",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "NVARCHAR(max) COLLATE SQL_Latin1_General_CP1_CI_AS",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mssql",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,my-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,my-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,my-instance)"
+                },
+                {
+                    "id": "urn:li:container:db8117ee3cc6397c503e7824ae3e0f6a",
+                    "urn": "urn:li:container:db8117ee3cc6397c503e7824ae3e0f6a"
+                },
+                {
+                    "id": "urn:li:container:6fbadfb496ee98718da210cc2fca1680",
+                    "urn": "urn:li:container:6fbadfb496ee98718da210cc2fca1680"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6fbadfb496ee98718da210cc2fca1680"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "Items",
+                        "description": "Description for table Items of schema Foo.",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "demodata.foo.items",
+                        "platform": "urn:li:dataPlatform:mssql",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "ID",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "ItemName",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "NVARCHAR(max) COLLATE SQL_Latin1_General_CP1_CI_AS",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mssql",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,my-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,my-instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mssql,my-instance)"
+                },
+                {
+                    "id": "urn:li:container:db8117ee3cc6397c503e7824ae3e0f6a",
+                    "urn": "urn:li:container:db8117ee3cc6397c503e7824ae3e0f6a"
+                },
+                {
+                    "id": "urn:li:container:6fbadfb496ee98718da210cc2fca1680",
+                    "urn": "urn:li:container:6fbadfb496ee98718da210cc2fca1680"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:6fbadfb496ee98718da210cc2fca1680"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -2082,7 +2389,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "DemoData.Foo.Persons",
+                        "schemaName": "demodata.foo.persons",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -2163,7 +2470,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2180,7 +2487,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2198,7 +2505,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2227,7 +2534,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.SalesReason,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2244,7 +2551,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.SalesReason,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -2260,7 +2567,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "DemoData.Foo.SalesReason",
+                        "schemaName": "demodata.foo.salesreason",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -2319,12 +2626,12 @@
                             {
                                 "name": "FK_TempSales_SalesReason",
                                 "foreignFields": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD),ID)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),ID)"
                                 ],
                                 "sourceFields": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.SalesReason,PROD),TempID)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD),TempID)"
                                 ],
-                                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.Persons,PROD)"
+                                "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)"
                             }
                         ]
                     }
@@ -2340,7 +2647,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.SalesReason,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2357,7 +2664,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.SalesReason,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2375,7 +2682,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.SalesReason,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2404,7 +2711,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -2421,7 +2728,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -2440,7 +2747,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "DemoData.Foo.PersonsView",
+                        "schemaName": "demodata.foo.personsview",
                         "platform": "urn:li:dataPlatform:mssql",
                         "version": 0,
                         "created": {
@@ -2520,7 +2827,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2537,7 +2844,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -2555,7 +2862,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
@@ -2573,7 +2880,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -2706,8 +3013,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2025-03-04 16:55:50.720000",
-                "date_modified": "2025-03-04 16:55:50.720000"
+                "date_created": "2025-06-10 16:10:26.917000",
+                "date_modified": "2025-06-10 16:10:26.917000"
             },
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
@@ -2832,12 +3139,12 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "procedure_depends_on": "{'DemoData.Foo.age_dist': 'USER_TABLE', 'DemoData.Foo.Items': 'USER_TABLE', 'DemoData.Foo.Persons': 'USER_TABLE', 'DemoData.Foo.SalesReason': 'USER_TABLE'}",
+                "procedure_depends_on": "{'DemoData.Foo.age_dist': 'USER_TABLE', 'DemoData.Foo.EphemeralItems': 'USER_TABLE', 'demodata.Foo.FinalItems': 'USER_TABLE', 'DemoData.Foo.Items': 'USER_TABLE', 'DemoData.Foo.Persons': 'USER_TABLE', 'DemoData.Foo.SalesReason': 'USER_TABLE'}",
                 "depending_on_procedure": "{}",
-                "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
+                "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n        -- lineage: Foo.Items --> Foo.EphemeralItems\n        insert into Foo.EphemeralItems (ID, ItemName)\n        select ID, ItemName\n        from Foo.Items;\n\n        -- lineage: Foo.EphemeralItems --> Foo.FinalItems\n        UPDATE DemoData.Foo.FinalItems\n        SET ItemName = e.ItemName\n        FROM DemoData.Foo.FinalItems f\n        JOIN DemoData.Foo.EphemeralItems e ON f.ID = e.ID;\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2025-03-04 16:55:50.727000",
-                "date_modified": "2025-03-04 16:55:50.727000"
+                "date_created": "2025-06-10 16:10:26.933000",
+                "date_modified": "2025-06-10 16:10:26.933000"
             },
             "name": "DemoData.Foo.NewProc",
             "type": {
@@ -2912,7 +3219,7 @@
             "transforms": [
                 {
                     "queryStatement": {
-                        "value": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
+                        "value": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n        -- lineage: Foo.Items --> Foo.EphemeralItems\n        insert into Foo.EphemeralItems (ID, ItemName)\n        select ID, ItemName\n        from Foo.Items;\n\n        -- lineage: Foo.EphemeralItems --> Foo.FinalItems\n        UPDATE DemoData.Foo.FinalItems\n        SET ItemName = e.ItemName\n        FROM DemoData.Foo.FinalItems f\n        JOIN DemoData.Foo.EphemeralItems e ON f.ID = e.ID;\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                         "language": "SQL"
                     }
                 }
@@ -3304,7 +3611,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -3321,7 +3628,61 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.DemoData.Foo.PersonsView%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),ID)"
+                    ],
+                    "transformOperation": "COPY: [persons].[id] AS [id]",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),LastName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),LastName)"
+                    ],
+                    "transformOperation": "COPY: [persons].[lastname] AS [lastname]",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),FirstName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),FirstName)"
+                    ],
+                    "transformOperation": "COPY: [persons].[firstname] AS [firstname]",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),Age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),Age)"
+                    ],
+                    "transformOperation": "COPY: [persons].[age] AS [age]",
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29"
                 }
             ]
         }
@@ -3334,11 +3695,12 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.DemoData.Foo.PersonsView%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW Foo.PersonsView AS\nSELECT\n  *\nFROM Foo.Persons",
                 "language": "SQL"
@@ -3349,7 +3711,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1741107355755,
+                "time": 1749571836792,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -3362,7 +3724,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.DemoData.Foo.PersonsView%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -3372,7 +3734,31 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.DemoData.Foo.PersonsView,PROD)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),Age)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),FirstName)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),ID)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),LastName)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),ID)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),LastName)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),FirstName)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.personsview,PROD),Age)"
                 }
             ]
         }
@@ -3385,12 +3771,127 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.DemoData.Foo.PersonsView%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:mssql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,my-instance.DemoData.Foo.stored_procedures,PROD),NewProc)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.newdata.foonew.personsnew,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),Age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD),Age)"
+                    ],
+                    "transformOperation": "COPY: [persons].[age] AS [age]",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD),ID)"
+                    ],
+                    "transformOperation": "COPY: [items].[id] AS [id]",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),ItemName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD),ItemName)"
+                    ],
+                    "transformOperation": "COPY: [items].[itemname] AS [itemname]",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD),ItemName)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD),ItemName)"
+                    ],
+                    "transformOperation": "COPY: [e].[itemname] AS [itemname]",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD),TempID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),tempid)"
+                    ],
+                    "transformOperation": "COPY: [salesreason].[tempid] AS [tempid]",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD),Name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),name)"
+                    ],
+                    "transformOperation": "COPY: [salesreason].[name] AS [name]",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.newdata.foonew.personsnew,PROD),age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD),Age)"
+                    ],
+                    "confidenceScore": 0.2
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -3481,7 +3982,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.DemoData.Foo.PersonsView%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cmy-instance.demodata.foo.personsview%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

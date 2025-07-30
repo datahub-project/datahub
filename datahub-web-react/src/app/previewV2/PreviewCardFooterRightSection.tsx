@@ -1,22 +1,23 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { DatasetStatsSummary, EntityType } from '../../types.generated';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { EntityCapabilityType } from '../entityV2/Entity';
-import { usePreviewData } from '../entityV2/shared/PreviewContext';
-import { entityHasCapability } from './utils';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import LineageBadge from './LineageBadge';
-import Freshness from './Freshness';
+
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
 import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
-} from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import QueryStat from './QueryStat';
-import SidebarPopularityHeaderSection from '../entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
+import Freshness from '@app/previewV2/Freshness';
+import LineageBadge from '@app/previewV2/LineageBadge';
+import QueryStat from '@app/previewV2/QueryStat';
+import { entityHasCapability } from '@app/previewV2/utils';
 
-import { DatasetLastUpdatedMs, DashboardLastUpdatedMs } from '../entityV2/shared/utils';
+import { DatasetStatsSummary, EntityType } from '@types';
 
 const Container = styled.div`
     text-align: center;

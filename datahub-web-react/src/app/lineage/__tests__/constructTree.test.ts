@@ -1,5 +1,10 @@
+import { Direction, EntityAndType, FetchedEntity, UpdatedLineages } from '@app/lineage/types';
+import constructTree from '@app/lineage/utils/constructTree';
+import extendAsyncEntities from '@app/lineage/utils/extendAsyncEntities';
 import {
+    dataFlow1,
     dataJob1,
+    dataset1,
     dataset3,
     dataset3WithLineage,
     dataset4,
@@ -7,14 +12,10 @@ import {
     dataset5,
     dataset5WithLineage,
     dataset6WithLineage,
-    dataFlow1,
-    dataset1,
-} from '../../../Mocks';
-import { DataPlatform, Dataset, Entity, EntityType, RelationshipDirection } from '../../../types.generated';
-import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import { Direction, EntityAndType, FetchedEntity, UpdatedLineages } from '../types';
-import constructTree from '../utils/constructTree';
-import extendAsyncEntities from '../utils/extendAsyncEntities';
+} from '@src/Mocks';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+
+import { DataPlatform, Dataset, Entity, EntityType, RelationshipDirection } from '@types';
 
 const testEntityRegistry = getTestEntityRegistry();
 const kafkaPlatform: DataPlatform = dataset3.platform;

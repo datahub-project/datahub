@@ -1,5 +1,6 @@
 import styled from 'styled-components';
-import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../../entity/shared/constants';
+
+import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entity/shared/constants';
 
 export const Card = styled.div`
     background-color: ${ANTD_GRAY[1]};

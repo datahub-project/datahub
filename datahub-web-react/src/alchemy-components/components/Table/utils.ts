@@ -1,4 +1,4 @@
-import { Column, SortingState } from './types';
+import { Column, SortingState } from '@components/components/Table/types';
 
 export const handleActiveSort = (
     key: string,
@@ -33,9 +33,10 @@ export const getSortedData = <T>(
     const activeColumn = columns.find((column) => column.key === sortColumn);
 
     // Sort based on the order and column sorter
-    if (activeColumn && activeColumn.sorter) {
+    if (activeColumn && typeof activeColumn.sorter === 'function') {
+        const sorterFn = activeColumn.sorter;
         return data.slice().sort((a, b) => {
-            return sortOrder === SortingState.ASCENDING ? activeColumn.sorter!(a, b) : activeColumn.sorter!(b, a);
+            return sortOrder === SortingState.ASCENDING ? sorterFn(a, b) : sorterFn(b, a);
         });
     }
 
@@ -64,4 +65,10 @@ export const renderCell = <T>(column: Column<T>, row: T, index: number) => {
     }
 
     return cellData;
+};
+
+export const getRowKey = <T>(record: T, index: number, rowKey?: string | ((record: T) => string)): string => {
+    if (typeof rowKey === 'function') return rowKey(record);
+    if (typeof rowKey === 'string') return record[rowKey];
+    return index.toString();
 };

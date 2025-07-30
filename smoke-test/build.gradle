@@ -147,6 +147,15 @@ task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
                     "./cypress-dev.sh"
 }
 
+task cypressRemote(type: Exec) {
+  environment 'CYPRESS_BASE_URL', project.findProperty('baseUrl') ?: 'http://localhost:4173'
+  environment 'CYPRESS_ADMIN_USERNAME', project.findProperty('username') ?: 'admin'
+  environment 'CYPRESS_ADMIN_PASSWORD', project.findProperty('password')
+
+  workingDir = "${project.rootDir}/smoke-test/tests/cypress"
+  commandLine 'bash', '-c', './cypress-remote.sh'
+}
+
 task lint {
     dependsOn pythonLint, cypressLint
 }

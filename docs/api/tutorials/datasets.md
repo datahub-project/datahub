@@ -6,7 +6,7 @@ import TabItem from '@theme/TabItem';
 ## Why Would You Use Datasets?
 
 The dataset entity is one the most important entities in the metadata model. They represent collections of data that are typically represented as Tables or Views in a database (e.g. BigQuery, Snowflake, Redshift etc.), Streams in a stream-processing environment (Kafka, Pulsar etc.), bundles of data found as Files or Folders in data lake systems (S3, ADLS, etc.).
-For more information about datasets, refer to [Dataset](/docs/generated/metamodel/entities/dataset.md).
+For more information about datasets, refer to our [dataset reference](/docs/generated/metamodel/entities/dataset.md).
 
 ### Goal Of This Guide
 
@@ -49,11 +49,9 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 You can now see `realestate_db.sales` dataset has been created.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-created.png"/>
 </p>
-
 
 ## Delete Dataset
 
@@ -121,8 +119,6 @@ Expected Response:
 
 The dataset `fct_users_deleted` has now been deleted, so if you search for a hive dataset named `fct_users_delete`, you will no longer be able to see it.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/dataset-deleted.png"/>
 </p>
-

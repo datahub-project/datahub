@@ -1,7 +1,3 @@
-import React from 'react';
-import { Divider } from 'antd';
-import { useActive, useCommands } from '@remirror/react';
-import styled from 'styled-components';
 import {
     Code,
     CodeBlock,
@@ -13,11 +9,17 @@ import {
     TextStrikethrough,
     TextUnderline,
 } from '@phosphor-icons/react';
+import { useActive, useCommands } from '@remirror/react';
+import { Divider } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
+import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
+import { AddLinkButton } from '@components/components/Editor/toolbar/AddLinkButton';
+import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
+
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { CommandButton } from './CommandButton';
-import { HeadingMenu } from './HeadingMenu';
-import { AddImageButton } from './AddImageButton';
-import { AddLinkButton } from './AddLinkButton';
 
 const Container = styled.div`
     position: sticky;
@@ -36,6 +38,11 @@ const Container = styled.div`
     box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 `;
 
+const CustomDivider = styled(Divider)`
+    height: 100%;
+    margin: 0 6px;
+`;
+
 export const Toolbar = () => {
     const commands = useCommands();
     const active = useActive(true);
@@ -43,7 +50,7 @@ export const Toolbar = () => {
     return (
         <Container>
             <HeadingMenu />
-            <Divider type="vertical" style={{ height: '100%' }} />
+            <CustomDivider type="vertical" />
             <CommandButton
                 icon={<TextB size={24} color={colors.gray[1800]} />}
                 style={{ marginRight: 2 }}

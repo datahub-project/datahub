@@ -1,17 +1,18 @@
 import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import {
-    addToAdjacencyList,
     EdgeId,
+    LineageAuditStamp,
+    LineageEdge,
+    NodeContext,
+    addToAdjacencyList,
     getEdgeId,
     isGhostEntity,
     isTransformational,
     isUrnQuery,
-    LineageAuditStamp,
-    LineageEdge,
-    NodeContext,
     parseEdgeId,
     setDefault,
 } from '@app/lineageV2/common';
+
 import { EntityType, LineageDirection } from '@types';
 
 export interface HideNodesConfig {
@@ -128,7 +129,7 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
                 addToAdjacencyList(newAdjacencyList, direction, id, neighbor);
                 const edgeId = getEdgeId(id, neighbor, direction);
                 const existingEdge = newEdges.get(edgeId);
-                newEdges.set(edgeId, mergeEdges(edges.get(edgeId), existingEdge));
+                newEdges.set(edgeId, mergeEdges(edges.get(edgeId), existingEdge, nodes));
                 buildNewAdjacencyList(neighbor, direction);
             } else {
                 buildNewAdjacencyList(neighbor, direction)?.forEach((child) => {
@@ -144,7 +145,7 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
                         isDisplayed: (firstEdge?.isDisplayed && secondEdge?.isDisplayed) ?? false,
                         via: firstEdge?.via || secondEdge?.via,
                     };
-                    newEdges.set(edgeId, mergeEdges(newEdge, existingEdge));
+                    newEdges.set(edgeId, mergeEdges(newEdge, existingEdge, nodes));
                 });
             }
         });
@@ -167,13 +168,19 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
 }
 
 /** Merge two edges, each representing a different path between two nodes. */
-function mergeEdges(edgeA?: LineageEdge, edgeB?: LineageEdge): LineageEdge {
+function mergeEdges(
+    edgeA: LineageEdge | undefined,
+    edgeB: LineageEdge | undefined,
+    nodes: Map<string, any>,
+): LineageEdge {
+    const viaA = edgeA?.via && nodes.has(edgeA.via) ? edgeA.via : undefined;
+    const viaB = edgeB?.via && nodes.has(edgeB.via) ? edgeB.via : undefined;
     return {
         isManual: edgeA?.isManual && edgeB?.isManual,
         created: getLatestTimestamp(edgeA?.created, edgeB?.created),
         updated: getLatestTimestamp(edgeA?.updated, edgeB?.updated),
         isDisplayed: (edgeA?.isDisplayed || edgeB?.isDisplayed) ?? false,
-        via: edgeA?.via || edgeB?.via,
+        via: viaA || viaB,
     };
 }
 

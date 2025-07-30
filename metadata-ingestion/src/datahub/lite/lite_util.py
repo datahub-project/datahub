@@ -99,7 +99,7 @@ def get_datahub_lite(config_dict: dict, read_only: bool = False) -> "DataHubLite
         lite_class = lite_registry.get(lite_type)
     except KeyError as e:
         raise Exception(
-            f"Failed to find a registered lite implementation for {lite_type}. Valid values are {[k for k in lite_registry.mapping.keys()]}"
+            f"Failed to find a registered lite implementation for {lite_type}. Valid values are {[k for k in lite_registry.mapping]}"
         ) from e
 
     lite_specific_config = lite_class.get_config_class().parse_obj(
@@ -127,7 +127,7 @@ def get_datahub_lite(config_dict: dict, read_only: bool = False) -> "DataHubLite
                 return lite
         else:
             raise Exception(
-                f"Failed to find a registered forwarding sink for type {lite_local_config.forward_to.type}. Valid values are {[k for k in sink_registry.mapping.keys()]}"
+                f"Failed to find a registered forwarding sink for type {lite_local_config.forward_to.type}. Valid values are {[k for k in sink_registry.mapping]}"
             )
     else:
         return lite

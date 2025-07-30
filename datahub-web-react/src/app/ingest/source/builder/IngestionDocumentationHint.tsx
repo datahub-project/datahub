@@ -1,10 +1,10 @@
+import { CloseOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
 
-import { SourceConfig } from './types';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SourceConfig } from '@app/ingest/source/builder/types';
 
 const Container = styled.div`
     background-color: #ffffff;

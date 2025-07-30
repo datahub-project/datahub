@@ -1,11 +1,13 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 import { Typography } from 'antd';
-import { Dataset, EntityType } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../../Entity';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Dataset, EntityType } from '@types';
 
 const DatasetText = styled(Typography.Text)`
     font-size: 12px;

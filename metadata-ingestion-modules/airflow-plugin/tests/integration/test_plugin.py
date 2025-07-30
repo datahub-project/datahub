@@ -10,9 +10,8 @@ import signal
 import subprocess
 import textwrap
 import time
-from typing import Any, Iterator, Sequence
+from typing import Any, Iterator, Optional, Sequence
 
-import packaging.version
 import pytest
 import requests
 import tenacity
@@ -20,12 +19,6 @@ from airflow.models.connection import Connection
 
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
-from datahub_airflow_plugin._airflow_shims import (
-    AIRFLOW_VERSION,
-    HAS_AIRFLOW_DAG_LISTENER_API,
-    HAS_AIRFLOW_LISTENER_API,
-    HAS_AIRFLOW_STANDALONE_CMD,
-)
 
 pytestmark = pytest.mark.integration
 
@@ -36,6 +29,8 @@ DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 DAG_TO_SKIP_INGESTION = "dag_to_skip"
+
+PLATFORM_INSTANCE = "myairflow"
 
 
 @dataclasses.dataclass
@@ -120,7 +115,7 @@ def _wait_for_dag_finish(
     retry=tenacity.retry_if_exception_type(NotReadyError),
 )
 def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
-    print("Checking if DAG was loaded")
+    print(f"Checking if DAG {dag_id} was loaded")
     res = airflow_instance.session.get(
         url=f"{airflow_instance.airflow_url}/api/v1/dags",
         timeout=5,
@@ -177,8 +172,9 @@ def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
 def _run_airflow(
     tmp_path: pathlib.Path,
     dags_folder: pathlib.Path,
-    is_v1: bool,
     multiple_connections: bool,
+    platform_instance: Optional[str],
+    enable_datajob_lineage: bool,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -204,9 +200,8 @@ def _run_airflow(
         "AIRFLOW__CORE__DAGS_FOLDER": str(dags_folder),
         "AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION": "False",
         # Have the Airflow API use username/password authentication.
-        "AIRFLOW__API__AUTH_BACKEND": "airflow.api.auth.backend.basic_auth",
+        "AIRFLOW__API__AUTH_BACKENDS": "airflow.api.auth.backend.basic_auth",
         # Configure the datahub plugin and have it write the MCPs to a file.
-        "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": f"{datahub_connection_name}, {datahub_connection_name_2}"
         if multiple_connections
         else datahub_connection_name,
@@ -240,6 +235,23 @@ def _run_airflow(
                 "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
             },
         ).get_uri(),
+        "AIRFLOW_CONN_MY_BIGQUERY": Connection(
+            conn_id="my_bigquery",
+            conn_type="google_cloud_platform",
+            extra={
+                "project": "test_project",
+                "keyfile_dict": {
+                    "type": "service_account",
+                    "project_id": "test_project",
+                    "private_key_id": "test_key_id",
+                    "private_key": "-----BEGIN PRIVATE KEY-----\nfake_key\n-----END PRIVATE KEY-----\n",
+                    "client_email": "test@test_project.iam.gserviceaccount.com",
+                    "client_id": "123456789",
+                    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                    "token_uri": "https://oauth2.googleapis.com/token",
+                },
+            },
+        ).get_uri(),
         "AIRFLOW_CONN_MY_SQLITE": Connection(
             conn_id="my_sqlite",
             conn_type="sqlite",
@@ -249,12 +261,17 @@ def _run_airflow(
         # Note that we could also disable the RUN_IN_THREAD entirely,
         # but I want to minimize the difference between CI and prod.
         "DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT": "30",
-        "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN": "true" if is_v1 else "false",
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
         "SQLALCHEMY_SILENCE_UBER_WARNING": "1",
+        "AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE": "true"
+        if enable_datajob_lineage
+        else "false",
     }
+
+    if platform_instance:
+        environment["AIRFLOW__DATAHUB__PLATFORM_INSTANCE"] = platform_instance
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -262,9 +279,6 @@ def _run_airflow(
             conn_type="datahub-file",
             host=str(meta_file2),
         ).get_uri()
-
-    if not HAS_AIRFLOW_STANDALONE_CMD:
-        raise pytest.skip("Airflow standalone command is not available")
 
     # Start airflow in a background subprocess.
     airflow_process = subprocess.Popen(
@@ -306,12 +320,11 @@ def _run_airflow(
             )
 
         # Sanity check that the plugin got loaded.
-        if not is_v1:
-            print("[debug] Listing loaded plugins")
-            subprocess.check_call(
-                ["airflow", "plugins", "-v"],
-                env=environment,
-            )
+        print("[debug] Listing loaded plugins")
+        subprocess.check_call(
+            ["airflow", "plugins", "-v"],
+            env=environment,
+        )
 
         # Load the admin user's password. This is generated by the
         # `airflow standalone` command, and is different from the
@@ -362,66 +375,49 @@ class DagTestCase:
     dag_id: str
     success: bool = True
 
-    v2_only: bool = False
     multiple_connections: bool = False
+    platform_instance: Optional[str] = None
+    enable_datajob_lineage: bool = True
+
+    # used to identify the test case in the golden file when same DAG is used in multiple tests
+    test_variant: Optional[str] = None
+
+    @property
+    def dag_test_id(self) -> str:
+        return f"{self.dag_id}{self.test_variant or ''}"
 
 
 test_cases = [
-    DagTestCase("simple_dag", multiple_connections=True),
-    DagTestCase("basic_iolets"),
-    DagTestCase("dag_to_skip", v2_only=True),
-    DagTestCase("snowflake_operator", success=False, v2_only=True),
-    DagTestCase("sqlite_operator", v2_only=True),
-    DagTestCase("custom_operator_dag", v2_only=True),
-    DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
-    DagTestCase("athena_operator", v2_only=True),
+    DagTestCase(
+        "simple_dag", multiple_connections=True, platform_instance=PLATFORM_INSTANCE
+    ),
+    DagTestCase(
+        "simple_dag",
+        multiple_connections=True,
+        platform_instance=PLATFORM_INSTANCE,
+        enable_datajob_lineage=False,
+        test_variant="_no_datajob_lineage",
+    ),
+    DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("dag_to_skip", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("snowflake_operator", success=False),
+    DagTestCase("sqlite_operator", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("custom_operator_dag", platform_instance=PLATFORM_INSTANCE),
+    DagTestCase("custom_operator_sql_parsing"),
+    DagTestCase("datahub_emitter_operator_jinja_template_dag"),
+    DagTestCase("athena_operator"),
+    DagTestCase("bigquery_insert_job_operator"),
 ]
 
 
 @pytest.mark.parametrize(
-    ["golden_filename", "test_case", "is_v1"],
+    ["golden_filename", "test_case"],
     [
         *[
             pytest.param(
-                f"v1_{test_case.dag_id}",
+                (f"v2_{test_case.dag_test_id}"),
                 test_case,
-                True,
-                id=f"v1_{test_case.dag_id}",
-                marks=pytest.mark.skipif(
-                    AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
-                    reason="We only test the v1 plugin on Airflow 2.3",
-                ),
-            )
-            for test_case in test_cases
-            if not test_case.v2_only
-        ],
-        *[
-            pytest.param(
-                # On Airflow 2.3-2.4, test plugin v2 without dataFlows.
-                (
-                    f"v2_{test_case.dag_id}"
-                    if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_id}_no_dag_listener"
-                ),
-                test_case,
-                False,
-                id=(
-                    f"v2_{test_case.dag_id}"
-                    if HAS_AIRFLOW_DAG_LISTENER_API
-                    else f"v2_{test_case.dag_id}_no_dag_listener"
-                ),
-                marks=[
-                    pytest.mark.skipif(
-                        not HAS_AIRFLOW_LISTENER_API,
-                        reason="Cannot test plugin v2 without the Airflow plugin listener API",
-                    ),
-                    pytest.mark.skipif(
-                        AIRFLOW_VERSION < packaging.version.parse("2.4.0"),
-                        reason="We skip testing the v2 plugin on Airflow 2.3 because it causes flakiness in the custom properties. "
-                        "Ideally we'd just fix these, but given that Airflow 2.3 is EOL and likely going to be deprecated "
-                        "soon anyways, it's not worth the effort.",
-                    ),
-                ],
+                id=(f"v2_{test_case.dag_test_id}"),
             )
             for test_case in test_cases
         ],
@@ -431,7 +427,6 @@ def test_airflow_plugin(
     tmp_path: pathlib.Path,
     golden_filename: str,
     test_case: DagTestCase,
-    is_v1: bool,
 ) -> None:
     # This test:
     # - Configures the plugin.
@@ -440,19 +435,15 @@ def test_airflow_plugin(
     # - Waits for the DAG to complete.
     # - Validates the metadata generated against a golden file.
 
-    if not is_v1 and not test_case.success and not HAS_AIRFLOW_DAG_LISTENER_API:
-        # Saw a number of issues in CI where this would fail to emit the last events
-        # due to an error in the SQLAlchemy listener. This never happened locally for me.
-        pytest.skip("Cannot test failure cases without the Airflow DAG listener API")
-
     golden_path = GOLDENS_FOLDER / f"{golden_filename}.json"
     dag_id = test_case.dag_id
 
     with _run_airflow(
         tmp_path,
         dags_folder=DAGS_FOLDER,
-        is_v1=is_v1,
         multiple_connections=test_case.multiple_connections,
+        platform_instance=test_case.platform_instance,
+        enable_datajob_lineage=test_case.enable_datajob_lineage,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)
@@ -557,9 +548,9 @@ if __name__ == "__main__":
     with _run_airflow(
         tmp_path=pathlib.Path(tempfile.mkdtemp("airflow-plugin-test")),
         dags_folder=DAGS_FOLDER,
-        is_v1=not HAS_AIRFLOW_LISTENER_API,
         multiple_connections=False,
+        platform_instance=None,
+        enable_datajob_lineage=True,
     ) as airflow_instance:
         # input("Press enter to exit...")
-        breakpoint()
         print("quitting airflow")

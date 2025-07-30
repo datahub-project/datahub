@@ -1,23 +1,25 @@
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Button, Drawer } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
-import { Button, Drawer } from 'antd';
-import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../useEntityRegistry';
-import CompactContext from '../shared/CompactContext';
-import { EntityAndType, EntitySelectParams, FetchedEntities } from './types';
-import LineageViz from './LineageViz';
-import extendAsyncEntities from './utils/extendAsyncEntities';
-import { EntityType } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { GetEntityLineageQuery, useGetEntityLineageQuery } from '../../graphql/lineage.generated';
-import { useIsSeparateSiblingsMode } from '../entity/shared/siblingUtils';
-import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
-import { ErrorSection } from '../shared/error/ErrorSection';
-import usePrevious from '../shared/usePrevious';
-import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
-import analytics, { EventType } from '../analytics';
-import LineageLoadingSection from './LineageLoadingSection';
+
+import analytics, { EventType } from '@app/analytics';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import LineageLoadingSection from '@app/lineage/LineageLoadingSection';
+import LineageViz from '@app/lineage/LineageViz';
+import { EntityAndType, EntitySelectParams, FetchedEntities } from '@app/lineage/types';
+import extendAsyncEntities from '@app/lineage/utils/extendAsyncEntities';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import { SHOW_COLUMNS_URL_PARAMS, useIsShowColumnsMode } from '@app/lineage/utils/useIsShowColumnsMode';
+import CompactContext from '@app/shared/CompactContext';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GetEntityLineageQuery, useGetEntityLineageQuery } from '@graphql/lineage.generated';
+import { EntityType } from '@types';
 
 const DEFAULT_DISTANCE_FROM_TOP = 106;
 

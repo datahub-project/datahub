@@ -193,9 +193,8 @@ def test_load_strict_env_syntax() -> None:
 def test_load_error(pytestconfig, filename, env, error_type):
     filepath = pytestconfig.rootpath / filename
 
-    with mock.patch.dict(os.environ, env):
-        with pytest.raises(error_type):
-            _ = load_config_file(filepath)
+    with mock.patch.dict(os.environ, env), pytest.raises(error_type):
+        _ = load_config_file(filepath)
 
 
 def test_write_file_directive(pytestconfig):

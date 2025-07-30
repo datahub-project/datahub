@@ -1,8 +1,13 @@
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
+
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+
 import {
     Dataset,
     Entity,
@@ -10,13 +15,10 @@ import {
     HealthStatus,
     HealthStatusType,
     Maybe,
-    ScrollResults,
     Operation,
+    ScrollResults,
     SiblingProperties,
-} from '../../../types.generated';
-import { GenericEntityProperties } from './types';
-import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
-import { downgradeV2FieldPath } from '../dataset/profile/schema/utils/utils';
+} from '@types';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
-import { useAppConfig } from './useAppConfig';
-import { useIsThemeV2 } from './useIsThemeV2';
+
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
 
 export function useShowNavBarRedesign() {
     const appConfig = useAppConfig();

@@ -1,9 +1,11 @@
 import React from 'react';
-import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { Entity, EntityType, SchemaFieldEntity } from '../../../../types.generated';
-import { GenericEntityProperties } from '../types';
+import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType, SchemaFieldEntity } from '@types';
 
 const PreviewImage = styled.img<{ size: number }>`
     height: ${(props) => props.size}px;

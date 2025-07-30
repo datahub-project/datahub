@@ -76,7 +76,7 @@ public class SetTagColorResolverTest {
   }
 
   @Test
-  public void testGetFailureNoExistingProperties() throws Exception {
+  public void testGetDefaultPropertiesIfNoExistingProperties() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     EntityService<?> mockService = getMockEntityService();
@@ -101,9 +101,21 @@ public class SetTagColorResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("urn"))).thenReturn(TEST_ENTITY_URN);
     Mockito.when(mockEnv.getArgument(Mockito.eq("colorHex"))).thenReturn(TEST_COLOR_HEX);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+    boolean result = resolver.get(mockEnv).get();
+
+    assertTrue(result);
+
+    final TagProperties newTagProperties =
+        new TagProperties().setName("test-tag").setColorHex(TEST_COLOR_HEX);
+    final MetadataChangeProposal proposal =
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            UrnUtils.getUrn(TEST_ENTITY_URN), TAG_PROPERTIES_ASPECT_NAME, newTagProperties);
+
+    verifyIngestProposal(mockClient, 1, proposal);
+
+    Mockito.verify(mockService, Mockito.times(1))
+        .exists(any(), Mockito.eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true));
   }
 
   @Test

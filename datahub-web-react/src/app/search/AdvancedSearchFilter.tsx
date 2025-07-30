@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { AdvancedSearchFilterConditionSelect } from './AdvancedSearchFilterConditionSelect';
-import { AdvancedFilterSelectValueModal } from './AdvancedFilterSelectValueModal';
-import { ENTITY_SUB_TYPE_FILTER_NAME, FIELD_TO_LABEL } from './utils/constants';
-import { AdvancedSearchFilterValuesSection } from './AdvancedSearchFilterValuesSection';
-import AdvancedFilterCloseButton from './advanced/AdvancedFilterCloseButton';
-import { FilterContainer } from './advanced/styles';
-import EntitySubTypeAdvancedFilterLabel from './advanced/EntitySubTypeAdvancedFilterLabel';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
+import { AdvancedSearchFilterConditionSelect } from '@app/search/AdvancedSearchFilterConditionSelect';
+import { AdvancedSearchFilterValuesSection } from '@app/search/AdvancedSearchFilterValuesSection';
+import AdvancedFilterCloseButton from '@app/search/advanced/AdvancedFilterCloseButton';
+import EntitySubTypeAdvancedFilterLabel from '@app/search/advanced/EntitySubTypeAdvancedFilterLabel';
+import { FilterContainer } from '@app/search/advanced/styles';
+import { ENTITY_SUB_TYPE_FILTER_NAME, FIELD_TO_LABEL } from '@app/search/utils/constants';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 type Props = {
     facet: FacetMetadata;

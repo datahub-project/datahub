@@ -1,11 +1,17 @@
-import React from 'react';
-import styled from 'styled-components';
 import { EditFilled } from '@ant-design/icons';
 import { Button, Typography } from 'antd';
-import { DataContractState } from '../../../../../../../types.generated';
-import { AssertionStatusSummary } from '../types';
-import { getContractSummaryIcon, getContractSummaryTitle, getContractSummaryMessage } from './utils';
-import { ANTD_GRAY } from '../../../../constants';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import {
+    getContractSummaryIcon,
+    getContractSummaryMessage,
+    getContractSummaryTitle,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
+import { AssertionStatusSummary } from '@app/entity/shared/tabs/Dataset/Validations/types';
+
+import { DataContractState } from '@types';
 
 const SummaryHeader = styled.div`
     width: 100%;

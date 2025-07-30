@@ -1,6 +1,7 @@
 import React from 'react';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import TopUsersFacepile from './TopUsersFacepile';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TopUsersFacepile from '@app/entityV2/shared/containers/profile/sidebar/shared/TopUsersFacepile';
 
 const SidebarTopUsersHeaderSection = () => {
     const { entityData } = useEntityData();

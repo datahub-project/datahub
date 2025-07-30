@@ -1,8 +1,10 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { Post } from '../../types.generated';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { Post } from '@types';
 
 const CardContainer = styled.div`
     display: flex;

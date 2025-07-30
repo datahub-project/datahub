@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.application.Applications;
 import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -18,6 +19,7 @@ import com.linkedin.datahub.graphql.generated.DataJobInputOutput;
 import com.linkedin.datahub.graphql.generated.DataJobProperties;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -137,6 +139,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               }
             });
 
+    mapApplicationAssociation(context, entityResponse.getAspects(), result);
+
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, DataJob.class);
     } else {
@@ -222,5 +226,15 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
     }
 
     return result;
+  }
+
+  private void mapApplicationAssociation(
+      final QueryContext context, final EnvelopedAspectMap aspectMap, final DataJob dataJob) {
+    if (aspectMap.containsKey(APPLICATION_MEMBERSHIP_ASPECT_NAME)) {
+      final Applications applications =
+          new Applications(aspectMap.get(APPLICATION_MEMBERSHIP_ASPECT_NAME).getValue().data());
+      dataJob.setApplication(
+          ApplicationAssociationMapper.map(context, applications, dataJob.getUrn()));
+    }
   }
 }

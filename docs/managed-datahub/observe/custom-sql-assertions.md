@@ -1,25 +1,25 @@
 ---
 description: This page provides an overview of working with DataHub SQL Assertions
 ---
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Custom SQL Assertions
 
 <FeatureAvailability saasOnly />
 
-> The **Custom SQL Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
-> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
+> The **Custom SQL Assertions** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
+> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 ## Introduction
 
-Can you remember a time when the meaning of Data Warehouse Table that you depended on fundamentally changed, with little or no notice? 
+Can you remember a time when the meaning of Data Warehouse Table that you depended on fundamentally changed, with little or no notice?
 If the answer is yes, how did you find out? We'll take a guess - someone looking at an internal reporting dashboard or worse, a user using your your product, sounded an alarm when
 a number looked a bit out of the ordinary. Perhaps your table initially tracked purchases made on your company's e-commerce web store, but suddenly began to include purchases made
-through your company's new mobile app. 
+through your company's new mobile app.
 
 There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may change in its meaning - application code bugs, new feature rollouts,
-changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products 
+changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products
 like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
@@ -51,7 +51,7 @@ tab.
 
 A **Custom SQL Assertion** is a highly configurable Data Quality rule used to monitor a Data Warehouse Table
 for unexpected or sudden changes in its meaning. Custom SQL Assertions are defined through a raw SQL query that is evaluated against
-the Table. You have full control over the SQL query, and can use any SQL features supported by your Data Warehouse. 
+the Table. You have full control over the SQL query, and can use any SQL features supported by your Data Warehouse.
 Custom SQL Assertions can be particularly useful when you have complex tables or relationships
 that are used to generate important metrics or reports, and where the meaning of the table is expected to be stable over time.
 If you have existing SQL queries that you already use to monitor your data, you may find that Custom SQL Assertions are an easy way to port them
@@ -60,7 +60,6 @@ to DataHub Cloud to get started.
 For example, imagine that you have a Table that tracks the number of purchases made on your company's e-commerce web store.
 You have a SQL query that you use to calculate the number of purchases made in the past 24 hours, and you'd like to monitor this
 metric over time to ensure that it is always greater than 1000. You can use a Custom SQL Assertion to do this!
-
 
 ### Anatomy of a Custom SQL Assertion
 
@@ -79,14 +78,12 @@ be configured to match the expected change frequency of the Table, although it c
 on the requirements. You can also specify specific days of the week, hours in the day, or even
 minutes in an hour.
 
-
 #### 2. Query
 
-The **Query**: This is the SQL query that will be used to evaluate the Table. The query should return a **single row** containing a **single numeric column** (integers, floats). 
+The **Query**: This is the SQL query that will be used to evaluate the Table. The query should return a **single row** containing a **single numeric column** (integers, floats).
 The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. This requires that the configured user account has read access to the asset. Make sure to use the fully qualified name of the Table in your query.
 
 Use the "Try it out" button to test your query and ensure that it returns a single row with a single column. The query will be run against the Table in the context of the configured user account, so ensure that the user has read access to the Table.
-
 
 #### 3. Condition Type
 
@@ -100,9 +97,8 @@ The **Condition Type**: This defines the conditions under which the Assertion wi
 - **Grows More Than**: The assertion will fail if the query result grows more than the configured range. This can be either a percentage (**Percentage**) or a number (**Value**).
 - **Grows Less Than**: The assertion will fail if the query result grows less than the configured percentage. This can be either a percentage (**Percentage**) or a number (**Value**).
 - **Growth is outside a range**: The assertion will fail if the query result growth is outside the configured range. This can be either a percentage (**Percentage**) or a number (**Value**).
-  
-Custom SQL Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
+Custom SQL Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
 ## Creating a Custom SQL Assertion
 
@@ -120,7 +116,7 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 ### Steps
 
 1. Navigate to the Table you want to monitor
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -134,7 +130,7 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 
 4. Choose **Custom**
 
-5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a pass or fail result, and the times 
+5. Configure the evaluation **schedule**. This is the frequency at which the assertion will be evaluated to produce a pass or fail result, and the times
    when the query will be executed.
 
 6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. Make sure to use the fully qualified name of the Table in your query.
@@ -162,7 +158,6 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 - **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Custom SQL Assertion. Note that
   any other incidents will not be impacted.
 
-
 9. (Optional) Use the **Try it out** button to test your query and ensure that it returns a single row with a single column, and passes the configured condition type.
 
 <p align="left">
@@ -181,12 +176,11 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/profile-passing-custom-assertions-expanded.png"/>
 </p>
 
-
 ## Stopping a Custom SQL Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Custom SQL** to open the SQL Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -215,7 +209,7 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 
 #### GraphQL
 
-In order to create or update a Custom SQL Assertion, you can use the `upsertDatasetSqlAssertionMonitor` mutation. 
+In order to create or update a Custom SQL Assertion, you can use the `upsertDatasetSqlAssertionMonitor` mutation.
 
 ##### Examples
 
@@ -226,21 +220,16 @@ mutation upsertDatasetSqlAssertionMonitor {
   upsertDatasetSqlAssertionMonitor(
     input: {
       entityUrn: "<urn of entity being monitored>"
-      type: METRIC,
-      description: "<description of the custom assertion>",
-      statement: "<SQL query to be evaluated>",
-      operator: GREATER_THAN_OR_EQUAL_TO,
-      parameters: {
-        value: {
-          value: "100",
-          type: NUMBER
-        }
-      }
+      type: METRIC
+      description: "<description of the custom assertion>"
+      statement: "<SQL query to be evaluated>"
+      operator: GREATER_THAN_OR_EQUAL_TO
+      parameters: { value: { value: "100", type: NUMBER } }
       evaluationSchedule: {
         timezone: "America/Los_Angeles"
         cron: "0 */8 * * *"
       }
-      mode: ACTIVE   
+      mode: ACTIVE
     }
   ) {
     urn
@@ -256,21 +245,16 @@ mutation upsertDatasetSqlAssertionMonitor {
     assertionUrn: "<urn of assertion created in earlier query>"
     input: {
       entityUrn: "<urn of entity being monitored>"
-      type: METRIC,
-      description: "<description of the custom assertion>",
-      statement: "<SQL query to be evaluated>",
-      operator: GREATER_THAN_OR_EQUAL_TO,
-      parameters: {
-        value: {
-          value: "100",
-          type: NUMBER
-        }
-      }
+      type: METRIC
+      description: "<description of the custom assertion>"
+      statement: "<SQL query to be evaluated>"
+      operator: GREATER_THAN_OR_EQUAL_TO
+      parameters: { value: { value: "100", type: NUMBER } }
       evaluationSchedule: {
         timezone: "America/Los_Angeles"
         cron: "0 */6 * * *"
       }
-      mode: ACTIVE   
+      mode: ACTIVE
     }
   ) {
     urn
@@ -293,5 +277,5 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the DataHub Cloud GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::

@@ -1,0 +1,34 @@
+
+.quickstart__content {
+  text-align: center;
+  padding: 2rem 0;
+  height: 100%;
+  margin: 2rem 0;
+  background: #34394d;
+  border-radius: var(--ifm-card-border-radius);
+}
+
+.quickstart__title {
+  color: #fafafa;
+  font-size: 2rem;
+}
+
+.quickstart__subtitle {
+  font-size: 1.1rem;
+  color: gray;
+}
+
+.quickstart__codeblock {
+  text-align: left;
+  padding: 0 20vh;
+  }
+
+
+.quickstart__buttons {
+  gap: 1rem;
+  display: flex;
+  justify-content: center;
+
+}
+
+

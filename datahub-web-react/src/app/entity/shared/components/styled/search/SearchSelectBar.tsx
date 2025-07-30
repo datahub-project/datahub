@@ -1,9 +1,10 @@
-import React from 'react';
 import { Button, Checkbox, Modal, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
-import { EntityAndType } from '../../../types';
-import { SearchSelectActions } from './SearchSelectActions';
+
+import { SearchSelectActions } from '@app/entity/shared/components/styled/search/SearchSelectActions';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EntityAndType } from '@app/entity/shared/types';
 
 const CheckboxContainer = styled.div`
     display: flex;

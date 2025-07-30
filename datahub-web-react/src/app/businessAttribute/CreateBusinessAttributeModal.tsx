@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form, Select, Collapse } from 'antd';
-import styled from 'styled-components';
 import { EditOutlined } from '@ant-design/icons';
+import { Button, Collapse, Form, Input, Modal, Select, Typography, message } from 'antd';
 import DOMPurify from 'dompurify';
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { useCreateBusinessAttributeMutation } from '../../graphql/businessAttribute.generated';
-import { CreateBusinessAttributeInput, EntityType } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { useEntityRegistry } from '../useEntityRegistry';
-import DescriptionModal from '../entity/shared/components/legacy/DescriptionModal';
-import { SchemaFieldDataType } from './businessAttributeUtils';
-import { validateCustomUrnId } from '../shared/textUtil';
+import React, { useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { SchemaFieldDataType } from '@app/businessAttribute/businessAttributeUtils';
+import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useCreateBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
+import { CreateBusinessAttributeInput, EntityType } from '@types';
 
 type Props = {
     open: boolean;

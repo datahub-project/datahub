@@ -1,15 +1,17 @@
-import React from 'react';
 import { Typography } from 'antd';
-import styled from 'styled-components';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { FieldAssertionInfo } from '../../../../../../types.generated';
+import React from 'react';
+import styled from 'styled-components';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     getFieldDescription,
     getFieldOperatorDescription,
     getFieldParametersDescription,
     getFieldTransformDescription,
-} from './fieldDescriptionUtils';
-import { REDESIGN_COLORS } from '../../../constants';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
+
+import { FieldAssertionInfo } from '@types';
 
 type Props = {
     assertionInfo: FieldAssertionInfo;

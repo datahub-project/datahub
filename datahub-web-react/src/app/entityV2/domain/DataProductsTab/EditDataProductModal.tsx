@@ -1,10 +1,12 @@
 import { Button, Modal, message } from 'antd';
 import React, { useState } from 'react';
-import DataProductBuilderForm from './DataProductBuilderForm';
-import { DataProductBuilderState } from './types';
-import { useUpdateDataProductMutation } from '../../../../graphql/dataProduct.generated';
-import { DataProduct } from '../../../../types.generated';
-import { MODAL_BODY_STYLE, MODAL_WIDTH } from './CreateDataProductModal';
+
+import { MODAL_BODY_STYLE, MODAL_WIDTH } from '@app/entityV2/domain/DataProductsTab/CreateDataProductModal';
+import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
+import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
+
+import { useUpdateDataProductMutation } from '@graphql/dataProduct.generated';
+import { DataProduct } from '@types';
 
 type Props = {
     dataProduct: DataProduct;

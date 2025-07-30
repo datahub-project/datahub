@@ -1,0 +1,409 @@
+{
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "id": "64ed5cad-7c10-4684-8180-826122881108",
+                    "isReadOnly": true,
+                    "name": "Employees",
+                    "type": "Workspace",
+                    "state": "Active"
+
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/c9a09070-946a-4c4d-bfaa-50dda154a345": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "id": "c9a09070-946a-4c4d-bfaa-50dda154a345",
+            "name": "DataflowsStagingLakehouse",
+            "description": "Test dataset description",
+            "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/c9a09070-946a-4c4d-bfaa-50dda154a345"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "id": "5e033fd1-385c-4f0c-8a61-58910cc25194",
+            "name": "EmployeeReport",
+            "description": "Test report description",
+            "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/f19bf041-c170-43c2-879c-ac2c6e8157f6": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "id": "f19bf041-c170-43c2-879c-ac2c6e8157f6",
+            "name": "DataflowsStagingWarehouse",
+            "description": "Test dataset description",
+            "webUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/f19bf041-c170-43c2-879c-ac2c6e8157f6"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "datasetId": "5e033fd1-385c-4f0c-8a61-58910cc25194",
+                    "id": "5e420b19-ee14-4bba-ab4b-1e1063847f37",
+                    "reportType": "PowerBIReport",
+                    "name": "EmployeeReport",
+                    "description": "Test report",
+                    "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5e420b19-ee14-4bba-ab4b-1e1063847f37",
+                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5e420b19-ee14-4bba-ab4b-1e1063847f37&groupId=64ed5cad-7c10-4684-8180-826122881108"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5e420b19-ee14-4bba-ab4b-1e1063847f37/pages": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "displayName": "Employees",
+                    "name": "ReportSection",
+                    "order": "0"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/reports/5e420b19-ee14-4bba-ab4b-1e1063847f37/users": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": [
+                {
+                    "identifier": "john.doe@acryldata.io",
+                    "displayName": "John Doe",
+                    "emailAddress": "john.doe@acryldata.io",
+                    "datasetUserAccessRight": "ReadWrite",
+                    "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                    "principalType": "User"
+                }
+            ]
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/dashboards": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/groups?%24skip=1000&%24top=1000": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "value": []
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "status": "SUCCEEDED"
+        }
+    },
+    "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "workspaces": [
+                {
+                    "id": "64ed5cad-7c10-4684-8180-826122881108",
+                    "name": "Employees",
+                    "type": "Workspace",
+                    "state": "Active",
+                    "isOnDedicatedCapacity": true,
+                    "capacityId": "B0A85AB3-6E36-48CE-8435-E3D5B5A4D414",
+                    "defaultDatasetStorageFormat": "Small",
+                    "Lakehouse": [
+                        {
+                            "id": "c21d0673-f4e3-4d29-a831-9f782b529ace",
+                            "name": "DataflowsStagingLakehouse",
+                            "description": null,
+                            "state": "Active",
+                            "lastUpdatedDate": "2025-03-13T20:07:56.4405389",
+                            "createdDate": "2025-03-13T20:07:26.378137",
+                            "modifiedBy": "john.doe@acryldata.io",
+                            "createdBy": "john.dor@acryldata.io",
+                            "modifiedById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "createdById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "users": [
+                                {
+                                    "artifactUserAccessRight": "ReadWriteReshareExecute",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ],
+                            "extendedProperties": {
+                                "OneLakeTablesPath": "https://onelake.dfs.fabric.microsoft.com/ef02e74a-c360-4689-a83f-1e09ecd53f9a/c21d0673-f4e3-4d29-a831-9f782b529ace/Tables",
+                                "OneLakeFilesPath": "https://onelake.dfs.fabric.microsoft.com/ef02e74a-c360-4689-a83f-1e09ecd53f9a/c21d0673-f4e3-4d29-a831-9f782b529ace/Files",
+                                "DwProperties": "{\"tdsEndpoint\":\"kgrpexz4u4redl35q4p5orghki-jltqf33ayoeunkb7dye6zvj7ti.datawarehouse.fabric.microsoft.com\",\"id\":\"3e53dbc8-ebcf-4576-8379-0854bdc38da3\",\"provisioningStatus\":\"Success\"}"
+                            }
+                        }
+                    ],
+                    "reports": [
+                        {
+                            "reportType": "PowerBIReport",
+                            "id": "5e420b19-ee14-4bba-ab4b-1e1063847f37",
+                            "name": "EmployeeReport",
+                            "datasetId": "5e033fd1-385c-4f0c-8a61-58910cc25194",
+                            "createdDateTime": "2025-03-13T20:55:46.43",
+                            "modifiedDateTime": "2025-04-04T03:01:30.633",
+                            "modifiedBy": "john.doe@acryldata.io",
+                            "createdBy": "john.doe@acryldata.io",
+                            "modifiedById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "createdById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "users": [
+                                {
+                                    "reportUserAccessRight": "Owner",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ]
+                        }
+                    ],
+                    "dashboards": [],
+                    "datasets": [
+                        {
+                            "id": "c9a09070-946a-4c4d-bfaa-50dda154a345",
+                            "name": "DataflowsStagingLakehouse",
+                            "tables": [],
+                            "configuredBy": "john.doe@acryldata.io",
+                            "configuredById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "isEffectiveIdentityRequired": false,
+                            "isEffectiveIdentityRolesRequired": false,
+                            "targetStorageMode": "Abf",
+                            "createdDate": "2025-03-13T20:07:29.01",
+                            "contentProviderType": "InImportMode",
+                            "relations": [
+                                {
+                                    "dependentOnArtifactId": "3e53dbc8-ebcf-4576-8379-0854bdc38da3",
+                                    "workspaceId": "ef02e74a-c360-4689-a83f-1e09ecd53f9a",
+                                    "relationType": "CascadeDelete",
+                                    "settingsList": "CascadeDelete",
+                                    "usage": "None"
+                                }
+                            ],
+                            "users": [
+                                {
+                                    "datasetUserAccessRight": "ReadWriteReshareExplore",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "f19bf041-c170-43c2-879c-ac2c6e8157f6",
+                            "name": "DataflowsStagingWarehouse",
+                            "tables": [],
+                            "configuredBy": "john.doe@acryldata.io",
+                            "configuredById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "isEffectiveIdentityRequired": false,
+                            "isEffectiveIdentityRolesRequired": false,
+                            "targetStorageMode": "Abf",
+                            "createdDate": "2025-03-13T20:07:30.36",
+                            "contentProviderType": "InImportMode",
+                            "relations": [
+                                {
+                                    "dependentOnArtifactId": "dfb10ddf-3b86-4a95-a359-3c04be957d22",
+                                    "workspaceId": "ef02e74a-c360-4689-a83f-1e09ecd53f9a",
+                                    "relationType": "CascadeDelete",
+                                    "settingsList": "CascadeDelete",
+                                    "usage": "None"
+                                }
+                            ],
+                            "users": [
+                                {
+                                    "datasetUserAccessRight": "ReadWriteReshareExplore",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ]
+                        },
+                        {
+                            "id": "5e033fd1-385c-4f0c-8a61-58910cc25194",
+                            "name": "EmployeeReport",
+                            "tables": [
+                                {
+                                    "name": "employees employees",
+                                    "isHidden": false,
+                                    "storageMode": "Import",
+                                    "columns": [
+                                        {
+                                            "name": "emp_no",
+                                            "dataType": "Int64",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "birth_date",
+                                            "dataType": "DateTime",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "first_name",
+                                            "dataType": "String",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "last_name",
+                                            "dataType": "String",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "gender",
+                                            "dataType": "String",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        },
+                                        {
+                                            "name": "hire_date",
+                                            "dataType": "DateTime",
+                                            "isHidden": false,
+                                            "columnType": "Data"
+                                        }
+                                    ],
+                                    "measures": [],
+                                    "source": [
+                                        {
+                                            "expression": "let\n    Source = Odbc.DataSource(\"driver={MySQL ODBC 9.2 Unicode Driver};server=18.222.189.189;database=employees;dsn=testdb01\", [HierarchicalNavigation=true]),\n    employees_Database = Source{[Name=\"employees\",Kind=\"Database\"]}[Data],\n    employees_Table = employees_Database{[Name=\"employees\",Kind=\"Table\"]}[Data]\nin\n    employees_Table"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "configuredBy": "john.doe@acryldata.io",
+                            "configuredById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "isEffectiveIdentityRequired": false,
+                            "isEffectiveIdentityRolesRequired": false,
+                            "targetStorageMode": "Abf",
+                            "createdDate": "2025-03-13T20:55:44.437",
+                            "contentProviderType": "PbixInImportMode",
+                            "datasourceUsages": [
+                                {
+                                    "datasourceInstanceId": "d6e474bf-0ef8-48aa-af9a-42d44b7ceb7a"
+                                }
+                            ],
+                            "users": [
+                                {
+                                    "datasetUserAccessRight": "ReadWriteReshareExplore",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ]
+                        }
+                    ],
+                    "dataflows": [],
+                    "datamarts": [],
+                    "warehouses": [
+                        {
+                            "id": "dfb10ddf-3b86-4a95-a359-3c04be957d22",
+                            "name": "DataflowsStagingWarehouse",
+                            "configuredBy": "john.doe@acryldata.io",
+                            "configuredById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "modifiedBy": "john.doe@acryldata.io",
+                            "modifiedById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "modifiedDateTime": "2025-03-13T20:07:57.403",
+                            "users": [
+                                {
+                                    "datamartUserAccessRight": "ReadWriteReshare",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ]
+                        }
+                    ],
+                    "SQLAnalyticsEndpoint": [
+                        {
+                            "id": "3e53dbc8-ebcf-4576-8379-0854bdc38da3",
+                            "name": "DataflowsStagingLakehouse",
+                            "configuredBy": "john.doe@acryldata.io",
+                            "configuredById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "modifiedBy": "john.doe@acryldata.io",
+                            "modifiedById": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "modifiedDateTime": "2025-03-13T20:07:56.3780429",
+                            "users": [
+                                {
+                                    "datamartUserAccessRight": "ReadWriteReshare",
+                                    "emailAddress": "john.doe@acryldata.io",
+                                    "displayName": "John Doe",
+                                    "identifier": "john.doe@acryldata.io",
+                                    "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                                    "principalType": "User",
+                                    "userType": "Member"
+                                }
+                            ],
+                            "relations": [
+                                {
+                                    "dependentOnArtifactId": "c21d0673-f4e3-4d29-a831-9f782b529ace",
+                                    "workspaceId": "ef02e74a-c360-4689-a83f-1e09ecd53f9a",
+                                    "relationType": "CascadeDelete",
+                                    "settingsList": "CascadeDelete",
+                                    "usage": "None"
+                                }
+                            ]
+                        }
+                    ],
+                    "users": [
+                        {
+                            "groupUserAccessRight": "Admin",
+                            "emailAddress": "john.doe@acryldata.io",
+                            "displayName": "John Doe",
+                            "identifier": "john.doe@acryldata.io",
+                            "graphId": "1e42635d-56c5-4b07-81d4-9e8443e1b7f1",
+                            "principalType": "User",
+                            "userType": "Member"
+                        }
+                    ]
+                }
+            ],
+            "datasourceInstances": [
+                {
+                    "datasourceType": "MySql",
+                    "connectionDetails": {
+                        "server": "127.0.0.1",
+                        "database": "employees"
+                    },
+                    "datasourceId": "d6e474bf-0ef8-48aa-af9a-42d44b7ceb7a",
+                    "gatewayId": "bb565f02-194d-47e6-99fd-cc22115c926d"
+                }
+            ]
+        }
+    }
+}

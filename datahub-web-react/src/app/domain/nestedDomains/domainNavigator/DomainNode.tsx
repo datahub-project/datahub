@@ -2,17 +2,20 @@ import { Typography } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Domain } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { RotatingTriangle } from '../../../shared/sidebar/components';
-import DomainIcon from '../../DomainIcon';
-import useListDomains from '../../useListDomains';
-import useToggle from '../../../shared/useToggle';
-import { BodyContainer, BodyGridExpander } from '../../../shared/components';
-import { ANTD_GRAY_V2 } from '../../../entity/shared/constants';
-import { useDomainsContext } from '../../DomainsContext';
-import { applyOpacity } from '../../../shared/styleUtils';
-import useHasDomainChildren from './useHasDomainChildren';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
+import useListDomains from '@app/domain/useListDomains';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { BodyContainer, BodyGridExpander } from '@app/shared/components';
+import { RotatingTriangle } from '@app/shared/sidebar/components';
+import { applyOpacity } from '@app/shared/styleUtils';
+import useToggle from '@app/shared/useToggle';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain } from '@types';
 
 const RowWrapper = styled.div`
     align-items: center;
@@ -64,10 +67,17 @@ interface Props {
     domain: Domain;
     numDomainChildren: number;
     domainUrnToHide?: string;
+    displayDomainColoredIcon?: boolean;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
-export default function DomainNode({ domain, numDomainChildren, domainUrnToHide, selectDomainOverride }: Props) {
+export default function DomainNode({
+    domain,
+    numDomainChildren,
+    domainUrnToHide,
+    selectDomainOverride,
+    displayDomainColoredIcon,
+}: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -106,7 +116,11 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
             <RowWrapper data-testid="domain-list-item">
                 {hasDomainChildren && (
                     <ButtonWrapper>
-                        <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
+                        <RotatingTriangle
+                            isOpen={isOpen && !isClosing}
+                            onClick={toggle}
+                            testId={`open-domain-action-item-${domain.urn}`}
+                        />
                     </ButtonWrapper>
                 )}
                 <NameWrapper
@@ -115,8 +129,9 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                     isSelected={!!isOnEntityPage && !isInSelectMode}
                     addLeftPadding={!hasDomainChildren}
                 >
-                    {!isInSelectMode && <DomainIcon />}
-                    {displayName}
+                    {!isInSelectMode && !displayDomainColoredIcon && <DomainIcon />}
+                    {displayDomainColoredIcon && <DomainColoredIcon domain={domain} size={24} fontSize={12} />}
+                    <span style={{ marginLeft: 8 }}>{displayName}</span>
                 </NameWrapper>
             </RowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing}>
@@ -128,6 +143,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                             numDomainChildren={childDomain.children?.total || 0}
                             domainUrnToHide={domainUrnToHide}
                             selectDomainOverride={selectDomainOverride}
+                            displayDomainColoredIcon={displayDomainColoredIcon}
                         />
                     ))}
                 </BodyContainer>

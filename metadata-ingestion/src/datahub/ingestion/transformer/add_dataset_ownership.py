@@ -71,8 +71,24 @@ class AddDatasetOwnership(OwnershipTransformer):
 
         server_ownership = graph.get_ownership(entity_urn=urn)
         if server_ownership:
-            owners = {owner.owner: owner for owner in server_ownership.owners}
-            owners.update({owner.owner: owner for owner in mce_ownership.owners})
+            owners = {
+                (
+                    owner.owner,
+                    owner.type,
+                    owner.typeUrn,
+                ): owner
+                for owner in server_ownership.owners
+            }
+            owners.update(
+                {
+                    (
+                        owner.owner,
+                        owner.type,
+                        owner.typeUrn,
+                    ): owner
+                    for owner in mce_ownership.owners
+                }
+            )
             mce_ownership.owners = list(owners.values())
 
         return mce_ownership
@@ -86,7 +102,7 @@ class AddDatasetOwnership(OwnershipTransformer):
         logger.debug("Generating Ownership for containers")
         ownership_container_mapping: Dict[str, List[OwnerClass]] = {}
         for entity_urn, data_ownerships in (
-            (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map.keys()
+            (urn, self.config.get_owners_to_add(urn)) for urn in self.entity_map
         ):
             if not data_ownerships:
                 continue

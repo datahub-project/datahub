@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import redshiftLogo from '../../../../../images/redshiftlogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import redshiftLogo from '@images/redshiftlogo.png';
 
 const placeholderRecipe = `\
 source: 
@@ -29,7 +30,7 @@ const redshiftConfig: SourceConfig = {
     type: REDSHIFT,
     placeholderRecipe,
     displayName: 'Redshift',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/redshift/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/redshift/',
     logoUrl: redshiftLogo,
 };
 

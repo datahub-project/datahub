@@ -31,7 +31,7 @@ from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 def test_basic_dataset_patch_builder():

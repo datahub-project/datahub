@@ -230,7 +230,8 @@ class RedshiftSqlLineageV2(Closeable):
             )
 
         # Populate lineage for external tables.
-        self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
+        if not self.config.skip_external_tables:
+            self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
     def _populate_lineage_agg(
         self,
@@ -400,13 +401,20 @@ class RedshiftSqlLineageV2(Closeable):
         db_schemas: Dict[str, Dict[str, RedshiftSchema]],
     ) -> None:
         for schema_name, tables in all_tables[self.database].items():
+            logger.info(f"External table lineage: checking schema {schema_name}")
+            if not db_schemas[self.database].get(schema_name):
+                logger.warning(f"Schema {schema_name} not found")
+                continue
             for table in tables:
                 schema = db_schemas[self.database][schema_name]
                 if (
-                    table.is_external_table
-                    and schema.is_external_schema
+                    table.is_external_table()
+                    and schema.is_external_schema()
                     and schema.external_platform
                 ):
+                    logger.info(
+                        f"External table lineage: processing table {schema_name}.{table.name}"
+                    )
                     # external_db_params = schema.option
                     upstream_platform = schema.external_platform.lower()
 
@@ -416,14 +424,26 @@ class RedshiftSqlLineageV2(Closeable):
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                     )
-                    upstream_urn = mce_builder.make_dataset_urn_with_platform_instance(
-                        upstream_platform,
-                        f"{schema.external_database}.{table.name}",
-                        platform_instance=(
+                    if upstream_platform == self.platform:
+                        upstream_schema = schema.get_upstream_schema_name() or "public"
+                        upstream_dataset_name = (
+                            f"{schema.external_database}.{upstream_schema}.{table.name}"
+                        )
+                        upstream_platform_instance = self.config.platform_instance
+                    else:
+                        upstream_dataset_name = (
+                            f"{schema.external_database}.{table.name}"
+                        )
+                        upstream_platform_instance = (
                             self.config.platform_instance_map.get(upstream_platform)
                             if self.config.platform_instance_map
                             else None
-                        ),
+                        )
+
+                    upstream_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                        upstream_platform,
+                        upstream_dataset_name,
+                        platform_instance=upstream_platform_instance,
                         env=self.config.env,
                     )
 

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { useLocation, useHistory } from 'react-router';
 import { message } from 'antd';
-import { getQueryParams } from '../../assertionUtils';
+import { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
+
+import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 export const useAssertionURNCopyLink = (urn: string) => {
     const onCopyLink = () => {

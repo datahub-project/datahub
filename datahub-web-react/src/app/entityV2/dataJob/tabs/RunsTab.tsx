@@ -1,21 +1,23 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Pagination, Table, Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Pagination, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetDataJobRunsQuery } from '../../../../graphql/dataJob.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '../../../../types.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '../../../ingest/source/utils';
-import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
-import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
-import { scrollToTop } from '../../../shared/searchUtils';
+} from '@app/ingest/source/utils';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { scrollToTop } from '@app/shared/searchUtils';
+
+import { useGetDataJobRunsQuery } from '@graphql/dataJob.generated';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
+
+import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -40,7 +42,7 @@ const LoadingContainer = styled.div`
     text-align: center;
 `;
 
-function getStatusForStyling(status: DataProcessRunStatus, resultType: DataProcessInstanceRunResultType) {
+function getStatusForStyling(status?: DataProcessRunStatus, resultType?: DataProcessInstanceRunResultType) {
     if (status === 'COMPLETE') {
         if (resultType === 'SKIPPED') {
             return 'CANCELLED';
@@ -70,13 +72,12 @@ const columns = [
         key: 'status',
         render: (status: any, row) => {
             const statusForStyling = getStatusForStyling(status, row?.resultType);
-            const Icon = getExecutionRequestStatusIcon(statusForStyling);
             const text = getExecutionRequestStatusDisplayText(statusForStyling);
             const color = getExecutionRequestStatusDisplayColor(statusForStyling);
             return (
                 <>
                     <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                        {Icon && <Icon style={{ color }} />}
+                        <LastRunIcon status={status} resultType={row?.resultType} />
                         <Typography.Text strong style={{ color, marginLeft: 8 }}>
                             {text || 'N/A'}
                         </Typography.Text>
@@ -166,3 +167,20 @@ export const RunsTab = () => {
         </>
     );
 };
+
+interface LastRunIconProps {
+    status?: DataProcessRunStatus;
+    resultType?: DataProcessInstanceRunResultType;
+    showTooltip?: boolean;
+}
+
+export function LastRunIcon({ status, resultType, showTooltip }: LastRunIconProps): JSX.Element {
+    const statusForStyling = getStatusForStyling(status, resultType);
+    const text = getExecutionRequestStatusDisplayText(statusForStyling);
+    const Icon = getExecutionRequestStatusIcon(statusForStyling);
+    const color = getExecutionRequestStatusDisplayColor(statusForStyling);
+
+    const icon = Icon && <Icon style={{ color, fontSize: 'inherit' }} />;
+
+    return showTooltip ? <Tooltip title={text}>{icon}</Tooltip> : <>{icon}</>;
+}

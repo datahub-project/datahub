@@ -1,13 +1,15 @@
+import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { CloseOutlined } from '@ant-design/icons';
-import { DataProduct as DataProductEntity, EntityType } from '../../../types.generated';
-import { IconStyleType } from '../../entity/Entity';
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEmbeddedProfileLinkProps } from '../../shared/useEmbeddedProfileLinkProps';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataProduct as DataProductEntity, EntityType } from '@types';
 
 const DataProductLinkContainer = styled(Link)`
     display: inline-block;

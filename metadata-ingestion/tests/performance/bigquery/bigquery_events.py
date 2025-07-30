@@ -99,7 +99,7 @@ def generate_events(
                     if config.debug_include_full_payloads
                     else None
                 ),
-                query_on_view=True if referencedViews else False,
+                query_on_view=bool(referencedViews),
             )
         )
         table_accesses: Dict[BigQueryTableRef, Set[str]] = defaultdict(set)

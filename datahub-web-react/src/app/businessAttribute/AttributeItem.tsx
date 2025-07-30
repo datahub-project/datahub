@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const AttributeWrapper = styled.div`
     font-weight: normal;

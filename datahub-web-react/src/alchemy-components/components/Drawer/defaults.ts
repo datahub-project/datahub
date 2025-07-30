@@ -1,4 +1,4 @@
-import { DrawerProps } from './types';
+import { DrawerProps } from '@components/components/Drawer/types';
 
 export const drawerDefault: Omit<DrawerProps, 'title'> = {
     width: 600,

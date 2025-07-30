@@ -1,12 +1,14 @@
-import React from 'react';
 import Icon from '@ant-design/icons';
-import styled from 'styled-components/macro';
-import { Typography } from 'antd';
 import { BookmarksSimple } from '@phosphor-icons/react';
-import ActiveGlossaryTermIcon from '../../../src/images/glossary_bookmark_added.svg?react';
-import ApprovedGlossaryTermIcon from '../../../src/images/glossary_verified.svg?react';
-import OwnersIcon from '../../../src/images/glossary_account_circle.svg?react';
-import { REDESIGN_COLORS, ANTD_GRAY } from '../entityV2/shared/constants';
+import { Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+import OwnersIcon from '@images/glossary_account_circle.svg?react';
+import ActiveGlossaryTermIcon from '@images/glossary_bookmark_added.svg?react';
+import ApprovedGlossaryTermIcon from '@images/glossary_verified.svg?react';
 
 const StatusWrapper = styled.div`
     background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE_2};

@@ -1,8 +1,12 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
+
+import analytics, { EventType, HomePageModule } from '@app/analytics';
+import { PinnedLink } from '@app/homeV2/reference/sections/pinned/PinnedLink';
 import { Carousel } from '@src/app/sharedV2/carousel/Carousel';
-import { Tooltip } from '@components';
-import { PinnedLink } from './PinnedLink';
+
+import { PostContent } from '@types';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}
@@ -15,11 +19,20 @@ const Title = styled.div<{ hasAction: boolean }>`
 type Props = {
     title?: string;
     tip?: React.ReactNode;
-    links: any[];
+    links: PostContent[];
     onClickTitle?: () => void;
 };
 
 export const PinnedLinkList = ({ title, tip, links, onClickTitle }: Props) => {
+    function handleLinkClick(link: PostContent) {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Pinned Links',
+            value: link.title,
+        });
+    }
+
     return (
         <>
             {title ? (
@@ -31,7 +44,12 @@ export const PinnedLinkList = ({ title, tip, links, onClickTitle }: Props) => {
             ) : null}
             <Carousel>
                 {links.map((link) => {
-                    return <PinnedLink key={`${title}-${link.link}`} link={link} />;
+                    return (
+                        // eslint-disable-next-line
+                        <span key={`${title}-${link.link}`} onClick={() => handleLinkClick(link)}>
+                            <PinnedLink link={link} />
+                        </span>
+                    );
                 })}
             </Carousel>
         </>

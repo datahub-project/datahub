@@ -1,13 +1,15 @@
-import { TagOutlined, TagFilled } from '@ant-design/icons';
+import { TagFilled, TagOutlined } from '@ant-design/icons';
 import * as React from 'react';
 import styled from 'styled-components';
-import { Role, EntityType, SearchResult } from '../../../types.generated';
-import DefaultPreviewCard from '../../preview/DefaultPreviewCard';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { urlEncodeUrn } from '../shared/utils';
-import RoleEntityProfile from './RoleEntityProfile';
-import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
+
+import RoleEntityProfile from '@app/entity/Access/RoleEntityProfile';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { urlEncodeUrn } from '@app/entity/shared/utils';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+
+import { useGetExternalRoleQuery } from '@graphql/accessrole.generated';
+import { EntityType, Role, SearchResult } from '@types';
 
 const PreviewTagIcon = styled(TagOutlined)`
     font-size: 20px;

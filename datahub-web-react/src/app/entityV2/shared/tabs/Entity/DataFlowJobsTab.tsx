@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { EntityType } from '../../../../../types.generated';
-import { EntityList } from './components/EntityList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useGetDataFlowChildJobsQuery } from '../../../../../graphql/dataFlow.generated';
-import { SearchCfg } from '../../../../../conf';
+
+import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SearchCfg } from '@src/conf';
+
+import { useGetDataFlowChildJobsQuery } from '@graphql/dataFlow.generated';
+import { EntityType } from '@types';
 
 interface Props {
     properties?: {

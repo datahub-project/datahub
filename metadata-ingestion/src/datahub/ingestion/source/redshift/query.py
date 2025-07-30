@@ -44,7 +44,7 @@ class RedshiftCommonQuery:
         SELECT 
             schema_name,
             schema_type,
-            schema_option,
+            cast(null as varchar(1024)) as schema_option,
             cast(null as varchar(256)) as external_platform,
             cast(null as varchar(256)) as external_database
         FROM svv_redshift_schemas
@@ -83,7 +83,9 @@ class RedshiftCommonQuery:
     # NOTE: Tables from shared database are not available in pg_catalog.pg_class
     @staticmethod
     def list_tables(
-        skip_external_tables: bool = False, is_shared_database: bool = False
+        database: str,
+        skip_external_tables: bool = False,
+        is_shared_database: bool = False,
     ) -> str:
         # NOTE: it looks like description is available only in pg_description
         # So this remains preferrred way
@@ -123,7 +125,7 @@ class RedshiftCommonQuery:
         AND   n.nspname != 'information_schema'
 """
 
-        external_tables_query = """
+        external_tables_query = f"""
         SELECT 'EXTERNAL_TABLE' as tabletype,
             NULL AS "schema_oid",
             schemaname AS "schema",
@@ -142,10 +144,11 @@ class RedshiftCommonQuery:
             serde_parameters,
             NULL as table_description
         FROM pg_catalog.svv_external_tables
+        WHERE redshift_database_name='{database}'
         ORDER BY "schema",
                 "relname"
 """
-        shared_database_tables_query = """
+        shared_database_tables_query = f"""
         SELECT table_type as tabletype,
             NULL AS "schema_oid",
             schema_name AS "schema",
@@ -164,6 +167,7 @@ class RedshiftCommonQuery:
             NULL as serde_parameters,
             NULL as table_description
         FROM svv_redshift_tables
+        WHERE database_name='{database}'
         ORDER BY "schema",
                 "relname"
 """
@@ -175,9 +179,11 @@ class RedshiftCommonQuery:
             return f"{tables_query} UNION {external_tables_query}"
 
     @staticmethod
-    def list_columns(is_shared_database: bool = False) -> str:
+    def list_columns(
+        database_name: str, schema_name: str, is_shared_database: bool = False
+    ) -> str:
         if is_shared_database:
-            return """
+            return f"""
             SELECT
               schema_name as "schema",
               table_name as "table_name",
@@ -198,9 +204,10 @@ class RedshiftCommonQuery:
               null as "table_oid"
             FROM SVV_REDSHIFT_COLUMNS
             WHERE 1 and schema = '{schema_name}'
+            AND database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
 """
-        return """
+        return f"""
             SELECT
               n.nspname as "schema",
               c.relname as "table_name",
@@ -275,6 +282,7 @@ class RedshiftCommonQuery:
               null as "table_oid"
             FROM SVV_EXTERNAL_COLUMNS
             WHERE 1 and schema = '{schema_name}'
+            AND redshift_database_name = '{database_name}'
             ORDER BY "schema", "table_name", "attnum"
 """
 

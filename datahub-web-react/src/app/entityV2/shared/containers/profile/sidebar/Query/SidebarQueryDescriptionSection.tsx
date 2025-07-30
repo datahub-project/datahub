@@ -1,10 +1,11 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity } from '../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../SidebarSection';
-import { QueryEntity } from '../../../../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../../constants';
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+
+import { QueryEntity } from '@types';
 
 const ContentWrapper = styled.div`
     font-size: 12px;

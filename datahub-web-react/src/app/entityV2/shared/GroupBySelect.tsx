@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { SimpleSelect } from '@src/alchemy-components';
 
 type Option = {
@@ -34,6 +35,8 @@ export function GroupBySelect({ options, selectedValue, onSelect, width = 50 }: 
             showClear={false}
             width={width}
             selectLabelProps={{ label: 'Group', variant: 'labeled' }}
+            optionListTestId="group-by-option-list"
+            data-testId="group-by-select-input"
         />
     );
 }

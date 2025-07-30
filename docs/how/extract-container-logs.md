@@ -2,7 +2,7 @@
 
 DataHub containers, datahub GMS (backend server) and datahub frontend (UI server), write log files to the local container filesystem. To extract these logs, you'll need to get them from inside the container where the services are running.
 
-You can do so easily using the Docker CLI if you're deploying with vanilla docker or compose, and kubectl if you're on K8s. 
+You can do so easily using the Docker CLI if you're deploying with vanilla docker or compose, and kubectl if you're on K8s.
 
 ## Step 1: Find the id of the container you're interested in
 
@@ -59,13 +59,13 @@ There are 2 types of logs that are collected:
 Since log files are named based on the current date, you'll need to use "ls" to see which files currently exist. To do so, you can use the `docker exec` command, using the container id recorded in step one:
 
 ```
-docker exec --privileged <container-id> <shell-command> 
+docker exec --privileged <container-id> <shell-command>
 ```
 
 For example:
 
 ```
-johnjoyce@Johns-MBP datahub-fork % docker exec --privileged 122a2488ab63 ls -la /tmp/datahub/logs/gms 
+johnjoyce@Johns-MBP datahub-fork % docker exec --privileged 122a2488ab63 ls -la /tmp/datahub/logs/gms
 total 4664
 drwxr-xr-x    2 datahub  datahub       4096 Jul 28 05:14 .
 drwxr-xr-x    3 datahub  datahub       4096 Jul 23 08:37 ..

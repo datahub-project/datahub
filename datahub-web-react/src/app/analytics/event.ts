@@ -1,5 +1,11 @@
+import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
+import { PersonaType } from '@app/homeV2/shared/types';
+import { Direction } from '@app/lineage/types';
+import { FilterMode } from '@app/search/utils/constants';
+
 import {
     AllowedValue,
+    DataHubPageModuleType,
     DataHubViewType,
     EntityType,
     LineageDirection,
@@ -7,10 +13,8 @@ import {
     PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
-} from '../../types.generated';
-import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
-import { Direction } from '../lineage/types';
-import { FilterMode } from '../search/utils/constants';
+    SearchBarApi,
+} from '@types';
 
 /**
  * Valid event types.
@@ -114,6 +118,25 @@ export enum EventType {
     LinkAssetVersionEvent,
     UnlinkAssetVersionEvent,
     ShowAllVersionsEvent,
+    HomePageClick,
+    SearchBarFilter,
+    ClickProductUpdate,
+    HomePageTemplateModuleCreate,
+    HomePageTemplateModuleAdd,
+    HomePageTemplateModuleUpdate,
+    HomePageTemplateModuleDelete,
+    HomePageTemplateModuleMove,
+    HomePageTemplateModuleModalCreateOpen,
+    HomePageTemplateModuleModalEditOpen,
+    HomePageTemplateModuleModalCancel,
+    HomePageTemplateGlobalTemplateEditingStart,
+    HomePageTemplateGlobalTemplateEditingDone,
+    HomePageTemplateResetToGlobalTemplate,
+    HomePageTemplateModuleAssetClick,
+    HomePageTemplateModuleViewAllClick,
+    HomePageTemplateModuleExpandClick,
+    HomePageTemplateModuleLinkClick,
+    HomePageTemplateModuleAnnouncementDismiss,
 }
 
 /**
@@ -125,6 +148,14 @@ interface BaseEvent {
     date?: string;
     userAgent?: string;
     browserId?: string;
+    /** whether DataHub 2.0 UI is enabled or not at the time of this event */
+    isThemeV2Enabled?: boolean;
+    /** the persona urn for this user - groups users based on their titles */
+    userPersona?: PersonaType;
+    /** the selected title of this user ie. "Data Analyst" */
+    userTitle?: string;
+    /** the current server version when this event happened */
+    serverVersion?: string;
 }
 
 /**
@@ -558,12 +589,14 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
     interval?: string;
+    numOwners?: number;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
     type: EventType.UpdateIngestionSourceEvent;
     sourceType: string;
     interval?: string;
+    numOwners?: number;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -666,6 +699,8 @@ export interface SelectAutoCompleteOption extends BaseEvent {
     optionType: string;
     entityType?: EntityType;
     entityUrn?: string;
+    showSearchBarAutocompleteRedesign?: boolean;
+    apiVariant?: SearchBarApi;
 }
 
 export interface SelectQuickFilterEvent extends BaseEvent {
@@ -843,6 +878,121 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     uiLocation: 'preview' | 'more-options';
 }
 
+export enum HomePageModule {
+    YouRecentlyViewed = 'YouRecentlyViewed',
+    Discover = 'Discover',
+    Announcements = 'Announcements',
+    PersonalSidebar = 'PersonalSidebar',
+    SidebarAnnouncements = 'SidebarAnnouncements',
+}
+
+export interface HomePageClickEvent extends BaseEvent {
+    type: EventType.HomePageClick;
+    module: HomePageModule;
+    section?: string;
+    subSection?: string;
+    value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
+}
+
+export interface SearchBarFilterEvent extends BaseEvent {
+    type: EventType.SearchBarFilter;
+    field: string; // the filter field
+    values: string[]; // the values being filtered for
+}
+
+export interface ClickProductUpdateEvent extends BaseEvent {
+    type: EventType.ClickProductUpdate;
+    id: string;
+    url: string;
+}
+
+export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleCreate;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleAddEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAdd;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleUpdate;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleDelete;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleMove;
+    templateUrn: string;
+    isPersonal: boolean;
+}
+
+export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCreateOpen;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalEditOpen;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCancel;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
+    type: EventType.HomePageTemplateGlobalTemplateEditingStart;
+}
+
+export interface HomePageTemplateGlobalTemplateEditingDoneEvent extends BaseEvent {
+    type: EventType.HomePageTemplateGlobalTemplateEditingDone;
+}
+
+export interface HomePageTemplateResetToGlobalTemplateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateResetToGlobalTemplate;
+}
+
+export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAssetClick;
+    moduleType: DataHubPageModuleType;
+    assetUrn: string;
+}
+
+export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleExpandClick;
+    moduleType: DataHubPageModuleType;
+    assetUrn: string;
+}
+
+export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleViewAllClick;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleLinkClick;
+    link: string;
+}
+
+export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAnnouncementDismiss;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -944,4 +1094,23 @@ export type Event =
     | ClickDocRequestCTA
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
-    | ShowAllVersionsEvent;
+    | ShowAllVersionsEvent
+    | HomePageClickEvent
+    | SearchBarFilterEvent
+    | ClickProductUpdateEvent
+    | HomePageTemplateModuleCreateEvent
+    | HomePageTemplateModuleAddEvent
+    | HomePageTemplateModuleUpdateEvent
+    | HomePageTemplateModuleDeleteEvent
+    | HomePageTemplateModuleMoveEvent
+    | HomePageTemplateModuleModalCreateOpenEvent
+    | HomePageTemplateModuleModalEditOpenEvent
+    | HomePageTemplateModuleModalCancelEvent
+    | HomePageTemplateGlobalTemplateEditingStartEvent
+    | HomePageTemplateGlobalTemplateEditingDoneEvent
+    | HomePageTemplateResetToGlobalTemplateEvent
+    | HomePageTemplateModuleAssetClickEvent
+    | HomePageTemplateModuleExpandClickEvent
+    | HomePageTemplateModuleViewAllClickEvent
+    | HomePageTemplateModuleLinkClickEvent
+    | HomePageTemplateModuleAnnouncementDismissEvent;

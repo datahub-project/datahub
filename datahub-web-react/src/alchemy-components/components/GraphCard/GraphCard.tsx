@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { CardContainer } from '../Card/components';
-import { Loader } from '../Loader';
-import { PageTitle } from '../PageTitle';
-import { Text } from '../Text';
+
+import { CardContainer } from '@components/components/Card/components';
+import MoreInfoModal from '@components/components/GraphCard/MoreInfoModal';
 import {
     ControlsContainer,
     EmptyMessageContainer,
@@ -11,9 +10,11 @@ import {
     GraphCardHeader,
     GraphContainer,
     LoaderContainer,
-} from './components';
-import { GraphCardProps } from './types';
-import MoreInfoModal from './MoreInfoModal';
+} from '@components/components/GraphCard/components';
+import { GraphCardProps } from '@components/components/GraphCard/types';
+import { Loader } from '@components/components/Loader';
+import { PageTitle } from '@components/components/PageTitle';
+import { Text } from '@components/components/Text';
 
 const EmptyMessageWrapper = styled.div`
     text-align: center;

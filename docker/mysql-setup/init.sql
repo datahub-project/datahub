@@ -19,11 +19,12 @@ create table if not exists metadata_aspect_v2 (
 -- create default records for datahub user if not exists
 DROP TABLE if exists temp_metadata_aspect_v2;
 CREATE TABLE temp_metadata_aspect_v2 LIKE metadata_aspect_v2;
-INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby) VALUES(
+INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, systemmetadata, createdon, createdby) VALUES(
   'urn:li:corpuser:datahub',
   'corpUserInfo',
   0,
   '{"displayName":"Data Hub","active":true,"fullName":"Data Hub","email":"datahub@linkedin.com"}',
+  '{}',
   now(),
   'urn:li:corpuser:__datahub_system'
 ), (
@@ -31,6 +32,7 @@ INSERT INTO temp_metadata_aspect_v2 (urn, aspect, version, metadata, createdon, 
   'corpUserEditableInfo',
   0,
   '{"skills":[],"teams":[],"pictureLink":"https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/default_avatar.png"}',
+  '{}',
   now(),
   'urn:li:corpuser:__datahub_system'
 );

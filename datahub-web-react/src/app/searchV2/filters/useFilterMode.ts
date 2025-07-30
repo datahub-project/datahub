@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { FacetFilterInput } from '../../../types.generated';
-import { FilterMode, FilterModes, UnionType } from '../utils/constants';
-import { hasAdvancedFilters } from '../utils/hasAdvancedFilters';
-import useLatest from '../../shared/useLatest';
+
+import { FilterMode, FilterModes, UnionType } from '@app/searchV2/utils/constants';
+import { hasAdvancedFilters } from '@app/searchV2/utils/hasAdvancedFilters';
+import useLatest from '@app/shared/useLatest';
+
+import { FacetFilterInput } from '@types';
 
 const useFilterMode = (filters: Array<FacetFilterInput>, unionType: UnionType) => {
     const onlyShowAdvancedFilters = hasAdvancedFilters(filters, unionType);

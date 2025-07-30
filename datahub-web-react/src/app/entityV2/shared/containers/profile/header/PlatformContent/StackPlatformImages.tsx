@@ -1,7 +1,9 @@
 import React from 'react';
 import styled, { CSSObject } from 'styled-components';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
-import { DataPlatform } from '../../../../../../../types.generated';
+
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+
+import { DataPlatform } from '@types';
 
 const Container = styled.div`
     display: flex;

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyledAntdDatePicker } from './components';
-import useVariantProps from './hooks/useVariantProps';
-import { DatePickerVariant } from './constants';
-import { DatePickerProps, DatePickerValue } from './types';
+
+import { StyledAntdDatePicker } from '@components/components/DatePicker/components';
+import { DatePickerVariant } from '@components/components/DatePicker/constants';
+import useVariantProps from '@components/components/DatePicker/hooks/useVariantProps';
+import { DatePickerProps, DatePickerValue } from '@components/components/DatePicker/types';
 
 export const datePickerDefault: DatePickerProps = {
     variant: DatePickerVariant.Default,
@@ -15,6 +16,7 @@ export function DatePicker({
     variant = datePickerDefault.variant,
     disabled = datePickerDefault.disabled,
     disabledDate,
+    placeholder,
 }: DatePickerProps) {
     const [internalValue, setInternalValue] = useState<DatePickerValue | undefined>(value);
 
@@ -37,8 +39,9 @@ export function DatePicker({
                     open: isOpen,
                     setValue: setInternalValue,
                 },
+                placeholder,
             });
-    }, [disabled, isOpen, inputRender]);
+    }, [disabled, placeholder, isOpen, inputRender]);
 
     return (
         <StyledAntdDatePicker

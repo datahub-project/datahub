@@ -44,16 +44,12 @@ def make_mce_datajob(
     )
 
 
-def make_mcpw(
+def make_status_mcpw(
     entity_urn: str = "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
-    aspect_name: str = "status",
     aspect: Any = StatusClass(removed=False),
 ) -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.from_string(entity_urn).get_type(),
-        aspectName=aspect_name,
-        changeType="UPSERT",
         aspect=aspect,
     )
 
@@ -65,7 +61,7 @@ def make_mcpc(
 ) -> MetadataChangeProposalClass:
     return MetadataChangeProposalClass(
         entityUrn=entity_urn,
-        entityType=Urn.from_string(entity_urn).get_type(),
+        entityType=Urn.from_string(entity_urn).entity_type,
         aspectName=aspect_name,
         changeType="UPSERT",
         aspect=aspect,
@@ -127,8 +123,8 @@ class TestDummyGenericAspectTransformer(unittest.TestCase):
         assert inputs[2] == outputs[3].record
 
     def test_add_generic_aspect_when_mcpw_received(self):
-        mcpw_dataset = make_mcpw()
-        mcpw_datajob = make_mcpw(
+        mcpw_dataset = make_status_mcpw()
+        mcpw_datajob = make_status_mcpw(
             entity_urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)"
         )
         inputs = [mcpw_dataset, mcpw_datajob, EndOfStream()]

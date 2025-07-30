@@ -27,6 +27,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.git.git_import import GitClone
 from datahub.ingestion.source.looker.looker_common import (
@@ -273,6 +274,13 @@ class LookerManifest:
     SourceCapability.LINEAGE_FINE,
     "Enabled by default, configured using `extract_column_level_lineage`",
 )
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.LOOKML_PROJECT,
+    ],
+)
 class LookMLSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -497,7 +505,13 @@ class LookMLSource(StatefulIngestionSourceBase):
                 f"Failed to find a project name for model {model_name}"
             )
             return model.project_name
-        except SDKError:
+        except SDKError as e:
+            self.reporter.failure(
+                title="Failed to find a project name for model",
+                message="Consider configuring a static project name in your config file",
+                context=str(dict(model_name=model_name)),
+                exc=e,
+            )
             raise ValueError(
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
                 f"in your config file"

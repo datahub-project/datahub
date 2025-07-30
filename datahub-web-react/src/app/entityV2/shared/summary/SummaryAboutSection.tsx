@@ -1,13 +1,14 @@
+import { EditOutlined, FileOutlined } from '@ant-design/icons';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { EditOutlined, FileOutlined } from '@ant-design/icons';
+
+import { useEntityData, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { SectionContainer, SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import { LinkList } from '@app/entityV2/shared/tabs/Documentation/components/LinkList';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { Button } from '@src/alchemy-components';
-import { useEntityData, useRefetch, useRouteToTab } from '../../../entity/shared/EntityContext';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
-import { EmptyTab } from '../components/styled/EmptyTab';
-import { AddLinkModal } from '../components/styled/AddLinkModal';
-import { LinkList } from '../tabs/Documentation/components/LinkList';
-import { SectionContainer, SummaryTabHeaderTitle } from './HeaderComponents';
 
 const UNEXPANDED_HEIGHT = 2000;
 

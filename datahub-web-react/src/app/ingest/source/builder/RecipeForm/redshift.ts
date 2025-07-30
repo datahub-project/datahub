@@ -1,4 +1,4 @@
-import { RecipeField, FieldType } from './common';
+import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const REDSHIFT_HOST_PORT: RecipeField = {
     name: 'host_port',

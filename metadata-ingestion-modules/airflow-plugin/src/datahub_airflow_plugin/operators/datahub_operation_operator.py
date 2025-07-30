@@ -18,7 +18,7 @@ class DataHubOperationCircuitBreakerOperator(BaseSensorOperator):
     :param datahub_rest_conn_id: The REST datahub connection id to communicate with DataHub
         which is set as Airflow connection.
     :param partition: The partition to check the operation.
-    :param source_type: The partition to check the operation. :ref:`https://datahubproject.io/docs/graphql/enums#operationsourcetype`
+    :param source_type: The partition to check the operation. :ref:`https://docs.datahub.com/docs/graphql/enums#operationsourcetype`
 
     """
 

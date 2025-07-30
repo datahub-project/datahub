@@ -1,8 +1,10 @@
-import React from 'react';
 import { Image, Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
-import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
-import { ANTD_GRAY } from '../../entityV2/shared/constants';
+import React from 'react';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+
+import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 
 export const V2_SEARCH_BAR_ID = 'v2-search-bar';
 export const V2_HOME_PAGE_MOST_POPULAR_ID = 'v2-home-page-most-popular';
@@ -31,7 +33,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                 >
                     <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
                 </div>
-                <Typography.Title level={3}>Welcome to DataHub! </Typography.Title>
+                <Typography.Title level={3}>Welcome to DataHub Core! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
                     within your organization. You can:

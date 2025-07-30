@@ -1,8 +1,9 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../constants';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const StyledInput = styled(Input)`
     border-radius: 70px;
@@ -25,7 +26,7 @@ export default function TabHeader({ setFilterText }: Props) {
                 placeholder="Search in properties..."
                 onChange={(e) => setFilterText(e.target.value)}
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
             />
         </TableHeader>
     );

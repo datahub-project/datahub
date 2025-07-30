@@ -1,5 +1,5 @@
-name: 'Ensure codegen is updated'
-description: 'Will check the local filesystem against git, and abort if there are uncommitted changes.'
+name: "Ensure codegen is updated"
+description: "Will check the local filesystem against git, and abort if there are uncommitted changes."
 
 runs:
   using: "composite"

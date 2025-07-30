@@ -5,7 +5,7 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Integrate Feature Store with DataHub?
 
-Feature Store is a data management layer that stores, organizes, and manages features for machine learning models. It is a centralized repository for features that can be used across different AI/ML models. 
+Feature Store is a data management layer that stores, organizes, and manages features for machine learning models. It is a centralized repository for features that can be used across different AI/ML models.
 By integrating Feature Store with DataHub, you can track the lineage of features used in AI/ML models, understand how features are generated, and how they are used to train models.
 
 For technical details on feature store entities, please refer to the following docs:
@@ -31,7 +31,7 @@ For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.
 
 ## Create ML Entities
 
-:::note 
+:::note
 For creating MLModels and MLGroups, please refer to [AI/ML Integration Guide](/docs/api/tutorials/ml.md).
 :::
 
@@ -82,7 +82,6 @@ Note that when creating a feature table, you connect the table to its features a
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcome of creating entities
 

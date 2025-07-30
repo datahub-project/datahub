@@ -120,7 +120,7 @@ public class BusinessAttributeUpdateHookService {
             newFilter("urn", urn.toString()),
             null,
             EMPTY_FILTER,
-            Arrays.asList(BUSINESS_ATTRIBUTE_OF),
+            Set.of(BUSINESS_ATTRIBUTE_OF),
             newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
             Edge.EDGE_SORT_CRITERION,
             scrollId,

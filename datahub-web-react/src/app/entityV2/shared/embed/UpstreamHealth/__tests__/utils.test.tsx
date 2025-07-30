@@ -1,6 +1,7 @@
-import { dataset1, dataset2, dataset3 } from '../../../../../../Mocks';
-import { Dataset } from '../../../../../../types.generated';
-import * as utils from '../utils';
+import * as utils from '@app/entityV2/shared/embed/UpstreamHealth/utils';
+import { dataset1, dataset2, dataset3 } from '@src/Mocks';
+
+import { Dataset } from '@types';
 
 // has 1 passing and 1 failing assertion
 const dataset1WithAssertions = {

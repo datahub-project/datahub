@@ -1,7 +1,8 @@
-import * as React from 'react';
 import { Skeleton } from 'antd';
+import * as React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Container = styled.div`
     width: 100%;

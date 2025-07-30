@@ -1,6 +1,7 @@
-import React from 'react';
 import { StopOutlined } from '@ant-design/icons';
-import { ViewItem } from './ViewItem';
+import React from 'react';
+
+import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
 
 type Props = {
     key: string;

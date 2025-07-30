@@ -1,10 +1,11 @@
-import React from 'react';
-import { render } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import { Properties } from '../../../shared/components/legacy/Properties';
-import { sampleProperties } from '../stories/properties';
-import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../../../Mocks';
+import { render } from '@testing-library/react';
+import React from 'react';
+
+import { sampleProperties } from '@app/entityV2/dataset/profile/stories/properties';
+import { Properties } from '@app/entityV2/shared/components/legacy/Properties';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('Properties', () => {
     it('renders', () => {

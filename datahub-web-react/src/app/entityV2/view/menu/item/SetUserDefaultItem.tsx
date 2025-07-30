@@ -1,9 +1,10 @@
 import React from 'react';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
+import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { colors } from '@src/alchemy-components';
-import { UserDefaultViewIcon } from '../../shared/UserDefaultViewIcon';
-import { REDESIGN_COLORS } from '../../../shared/constants';
-import { ViewItem } from './ViewItem';
+import { useCustomTheme } from '@src/customThemeContext';
 
 type Props = {
     key: string;
@@ -15,6 +16,7 @@ type Props = {
  */
 export const SetUserDefaultItem = ({ key, onClick }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { theme } = useCustomTheme();
 
     return (
         <ViewItem
@@ -25,7 +27,7 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
             title="Make my default"
             icon={
                 <UserDefaultViewIcon
-                    color={isShowNavBarRedesign ? colors.violet[500] : REDESIGN_COLORS.TERTIARY_GREEN}
+                    color={isShowNavBarRedesign ? theme?.styles['primary-color'] : REDESIGN_COLORS.TERTIARY_GREEN}
                 />
             }
         />

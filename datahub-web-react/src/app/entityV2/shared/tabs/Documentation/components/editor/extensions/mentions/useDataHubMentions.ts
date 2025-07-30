@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
 import { useRemirrorContext } from '@remirror/react';
 import { ActionKind, AutocompleteAction, FromTo } from 'prosemirror-autocomplete';
-import { DataHubMentionsExtension } from './DataHubMentionsExtension';
+import { useCallback, useEffect, useState } from 'react';
+
+import { DataHubMentionsExtension } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/DataHubMentionsExtension';
 
 type State = {
     active: boolean;

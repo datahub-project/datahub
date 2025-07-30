@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
 import { Col } from 'antd';
-import { EntityRelationship, SearchResult } from '../../../types.generated';
-import SectionActionButton from '../shared/containers/profile/sidebar/SectionActionButton';
-import UserEditProfileModal from './UserEditProfileModal';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import React, { useState } from 'react';
 
 import {
     CustomAvatarContainer,
-    GradientContainer,
     EditProfileButtonContainer,
-    WhiteEditOutlinedIconStyle,
+    GradientContainer,
     UserInfo,
-} from '../shared/SidebarStyledComponents';
-import { UserBasicInfoContainer } from './UserBasicInfoContainer';
+    WhiteEditOutlinedIconStyle,
+} from '@app/entityV2/shared/SidebarStyledComponents';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { UserBasicInfoContainer } from '@app/entityV2/user/UserBasicInfoContainer';
+import UserEditProfileModal from '@app/entityV2/user/UserEditProfileModal';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+
+import { EntityRelationship, SearchResults } from '@types';
 
 const AVATAR_STYLE = {
     marginRight: '0px',
@@ -31,7 +32,7 @@ export type SidebarData = {
     phone: string | undefined;
     aboutText: string | undefined;
     groupsDetails: Array<EntityRelationship>;
-    ownerships: Array<SearchResult> | undefined;
+    ownershipResults: SearchResults | undefined;
     urn: string | undefined;
     dataHubRoles: Array<EntityRelationship>;
 };

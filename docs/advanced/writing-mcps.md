@@ -2,13 +2,13 @@
 
 ## What is an MCP?
 
-A `MetadataChangeProposal` (MCP) represents an atomic unit of change in the DataHub Metadata Graph. Each MCP carries a single aspect in its payload and is used to propose changes to DataHub's metadata. 
+A `MetadataChangeProposal` (MCP) represents an atomic unit of change in the DataHub Metadata Graph. Each MCP carries a single aspect in its payload and is used to propose changes to DataHub's metadata.
 
 - Represents a single aspect change
 - Used for proposing metadata changes to DataHub
 - Serves as the basic building block for metadata ingestion
 
-For more information, please see guides on [DataHub Metadata Events](../what/mxe.md) and [MCPs](mcp-mcl.md). 
+For more information, please see guides on [DataHub Metadata Events](../what/mxe.md) and [MCPs](mcp-mcl.md).
 
 ## Why Write MCPs as Files?
 
@@ -19,11 +19,9 @@ MCPs in JSON file format are particularly valuable because they represent the lo
 MCPs allow you to easily ingest metadata. You can:
 
 - Use it for entity ingestion by running a simple command, without a dependency on a ingestion connector:
-    
-    ```bash
-    datahub ingest mcps <file_name>.json
-    ```
-    
+  ```bash
+  datahub ingest mcps <file_name>.json
+  ```
 - Create reproducible test cases for metadata ingestion
 - Write and run tests when contributing to DataHub (see DataHub Testing Guide for more details)
 
@@ -52,8 +50,7 @@ To get started, create a recipe file (e.g., `export_mcps.yaml`) specifying your 
 ```yaml
 source:
   type: bigquery # Replace with your source type
-  config:
-    ... # Add your source configuration here
+  config: ... # Add your source configuration here
 sink:
   type: "file"
   config:
@@ -66,7 +63,7 @@ Run the ingestion with the following command:
 datahub ingest -c export_mcps.yaml
 ```
 
-This command will extract all entities from your source and write them to `mcps.json` in MCP format. 
+This command will extract all entities from your source and write them to `mcps.json` in MCP format.
 
 For more details about the `file` sink type, please refer to [Metadata File](../../metadata-ingestion/sink_docs/metadata-file.md)
 
@@ -81,14 +78,13 @@ You can also export MCPs directly from an existing DataHub instance using a simi
 The process is similar to exporting from an ingestion source, with the only difference being that you'll use `datahub` as the source type.
 Create a recipe file (e.g., `export_mcps.yaml`) with this configuration:
 
-
 ```yaml
 source:
   type: datahub
   config:
     # Add your DataHub connection configuration here
     server: "http://localhost:8080"
-    token: "your-access-token"  # If authentication is required
+    token: "your-access-token" # If authentication is required
 
 sink:
   type: "file"
@@ -144,20 +140,20 @@ For example, the above script will generate an MCP file with a single dataset en
 
 ```json
 [
-{
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,example_dataset,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "customProperties": {
-                "encoding": "utf-8"
-            },
-            "description": "Example dataset description",
-            "tags": []
-        }
+      "json": {
+        "customProperties": {
+          "encoding": "utf-8"
+        },
+        "description": "Example dataset description",
+        "tags": []
+      }
     }
-}
+  }
 ]
 ```

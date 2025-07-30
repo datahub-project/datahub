@@ -1,6 +1,7 @@
 import styled from 'styled-components';
-import { typography, colors } from '@components/theme';
-import { getHeaderSubtitleStyles, getHeaderTitleStyles } from './utils';
+
+import { getHeaderSubtitleStyles, getHeaderTitleStyles } from '@components/components/PageTitle/utils';
+import { colors, typography } from '@components/theme';
 
 // Text Styles
 const titleStyles = {
@@ -20,6 +21,7 @@ const subTitleStyles = {
 const baseStyles = {
     fontFamily: typography.fonts.body,
     margin: 0,
+    maxWidth: '100%',
 
     '& a': {
         color: colors.violet[400],

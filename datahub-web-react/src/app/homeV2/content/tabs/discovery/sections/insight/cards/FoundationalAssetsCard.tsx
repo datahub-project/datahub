@@ -1,7 +1,11 @@
 import React from 'react';
-import { buildFoundationalAssetsFilters, buildFoundationalAssetsSort } from './useGetFoundationalAssets';
-import { SearchListInsightCard } from './SearchListInsightCard';
-import { ASSET_ENTITY_TYPES } from '../../../../../../../searchV2/utils/constants';
+
+import { SearchListInsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/cards/SearchListInsightCard';
+import {
+    buildFoundationalAssetsFilters,
+    buildFoundationalAssetsSort,
+} from '@app/homeV2/content/tabs/discovery/sections/insight/cards/useGetFoundationalAssets';
+import { ASSET_ENTITY_TYPES } from '@app/searchV2/utils/constants';
 
 export const FoundationalAssetsCard = () => {
     return (

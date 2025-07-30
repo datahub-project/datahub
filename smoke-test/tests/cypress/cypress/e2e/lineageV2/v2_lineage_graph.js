@@ -19,12 +19,6 @@ const MONTHLY_TEMPERATURE_DATASET_URN =
 describe("lineage_graph", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    const resizeObserverLoopErrRe = "ResizeObserver loop limit exceeded";
-    cy.on("uncaught:exception", (err) => {
-      if (err.message.includes(resizeObserverLoopErrRe)) {
-        return false;
-      }
-    });
   });
   it("can see full history", () => {
     cy.login();
@@ -125,5 +119,43 @@ describe("lineage_graph", () => {
     cy.contains("gnp");
     cy.contains("gdp");
     cy.contains("factor_income").should("not.exist");
+  });
+
+  it("can edit upstream lineage", () => {
+    // note: this test does not make any mutations. This is to prevent introducing a flaky test.
+    // Ideally, we should refactor this test to verify that the mutations are correct as well. However, it needs to be done carefully to avoid introducing flakiness.
+
+    cy.login();
+    cy.goToEntityLineageGraphV2(DATASET_ENTITY_TYPE, DATASET_URN);
+    cy.get(
+      '[data-testid="manage-lineage-menu-urn:li:dataset:(urn:li:dataPlatform:kafka,SampleCypressKafkaDataset,PROD)"]',
+    ).click();
+    cy.get('[data-testid="edit-upstream-lineage"]').click();
+    cy.contains(
+      "Select the Upstreams to add to SampleCypressKafkaDataset",
+    ).should("be.visible");
+
+    // find the button that says "Set Upstreams" - not via test id
+    // verify that is is not disabled
+    cy.contains("Set Upstreams").should("be.disabled");
+
+    // there are multiple search inputs, we want to find the one for the search bar in the modal
+    cy.get('[role="dialog"] [data-testid="search-input"]').type(
+      "cypress_health_test",
+    );
+
+    // find the checkbox for cypress_health_test (data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)") is the
+    // test id for a sibling of the checkbox, we want to find that id, find its parent, and click the checkbox
+
+    cy.get(
+      '[data-testid="preview-urn:li:dataset:(urn:li:dataPlatform:hive,cypress_health_test,PROD)"]',
+    )
+      .parent()
+      .find("input")
+      .click();
+
+    // find the button that says "Set Upstreams" - not via test id
+    // verify that is is not disabled
+    cy.contains("Set Upstreams").should("not.be.disabled");
   });
 });

@@ -1,7 +1,9 @@
+import { Button, Form, Input, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { message, Button, Input, Modal, Typography, Form } from 'antd';
-import { useUpdateCorpGroupPropertiesMutation } from '../../../graphql/group.generated';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+
+import { useUpdateCorpGroupPropertiesMutation } from '@graphql/group.generated';
 
 type PropsData = {
     email: string | undefined;

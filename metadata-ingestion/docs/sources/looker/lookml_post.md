@@ -26,12 +26,12 @@
 
    Ingestion attempts to resolve it's value by looking at project manifest files
 
-     ```yml
-     manifest.lkml
-       constant: db {
-           value: "ANALYTICS_PROD"
-       }
-     ```
+   ```yml
+   manifest.lkml
+     constant: db {
+         value: "ANALYTICS_PROD"
+     }
+   ```
 
    - If the constant's value is not resolved or incorrectly resolved, you can specify `lookml_constants` configuration in ingestion recipe as shown below. The constant value in recipe takes precedence over constant values resolved from manifest.
 
@@ -40,6 +40,12 @@
        db: ANALYTICS_PROD
      ```
 
+**Liquid Template Support Limits:**
+
+- Supported: Simple variable interpolation (`{{ var }}`) and condition directives (`{% condition filter_name %} field {% endcondition %}`)
+- Unsupported: Conditional logic with `if`/`else`/`endif` and custom Looker tags like `date_start`, `date_end`, and `parameter`
+
+Unsupported templates may cause lineage extraction to fail for some assets.
 
 **Additional Notes**
 

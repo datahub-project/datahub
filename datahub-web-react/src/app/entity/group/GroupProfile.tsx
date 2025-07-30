@@ -1,17 +1,19 @@
-import React from 'react';
 import { Col, Row } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useGetGroupQuery } from '../../../graphql/group.generated';
-import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
-import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
-import { Message } from '../../shared/Message';
-import GroupMembers from './GroupMembers';
-import { decodeUrn } from '../shared/utils';
-import { RoutedTabs } from '../../shared/RoutedTabs';
-import GroupInfoSidebar from './GroupInfoSideBar';
-import { GroupAssets } from './GroupAssets';
-import { ErrorSection } from '../../shared/error/ErrorSection';
-import NonExistentEntityPage from '../shared/entity/NonExistentEntityPage';
+
+import { GroupAssets } from '@app/entity/group/GroupAssets';
+import GroupInfoSidebar from '@app/entity/group/GroupInfoSideBar';
+import GroupMembers from '@app/entity/group/GroupMembers';
+import NonExistentEntityPage from '@app/entity/shared/entity/NonExistentEntityPage';
+import { decodeUrn } from '@app/entity/shared/utils';
+import { Message } from '@app/shared/Message';
+import { RoutedTabs } from '@app/shared/RoutedTabs';
+import useUserParams from '@app/shared/entitySearch/routingUtils/useUserParams';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+
+import { useGetGroupQuery } from '@graphql/group.generated';
+import { EntityRelationshipsResult, OriginType, Ownership } from '@types';
 
 const messageStyle = { marginTop: '10%' };
 

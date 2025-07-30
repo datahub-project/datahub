@@ -1,11 +1,32 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
-import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { Button, Typography } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components';
+
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
+import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
+import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
+import { CompactView } from '@app/previewV2/CompactView';
+import ContextPath from '@app/previewV2/ContextPath';
+import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
+import EntityHeader from '@app/previewV2/EntityHeader';
+import { ActionsAndStatusSection } from '@app/previewV2/shared';
+import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
+import { useSearchContext } from '@app/search/context/SearchContext';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
+
 import {
     BrowsePathV2,
     Container,
@@ -22,30 +43,10 @@ import {
     Maybe,
     Owner,
     SearchInsight,
-} from '../../types.generated';
-import { EntityMenuActions, PreviewType } from '../entityV2/Entity';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { GlossaryPreviewCardDecoration } from '../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
-import { PopularityTier } from '../entityV2/shared/containers/profile/sidebar/shared/utils';
-import { EntityMenuItems } from '../entityV2/shared/EntityDropdown/EntityMenuActions';
-import MoreOptionsMenuAction from '../entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
-import { usePreviewData } from '../entityV2/shared/PreviewContext';
-import { useSearchContext } from '../search/context/SearchContext';
-import useContentTruncation from '../shared/useContentTruncation';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
-import ColoredBackgroundPlatformIconGroup from './ColoredBackgroundPlatformIconGroup';
-import { CompactView } from './CompactView';
-import ContextPath from './ContextPath';
-import DefaultPreviewCardFooter from './DefaultPreviewCardFooter';
-import EntityHeader from './EntityHeader';
-
-import { useEntityContext, useEntityData } from '../entity/shared/EntityContext';
-import { removeMarkdown } from '../entityV2/shared/components/styled/StripMarkdownText';
-import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '../entityV2/shared/utils';
-import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from './utils';
+} from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -60,17 +61,17 @@ const TransparentButton = styled(Button)`
         display: flex;
         align-items: center;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 
 const PreviewContainer = styled.div`
     display: flex;
     flex-direction: column;
+    height: auto;
     width: 100%;
     justify-content: space-between;
     align-items: start;
-
     .entityCount {
         margin-bottom: 2px;
     }
@@ -105,14 +106,9 @@ const InsightIconContainer = styled.span`
 `;
 
 const Documentation = styled.div`
-    width: 90%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 500;
-    color: ${REDESIGN_COLORS.SUB_TEXT};
     margin-top: 8px;
+    max-height: 300px;
+    overflow-y: auto;
 `;
 
 const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
@@ -183,9 +179,9 @@ export default function DefaultPreviewCard({
     logoComponent,
     url,
     entityType,
-    type,
+    type, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     typeIcon,
-    platform,
+    platform, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     platformInstanceId,
     tags,
     owners, // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -196,7 +192,7 @@ export default function DefaultPreviewCard({
     snippet,
     insights, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     domain, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataProduct,
+    dataProduct, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     container,
     deprecation, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     entityCount,
@@ -237,7 +233,6 @@ export default function DefaultPreviewCard({
     if (snippet) {
         insightViews.push(snippet);
     }
-    const { contentRef } = useContentTruncation(container);
 
     // TODO: Replace with something less hacky
     const finalType = type || entityRegistry.getEntityName(entityType);
@@ -248,6 +243,9 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
+    const lastRunEvent = data?.lastRunEvent;
+    const shouldShowDPIinfo =
+        lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
     const entityHeader = (
         <EntityHeader
             name={name}
@@ -263,6 +261,7 @@ export default function DefaultPreviewCard({
             previewData={previewData}
         />
     );
+
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
             {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
@@ -305,24 +304,25 @@ export default function DefaultPreviewCard({
                     {isIconPresent && <RowContainer>{entityHeader}</RowContainer>}
                     <RowContainer style={{ marginTop: 8 }}>
                         <ContextPath
-                            type={finalType}
+                            displayedEntityType={finalType}
                             entityType={entityType}
-                            instanceId={platformInstanceId}
-                            typeIcon={typeIcon}
                             browsePaths={browsePaths}
                             parentEntities={parentEntities}
                             entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                            previewType={previewType}
-                            contentRef={contentRef}
                         />
                     </RowContainer>
                     {(previewType === PreviewType.HOVER_CARD ||
                         ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
                     description ? (
-                        <RowContainer>
-                            <Documentation>{removeMarkdown(description)}</Documentation>
-                        </RowContainer>
+                        <Documentation>
+                            <CompactMarkdownViewer content={description} />
+                        </Documentation>
                     ) : null}
+                    {shouldShowDPIinfo && (
+                        <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
+                            <DataProcessInstanceInfo {...lastRunEvent} />
+                        </RowContainer>
+                    )}
                 </>
             ) : (
                 <CompactView
@@ -347,11 +347,8 @@ export default function DefaultPreviewCard({
                     previewType={previewType}
                     urn={urn}
                     entityType={entityType}
-                    platformInstanceId={platformInstanceId}
-                    typeIcon={typeIcon}
                     finalType={finalType}
                     parentEntities={parentEntities}
-                    contentRef={contentRef}
                     browsePaths={browsePaths}
                 />
             )}

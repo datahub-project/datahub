@@ -1,5 +1,7 @@
-import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
+import React, { forwardRef, useEffect, useImperativeHandle } from 'react';
+import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
     BoldExtension,
@@ -21,18 +23,17 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
-import { EditorComponent, Remirror, useRemirror, ThemeProvider, TableComponents } from '@remirror/react';
-import { useMount } from 'react-use';
-import { EditorContainer, EditorTheme } from './EditorTheme';
-import { htmlToMarkdown } from './extensions/htmlToMarkdown';
-import { markdownToHtml } from './extensions/markdownToHtml';
-import { CodeBlockToolbar } from './toolbar/CodeBlockToolbar';
-import { FloatingToolbar } from './toolbar/FloatingToolbar';
-import { Toolbar } from './toolbar/Toolbar';
-import { OnChangeMarkdown } from './OnChangeMarkdown';
-import { TableCellMenu } from './toolbar/TableCellMenu';
-import { DataHubMentionsExtension } from './extensions/mentions/DataHubMentionsExtension';
-import { MentionsComponent } from './extensions/mentions/MentionsComponent';
+
+import { EditorContainer, EditorTheme } from '@components/components/Editor/EditorTheme';
+import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
+import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
+import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
+import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
+import { MentionsComponent } from '@components/components/Editor/extensions/mentions/MentionsComponent';
+import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBlockToolbar';
+import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
+import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
+import { Toolbar } from '@components/components/Editor/toolbar/Toolbar';
 
 type EditorProps = {
     readOnly?: boolean;

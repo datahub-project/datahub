@@ -1,8 +1,15 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     BrowsePathV2,
@@ -15,13 +22,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};

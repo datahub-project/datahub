@@ -1,11 +1,13 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Typography } from 'antd';
-import { Owner, OwnershipTypeEntity } from '../../../../../../../../types.generated';
-import { ExpandedOwner } from '../../../../../components/styled/ExpandedOwner/ExpandedOwner';
-import { useMutationUrn, useRefetch } from '../../../../../../../entity/shared/EntityContext';
-import { getOwnershipTypeName } from '../ownershipUtils';
-import { REDESIGN_COLORS } from '../../../../../constants';
+
+import { useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+
+import { Owner, OwnershipTypeEntity } from '@types';
 
 const OwnershipTypeContainer = styled.div`
     display: flex;

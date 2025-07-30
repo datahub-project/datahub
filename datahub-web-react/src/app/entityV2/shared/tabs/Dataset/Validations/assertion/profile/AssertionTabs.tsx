@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-
-import styled from 'styled-components';
-import { Divider } from 'antd';
 import { Tooltip } from '@components';
+import { Divider } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const Tabs = styled.div`
     margin: 12px 24px;
@@ -56,21 +55,25 @@ export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
     const [selectedTab, setSelectedTab] = useState<string>(defaultSelectedTab);
     return (
         <>
-            <Tabs>
-                {tabs.map((tab) => (
-                    <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
-                        <TabButton
-                            selected={selectedTab === tab.key}
-                            disabled={tab.disabled}
-                            key={tab.key}
-                            onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
-                        >
-                            {tab.label}
-                        </TabButton>
-                    </Tooltip>
-                ))}
-            </Tabs>
-            <StyledDivider />
+            {tabs.length > 1 && (
+                <>
+                    <Tabs>
+                        {tabs.map((tab) => (
+                            <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
+                                <TabButton
+                                    selected={selectedTab === tab.key}
+                                    disabled={tab.disabled}
+                                    key={tab.key}
+                                    onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
+                                >
+                                    {tab.label}
+                                </TabButton>
+                            </Tooltip>
+                        ))}
+                    </Tabs>
+                    <StyledDivider />
+                </>
+            )}
             <TabContent>{tabs.find((tab) => tab.key === selectedTab)?.content}</TabContent>
         </>
     );

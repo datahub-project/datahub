@@ -1,14 +1,15 @@
-import * as React from 'react';
-import { Button, Select, Tooltip } from 'antd';
-import { CaretDownOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
 import { blue } from '@ant-design/colors';
+import { CaretDownOutlined } from '@ant-design/icons';
+import { Button, Select, Tooltip } from 'antd';
+import * as React from 'react';
 import { useHistory, useLocation } from 'react-router';
-import { ImpactAnalysisIcon } from '../Dataset/Schema/components/MenuColumn';
-import updateQueryParams from '../../../../shared/updateQueryParams';
-import { downgradeV2FieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../EntityContext';
-import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
+import styled from 'styled-components/macro';
+
+import { downgradeV2FieldPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ImpactAnalysisIcon } from '@app/entity/shared/tabs/Dataset/Schema/components/MenuColumn';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import updateQueryParams from '@app/shared/updateQueryParams';
 
 const StyledSelect = styled(Select)`
     margin-right: 5px;

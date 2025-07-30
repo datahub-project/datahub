@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-ProjectName.data_reporting.abcde_transformed,PROD)",
                     "column": "post_id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`abcde_transformed`.`post_id` AS `post_id`"
+            }
         },
         {
             "downstream": {
@@ -37,9 +41,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-ProjectName.data_reporting.abcde_transformed,PROD)",
                     "column": "widget.asset.id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`abcde_transformed`.`widget`.`asset`.`id` AS `id`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT DISTINCT post_id, widget.asset.id FROM data_reporting.abcde_transformed WHERE post_id LIKE ?"

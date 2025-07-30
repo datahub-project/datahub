@@ -1,7 +1,14 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     DataProduct,
     Deprecation,
@@ -12,12 +19,8 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+    SubTypes,
+} from '@types';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
@@ -46,6 +49,7 @@ export const Preview = ({
     headerDropdownItems,
     previewType,
     parentContainers,
+    subTypes,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -69,6 +73,7 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
     parentContainers?: ParentContainersResult | null;
+    subTypes?: SubTypes | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -105,6 +110,7 @@ export const Preview = ({
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             parentEntities={parentContainers?.containers}
+            type={subTypes?.typeNames?.[0]}
         />
     );
 };

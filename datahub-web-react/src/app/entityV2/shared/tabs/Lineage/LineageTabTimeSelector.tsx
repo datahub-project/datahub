@@ -1,10 +1,11 @@
 import React, { useCallback } from 'react';
 import { useHistory, useLocation } from 'react-router';
-import analytics, { EventType } from '../../../../analytics';
-import LineageTimeSelector, { Datetime } from '../../../../lineageV2/LineageTimeSelector';
-import { getTimeFromNow } from '../../../../shared/time/timeUtils';
-import updateQueryParams from '../../../../shared/updateQueryParams';
-import { useGetLineageTimeParams } from '../../../../lineage/utils/useGetLineageTimeParams';
+
+import analytics, { EventType } from '@app/analytics';
+import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
+import LineageTimeSelector, { Datetime } from '@app/lineageV2/LineageTimeSelector';
+import { getTimeFromNow } from '@app/shared/time/timeUtils';
+import updateQueryParams from '@app/shared/updateQueryParams';
 
 export default function LineageTabTimeSelector() {
     const history = useHistory();

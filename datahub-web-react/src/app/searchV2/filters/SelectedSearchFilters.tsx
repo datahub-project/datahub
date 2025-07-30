@@ -1,11 +1,13 @@
 import React from 'react';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { FilterPredicate } from './types';
-import { convertToSelectedFilterPredictes } from './utils';
-import { convertFrontendToBackendOperatorType } from './operator/operator';
-import SearchFiltersBuilder from './SearchFiltersBuilder';
-import { UnionType } from '../utils/constants';
-import { EXCLUDED_ACTIVE_FILTERS } from './constants';
+
+import SearchFiltersBuilder from '@app/searchV2/filters/SearchFiltersBuilder';
+import { EXCLUDED_ACTIVE_FILTERS } from '@app/searchV2/filters/constants';
+import { convertFrontendToBackendOperatorType } from '@app/searchV2/filters/operator/operator';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import { convertToSelectedFilterPredictes } from '@app/searchV2/filters/utils';
+import { UnionType } from '@app/searchV2/utils/constants';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     availableFilters: FacetMetadata[];

@@ -1,13 +1,15 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Typography } from 'antd';
-import styled from 'styled-components';
-import { useDebounce } from 'react-use';
 import { useCommands } from '@remirror/react';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { Typography } from 'antd';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useDebounce } from 'react-use';
+import styled from 'styled-components';
+
+import { useDataHubMentions } from '@components/components/Editor/extensions/mentions/useDataHubMentions';
+
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-import { AutoCompleteResultForEntity, Entity, EntityType } from '@src/types.generated';
 import AutoCompleteItem from '@src/app/searchV2/autoComplete/AutoCompleteItem';
-import { useDataHubMentions } from './useDataHubMentions';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { AutoCompleteResultForEntity, Entity, EntityType } from '@src/types.generated';
 
 const HeaderItem = styled(Typography.Text)`
     display: block;

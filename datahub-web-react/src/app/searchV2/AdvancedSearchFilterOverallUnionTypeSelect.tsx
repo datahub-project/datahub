@@ -2,8 +2,8 @@ import { Select } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { UnionType } from './utils/constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { UnionType } from '@app/searchV2/utils/constants';
 
 type Props = {
     unionType: UnionType;

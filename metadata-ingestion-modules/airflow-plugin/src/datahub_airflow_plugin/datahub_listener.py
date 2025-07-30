@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
 from airflow.models import Variable
+from airflow.models.operator import Operator
 from airflow.models.serialized_dag import SerializedDagModel
 from openlineage.airflow.listener import TaskHolder
 from openlineage.airflow.utils import redact_with_exclusions
@@ -17,6 +18,10 @@ from openlineage.client.serde import Serde
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import DataHubGraph
@@ -25,6 +30,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     DataFlowKeyClass,
     DataJobKeyClass,
+    DataPlatformInstanceClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -37,13 +43,13 @@ from datahub.telemetry import telemetry
 from datahub_airflow_plugin._airflow_shims import (
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_DATASET_LISTENER_API,
-    Operator,
     get_task_inlets,
     get_task_outlets,
 )
 from datahub_airflow_plugin._config import DatahubLineageConfig, get_lineage_config
 from datahub_airflow_plugin._datahub_ol_adapter import translate_ol_to_datahub_urn
 from datahub_airflow_plugin._extractors import SQL_PARSING_RESULT_KEY, ExtractorManager
+from datahub_airflow_plugin._version import __package_name__, __version__
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
     _Entity,
@@ -94,13 +100,16 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.enabled:
             _airflow_listener = DataHubListener(config=plugin_config)
-
+            logger.info(
+                f"DataHub plugin v2 (package: {__package_name__} and version: {__version__}) listener initialized with config: {plugin_config}"
+            )
             telemetry.telemetry_instance.ping(
                 "airflow-plugin-init",
                 {
                     "airflow-version": airflow.__version__,
                     "datahub-airflow-plugin": "v2",
                     "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                    "datahub-airflow-plugin-dataset-events": HAS_AIRFLOW_DATASET_LISTENER_API,
                     "capture_executions": plugin_config.capture_executions,
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
@@ -168,7 +177,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
         return task_instance_copy
     except Exception as e:
         logger.info(
-            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}"
+            f"Error rendering templates in DataHub listener. Jinja-templated variables will not be extracted correctly: {e}. Template rendering improves SQL parsing accuracy. If this causes issues, you can disable it by setting `render_templates` to `false` in the DataHub plugin configuration."
         )
         return task_instance
 
@@ -251,6 +260,9 @@ class DataHubListener:
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
+
+        if not self.config.enable_datajob_lineage:
+            return
 
         input_urns: List[str] = []
         output_urns: List[str] = []
@@ -418,13 +430,6 @@ class DataHubListener:
         if task_instance.next_method is not None:  # type: ignore[attr-defined]
             return
 
-        # If we don't have the DAG listener API, we just pretend that
-        # the start of the task is the start of the DAG.
-        # This generates duplicate events, but it's better than not
-        # generating anything.
-        if not HAS_AIRFLOW_DAG_LISTENER_API:
-            self.on_dag_start(dagrun)
-
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
             task=task,
@@ -442,7 +447,8 @@ class DataHubListener:
         # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
         for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob start: {datajob}")
@@ -528,7 +534,8 @@ class DataHubListener:
         self._extract_lineage(datajob, dagrun, task, task_instance, complete=True)
 
         for mcp in datajob.generate_mcp(
-            materialize_iolets=self.config.materialize_iolets
+            generate_lineage=self.config.enable_datajob_lineage,
+            materialize_iolets=self.config.materialize_iolets,
         ):
             self.emitter.emit(mcp, self._make_emit_callback())
         logger.debug(f"Emitted DataHub Datajob finish w/ status {status}: {datajob}")
@@ -617,6 +624,20 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        if self.config.platform_instance:
+            instance = make_dataplatform_instance_urn(
+                platform="airflow",
+                instance=self.config.platform_instance,
+            )
+            event = MetadataChangeProposalWrapper(
+                entityUrn=str(dataflow.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=make_data_platform_urn("airflow"),
+                    instance=instance,
+                ),
+            )
+            self.emitter.emit(event)
+
         # emit tags
         for tag in dataflow.tags:
             tag_urn = builder.make_tag_urn(tag)
@@ -626,11 +647,18 @@ class DataHubListener:
             )
             self.emitter.emit(event)
 
+        browsePaths: List[BrowsePathEntryClass] = []
+        if self.config.platform_instance:
+            urn = make_dataplatform_instance_urn(
+                "airflow", self.config.platform_instance
+            )
+            browsePaths.append(BrowsePathEntryClass(self.config.platform_instance, urn))
+        browsePaths.append(BrowsePathEntryClass(str(dag.dag_id)))
         browse_path_v2_event: MetadataChangeProposalWrapper = (
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataflow.urn),
                 aspect=BrowsePathsV2Class(
-                    path=[BrowsePathEntryClass(str(dag.dag_id))],
+                    path=browsePaths,
                 ),
             )
         )
@@ -639,18 +667,21 @@ class DataHubListener:
         if dag.dag_id == _DATAHUB_CLEANUP_DAG:
             assert self.graph
 
-            logger.debug("Initiating the cleanup of obsselete data from datahub")
+            logger.debug("Initiating the cleanup of obsolete data from datahub")
 
             # get all ingested dataflow and datajob
             ingested_dataflow_urns = list(
                 self.graph.get_urns_by_filter(
                     platform="airflow",
                     entity_types=["dataFlow"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
             ingested_datajob_urns = list(
                 self.graph.get_urns_by_filter(
-                    platform="airflow", entity_types=["dataJob"]
+                    platform="airflow",
+                    entity_types=["dataJob"],
+                    platform_instance=self.config.platform_instance,
                 )
             )
 
@@ -691,6 +722,7 @@ class DataHubListener:
                     orchestrator="airflow",
                     flow_id=dag.dag_id,
                     cluster=self.config.cluster,
+                    platform_instance=self.config.platform_instance,
                 )
                 airflow_flow_urns.append(flow_urn)
 
@@ -711,27 +743,25 @@ class DataHubListener:
             logger.debug(f"total pipelines removed = {len(obsolete_pipelines)}")
             logger.debug(f"total tasks removed = {len(obsolete_tasks)}")
 
-    if HAS_AIRFLOW_DAG_LISTENER_API:
+    @hookimpl
+    @run_in_thread
+    def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+        if self.check_kill_switch():
+            return
 
-        @hookimpl
-        @run_in_thread
-        def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
-            if self.check_kill_switch():
-                return
+        self._set_log_level()
 
-            self._set_log_level()
+        logger.debug(
+            f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
+        )
 
-            logger.debug(
-                f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
-            )
+        assert dag_run.dag_id
+        if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
+            logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+            return
 
-            assert dag_run.dag_id
-            if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
-                logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
-                return
-
-            self.on_dag_start(dag_run)
-            self.emitter.flush()
+        self.on_dag_start(dag_run)
+        self.emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
 

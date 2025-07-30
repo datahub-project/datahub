@@ -1,6 +1,5 @@
 package com.linkedin.metadata.service;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
@@ -67,7 +66,7 @@ public class AssertionService extends BaseService {
       final EntityRelationships relationships =
           _graphClient.getRelatedEntities(
               assertionUrn.toString(),
-              ImmutableList.of(ASSERTS_RELATIONSHIP_NAME),
+              ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
               RelationshipDirection.OUTGOING,
               0,
               1,

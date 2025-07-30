@@ -1,21 +1,21 @@
+import { Affix, Row, Select, Typography } from 'antd';
 import React, { ReactNode, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { Affix, Row, Select, Typography } from 'antd';
-import { useGetDataProfilesLazyQuery } from '../../../../../../graphql/dataset.generated';
-import { DateInterval } from '../../../../../../types.generated';
-import { Message } from '../../../../../shared/Message';
-import { getFixedLookbackWindow } from '../../../../../shared/time/timeUtils';
-
-import ProfilingRunsChart from './charts/ProfilingRunsChart';
-import StatsSection from '../StatsSection';
-import StatChart from './charts/StatChart';
+import StatsSection from '@app/entityV2/dataset/profile/stats/StatsSection';
+import ProfilingRunsChart from '@app/entityV2/dataset/profile/stats/historical/charts/ProfilingRunsChart';
+import StatChart from '@app/entityV2/dataset/profile/stats/historical/charts/StatChart';
 import {
     computeAllFieldPaths,
     computeChartTickInterval,
     extractChartValuesFromFieldProfiles,
     extractChartValuesFromTableProfiles,
-} from '../../../../shared/utils';
+} from '@app/entityV2/shared/utils';
+import { Message } from '@app/shared/Message';
+import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+
+import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
+import { DateInterval } from '@types';
 
 const HeaderRow = styled(Row)`
     padding-top: 24px;

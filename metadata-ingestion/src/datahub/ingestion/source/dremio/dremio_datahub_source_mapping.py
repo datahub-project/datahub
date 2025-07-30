@@ -66,7 +66,7 @@ class DremioToDataHubSourceTypeMapping:
     }
 
     @staticmethod
-    def get_datahub_source_type(dremio_source_type: str) -> str:
+    def get_datahub_platform(dremio_source_type: str) -> str:
         """
         Return the DataHub source type.
         """

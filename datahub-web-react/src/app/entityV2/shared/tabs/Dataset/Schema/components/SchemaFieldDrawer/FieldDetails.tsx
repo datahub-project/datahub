@@ -1,15 +1,18 @@
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { Button, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Deprecation, SubResourceType, UsageQueryResult } from '../../../../../../../../types.generated';
-import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
-import { UpdateDeprecationModal } from '../../../../../EntityDropdown/UpdateDeprecationModal';
-import CreateEntityAnnouncementModal from '../../../../../announce/CreateEntityAnnouncementModal';
-import { DeprecationIcon } from '../../../../../components/styled/DeprecationIcon';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { FieldPopularity } from './FieldPopularity';
+
+import { useMutationUrn } from '@app/entity/shared/EntityContext';
+import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
+import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { Button, colors } from '@src/alchemy-components';
+import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+
+import { Deprecation, SubResourceType, UsageQueryResult } from '@types';
 
 const FieldDetailsWrapper = styled.div`
     padding: 16px 12px;
@@ -18,13 +21,13 @@ const FieldDetailsWrapper = styled.div`
 const FieldDetailsContent = styled.div`
     display: flex;
     gap: 10px;
-    border-bottom: 1px dashed;
-    border-color: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid;
+    border-color: ${colors.gray[100]};
     padding-bottom: 16px;
     & > div {
         &:not(:first-child) {
-            border-left: 1px dashed;
-            border-color: rgba(0, 0, 0, 0.3);
+            border-left: 1px solid;
+            border-color: ${colors.gray[100]};
         }
     }
 `;
@@ -40,7 +43,6 @@ const NotesWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    gap: 8px;
     padding: 0px 16px;
 `;
 
@@ -48,7 +50,6 @@ const DeprecationWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    gap: 8px;
     padding: 0px 16px;
 `;
 
@@ -70,6 +71,11 @@ const DetailValue = styled(Typography.Text)`
     font-weight: 500;
     line-height: 16px;
     width: max-content;
+`;
+
+const StyledButton = styled(Button)`
+    padding-left: 4px;
+    padding-right: 4px;
 `;
 
 type FieldDetailsProps = {
@@ -127,20 +133,16 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch, refe
                 <NotesWrapper>
                     <DetailLabel>Notes</DetailLabel>
                     {isSchemaEditable && (
-                        <Button
-                            type="text"
-                            style={{
-                                width: 70,
-                                padding: 0,
-                                marginTop: -8,
-                                color: REDESIGN_COLORS.LINK_GREY,
-                            }}
+                        <StyledButton
+                            variant="text"
+                            size="sm"
+                            color="gray"
                             onClick={() => {
                                 setIsPostModalVisible(true);
                             }}
                         >
                             + Add Note
-                        </Button>
+                        </StyledButton>
                     )}
                 </NotesWrapper>
                 <DeprecationWrapper>

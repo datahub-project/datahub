@@ -6,7 +6,7 @@ DataHub, now supports [OpenLineage](https://openlineage.io/) integration. With t
 
 - **REST Endpoint Support**: DataHub now includes a REST endpoint that can understand OpenLineage events. This allows users to send lineage information directly to DataHub, enabling easy integration with various data processing frameworks.
 
-- **[Spark Event Listener Plugin](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)**: DataHub provides a Spark Event Listener plugin that seamlessly integrates OpenLineage's Spark plugin. This plugin enhances DataHub's OpenLineage support by offering additional features such as PathSpec support, column-level lineage, patch support and more.
+- **[Spark Event Listener Plugin](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage)**: DataHub provides a Spark Event Listener plugin that seamlessly integrates OpenLineage's Spark plugin. This plugin enhances DataHub's OpenLineage support by offering additional features such as PathSpec support, column-level lineage, patch support and more.
 
 ## OpenLineage Support with DataHub
 
@@ -63,7 +63,8 @@ Follow the Airflow guide to setup the Airflow DAGs to send lineage information t
 The transport should look like this:
 
 ```json
-{"type": "http",
+{
+  "type": "http",
   "url": "https://GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/",
   "endpoint": "api/v1/lineage",
   "auth": {
@@ -77,7 +78,7 @@ The transport should look like this:
 
 With Spark and Airflow we recommend using the Spark Lineage or DataHub's Airflow plugin for tighter integration with DataHub.
 
-- **[PathSpec](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available in the OpenLineage endpoint but it is available in the Acryl Spark Plugin.
+- **[PathSpec](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns) Support**: While the REST endpoint supports OpenLineage messages, full [PathSpec](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage/#configuring-hdfs-based-dataset-urns)) support is not yet available in the OpenLineage endpoint but it is available in the DataHub Cloud Spark Plugin.
 
 etc...
 
@@ -87,10 +88,10 @@ DataHub's Spark Event Listener plugin enhances OpenLineage support by providing 
 
 #### How to Use
 
-Follow the guides of the Spark Lineage plugin page for more information on how to set up the Spark Lineage plugin. The guide can be found [here](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)
+Follow the guides of the Spark Lineage plugin page for more information on how to set up the Spark Lineage plugin. The guide can be found [here](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage)
 
 ## References
 
 - [OpenLineage](https://openlineage.io/)
 - [DataHub OpenAPI Guide](../api/openapi/openapi-usage-guide.md)
-- [DataHub Spark Lineage Plugin](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)
+- [DataHub Spark Lineage Plugin](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage)

@@ -1,4 +1,4 @@
-import { FilterRenderProps } from './types';
+import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 
 /**
  * Base interface used for custom search filter renderers

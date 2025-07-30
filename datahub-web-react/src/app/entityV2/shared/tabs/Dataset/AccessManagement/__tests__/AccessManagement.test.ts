@@ -1,6 +1,7 @@
-import { GetExternalRolesQuery } from '../../../../../../../graphql/dataset.generated';
-import { GetMeQuery } from '../../../../../../../graphql/me.generated';
-import { handleAccessRoles } from '../utils';
+import { handleAccessRoles } from '@app/entityV2/shared/tabs/Dataset/AccessManagement/utils';
+
+import { GetExternalRolesQuery } from '@graphql/dataset.generated';
+import { GetMeQuery } from '@graphql/me.generated';
 
 describe('handleAccessRoles', () => {
     it('should properly map the externalroles and loggedin user', () => {
@@ -68,6 +69,7 @@ describe('handleAccessRoles', () => {
                     manageIdentities: true,
                     manageDomains: true,
                     manageTags: true,
+                    viewManageTags: true,
                     createDomains: true,
                     createTags: true,
                     manageUserCredentials: true,
@@ -85,7 +87,9 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
-
+                    manageApplications: true,
+                    manageFeatures: true,
+                    manageHomePageTemplates: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -151,6 +155,7 @@ describe('handleAccessRoles', () => {
                     manageIdentities: true,
                     manageDomains: true,
                     manageTags: true,
+                    viewManageTags: true,
                     createDomains: true,
                     createTags: true,
                     manageUserCredentials: true,
@@ -168,6 +173,9 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
+                    manageApplications: true,
+                    manageFeatures: true,
+                    manageHomePageTemplates: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',
@@ -241,6 +249,7 @@ describe('handleAccessRoles', () => {
                     manageIdentities: true,
                     manageDomains: true,
                     manageTags: true,
+                    viewManageTags: true,
                     createDomains: true,
                     createTags: true,
                     manageUserCredentials: true,
@@ -258,7 +267,9 @@ describe('handleAccessRoles', () => {
                     manageBusinessAttributes: true,
                     manageStructuredProperties: true,
                     viewStructuredPropertiesPage: true,
-
+                    manageApplications: true,
+                    manageFeatures: true,
+                    manageHomePageTemplates: true,
                     __typename: 'PlatformPrivileges',
                 },
                 __typename: 'AuthenticatedUser',

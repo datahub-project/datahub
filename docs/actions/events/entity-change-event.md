@@ -10,12 +10,12 @@ This Event is emitted when certain changes are made to an entity (dataset, dashb
 
 ## Event Structure
 
-Entity Change Events are generated in a variety of circumstances, but share a common set of fields. 
+Entity Change Events are generated in a variety of circumstances, but share a common set of fields.
 
 ### Common Fields
 
 | Name             | Type   | Description                                                                                                                                                                                            | Optional |
-|------------------|--------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|
+| ---------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
 | entityUrn        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                      | False    |
 | entityType       | String | The type of the entity being changed. Supported values include dataset, chart, dashboard, dataFlow (Pipeline), dataJob (Task), domain, tag, glossaryTerm, corpGroup, & corpUser.                       | False    |
 | category         | String | The category of the change, related to the kind of operation that was performed. Examples include TAG, GLOSSARY_TERM, DOMAIN, LIFECYCLE, and more.                                                     | False    |
@@ -25,10 +25,7 @@ Entity Change Events are generated in a variety of circumstances, but share a co
 | auditStamp.actor | String | The urn of the actor who triggered the change.                                                                                                                                                         | False    |
 | auditStamp.time  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                              | False    |
 
-
-
 In following sections, we will provide sample events for each scenario in which Entity Change Events are fired.
-
 
 ### Add Tag Event
 
@@ -48,11 +45,10 @@ This event is emitted when a Tag has been added to an entity on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Remove Tag Event
 
@@ -60,6 +56,7 @@ This event is emitted when a Tag has been removed from an entity on DataHub.
 Header
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -72,11 +69,10 @@ Header
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Add Glossary Term Event
 
@@ -84,6 +80,7 @@ This event is emitted when a Glossary Term has been added to an entity on DataHu
 Header
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -96,17 +93,17 @@ Header
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Remove Glossary Term Event
 
 This event is emitted when a Glossary Term has been removed from an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -119,17 +116,17 @@ This event is emitted when a Glossary Term has been removed from an entity on Da
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Add Domain Event
 
 This event is emitted when Domain has been added to an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -142,11 +139,10 @@ This event is emitted when Domain has been added to an entity on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Remove Domain Event
 
@@ -154,6 +150,7 @@ This event is emitted when Domain has been removed from an entity on DataHub.
 Header
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -162,21 +159,21 @@ Header
   "operation": "REMOVE",
   "modifier": "urn:li:domain:ExampleDomain",
   "parameters": {
-     "domainUrn": "urn:li:domain:ExampleDomain"
+    "domainUrn": "urn:li:domain:ExampleDomain"
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Add Owner Event
 
 This event is emitted when a new owner has been assigned to an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -185,22 +182,22 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
   "operation": "ADD",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {
-     "ownerUrn": "urn:li:corpuser:jdoe",
-     "ownerType": "BUSINESS_OWNER"
+    "ownerUrn": "urn:li:corpuser:jdoe",
+    "ownerType": "BUSINESS_OWNER"
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Remove Owner Event
 
 This event is emitted when an existing owner has been removed from an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -214,7 +211,7 @@ This event is emitted when an existing owner has been removed from an entity on 
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -224,6 +221,7 @@ This event is emitted when an existing owner has been removed from an entity on 
 This event is emitted when a Structured Property has been added to an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -238,7 +236,7 @@ This event is emitted when a Structured Property has been added to an entity on 
   "version": 0,
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -248,6 +246,7 @@ This event is emitted when a Structured Property has been added to an entity on 
 This event is emitted when a Structured Property has been removed from an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -258,7 +257,7 @@ This event is emitted when a Structured Property has been removed from an entity
   "version": 0,
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -268,6 +267,7 @@ This event is emitted when a Structured Property has been removed from an entity
 This event is emitted when a Structured Property's values have been modified on an entity in DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -282,7 +282,7 @@ This event is emitted when a Structured Property's values have been modified on 
   "version": 0,
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -292,6 +292,7 @@ This event is emitted when a Structured Property's values have been modified on 
 This event is emitted when the deprecation status of an entity has been modified on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -304,15 +305,14 @@ This event is emitted when the deprecation status of an entity has been modified
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
 
-
 ### Add Dataset Schema Field Event
 
-This event is emitted when a new field has been added to a Dataset Schema. 
+This event is emitted when a new field has been added to a Dataset Schema.
 
 #### Sample Event
 
@@ -330,17 +330,17 @@ This event is emitted when a new field has been added to a Dataset Schema.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
 
-
 ### Remove Dataset Schema Field Event
 
-This event is emitted when a new field has been remove from a Dataset Schema. 
+This event is emitted when a new field has been remove from a Dataset Schema.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -355,18 +355,18 @@ This event is emitted when a new field has been remove from a Dataset Schema.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
 
-
 ### Entity Create Event
 
-This event is emitted when a new entity has been created on DataHub. 
+This event is emitted when a new entity has been created on DataHub.
 Header
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -375,17 +375,17 @@ Header
   "operation": "CREATE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
 
-
-### Entity Soft-Delete Event 
+### Entity Soft-Delete Event
 
 This event is emitted when a new entity has been soft-deleted on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -394,17 +394,17 @@ This event is emitted when a new entity has been soft-deleted on DataHub.
   "operation": "SOFT_DELETE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
 
 ### Entity Hard-Delete Event
 
 This event is emitted when a new entity has been hard-deleted on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityUrn": "urn:li:dataset:abc",
@@ -413,7 +413,7 @@ This event is emitted when a new entity has been hard-deleted on DataHub.
   "operation": "HARD_DELETE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -427,6 +427,7 @@ Action Request events represent proposals for changes to entities that may requi
 This event is emitted when a domain association is proposed for an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
@@ -452,11 +453,12 @@ This event is emitted when a domain association is proposed for an entity on Dat
 This event is emitted when an owner association is proposed for an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
   "entityUrn": "urn:li:actionRequest:def-456",
-  "category": "LIFECYCLE", 
+  "category": "LIFECYCLE",
   "operation": "CREATE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
@@ -477,6 +479,7 @@ This event is emitted when an owner association is proposed for an entity on Dat
 This event is emitted when a tag association is proposed for an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
@@ -502,6 +505,7 @@ This event is emitted when a tag association is proposed for an entity on DataHu
 This event is emitted when a new glossary term creation is proposed on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
@@ -527,6 +531,7 @@ This event is emitted when a new glossary term creation is proposed on DataHub.
 This event is emitted when a glossary term association is proposed for an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
@@ -552,6 +557,7 @@ This event is emitted when a glossary term association is proposed for an entity
 This event is emitted when an update to an entity's description is proposed on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
@@ -577,6 +583,7 @@ This event is emitted when an update to an entity's description is proposed on D
 This event is emitted when a structured property association is proposed for an entity on DataHub.
 
 #### Sample Event
+
 ```json
 {
   "entityType": "actionRequest",
@@ -590,7 +597,7 @@ This event is emitted when a structured property association is proposed for an 
   "version": 0,
   "parameters": {
     "structuredProperties": "[{\"propertyUrn\":\"urn:li:structuredProperty:123\",\"values\":[\"value1\",\"value2\"]}]",
-    "actionRequestType": "STRUCTURED_PROPERTY_ASSOCIATION", 
+    "actionRequestType": "STRUCTURED_PROPERTY_ASSOCIATION",
     "resourceUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,example.table,PROD)",
     "resourceType": "dataset"
   }

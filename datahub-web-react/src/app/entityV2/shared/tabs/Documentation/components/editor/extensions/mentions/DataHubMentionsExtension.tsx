@@ -1,19 +1,17 @@
 /* eslint-disable class-methods-use-this */
-import React, { ComponentType } from 'react';
-import type { Plugin } from 'prosemirror-state';
 import {
     ApplySchemaAttributes,
     CommandFunction,
-    extension,
     ExtensionTag,
     FromToProps,
     Handler,
-    isElementDomNode,
     NodeExtension,
     NodeExtensionSpec,
     NodeSpecOverride,
-    omitExtraAttributes,
     ProsemirrorAttributes,
+    extension,
+    isElementDomNode,
+    omitExtraAttributes,
 } from '@remirror/core';
 import { NodeViewComponentProps } from '@remirror/react';
 import autocomplete, {
@@ -21,7 +19,10 @@ import autocomplete, {
     AutocompleteAction,
     pluginKey as acPluginKey,
 } from 'prosemirror-autocomplete';
-import { MentionsNodeView } from './MentionsNodeView';
+import type { Plugin } from 'prosemirror-state';
+import React, { ComponentType } from 'react';
+
+import { MentionsNodeView } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/MentionsNodeView';
 
 export const DATAHUB_MENTION_ATTRS = {
     urn: 'data-datahub-mention-urn',

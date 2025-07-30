@@ -12,12 +12,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "5",
                             "partition_columns": "['foo', 'bar']",
                             "table_creation_time": "1655831476360",
                             "id": "628d06df-ecb0-4314-a97e-75d8872db7c3",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
+                            "number_of_files": "5"
                         },
                         "name": "test-table-basic",
                         "description": "test delta table basic with table name",
@@ -54,8 +54,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].foo",
@@ -67,8 +66,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].zip",
@@ -80,8 +78,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -187,6 +184,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "inner_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -259,10 +272,15 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "container": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+            "path": [
+                {
+                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
+                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -273,17 +291,12 @@
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:974a39dc631803eddedc699cc9bb9759",
+    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
     "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
+    "aspectName": "container",
     "aspect": {
         "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf",
-                    "urn": "urn:li:container:bdfaaacd66870755e65612e0b88dd4bf"
-                }
-            ]
+            "container": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
         }
     },
     "systemMetadata": {
@@ -368,22 +381,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -397,6 +394,22 @@
                     "urn": "urn:li:container:974a39dc631803eddedc699cc9bb9759"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "inner_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
         }
     },
     "systemMetadata": {
@@ -481,22 +494,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -514,6 +511,22 @@
                     "urn": "urn:li:container:dae543a1ed7ecfea4079a971dc7805a6"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "inner_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
         }
     },
     "systemMetadata": {
@@ -586,22 +599,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ad4b596846e8e010114b1ec82b324fab",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ee050cda8eca59687021c24cbc0bb8a4"
         }
     },
     "systemMetadata": {
@@ -858,12 +855,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "3",
                             "partition_columns": "[]",
                             "table_creation_time": "1655664813952",
                             "id": "eca9d2a0-4ce6-4ace-a732-75fda0157fb8",
                             "version": "0",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
+                            "number_of_files": "3"
                         },
                         "name": "my_table",
                         "description": "my table description",
@@ -900,8 +897,7 @@
                                 },
                                 "nativeDataType": "float",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"float\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].day",
@@ -913,8 +909,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].month",
@@ -926,8 +921,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].year",
@@ -939,8 +933,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].customer",
@@ -952,8 +945,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].sale_id",
@@ -965,8 +957,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1075,12 +1066,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "5",
                             "partition_columns": "['foo', 'bar']",
                             "table_creation_time": "1655831648843",
                             "id": "de711767-c7b9-4c33-99d7-510978dc1fa5",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
+                            "number_of_files": "5"
                         },
                         "name": "my_table_no_name",
                         "tags": []
@@ -1116,8 +1107,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].foo",
@@ -1129,8 +1119,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].zip",
@@ -1142,8 +1131,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1372,12 +1360,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "5",
                             "partition_columns": "['foo', 'bar']",
                             "table_creation_time": "1655831864836",
                             "id": "3775a0fd-4f58-4dea-b71a-e3fedb10f5b4",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables",
+                            "number_of_files": "5"
                         },
                         "name": "test-table-inner",
                         "description": "test delta table basic with table name at inner location",
@@ -1414,8 +1402,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].foo",
@@ -1427,8 +1414,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].zip",
@@ -1440,13 +1426,28 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "inner_table.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6bb6dc6de93177210067d00b45b481bb",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
         }
     },
     "systemMetadata": {
@@ -1519,22 +1520,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "inner_table.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:6bb6dc6de93177210067d00b45b481bb",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ad4b596846e8e010114b1ec82b324fab"
         }
     },
     "systemMetadata": {

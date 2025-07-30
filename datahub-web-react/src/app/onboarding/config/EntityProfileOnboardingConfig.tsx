@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 // Entity profile tabs. Note that the 'rc-tab' prefix for the ID is added by the antd library and may change in the future.
 export const ENTITY_PROFILE_ENTITIES_ID = 'entity-profile-entities';
@@ -127,7 +128,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Tags</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/tags">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags">
                         {' '}
                         here.{' '}
                     </a>
@@ -154,7 +155,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/glossary/business-glossary"
+                        href="https://docs.datahub.com/docs/glossary/business-glossary"
                     >
                         {' '}
                         here.
@@ -178,7 +179,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                         {' '}
                         here.
                     </a>

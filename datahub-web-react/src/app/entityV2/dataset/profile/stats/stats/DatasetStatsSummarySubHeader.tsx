@@ -1,9 +1,11 @@
 import React from 'react';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { DatasetStatsSummary as DatasetStatsSummaryObj, EntityType } from '../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { DatasetStatsSummary } from '../../../shared/DatasetStatsSummary';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { DatasetStatsSummary } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { DatasetStatsSummary as DatasetStatsSummaryObj, EntityType } from '@types';
 
 export const DatasetStatsSummarySubHeader = () => {
     const result = useBaseEntity<GetDatasetQuery>();

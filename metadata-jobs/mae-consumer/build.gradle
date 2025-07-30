@@ -25,6 +25,7 @@ dependencies {
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':datahub-graphql-core')
+    api project(':metadata-jobs:common')
 
     implementation externalDependency.elasticSearchRest
     implementation externalDependency.kafkaAvroSerde
@@ -34,6 +35,7 @@ dependencies {
     implementation externalDependency.springKafka
     implementation externalDependency.annotationApi
     implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
@@ -43,7 +45,10 @@ dependencies {
     runtimeOnly externalDependency.logbackClassic
 
     testImplementation externalDependency.mockito
+    testImplementation(testFixtures(project(":metadata-io")))
     implementation externalDependency.awsMskIamAuth
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
 
     testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
@@ -64,5 +69,5 @@ compileJava.dependsOn avroSchemaSources
 processResources.dependsOn avroSchemaSources
 
 clean {
-    project.delete("src/main/resources/avro")
+    delete "src/main/resources/avro"
 }

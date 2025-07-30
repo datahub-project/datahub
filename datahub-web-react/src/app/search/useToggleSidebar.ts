@@ -1,7 +1,7 @@
-import { EventType } from '../analytics';
-import analytics from '../analytics/analytics';
-import { useUserContext } from '../context/useUserContext';
-import useToggle from '../shared/useToggle';
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import useToggle from '@app/shared/useToggle';
 
 const useToggleSidebar = () => {
     const { localState, updateLocalState } = useUserContext();

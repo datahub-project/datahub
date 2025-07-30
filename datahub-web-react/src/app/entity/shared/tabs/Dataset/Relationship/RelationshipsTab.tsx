@@ -1,22 +1,24 @@
+import '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab.less';
+
+import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
-import { useBaseEntity } from '../../../EntityContext';
-import './RelationshipsTab.less';
-import { EntityType, ErModelRelationship } from '../../../../../../types.generated';
-import { useGetSearchResultsQuery } from '../../../../../../graphql/search.generated';
-import {
-    GetDatasetQuery,
-    useGetDatasetLazyQuery,
-    useGetDatasetSchemaLazyQuery,
-} from '../../../../../../graphql/dataset.generated';
-import { useGetEntityWithSchema } from '../Schema/useGetEntitySchema';
-import closeIcon from '../../../../../../images/close_dark.svg';
-import { CreateERModelRelationModal } from '../../../components/styled/ERModelRelationship/CreateERModelRelationModal';
-import { ERModelRelationPreview } from '../../../components/styled/ERModelRelationship/ERModelRelationPreview';
-import { SearchSelectModal } from '../../../components/styled/search/SearchSelectModal';
-import { ANTD_GRAY } from '../../../constants';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { CreateERModelRelationModal } from '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal';
+import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview';
+import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+
+import { GetDatasetQuery, useGetDatasetLazyQuery, useGetDatasetSchemaLazyQuery } from '@graphql/dataset.generated';
+import { useGetSearchResultsQuery } from '@graphql/search.generated';
+import { EntityType, ErModelRelationship } from '@types';
+
+import closeIcon from '@images/close_dark.svg';
 
 const StyledPagination = styled(Pagination)`
     margin: 0px;
@@ -49,10 +51,12 @@ export const RelationshipsTab = () => {
     const { entityWithSchema } = useGetEntityWithSchema();
     const [modalVisible, setModalVisible] = useState(false);
     const [ermodelrelationModalVisible, setermodelrelationModalVisible] = useState(false);
+    const entityRegistry = useEntityRegistry();
+    const entityName = entityRegistry.getEntityName(EntityType.ErModelRelationship);
     const tabs = [
         {
             key: 'ermodelrelationsTab',
-            tab: 'ER-Model-Relationships',
+            tab: entityRegistry.getCollectionName(EntityType.ErModelRelationship),
         },
     ];
     const {
@@ -130,7 +134,7 @@ export const RelationshipsTab = () => {
                     )}
                     {loadingERModelRelation && (
                         <div>
-                            ER-Model-Relationships <LoadingOutlined />
+                            {entityName} <LoadingOutlined />
                         </div>
                     )}
                 </>
@@ -153,7 +157,7 @@ export const RelationshipsTab = () => {
         },
     });
 
-    const schemaIssueModal = () => {
+    const schemaIssueModal = useCallback(() => {
         Modal.error({
             title: `Schema error`,
             className: 'schema-modal',
@@ -161,7 +165,7 @@ export const RelationshipsTab = () => {
                 <div>
                     <ThinDivider />
                     <p className="msg-div-inner">
-                        A schema was not ingested for the dataset selected. ERModelRelation cannot be created.
+                        A schema was not ingested for the dataset selected. {entityName} cannot be created.
                     </p>
                     <ThinDivider />
                 </div>
@@ -173,7 +177,7 @@ export const RelationshipsTab = () => {
             maskClosable: true,
             closable: true,
         });
-    };
+    }, [entityName]);
     useEffect(() => {
         if (
             table2LazySchema?.dataset !== undefined &&
@@ -188,7 +192,7 @@ export const RelationshipsTab = () => {
             setermodelrelationModalVisible(false);
             setModalVisible(true);
         }
-    }, [table2LazySchema]);
+    }, [table2LazySchema, schemaIssueModal]);
     return (
         <>
             {ermodelrelationModalVisible && (
@@ -225,6 +229,7 @@ export const RelationshipsTab = () => {
                         setModalVisible(false);
                     }}
                     refetch={refetch}
+                    entityName={entityName}
                 />
             )}
             <Card
@@ -239,11 +244,11 @@ export const RelationshipsTab = () => {
                 <div className="search-header-div">
                     <StyledInput
                         defaultValue={filterText}
-                        placeholder="Find erModelRelationship..."
+                        placeholder={`Find ${entityName}...`}
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
-                        prefix={<SearchOutlined />}
+                        prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
                     />
                     <Button
                         type="link"
@@ -253,7 +258,7 @@ export const RelationshipsTab = () => {
                             setermodelrelationModalVisible(true);
                         }}
                     >
-                        <PlusOutlined /> Add ER-Model-Relationship
+                        <PlusOutlined /> Add {entityName}
                     </Button>
                 </div>{' '}
                 <br />

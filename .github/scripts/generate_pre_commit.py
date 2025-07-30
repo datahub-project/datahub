@@ -19,6 +19,7 @@ class ProjectType(Enum):
 
     JAVA = auto()
     PYTHON = auto()
+    PRETTIER = auto()
 
 
 @dataclass
@@ -27,6 +28,8 @@ class Project:
 
     path: str
     type: ProjectType
+    taskName: str | None = None  # Used for prettier projects
+    filePattern: str | None = None  # Used for prettier projects
 
     @property
     def gradle_path(self) -> str:
@@ -151,8 +154,12 @@ class HookGenerator:
         for project in self.projects:
             if project.type == ProjectType.PYTHON:
                 hooks.append(self._generate_lint_fix_hook(project))
-            else:  # ProjectType.JAVA
+            elif project.type == ProjectType.JAVA:
                 hooks.append(self._generate_spotless_hook(project))
+            elif project.type == ProjectType.PRETTIER:
+                hooks.append(self._generate_prettier_hook(project))
+            else:
+                print(f"Warning: Unsupported project type {project.type} for {project.path}")
 
         config = {"repos": [{"repo": "local", "hooks": hooks}]}
         
@@ -188,7 +195,7 @@ class HookGenerator:
             "name": f"{project.path} Lint Fix",
             "entry": f"./gradlew {project.gradle_path}:lintFix",
             "language": "system",
-            "files": f"^{project.path}/.*\\.py$",
+            "files": f"^{project.path}/.*\\.(py|toml)$",
             "pass_filenames": False,
         }
 
@@ -200,6 +207,17 @@ class HookGenerator:
             "entry": f"./gradlew {project.gradle_path}:spotlessApply",
             "language": "system",
             "files": f"^{project.path}/.*\\.java$",
+            "pass_filenames": False,
+        }
+
+    def _generate_prettier_hook(self, project: Project) -> dict:
+        """Generate a prettier hook for projects."""
+        return {
+            "id": f"{project.project_id}-{project.taskName}",
+            "name": f"{project.taskName}",
+            "entry": f"./gradlew {project.gradle_path}:{project.taskName}",
+            "language": "system",
+            "files": project.filePattern,
             "pass_filenames": False,
         }
 
@@ -253,7 +271,21 @@ def main():
 
     # Find projects
     finder = ProjectFinder(root_dir)
-    projects = finder.find_all_projects()
+    prettier_projects = [
+        Project(
+            path="datahub-web-react",
+            type=ProjectType.PRETTIER,
+            taskName="mdPrettierWriteChanged",
+            filePattern="^.*\\.md$",
+        ),
+        Project(
+            path="datahub-web-react",
+            type=ProjectType.PRETTIER,
+            taskName="githubActionsPrettierWriteChanged",
+            filePattern="^\\.github/.*\\.(yml|yaml)$"
+        ),
+    ]
+    projects = [*prettier_projects, *finder.find_all_projects()]
 
     # Print summary
     print("Found projects:")

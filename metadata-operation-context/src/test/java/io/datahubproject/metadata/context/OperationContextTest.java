@@ -18,10 +18,15 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,13 +35,13 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class OperationContextTest {
-  private TraceContext mockTraceContext;
+  private SystemTelemetryContext mockSystemTelemetryContext;
   private SystemMetadata mockSystemMetadata;
   private ObjectMapper mockObjectMapper;
 
   @BeforeMethod
   public void setUp() {
-    mockTraceContext = mock(TraceContext.class);
+    mockSystemTelemetryContext = mock(SystemTelemetryContext.class);
     mockSystemMetadata = mock(SystemMetadata.class);
     mockObjectMapper = mock(ObjectMapper.class);
   }
@@ -101,12 +106,12 @@ public class OperationContextTest {
 
   @Test
   public void testWithTraceId_WithTraceContextAndSystemMetadata() {
-    when(mockTraceContext.withTraceId(eq(mockSystemMetadata), anyBoolean()))
+    when(mockSystemTelemetryContext.withTraceId(eq(mockSystemMetadata), anyBoolean()))
         .thenReturn(mockSystemMetadata);
 
     SystemMetadata result = buildTraceMock().withTraceId(mockSystemMetadata);
 
-    verify(mockTraceContext).withTraceId(mockSystemMetadata, false);
+    verify(mockSystemTelemetryContext).withTraceId(mockSystemMetadata, false);
     assertEquals(result, mockSystemMetadata);
   }
 
@@ -114,7 +119,7 @@ public class OperationContextTest {
   public void testWithTraceId_NullSystemMetadata() {
     SystemMetadata result = buildTraceMock().withTraceId(null);
 
-    verifyNoInteractions(mockTraceContext);
+    verifyNoInteractions(mockSystemTelemetryContext);
     assertNull(result);
   }
 
@@ -144,12 +149,12 @@ public class OperationContextTest {
               Supplier<?> capturedSupplier = invocation.getArgument(1);
               return capturedSupplier.get();
             })
-        .when(mockTraceContext)
+        .when(mockSystemTelemetryContext)
         .withSpan(eq(spanName), any(Supplier.class), eq(attributes));
 
     String result = buildTraceMock().withSpan(spanName, operation, attributes);
 
-    verify(mockTraceContext).withSpan(eq(spanName), any(Supplier.class), eq(attributes));
+    verify(mockSystemTelemetryContext).withSpan(eq(spanName), any(Supplier.class), eq(attributes));
     assertTrue(operationExecuted[0], "The operation supplier should have been executed");
     assertEquals(result, "result", "The result should match the operation's return value");
   }
@@ -175,7 +180,7 @@ public class OperationContextTest {
 
     buildTraceMock().withSpan(spanName, operation, attributes);
 
-    verify(mockTraceContext).withSpan(eq(spanName), eq(operation), eq(attributes));
+    verify(mockSystemTelemetryContext).withSpan(eq(spanName), eq(operation), eq(attributes));
     verifyNoMoreInteractions(operation);
   }
 
@@ -188,7 +193,7 @@ public class OperationContextTest {
 
     buildTraceMock().withQueueSpan(spanName, mockSystemMetadata, topicName, operation, attributes);
 
-    verify(mockTraceContext)
+    verify(mockSystemTelemetryContext)
         .withQueueSpan(
             eq(spanName),
             eq(List.of(mockSystemMetadata)),
@@ -207,7 +212,7 @@ public class OperationContextTest {
 
     buildTraceMock().withQueueSpan(spanName, systemMetadataList, topicName, operation, attributes);
 
-    verify(mockTraceContext)
+    verify(mockSystemTelemetryContext)
         .withQueueSpan(
             eq(spanName), eq(systemMetadataList), eq(topicName), eq(operation), eq(attributes));
   }
@@ -245,13 +250,66 @@ public class OperationContextTest {
     assertTrue(result.contains("test exception 2"));
   }
 
+  @Test
+  public void testGetEntityAspectNames_ByEntityType() {
+    // Arrange
+    String entityType = "dataset";
+    Set<String> expectedAspectNames =
+        new HashSet<>(Arrays.asList("ownership", "status", "description"));
+
+    EntityRegistryContext mockEntityRegistryContext = mock(EntityRegistryContext.class);
+    when(mockEntityRegistryContext.getEntityAspectNames(eq(entityType)))
+        .thenReturn(expectedAspectNames);
+
+    // Mock RetrieverContext and dependencies
+    CachingAspectRetriever mockAspectRetriever = mock(CachingAspectRetriever.class);
+    RetrieverContext mockRetrieverContext = mock(RetrieverContext.class);
+    when(mockRetrieverContext.getAspectRetriever()).thenReturn(mockAspectRetriever);
+    when(mockRetrieverContext.getCachingAspectRetriever()).thenReturn(mockAspectRetriever);
+
+    // Mock Authorizer
+    Authorizer mockAuthorizer = mock(Authorizer.class);
+
+    // Mock Actor and Authentication
+    Actor actor = new Actor(ActorType.USER, "USER");
+    Authentication authentication = new Authentication(actor, "");
+
+    // Setup Actor URN and mock Authorizer responses
+    Urn actorUrn = UrnUtils.getUrn(actor.toUrnStr());
+    when(mockAuthorizer.getActorPolicies(eq(actorUrn))).thenReturn(Collections.emptySet());
+    when(mockAuthorizer.getActorGroups(eq(actorUrn))).thenReturn(Collections.emptySet());
+
+    // Mock ActorContext isActive
+    ActorContext mockActorContext = mock(ActorContext.class);
+    when(mockActorContext.isActive(any(AspectRetriever.class))).thenReturn(true);
+
+    // Build OperationContext with all required dependencies
+    OperationContext operationContext =
+        OperationContext.builder()
+            .operationContextConfig(OperationContextConfig.builder().build())
+            .entityRegistryContext(mockEntityRegistryContext)
+            .retrieverContext(mockRetrieverContext)
+            .authorizationContext(AuthorizationContext.builder().authorizer(mockAuthorizer).build())
+            .searchContext(SearchContext.EMPTY)
+            .objectMapperContext(ObjectMapperContext.DEFAULT)
+            .validationContext(mock(ValidationContext.class))
+            .build(authentication, false);
+
+    // Act
+    Set<String> actualAspectNames = operationContext.getEntityAspectNames(entityType);
+
+    // Assert
+    assertEquals(actualAspectNames, expectedAspectNames);
+    verify(mockEntityRegistryContext).getEntityAspectNames(entityType);
+  }
+
   private OperationContext buildTraceMock() {
     return buildTraceMock(null);
   }
 
-  private OperationContext buildTraceMock(Supplier<TraceContext> traceContextSupplier) {
+  private OperationContext buildTraceMock(Supplier<SystemTelemetryContext> traceContextSupplier) {
     return TestOperationContexts.systemContextTraceNoSearchAuthorization(
         () -> ObjectMapperContext.builder().objectMapper(mockObjectMapper).build(),
-        traceContextSupplier == null ? () -> mockTraceContext : traceContextSupplier);
+        traceContextSupplier == null ? () -> mockSystemTelemetryContext : traceContextSupplier);
   }
 }

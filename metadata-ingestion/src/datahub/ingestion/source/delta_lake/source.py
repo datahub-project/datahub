@@ -98,6 +98,7 @@ OPERATION_STATEMENT_TYPES = {
     "Can extract S3 object/bucket and Azure blob/container tags if enabled",
 )
 @capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 class DeltaLakeSource(StatefulIngestionSourceBase):
     """
     This plugin extracts:

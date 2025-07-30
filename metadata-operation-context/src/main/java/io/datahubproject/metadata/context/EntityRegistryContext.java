@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EmptyEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.LineageRegistry;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -24,6 +25,7 @@ public class EntityRegistryContext implements ContextInterface {
       EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY);
 
   @EqualsAndHashCode.Exclude @Nonnull private final EntityRegistry entityRegistry;
+  @EqualsAndHashCode.Exclude @Nonnull private final LineageRegistry lineageRegistry;
   @Nonnull private final Map<String, Set<String>> entityToAspectsMap;
 
   public Set<String> getEntityAspectNames(String entityType) {
@@ -66,7 +68,10 @@ public class EntityRegistryContext implements ContextInterface {
     }
 
     public EntityRegistryContext build(@Nonnull EntityRegistry entityRegistry) {
-      return new EntityRegistryContext(entityRegistry, buildEntityToValidAspects(entityRegistry));
+      return new EntityRegistryContext(
+          entityRegistry,
+          new LineageRegistry(entityRegistry),
+          buildEntityToValidAspects(entityRegistry));
     }
 
     private static Map<String, Set<String>> buildEntityToValidAspects(

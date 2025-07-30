@@ -195,6 +195,9 @@ fragment entityPreview on Entity {
         health {
             ...entityHealth
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         urn

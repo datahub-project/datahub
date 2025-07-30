@@ -1,6 +1,7 @@
 import React from 'react';
-import { pluralize } from '../../../../../../shared/textUtil';
-import { SubTitle } from './components';
+
+import { SubTitle } from '@app/entity/shared/containers/profile/sidebar/FormInfo/components';
+import { pluralize } from '@app/shared/textUtil';
 
 interface Props {
     numRemaining: number;

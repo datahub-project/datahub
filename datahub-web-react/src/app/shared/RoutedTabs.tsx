@@ -1,8 +1,8 @@
-import * as React from 'react';
-import { Route, Switch, useRouteMatch, useLocation } from 'react-router-dom';
-import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
+import * as React from 'react';
+import { Redirect, useHistory } from 'react-router';
+import { Route, Switch, useLocation, useRouteMatch } from 'react-router-dom';
 import styled from 'styled-components';
 
 const { TabPane } = Tabs;

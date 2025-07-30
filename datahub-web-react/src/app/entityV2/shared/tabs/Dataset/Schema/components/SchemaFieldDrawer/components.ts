@@ -1,6 +1,8 @@
 import { Divider } from 'antd';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { colors } from '@src/alchemy-components';
 
 export const SectionHeader = styled.div`
     margin-bottom: 8px;
@@ -12,5 +14,6 @@ export const SectionHeader = styled.div`
 `;
 
 export const StyledDivider = styled(Divider)`
-    border-color: rgba(0, 0, 0, 0.3);
+    border-color: ${colors.gray[100]};
+    border-style: solid;
 `;

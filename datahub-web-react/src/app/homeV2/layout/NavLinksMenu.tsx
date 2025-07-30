@@ -1,23 +1,22 @@
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { Tooltip } from '@components';
-import { Link } from 'react-router-dom';
+import { useUserContext } from '@app/context/useUserContext';
+import CustomNavLink from '@app/homeV2/layout/CustomNavLink';
+import { NavMenuItem, NavSubMenuItem } from '@app/homeV2/layout/types';
+import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
+import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
+import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
+import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
 
-import { HelpLinkRoutes, PageRoutes } from '../../../conf/Global';
-import { useUserContext } from '../../context/useUserContext';
-import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
-import { useUpdateEducationStepsAllowList } from '../../onboarding/useUpdateEducationStepsAllowList';
-import { useAppConfig } from '../../useAppConfig';
-
-import AnalyticsMenuIcon from '../../../images/analyticsMenuIcon.svg?react';
-import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
-import HelpMenuIcon from '../../../images/help-icon.svg?react';
-import IngestionMenuIcon from '../../../images/ingestionMenuIcon.svg?react';
-import SettingsMenuIcon from '../../../images/settingsMenuIcon.svg?react';
-import { useHandleOnboardingTour } from '../../onboarding/useHandleOnboardingTour';
-import CustomNavLink from './CustomNavLink';
-import { NavMenuItem, NavSubMenuItem } from './types';
+import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
+import GovernMenuIcon from '@images/governMenuIcon.svg?react';
+import HelpMenuIcon from '@images/help-icon.svg?react';
+import IngestionMenuIcon from '@images/ingestionMenuIcon.svg?react';
+import SettingsMenuIcon from '@images/settingsMenuIcon.svg?react';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
@@ -109,6 +108,7 @@ export function NavLinksMenu(props: Props) {
     // Flags to show/hide menu items
     const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
@@ -158,6 +158,18 @@ export function NavLinksMenu(props: Props) {
                         description: 'View and modify your business glossary',
                         link: PageRoutes.GLOSSARY,
                         isHidden: false,
+                    },
+                    {
+                        title: 'Tags',
+                        description: 'View and modify your tags',
+                        link: PageRoutes.MANAGE_TAGS,
+                        isHidden: false,
+                    },
+                    {
+                        title: 'Business Attributes',
+                        description: 'Universal field for data consistency',
+                        link: PageRoutes.BUSINESS_ATTRIBUTE,
+                        isHidden: !businessAttributesFlag,
                     },
                     {
                         title: 'Domains',

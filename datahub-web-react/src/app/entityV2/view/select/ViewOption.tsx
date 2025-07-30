@@ -1,10 +1,12 @@
+import CloseIcon from '@mui/icons-material/Close';
 import React from 'react';
 import styled from 'styled-components';
-import CloseIcon from '@mui/icons-material/Close';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ViewOptionName } from '@app/entityV2/view/select/ViewOptionName';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { DataHubView } from '../../../../types.generated';
-import { ViewOptionName } from './ViewOptionName';
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
+
+import { DataHubView } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -16,31 +18,34 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     display: flex;
     align-items: center;
     position: relative;
-    background: ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : '')};
+    background: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '')};
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
+    width: 100%;
     border-radius: 16px;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BORDER_1};
+        border: 1px solid ${props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BORDER_1};
     `}
 
     &:hover {
         ${(props) =>
             !props.$isShowNavBarRedesign &&
             `
-            border: ${`1px solid ${SEARCH_COLORS.TITLE_PURPLE}`};
+            border: ${`1px solid ${props.theme.styles['primary-color']}`};
             padding: 10px;
         `}
         border-radius: 16px;
         & .create-view-icon {
-            background: ${SEARCH_COLORS.TITLE_PURPLE} !important;
-            border: ${(props) => (!props.selected ? `1px solid ${SEARCH_COLORS.TITLE_PURPLE} !important` : '')};
+            background: ${(props) => props.theme.styles['primary-color']} !important;
+            border: ${(props) =>
+                !props.selected ? `1px solid ${props.theme.styles['primary-color']} !important` : ''};
         }
     }
     & .default-view-icon-container {
         border: 1px solid
-            ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK)};
+            ${(props) =>
+                props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
         border-radius: 100%;
     }
     & .close-container {
@@ -58,7 +63,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 14px !important;
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 type Props = {
@@ -73,6 +78,7 @@ type Props = {
     onClickPreview: () => void;
     onClickClear: () => void;
     selectView: () => void;
+    fixedWidth?: boolean;
 };
 
 export const ViewOption = ({
@@ -87,6 +93,7 @@ export const ViewOption = ({
     onClickPreview,
     onClickClear,
     selectView,
+    fixedWidth,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const onClear = (e) => {
@@ -114,6 +121,7 @@ export const ViewOption = ({
                     onClickPreview={onClickPreview}
                     selected={selectedUrn}
                     selectView={selectView}
+                    fixedWidth={fixedWidth}
                 />
                 {selectedUrn && (
                     <div className="close-container" onClick={(e) => onClear(e)} role="none">

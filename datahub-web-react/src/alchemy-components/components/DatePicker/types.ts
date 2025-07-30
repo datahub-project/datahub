@@ -1,6 +1,7 @@
 import { DatePicker as AntdDatePicker } from 'antd';
 import { Moment } from 'moment';
-import { DatePickerVariant } from './constants';
+
+import { DatePickerVariant } from '@components/components/DatePicker/constants';
 
 export type DatePickerProps = {
     value?: DatePickerValue;
@@ -8,6 +9,7 @@ export type DatePickerProps = {
     disabled?: boolean;
     disabledDate?: (value: DatePickerValue) => boolean;
     variant?: DatePickerVariant;
+    placeholder?: string;
 };
 
 export type DatePickerState = {

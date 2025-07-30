@@ -1,6 +1,7 @@
 import { useContext } from 'react';
-import { EntityRegistryContext } from '../entityRegistryContext';
-import EntityRegistryV2 from './entityV2/EntityRegistry';
+
+import EntityRegistryV2 from '@app/entityV2/EntityRegistry';
+import { EntityRegistryContext } from '@src/entityRegistryContext';
 
 /**
  * Fetch an instance of EntityRegistry from the React context.

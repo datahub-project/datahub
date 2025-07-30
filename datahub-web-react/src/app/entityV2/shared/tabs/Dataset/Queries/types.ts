@@ -1,4 +1,5 @@
-import { CorpUser, Entity, SchemaFieldEntity } from '../../../../../../types.generated';
+import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
+import { CorpUser, Entity, SchemaFieldEntity } from '@types';
 
 export type QueryBuilderState = {
     urn?: string;
@@ -14,10 +15,9 @@ export type Query = {
     description?: string;
     lastRun?: number;
     createdTime?: number;
-    createdBy?: CorpUser | null;
+    createdBy?: ActorWithDisplayNameFragment | null;
     poweredEntity?: Entity;
     usedBy?: CorpUser[];
-    runsPercentileLast30days?: number | null;
     columns?: SchemaFieldEntity[];
 };
 

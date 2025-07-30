@@ -2,7 +2,7 @@ package com.datahub.authentication.group;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.CorpGroupUrnArray;
 import com.linkedin.common.CorpuserUrnArray;
@@ -300,7 +300,7 @@ public class GroupService {
     final EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             groupUrn.toString(),
-            ImmutableList.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
+            ImmutableSet.of(IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
             500,

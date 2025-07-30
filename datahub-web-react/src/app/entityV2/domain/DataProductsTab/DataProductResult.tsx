@@ -1,13 +1,14 @@
-import { useEntityContext } from '@src/app/entity/shared/EntityContext';
 import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DataProduct, EntityType } from '../../../../types.generated';
-import { useEntityRegistryV2 } from '../../../useEntityRegistry';
-import { PreviewType } from '../../Entity';
-import EditDataProductModal from './EditDataProductModal';
-import { REDESIGN_COLORS } from '../../shared/constants';
-import useDeleteEntity from '../../shared/EntityDropdown/useDeleteEntity';
+
+import { PreviewType } from '@app/entityV2/Entity';
+import EditDataProductModal from '@app/entityV2/domain/DataProductsTab/EditDataProductModal';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityContext } from '@src/app/entity/shared/EntityContext';
+
+import { DataProduct, EntityType } from '@types';
 
 const TransparentButton = styled(Button)`
     color: ${REDESIGN_COLORS.RED_ERROR};
@@ -62,10 +63,8 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
         setDeletedDataProductUrns((currentUrns) => [...currentUrns, dataProduct.urn]);
     }
 
-    const { onDeleteEntity } = useDeleteEntity(dataProduct.urn, dataProduct.type, dataProduct, deleteDataProduct);
-
     function onDeleteDataProduct() {
-        onDeleteEntity();
+        deleteDataProduct();
         setTimeout(() => refetch(), 3000);
     }
 

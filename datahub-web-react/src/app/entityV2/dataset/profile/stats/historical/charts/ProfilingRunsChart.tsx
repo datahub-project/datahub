@@ -1,8 +1,10 @@
 import { Button, Col, Modal, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { DatasetProfile } from '../../../../../../../types.generated';
-import DataProfileView from '../../snapshot/SnapshotStatsView';
+
+import DataProfileView from '@app/entityV2/dataset/profile/stats/snapshot/SnapshotStatsView';
+
+import { DatasetProfile } from '@types';
 
 export const ChartTable = styled(Table)`
     margin: 12px;

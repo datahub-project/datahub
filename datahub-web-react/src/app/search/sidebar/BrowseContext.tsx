@@ -1,22 +1,18 @@
 import React, { ReactNode, createContext, useContext, useMemo } from 'react';
-import {
-    AggregationMetadata,
-    BrowseResultGroupV2,
-    EntityType,
-    FacetFilterInput,
-    FilterOperator,
-} from '../../../types.generated';
-import { createBrowseV2SearchFilter } from '../filters/utils';
+
+import { createBrowseV2SearchFilter } from '@app/search/filters/utils';
+import { useHasFilterValue, useOnChangeFilters, useSelectedFilters } from '@app/search/sidebar/SidebarContext';
+import { getEntitySubtypeFiltersForEntity } from '@app/search/sidebar/browseContextUtils';
+import { applyFacetFilterOverrides } from '@app/search/utils/applyFilterOverrides';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     PLATFORM_FILTER_NAME,
-} from '../utils/constants';
-import { useHasFilterValue, useOnChangeFilters, useSelectedFilters } from './SidebarContext';
-import { applyFacetFilterOverrides } from '../utils/applyFilterOverrides';
-import { getEntitySubtypeFiltersForEntity } from './browseContextUtils';
-import { useEntityRegistry } from '../../useEntityRegistry';
+} from '@app/search/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AggregationMetadata, BrowseResultGroupV2, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 type BrowseContextValue = {
     entityAggregation?: AggregationMetadata;

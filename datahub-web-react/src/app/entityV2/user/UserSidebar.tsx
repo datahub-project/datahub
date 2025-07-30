@@ -1,13 +1,15 @@
 import { message } from 'antd';
 import React from 'react';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { DataHubRole } from '../../../types.generated';
-import { SideBar, Content } from '../shared/SidebarStyledComponents';
-import { useUserContext } from '../../context/useUserContext';
-import { UserOwnershipSidebarSection } from '../shared/sidebarSection/UserOwnershipSideBarSection';
-import { AboutSidebarSection } from '../shared/sidebarSection/AboutSidebarSection';
-import { UserGroupSideBarSection } from '../shared/sidebarSection/UserGroupSidebarSection';
-import { SidebarData, UserProfileInfoCard } from './UserProfileInfoCard';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { Content, SideBar } from '@app/entityV2/shared/SidebarStyledComponents';
+import { AboutSidebarSection } from '@app/entityV2/shared/sidebarSection/AboutSidebarSection';
+import { UserGroupSideBarSection } from '@app/entityV2/shared/sidebarSection/UserGroupSidebarSection';
+import { UserOwnershipSidebarSection } from '@app/entityV2/shared/sidebarSection/UserOwnershipSideBarSection';
+import { SidebarData, UserProfileInfoCard } from '@app/entityV2/user/UserProfileInfoCard';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
+import { DataHubRole } from '@types';
 
 type Props = {
     sidebarData: SidebarData;
@@ -18,7 +20,7 @@ type Props = {
  * UserSidebar- Sidebar section for users profiles.
  */
 export default function UserSidebar({ sidebarData, refetch }: Props) {
-    const { aboutText, groupsDetails, dataHubRoles, urn, ownerships } = sidebarData;
+    const { aboutText, groupsDetails, dataHubRoles, urn, ownershipResults } = sidebarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
@@ -66,7 +68,7 @@ export default function UserSidebar({ sidebarData, refetch }: Props) {
                     isProfileOwner={isProfileOwner}
                     onSaveAboutMe={onSaveAboutMe}
                 />
-                <UserOwnershipSidebarSection ownedEntities={ownerships} />
+                <UserOwnershipSidebarSection ownershipResults={ownershipResults} />
                 <UserGroupSideBarSection groupsDetails={groupsDetails} />
             </Content>
         </SideBar>

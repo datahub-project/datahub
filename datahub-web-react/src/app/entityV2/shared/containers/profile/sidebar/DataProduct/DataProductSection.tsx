@@ -1,17 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Modal, message } from 'antd';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import SetDataProductModal from './SetDataProductModal';
-import { DataProductLink } from '../../../../../../sharedV2/tags/DataProductLink';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import { DataProduct } from '../../../../../../../types.generated';
-import { SidebarSection } from '../SidebarSection';
-import SectionActionButton from '../SectionActionButton';
-import EmptySectionText from '../EmptySectionText';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { DataProductLink } from '@app/sharedV2/tags/DataProductLink';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { DataProduct } from '@types';
 
 const Content = styled.div`
     display: flex;

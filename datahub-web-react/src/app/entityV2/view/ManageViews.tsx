@@ -1,7 +1,8 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { ViewsList } from './ViewsList';
+
+import { ViewsList } from '@app/entityV2/view/ViewsList';
 
 const PageContainer = styled.div`
     padding-top: 20px;

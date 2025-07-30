@@ -1,9 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { ViewSelectContent } from '@app/entityV2/view/select/ViewSelectContent';
+import { ViewSelectHeader } from '@app/entityV2/view/select/ViewSelectHeader';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { ViewSelectContent } from './ViewSelectContent';
-import { ViewSelectHeader } from './ViewSelectHeader';
-import { ANTD_GRAY } from '../../shared/constants';
 
 type Props = {
     children: React.ReactNode;

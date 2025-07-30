@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
 import yaml
-from pydantic import validator
+from pydantic import StrictStr, validator
 from ruamel.yaml import YAML
 
 from datahub.configuration.common import ConfigModel
@@ -38,12 +38,12 @@ class AllowedTypes(Enum):
 
 
 class AllowedValue(ConfigModel):
-    value: Union[int, float, str]
+    value: Union[StrictStr, float]
     description: Optional[str] = None
 
 
 VALID_ENTITY_TYPE_URNS = [
-    Urn.make_entity_type_urn(entity_type) for entity_type in URN_TYPES.keys()
+    Urn.make_entity_type_urn(entity_type) for entity_type in URN_TYPES
 ]
 _VALID_ENTITY_TYPES_STRING = f"Valid entity type urns are {', '.join(VALID_ENTITY_TYPE_URNS)}, etc... Ensure that the entity type is valid."
 

@@ -1,20 +1,26 @@
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import styled from 'styled-components/macro';
 import React, { useEffect, useState } from 'react';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
-import QueryBuilderModal from './QueryBuilderModal';
-import { addQueryToListQueriesCache, removeQueryFromListQueriesCache, updateListQueriesCache } from './cacheUtils';
-import QueriesListSection from './QueriesListSection';
-import useDownstreamQueries from './useDownstreamQueries';
-import { QueriesTabSection } from './types';
-import { useHighlightedQueries } from './useHighlightedQueries';
-import { usePopularQueries } from './usePopularQueries';
-import { useRecentQueries } from './useRecentQueries';
-import Loading from '../../../../../shared/Loading';
-import { useIsSeparateSiblingsMode } from '../../../../../entity/shared/siblingUtils';
-import usePrevious from '../../../../../shared/usePrevious';
-import EmptyQueriesSection from './EmptyQueriesSection';
+import styled from 'styled-components/macro';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
+import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
+import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
+import {
+    addQueryToListQueriesCache,
+    removeQueryFromListQueriesCache,
+    updateListQueriesCache,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/cacheUtils';
+import { QueriesTabSection } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import useDownstreamQueries from '@app/entityV2/shared/tabs/Dataset/Queries/useDownstreamQueries';
+import { useHighlightedQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useHighlightedQueries';
+import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
+import { useRecentQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useRecentQueries';
+import Loading from '@app/shared/Loading';
+import usePrevious from '@app/shared/usePrevious';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const Content = styled.div<{ $backgroundColor: string }>`
     height: 100%;
@@ -54,17 +60,8 @@ export default function QueriesTab() {
     /**
      * Fetch the List of Popular Queries
      */
-    const {
-        popularQueries,
-        loading: popularQueriesLoading,
-        pagination: popularQueriesPagination,
-        total,
-        sorting: popularSorting,
-        selectedUsersFilter,
-        setSelectedUsersFilter,
-        selectedColumnsFilter,
-        setSelectedColumnsFilter,
-    } = usePopularQueries({ entityUrn, siblingUrn, filterText });
+    const { selectedUsersFilter, setSelectedUsersFilter, selectedColumnsFilter, setSelectedColumnsFilter } =
+        usePopularQueries({ entityUrn, siblingUrn, filterText });
 
     /**
      * Fetch the List of Downstream Queries
@@ -90,18 +87,9 @@ export default function QueriesTab() {
     };
 
     // can add something about initalLoading if there was never data, or have state that is like finishedInitialLoad = false, with useEffect
-    const isLoading =
-        !entityUrn ||
-        highlightedQueriesLoading ||
-        popularQueriesLoading ||
-        downstreamQueriesLoading ||
-        recentQueriesLoading;
+    const isLoading = !entityUrn || highlightedQueriesLoading || downstreamQueriesLoading || recentQueriesLoading;
     const showEmptyView =
-        !isLoading &&
-        !recentQueries.length &&
-        !highlightedQueries.length &&
-        !downstreamQueries.length &&
-        !popularQueries.length;
+        !isLoading && !recentQueries.length && !highlightedQueries.length && !downstreamQueries.length;
 
     // shared props with all of the QueriesListSection components below
     const props = {
@@ -157,19 +145,6 @@ export default function QueriesTab() {
                                 buttonLabel="Add Highlighted Query"
                                 isButtonDisabled={!canEditQueries}
                                 onButtonClick={() => setShowQueryBuilder(true)}
-                            />
-                        )}
-                        {(popularQueries.length > 0 || popularQueriesLoading) && (
-                            <QueriesListSection
-                                title="Popular Queries"
-                                section={QueriesTabSection.Popular}
-                                tooltip="The most popular queries that were run against this dataset"
-                                queries={popularQueries}
-                                loading={popularQueriesLoading}
-                                totalQueries={total}
-                                pagination={popularQueriesPagination}
-                                sorting={popularSorting}
-                                {...props}
                             />
                         )}
                         {downstreamQueries.length > 0 && (

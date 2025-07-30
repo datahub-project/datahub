@@ -1,4 +1,8 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/constants';
+import { parseJsonArrayOrDefault, parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
+
 import {
     AssertionResult,
     AssertionResultType,
@@ -15,12 +19,7 @@ import {
     RowCountTotal,
     SqlAssertionInfo,
     StringMapEntry,
-} from '../../../../../../../../../../types.generated';
-import { ASSERTION_NATIVE_RESULTS_KEYS_BY_ASSERTION_TYPE } from './constants';
-import {
-    parseJsonArrayOrDefault,
-    parseMaybeStringAsFloatOrDefault,
-} from '../../../../../../../../../shared/numberUtil';
+} from '@types';
 
 /**
  * Calculates expected value of an assertion given previous value and change modifier details

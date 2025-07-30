@@ -39,6 +39,7 @@ export function forcePluralize(noun: string, suffix = 's') {
 export function pluralizeIfIrregular(noun: string, suffix = 's'): string {
     const irregularPlurals: Record<string, string> = {
         query: 'queries',
+        match: 'matches',
     };
 
     if (irregularPlurals.hasOwnProperty(noun?.toLowerCase())) {

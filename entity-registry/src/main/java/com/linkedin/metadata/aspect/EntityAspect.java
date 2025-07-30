@@ -156,9 +156,22 @@ public class EntityAspect {
             e.toString());
       }
 
-      envelopedAspect.setCreated(getAuditStamp());
+      envelopedAspect.setCreated(getAuditStamp(), SetMode.IGNORE_NULL);
 
       return envelopedAspect;
+    }
+
+    @Nonnull
+    public SystemMetadata getSystemMetadata() {
+      if (systemMetadata == null) {
+        if (entityAspect != null && entityAspect.getSystemMetadata() != null) {
+          systemMetadata =
+              RecordUtils.toRecordTemplate(SystemMetadata.class, entityAspect.getSystemMetadata());
+        } else {
+          systemMetadata = SystemMetadataUtils.createDefaultSystemMetadata();
+        }
+      }
+      return systemMetadata;
     }
 
     public static class EntitySystemAspectBuilder {

@@ -1,21 +1,24 @@
+import { Dropdown, Menu } from 'antd';
+import { DotsThreeVertical } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, Menu } from 'antd';
-import { MoreOutlined } from '@ant-design/icons';
 
-import { Assertion, AssertionRunStatus, DataContract } from '../../../../../../../../../types.generated';
-import { ContractAction } from './ContractAction';
-import { CopyLinkAction } from './CopyLinkAction';
-import { CopyUrnAction } from './CopyUrnAction';
-import { ExternalUrlAction } from './ExternalUrlAction';
-import { useIsOnSiblingsView } from '../../../../../../useIsSeparateSiblingsMode';
+import { ContractAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ContractAction';
+import { CopyLinkAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyLinkAction';
+import { CopyUrnAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/CopyUrnAction';
+import { ExternalUrlAction } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ExternalUrlAction';
+import { useIsOnSiblingsView } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { Button, colors } from '@src/alchemy-components';
+
+import { Assertion, AssertionRunStatus, DataContract } from '@types';
 
 const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: end;
     padding: ${(props) => (props.$shouldRightAlign ? '0px' : '0px 10px')};
     margin-left: ${(props) => (props.$shouldRightAlign ? 'auto' : undefined)};
+    gap: 8px;
 `;
 
 type Props = {
@@ -68,7 +71,9 @@ export const AssertionListItemActions = ({
     return (
         <ActionList onClick={(e) => e.stopPropagation()} $shouldRightAlign={shouldRightAlign}>
             <Dropdown overlay={menu} trigger={['click']}>
-                <Button type="text" icon={<MoreOutlined />} />
+                <Button variant="text">
+                    <DotsThreeVertical size={20} color={colors.gray[500]} weight="bold" />
+                </Button>
             </Dropdown>
         </ActionList>
     );

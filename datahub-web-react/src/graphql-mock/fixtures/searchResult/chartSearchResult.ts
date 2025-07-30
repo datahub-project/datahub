@@ -1,8 +1,8 @@
-import { Chart, SearchResult, SearchResults } from '../../../types.generated';
-import { EntityBrowsePath } from '../../types';
-import { filterEntityByPath } from '../browsePathHelper';
-import { chartEntity } from '../entity/chartEntity';
-import { generateData } from './dataGenerator';
+import { filterEntityByPath } from '@graphql-mock/fixtures/browsePathHelper';
+import { chartEntity } from '@graphql-mock/fixtures/entity/chartEntity';
+import { generateData } from '@graphql-mock/fixtures/searchResult/dataGenerator';
+import { EntityBrowsePath } from '@graphql-mock/types';
+import { Chart, SearchResult, SearchResults } from '@types';
 
 const searchResult = (tool: string) => (): SearchResult => {
     return {

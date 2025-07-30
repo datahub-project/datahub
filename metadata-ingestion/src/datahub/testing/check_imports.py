@@ -9,7 +9,7 @@ def ensure_no_indirect_model_imports(dirs: List[pathlib.Path]) -> None:
     # If our needs become more complex, we should move to a proper linter.
     denied_imports = {
         "src.": "datahub.*",
-        "datahub.metadata._schema_classes": "datahub.metadata.schema_classes",
+        "datahub.metadata._internal_schema_classes": "datahub.metadata.schema_classes",
         "datahub.metadata._urns": "datahub.metadata.urns",
     }
     ignored_files = {

@@ -54,13 +54,26 @@ extend type Query {
   """
   Aggregate across DataHub entities
   """
-  aggregateAcrossEntities(input: AggregateAcrossEntitiesInput!): AggregateResults
+  aggregateAcrossEntities(
+    input: AggregateAcrossEntitiesInput!
+  ): AggregateResults
 
   """
   List Data Product assets for a given urn
   """
-  listDataProductAssets(urn: String!, input: SearchAcrossEntitiesInput!): SearchResults
-  
+  listDataProductAssets(
+    urn: String!
+    input: SearchAcrossEntitiesInput!
+  ): SearchResults
+
+  """
+  List Application assets for a given urn
+  """
+  listApplicationAssets(
+    urn: String!
+    input: SearchAcrossEntitiesInput!
+  ): SearchResults
+
   """
   Browse for different entities by getting organizational groups and their
   aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
@@ -97,7 +110,8 @@ input SearchInput {
   Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
+  filters: [FacetFilterInput!]
+    @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -113,7 +127,7 @@ input SearchInput {
 """
 Set of flags to control search behavior
 """
-input  SearchFlags {
+input SearchFlags {
   """
   Whether to skip cache
   """
@@ -244,7 +258,8 @@ input SearchAcrossEntitiesInput {
   Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
+  filters: [FacetFilterInput!]
+    @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -354,7 +369,6 @@ input ScrollAcrossEntitiesInput {
   sortInput: SearchSortInput
 }
 
-
 """
 Input arguments for a search query over the results of a multi-hop graph query
 """
@@ -393,7 +407,8 @@ input SearchAcrossLineageInput {
   Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
+  filters: [FacetFilterInput!]
+    @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -567,7 +582,7 @@ enum FilterOperator {
   GREATER_THAN
 
   """
-   Represent the relation greater than or equal to, e.g. ownerCount >= 5
+  Represent the relation greater than or equal to, e.g. ownerCount >= 5
   """
   GREATER_THAN_OR_EQUAL_TO
 
@@ -605,7 +620,6 @@ enum FilterOperator {
   Represent the relation: URN field matches any nested child or parent in addition to the given URN
   """
   RELATED_INCL
-
 }
 
 """
@@ -694,7 +708,6 @@ type AggregateResults {
 Results returned by issuing a search query
 """
 type ScrollResults {
-
   """
   Opaque ID to pass to the next request to the server
   """
@@ -754,6 +767,11 @@ type SearchAcrossLineageResults {
   Optional freshness characteristics of this query (cached, staleness etc.)
   """
   freshness: FreshnessStats
+
+  """
+  The path taken when doing search across lineage
+  """
+  lineageSearchPath: LineageSearchPath
 }
 
 """
@@ -834,19 +852,17 @@ type SearchAcrossLineageResult {
   Whether this relationship was ignored as a hop
   """
   ignoredAsHop: Boolean!
-
 }
 
 """
 An overview of the field that was matched in the entity search document
 """
 type EntityPath {
-    """
-    Path of entities between source and destination nodes
-    """
-    path: [Entity]!
+  """
+  Path of entities between source and destination nodes
+  """
+  path: [Entity]!
 }
-
 
 """
 An overview of the field that was matched in the entity search document
@@ -957,7 +973,6 @@ type SearchSuggestion {
   frequency: Int
 }
 
-
 """
 Input for performing an auto completion query against a single Metadata Entity
 """
@@ -986,7 +1001,6 @@ input AutoCompleteInput {
   Faceted filters applied to autocomplete results
   """
   filters: [FacetFilterInput!]
-
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -1118,7 +1132,8 @@ input BrowseInput {
   Deprecated in favor of the more expressive orFilters field
   Facet filters to apply to search results. These will be 'AND'-ed together.
   """
-  filters: [FacetFilterInput!]  @deprecated(reason: "Use `orFilters`- they are more expressive")
+  filters: [FacetFilterInput!]
+    @deprecated(reason: "Use `orFilters`- they are more expressive")
 
   """
   A list of disjunctive criterion for the filter. (or operation to combine filters)
@@ -1330,7 +1345,6 @@ type FreshnessStats {
   In case an index was consulted, this reflects the freshness of the index
   """
   systemFreshness: [SystemFreshness]
-
 }
 
 type SystemFreshness {
@@ -1495,20 +1509,17 @@ input SortCriterion {
 A grouping specification for search results.
 """
 input GroupingSpec {
-
   """
   A list of grouping criteria for grouping search results.
   There is no implied order in the grouping criteria.
   """
   groupingCriteria: [GroupingCriterion!]
-
 }
 
 """
 A single grouping criterion for grouping search results
 """
 input GroupingCriterion {
-
   """
   The base entity type that needs to be grouped
   e.g. schemaField
@@ -1521,5 +1532,18 @@ input GroupingCriterion {
   e.g. dataset, domain, etc.
   """
   groupingEntityType: EntityType!
+}
 
+"""
+The path taken when doing search across lineage
+"""
+enum LineageSearchPath {
+  """
+  Designates the tortoise lineage code path
+  """
+  TORTOISE
+  """
+  Designates the lightning lineage code path
+  """
+  LIGHTNING
 }

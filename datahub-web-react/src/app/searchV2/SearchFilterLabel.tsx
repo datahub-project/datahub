@@ -1,29 +1,31 @@
-import * as React from 'react';
-import { Tag } from 'antd';
 import { Tooltip } from '@components';
-import styled from 'styled-components';
 import { BookmarkSimple } from '@phosphor-icons/react';
+import { Tag } from 'antd';
+import * as React from 'react';
+import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
+import useGetBrowseV2LabelOverride from '@app/searchV2/filters/useGetBrowseV2LabelOverride';
+import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/searchV2/utils/constants';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { formatNumber } from '@app/shared/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
-    Domain,
     Container,
+    CorpGroup,
+    CorpUser,
     DataPlatform,
+    DataPlatformInstance,
+    Domain,
+    Entity,
     EntityType,
     GlossaryTerm,
     Tag as TagType,
-    CorpUser,
-    CorpGroup,
-    DataPlatformInstance,
-    Entity,
-} from '../../types.generated';
-import { StyledTag } from '../entityV2/shared/components/styled/StyledTag';
-import { capitalizeFirstLetterOnly } from '../shared/textUtil';
-import { DomainLink } from '../sharedV2/tags/DomainLink';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from './utils/constants';
-import CustomAvatar from '../shared/avatar/CustomAvatar';
-import { IconStyleType } from '../entity/Entity';
-import { formatNumber } from '../shared/formatNumber';
-import useGetBrowseV2LabelOverride from './filters/useGetBrowseV2LabelOverride';
+} from '@types';
 
 type Props = {
     field: string;

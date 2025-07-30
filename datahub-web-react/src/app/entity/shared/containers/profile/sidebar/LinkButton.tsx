@@ -2,7 +2,8 @@ import { LinkOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
+
+import { InstitutionalMemoryMetadata } from '@types';
 
 export const StyledLink = styled(Button)`
     display: flex;

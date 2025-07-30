@@ -38,6 +38,7 @@ from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import pre_json_transform
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -149,6 +150,8 @@ class DataHubValidationAction(ValidationAction):
                 retry_status_codes=self.retry_status_codes,
                 retry_max_times=self.retry_max_times,
                 extra_headers=self.extra_headers,
+                client_mode=ClientMode.INGESTION,
+                datahub_component="gx-plugin",
             )
 
             expectation_suite_name = validation_result_suite.meta.get(

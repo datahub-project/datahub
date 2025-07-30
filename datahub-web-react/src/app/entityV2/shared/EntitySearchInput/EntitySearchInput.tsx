@@ -1,11 +1,13 @@
-import { Select, Tag } from 'antd';
 import { Tooltip } from '@components';
+import { Select, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { useGetEntitiesLazyQuery } from '../../../../graphql/entity.generated';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../../graphql/search.generated';
-import { Entity, EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntitySearchInputResult } from './EntitySearchInputResult';
+
+import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
+import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
+import { Entity, EntityType } from '@types';
 
 type Props = {
     selectedUrns: string[];
@@ -171,7 +173,7 @@ export const EntitySearchInput = ({
                     style={optionStyle}
                     data-testid={`${result.entity.urn}-entity-search-input-result`}
                 >
-                    <EntitySearchInputResult entity={result.entity} />
+                    <EntitySearchInputResultV2 entity={result.entity} />
                 </Select.Option>
             ))}
         </Select>

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import Field, validator
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.sink.file import FileSinkConfig
 
 logger = logging.getLogger(__name__)

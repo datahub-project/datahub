@@ -25,3 +25,13 @@ require("cypress-timestamps/support")({
   error: true,
   commandLog: true,
 });
+
+// Add file name to test titles for better JUnit reporting
+beforeEach(function () {
+  if (this.currentTest) {
+    const testPath = this.currentTest.invocationDetails?.relativeFile;
+    if (testPath) {
+      this.currentTest.title = `${testPath}`;
+    }
+  }
+});

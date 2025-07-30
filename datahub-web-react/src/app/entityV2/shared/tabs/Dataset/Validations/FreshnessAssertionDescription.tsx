@@ -1,14 +1,15 @@
 import { Typography } from 'antd';
-import React from 'react';
 import cronstrue from 'cronstrue';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
+
 import {
     CronSchedule,
     FixedIntervalSchedule,
     FreshnessAssertionInfo,
     FreshnessAssertionScheduleType,
     FreshnessAssertionType,
-} from '../../../../../../types.generated';
+} from '@types';
 
 type Props = {
     assertionInfo: FreshnessAssertionInfo;

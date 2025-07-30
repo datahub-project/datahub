@@ -1,0 +1,70 @@
+name: DataHub Actions
+on:
+  push:
+    branches:
+      - master
+      - releases/**
+    paths:
+      - ".github/workflows/actions.yml"
+      - "datahub-actions/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - ".github/workflows/actions.yml"
+      - "datahub-actions/**"
+      - "metadata-ingestion/**"
+      - "metadata-models/**"
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Test packages are correct
+        run: |
+          cd datahub-actions;
+          python -c 'import setuptools; where="./src"; assert setuptools.find_packages(where) == setuptools.find_namespace_packages(where), "you seem to be missing or have extra __init__.py files"'
+      - name: Gradle build (and test)
+        run: |
+          ./gradlew :datahub-actions:build
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test Results (build)
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+      - name: Upload datahub-actions coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          name: datahub-actions
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+  event-file:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Event File
+          path: ${{ github.event_path }}

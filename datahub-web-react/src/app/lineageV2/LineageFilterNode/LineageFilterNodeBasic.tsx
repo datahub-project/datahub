@@ -1,17 +1,22 @@
-import { EntityType } from '@types';
 import React, { useContext, useState } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
-import { LINEAGE_COLORS } from '../../entityV2/shared/constants';
-import { getFilterIconAndLabel } from '../../searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '../../searchV2/utils/constants';
-import { useEntityRegistryV2 } from '../../useEntityRegistry';
-import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '../common';
-import { useAvoidIntersectionsOften } from '../LineageEntityNode/useAvoidIntersections';
-import { LINEAGE_NODE_WIDTH } from '../LineageEntityNode/useDisplayedColumns';
-import { ShowMoreButton } from './ShowMoreButton';
-import useFetchFilterNodeContents, { PlatformAggregate, SubtypeAggregate } from './useFetchFilterNodeContents';
-import LineageFilterSearch from './LineageFilterSearch';
+
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import { useAvoidIntersectionsOften } from '@app/lineageV2/LineageEntityNode/useAvoidIntersections';
+import { LINEAGE_NODE_WIDTH } from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
+import LineageFilterSearch from '@app/lineageV2/LineageFilterNode/LineageFilterSearch';
+import { ShowMoreButton } from '@app/lineageV2/LineageFilterNode/ShowMoreButton';
+import useFetchFilterNodeContents, {
+    PlatformAggregate,
+    SubtypeAggregate,
+} from '@app/lineageV2/LineageFilterNode/useFetchFilterNodeContents';
+import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV2/common';
+import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 export const LINEAGE_FILTER_NODE_NAME = 'lineage-filter';
 
@@ -91,7 +96,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     useAvoidIntersectionsOften(id, numMatches ? 133 : 117);
 
     const numerator = numShown ?? shown.size;
-    const denominator = showGhostEntities ? allChildren.size : total ?? allChildren.size;
+    const denominator = showGhostEntities ? allChildren.size : (total ?? allChildren.size);
     return (
         <NodeWrapper>
             <ExtraCard className="extra-card" bottom={-3} />
@@ -112,16 +117,12 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
             <LineageFilterSearch data={data} numMatches={numMatches} setNumMatches={setNumMatches} />
             <PillsWrapper>
                 <PillColumn>
-                    {platforms?.map((agg, index) => (
-                        <PlatformEntry agg={agg} key={agg[0]} index={index} />
-                    ))}
+                    {platforms?.map((agg, index) => <PlatformEntry agg={agg} key={agg[0]} index={index} />)}
                 </PillColumn>
                 <PillColumn>
                     {subtypes
                         ?.filter(([filterValue]) => !filterValue.toLocaleLowerCase().endsWith('query'))
-                        .map((agg, index) => (
-                            <SubtypeEntry agg={agg} key={agg[0]} index={index} />
-                        ))}
+                        .map((agg, index) => <SubtypeEntry agg={agg} key={agg[0]} index={index} />)}
                 </PillColumn>
             </PillsWrapper>
         </NodeWrapper>

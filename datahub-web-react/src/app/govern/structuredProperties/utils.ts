@@ -112,6 +112,7 @@ export const SEARCHABLE_ENTITY_TYPES = [
     EntityType.CorpGroup,
     EntityType.Tag,
     EntityType.Role,
+    EntityType.Application,
 ];
 
 export const APPLIES_TO_ENTITIES = [
@@ -131,6 +132,8 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.MlprimaryKey,
     EntityType.DataProduct,
     EntityType.SchemaField,
+    EntityType.DataContract,
+    EntityType.Application,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
@@ -151,7 +154,8 @@ export const getValueTypeLabel = (valueUrn: string, cardinality: PropertyCardina
 
 export const getNewAllowedTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
     const currentTypeUrns = entity.definition.typeQualifier?.allowedTypes?.map((type) => type.urn);
-    return values.typeQualifier?.allowedTypes?.filter((type) => !currentTypeUrns?.includes(type));
+    const newAllowedTypes = values.typeQualifier?.allowedTypes?.filter((type) => !currentTypeUrns?.includes(type));
+    return (newAllowedTypes?.length || 0) > 0 ? newAllowedTypes : undefined;
 };
 
 export const getNewEntityTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {

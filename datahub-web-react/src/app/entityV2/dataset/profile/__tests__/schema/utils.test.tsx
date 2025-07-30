@@ -1,5 +1,6 @@
-import { SchemaFieldDataType } from '../../../../../../types.generated';
-import { filterKeyFieldPath } from '../../schema/utils/utils';
+import { filterKeyFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+
+import { SchemaFieldDataType } from '@types';
 
 describe('utils', () => {
     describe('filterKeyFieldPath', () => {

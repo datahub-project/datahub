@@ -6,7 +6,9 @@ from typing import Dict, Iterable, List, Optional
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -37,6 +39,7 @@ logger = logging.getLogger(__name__)
 @platform_name("DataHub")
 @config_class(DataHubSourceConfig)
 @support_status(SupportStatus.TESTING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 class DataHubSource(StatefulIngestionSourceBase):
     platform: str = "datahub"
 
@@ -117,7 +120,7 @@ class DataHubSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Fetching database aspects starting from {from_createdon}")
         progress = ProgressTimer(report_every=timedelta(seconds=60))
-        mcps = reader.get_aspects(from_createdon, self.report.stop_time)
+        mcps = reader.get_all_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
             if not self.urn_pattern.allowed(str(mcp.entityUrn)):
                 continue

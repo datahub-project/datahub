@@ -1,4 +1,4 @@
-import { ListPostsDocument, ListPostsQuery } from '../../../graphql/post.generated';
+import { ListPostsDocument, ListPostsQuery } from '@graphql/post.generated';
 
 /**
  * Add an entry to the list posts cache.

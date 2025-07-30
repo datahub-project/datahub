@@ -1,6 +1,7 @@
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import React from 'react';
 import styled from 'styled-components';
+
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 type Props = {
     setSidePanelWidth: (width: number) => void;

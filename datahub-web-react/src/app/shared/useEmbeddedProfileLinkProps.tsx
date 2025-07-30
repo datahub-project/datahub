@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { PageRoutes } from '../../conf/Global';
+
+import { PageRoutes } from '@conf/Global';
 
 // Function to check if the current page is an embedded profile
 const isEmbeddedProfile = () => window.location.pathname.startsWith(PageRoutes.EMBED);

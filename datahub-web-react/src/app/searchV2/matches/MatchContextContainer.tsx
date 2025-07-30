@@ -1,11 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
-import MatchContext, { PreviewSection } from '../../shared/MatchesContext';
-import { SearchCardSlideoutContent } from '../searchSlideout/SearchCardSlideoutContent';
-import { CombinedSearchResult } from '../utils/combineSiblingsInSearchResults';
-import HorizontalScroller from '../../sharedV2/carousel/HorizontalScroller';
-import { useSearchContext } from '../../search/context/SearchContext';
+
+import { useSearchContext } from '@app/search/context/SearchContext';
+import { SearchCardSlideoutContent } from '@app/searchV2/searchSlideout/SearchCardSlideoutContent';
+import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import MatchContext, { PreviewSection } from '@app/shared/MatchesContext';
+import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 
 const MATCHES_CONTAINER_HEIGHT = 52;
 
@@ -15,7 +15,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     margin: 0 auto 12px auto;
     padding: 4px;
     :hover {
-        ${(props) => !props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
+        ${(props) => !props.selected && `outline: 1px solid ${props.theme.styles['primary-color']};}`};
     }
 
     position: absolute;
@@ -32,7 +32,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        outline: 1px solid ${props.theme.styles['primary-color']};
         left: -5px;
         width: calc(100% + 5px);
     `}

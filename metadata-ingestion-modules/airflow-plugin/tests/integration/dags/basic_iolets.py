@@ -26,7 +26,9 @@ with DAG(
             Urn(
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)"
             ),
-            Urn("urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"),
+            Urn(
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,myairflow.test_dag,PROD),test_task)"
+            ),
         ],
         outlets=[
             Dataset("snowflake", "mydb.schema.tableD"),

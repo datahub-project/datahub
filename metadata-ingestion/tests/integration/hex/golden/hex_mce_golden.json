@@ -1,0 +1,1740 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "test-workspace",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "c8f815c8-88c2-4dea-981f-69f544d6165d"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/c8f815c8-88c2-4dea-981f-69f544d6165d",
+            "title": "Welcome to Hex!-0",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1724260039275,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1724260569567,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user1@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "dd0f1e20-7586-4b8e-89ae-bfe3c924625b"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/dd0f1e20-7586-4b8e-89ae-bfe3c924625b",
+            "title": "Welcome to Hex!-2",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1724261756247,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1724262286875,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user2@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "827ea1f2-ed9a-425f-8d48-0ecc491c7c7c"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/827ea1f2-ed9a-425f-8d48-0ecc491c7c7c",
+            "title": "Welcome to Hex!-3",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1724270643148,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1724270645879,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user3@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "e9d940fe-34ad-415b-ad12-cb4c201650dc"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/e9d940fe-34ad-415b-ad12-cb4c201650dc",
+            "title": "Welcome to Hex!-4",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1724349520772,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1724349579864,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user4a@example.com",
+                    "type": "TECHNICAL_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:user4@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "89e64571-42d9-44ac-bf47-320a7440eb57"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/89e64571-42d9-44ac-bf47-320a7440eb57",
+            "title": "Welcome to Hex!-5",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1729718761878,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1729718764682,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user4a@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "d05b0d81-6d00-4798-8967-6587b6731c0a"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/d05b0d81-6d00-4798-8967-6587b6731c0a",
+            "title": "Welcome to Hex!-6",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1733208805879,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1733232677016,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user5@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf",
+            "title": "PlayNotebook",
+            "description": "This is a play project\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1733219698471,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1734511083873,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:hex:status:In development"
+                },
+                {
+                    "tag": "urn:li:tag:hex:category:Scratchpad"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user5@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1742904000000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "viewsCount": 16,
+            "lastViewedAt": 1742223334717
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1742904000000,
+            "eventGranularity": {
+                "unit": "WEEK",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "viewsCount": 1,
+            "lastViewedAt": 1742223334717
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "4759f33c-1ab9-403d-92e8-9bef48de00c4"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/4759f33c-1ab9-403d-92e8-9bef48de00c4",
+            "title": "Cancelled Orders",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1733758766093,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1734132178183,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Component"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user4a@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "0496a2c2-8656-475d-9946-6402320779e2"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/0496a2c2-8656-475d-9946-6402320779e2",
+            "title": "Pet Profiles",
+            "description": "this is a component to get pet profiles at glance\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1734345715531,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1737651607922,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Component"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:hex:collection:First Collection"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user5@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "id": "2ef730de-25ec-4131-94af-3517e743a738"
+            },
+            "externalUrl": "http://localhost:8000/test-workspace/hex/2ef730de-25ec-4131-94af-3517e743a738",
+            "title": "Welcome to Hex!",
+            "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [],
+            "lastModified": {
+                "created": {
+                    "time": 1742203650585,
+                    "actor": "urn:li:corpuser:_ingestion"
+                },
+                "lastModified": {
+                    "time": 1742222640614,
+                    "actor": "urn:li:corpuser:_ingestion"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hex",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:hex:status:In development"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:user6@example.com",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:hex,hex_test)"
+                },
+                {
+                    "id": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+                    "urn": "urn:li:container:635fbdd141a7b358624369c6060847c3"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:635fbdd141a7b358624369c6060847c3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.0496a2c2-8656-475d-9946-6402320779e2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.2ef730de-25ec-4131-94af-3517e743a738)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.4759f33c-1ab9-403d-92e8-9bef48de00c4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.827ea1f2-ed9a-425f-8d48-0ecc491c7c7c)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.89e64571-42d9-44ac-bf47-320a7440eb57)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.c8f815c8-88c2-4dea-981f-69f544d6165d)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d05b0d81-6d00-4798-8967-6587b6731c0a)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.d73da67d-c87b-4dd8-9e7f-b79cb7f822cf)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.dd0f1e20-7586-4b8e-89ae-bfe3c924625b)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(hex,hex_test.e9d940fe-34ad-415b-ad12-cb4c201650dc)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:hex:category:Scratchpad",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "hex:category:Scratchpad"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:hex:collection:First Collection",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "hex:collection:First Collection"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:hex:status:In development",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "hex:status:In development"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1742904000000,
+        "runId": "hex-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

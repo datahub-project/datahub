@@ -1,7 +1,17 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { DashboardStatsSummary as DashboardStatsSummaryView } from '@app/entityV2/dashboard/shared/DashboardStatsSummary';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DashboardLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     AccessLevel,
+    BrowsePathV2,
     Container,
     DashboardStatsSummary,
     DataProduct,
@@ -14,15 +24,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-    BrowsePathV2,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats, DashboardLastUpdatedMs } from '../../shared/utils';
-import { DashboardStatsSummary as DashboardStatsSummaryView } from '../shared/DashboardStatsSummary';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 export const DashboardPreview = ({
     urn,

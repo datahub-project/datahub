@@ -48,4 +48,14 @@ def assert_capability_report(
         assert not capability_report[capability].capable
         failure_reason = capability_report[capability].failure_reason
         assert failure_reason
-        assert expected_reason in failure_reason
+        # Handle different error codes for "Connection refused" across operating systems
+        # Linux uses [Errno 111] (usually CI env), macOS uses [Errno 61] (usually local developer env)
+        if (
+            "Connection refused" in expected_reason
+            and "Connection refused" in failure_reason
+        ):
+            # If both mention connection refused, consider it a match regardless of error code
+            assert True
+        else:
+            # Otherwise do the normal string inclusion check
+            assert expected_reason in failure_reason

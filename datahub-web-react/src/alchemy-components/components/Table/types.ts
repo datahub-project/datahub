@@ -1,14 +1,20 @@
+import React, { TableHTMLAttributes } from 'react';
+
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
-import { TableHTMLAttributes } from 'react';
 
 export interface Column<T> {
-    title: string;
+    title: string | React.ReactNode;
     key: string;
     dataIndex?: string;
     render?: (record: T, index: number) => React.ReactNode;
     width?: string;
-    sorter?: (a: T, b: T) => number;
+    minWidth?: string;
+    maxWidth?: string;
+    sorter?: ((a: T, b: T) => number) | boolean;
     alignment?: AlignmentOptions;
+    tooltipTitle?: string;
+    onCellClick?: (record: T) => void;
+    cellWrapper?: (content: React.ReactNode, record: T) => React.ReactNode;
 }
 
 export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
@@ -23,10 +29,22 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     expandable?: ExpandableProps<T>;
     onRowClick?: (record: T) => void;
     rowClassName?: (record: T) => string;
+    rowDataTestId?: (record: T) => string;
     onExpand?: (record: T) => void;
     handleSortColumnChange?: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
+    rowKey?: string | ((record: T) => string);
+    rowSelection?: RowSelectionProps<T>;
     rowRefs?: React.MutableRefObject<HTMLTableRowElement[]>;
     headerRef?: React.RefObject<HTMLTableSectionElement>;
+    footer?: React.ReactNode;
+}
+
+export interface RowSelectionProps<T> {
+    selectedRowKeys: string[];
+    onChange?: (selectedKeys: string[], selectedRows: T[]) => void;
+    getCheckboxProps?: (T) => {
+        disabled: boolean;
+    };
 }
 
 export interface ExpandableProps<T> {
@@ -34,7 +52,7 @@ export interface ExpandableProps<T> {
     rowExpandable?: (record: T) => boolean;
     defaultExpandedRowKeys?: string[];
     expandIconPosition?: 'start' | 'end'; // Configurable position of the expand icon
-    expandedRowKeys?: string[];
+    expandedGroupIds?: string[];
 }
 
 export enum SortingState {

@@ -1,11 +1,7 @@
+import { message } from 'antd';
 import { useEffect, useState } from 'react';
 
-import { message } from 'antd';
-
-import {
-    useGetDocPropagationSettingsQuery,
-    useUpdateDocPropagationSettingsMutation,
-} from '../../../graphql/app.generated';
+import { useGetDocPropagationSettingsQuery, useUpdateDocPropagationSettingsMutation } from '@graphql/app.generated';
 
 // Hook to get the document propagation settings & manage state
 export const useGetDocPropagationSettings = () => {
