@@ -191,7 +191,7 @@ module.exports = {
           ],
         },
         {
-          label: "Custom HomePage",
+          label: "Custom Home Page",
           type: "doc",
           id: "docs/features/feature-guides/custom-home-page",
         },
