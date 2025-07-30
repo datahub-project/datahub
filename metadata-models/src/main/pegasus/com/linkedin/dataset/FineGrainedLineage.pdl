@@ -18,6 +18,14 @@ record FineGrainedLineage {
   */
 
   // The relationship name is kept same as that of existing relationship in Upstream.pdl
+  @Searchable = {
+    "/*": {
+      "fieldName": "fineGrainedUpstreams",
+      "fieldType": "URN",
+      "hasValuesFieldName": "hasFineGrainedUpstreams",
+      "queryByDefault": false
+    }
+  }
   upstreams: optional array[Urn]
 
   /**
@@ -27,7 +35,7 @@ record FineGrainedLineage {
 
   /**
   * Downstream fields in the lineage
-  */     
+  */
   downstreams: optional array[Urn]
 
   /**
