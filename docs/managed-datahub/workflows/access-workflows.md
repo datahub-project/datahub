@@ -58,8 +58,6 @@ Data Access Workflows enable organizations to create centralized approval proces
 - **Review Requests**: Users assigned as reviewers in workflow definitions
 - **Configure Notifications**: Individual users can configure their own notification preferences
 
-## Using Access Workflows
-
 <!-- Plain-language instructions of how to use the feature
 
 Provide a step-by-step guide to use feature, including relevant screenshots and/or GIFs
@@ -69,7 +67,7 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 * What are common code snippets?
  -->
 
-### Creating an Access Workflow
+## Creating an Access Workflow
 
 Currently, workflow creation is must be done via the GraphQL API using the `upsertActionWorkflow` mutation.
 
@@ -194,7 +192,7 @@ except Exception as e:
 
 </details>
 
-#### Workflow Concepts
+### Workflow Concepts
 
 **Entry Points**: Define where users can initiate the workflow
 
@@ -231,7 +229,7 @@ except Exception as e:
 - `ACCESS`: Access-related workflows
 - `CUSTOM`: Custom workflows with user-defined `customCategory` string. For example, to model data creation requests.
 
-### Submitting Access Workflow Request
+## Submitting Access Workflow Request
 
 Once a workflow is created, users will be able to submit a Workflow Request form to trigger the review process. Depending on the entry point specified for the workflow, users will be able to start the workflow from either the
 
@@ -252,12 +250,12 @@ Once a request is submitted, your open requests will be visible from within **Ta
 
 Users assigned as reviewers can manage requests through the **Task Center**:
 
-#### Accessing the Task Center
+### Accessing the Task Center
 
 1. From the Navigation sidebar, click "Tasks"
 2. Click on the "Requests" tab
 
-#### Reviewing a Request
+### Reviewing a Request
 
 1. **View Request Details**: Click "View Details" on any pending request to see:
    - Requestor information
@@ -279,7 +277,7 @@ Users assigned as reviewers can manage requests through the **Task Center**:
   <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/workflows/review-action-workflow-request-confirm.png"/>
 </p>
 
-### Getting Notified About Access Workflows
+## Getting Notified About Access Workflows
 
 To stay informed about workflow activities, you can configure notifications:
 
@@ -289,11 +287,11 @@ To stay informed about workflow activities, you can configure notifications:
    - **Pending Reviews**: Get notified when you have requests to review
    - **Request Updates**: Get notified when your submitted requests are approved or denied
 
-### Access Provisioning: Reacting to Approval Workflow Events
+## Access Provisioning: Reacting to Approval Workflow Events
 
 Integrate with the [DataHub Actions Framework](https://docs.datahub.com/docs/actions) to automate access provisioning based on workflow events.
 
-#### Event Types
+### Event Types
 
 DataHub emits events for key workflow lifecycle moments:
 
@@ -303,7 +301,7 @@ DataHub emits events for key workflow lifecycle moments:
 
 The format of each JSON event can be found by visiting the
 
-#### Setting Up Event Integration
+### Setting Up Event Integration
 
 Create a custom [DataHub Actions](https://docs.datahub.com/docs/actions) listener for workflow events to trigger custom access provisioning.
 
@@ -342,7 +340,7 @@ Because access management varies widely across organizations, provisioning is le
 
 For full documentation on building a custom action, check out [Developing an Action](https://docs.datahub.com/docs/actions/guides/developing-an-action).
 
-#### Event Schema Reference
+### Event Schema Reference
 
 For detailed event schemas and integration examples emitted throughout the lifecycle of an access workflow request, see the [DataHub Actions Framework documentation](https://docs.datahub.com/docs/actions) and [Workflow Event Schemas](https://docs.datahub.com/docs/actions/events/entity-change-event).
 
@@ -356,6 +354,8 @@ For detailed event schemas and integration examples emitted throughout the lifec
 - **createActionWorkflowFormRequest** - Submit workflow requests
 - **reviewActionWorkflowFormRequest** - Review workflow requests
 - **deleteActionWorkflow** - Delete workflow definitions
+
+To see the full schema types and documentation, visit GraphiQL at https://<your-datahub-instance>.acryl.io/api/graphiql and view definitions under the `Mutation` type. 
 
 ## FAQ and Troubleshooting
 
