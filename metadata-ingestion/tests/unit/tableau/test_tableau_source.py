@@ -711,3 +711,26 @@ class TestTableauPageSizeConfig:
         config = TableauPageSizeConfig(database_table_page_size=any_page_size)
         assert config.page_size == DEFAULT_PAGE_SIZE
         assert config.effective_database_table_page_size == any_page_size
+
+
+# Virtual connection tests are now in test_tableau_virtual_connections.py
+
+
+def test_virtual_connection_config_validation():
+    """Test virtual connection configuration validation."""
+    # Test default config
+    config = TableauConfig.parse_obj(default_config)
+    assert config.ingest_virtual_connections is True
+
+    # Test disabled virtual connections
+    disabled_config = default_config.copy()
+    disabled_config["ingest_virtual_connections"] = False
+    config = TableauConfig.parse_obj(disabled_config)
+    assert config.ingest_virtual_connections is False
+
+    # Test virtual connection page size
+    vc_config = default_config.copy()
+    vc_config["virtual_connection_page_size"] = 50
+    config = TableauConfig.parse_obj(vc_config)
+    assert config.virtual_connection_page_size == 50
+    assert config.effective_virtual_connection_page_size == 50

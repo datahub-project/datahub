@@ -546,6 +546,7 @@ class TableauConfig(
     ingest_virtual_connections: bool = Field(
         default=True,
         description="Ingest details for virtual connections as entities.",
+    )
     emit_all_published_datasources: bool = Field(
         default=False,
         description="Ingest all published data sources. When False (default), only ingest published data sources that belong to an ingested workbook.",
@@ -3799,10 +3800,10 @@ class TableauSiteSource:
         clean_vc_name = clean_table_name(vc_table_name)
         vc_table_lower = clean_vc_name.lower()
 
-        logger.info(
-            f"Looking for database table match for: '{vc_table_name}' (cleaned: '{clean_vc_name}')"
+        logger.debug(
+            f"Looking for database table match for: '{vc_table_name}' (cleaned: '{clean_vc_name}') - "
+            f"Database lookup has {len(self.db_tables_lookup)} entries"
         )
-        logger.info(f"Database lookup has {len(self.db_tables_lookup)} entries")
 
         # Strategy 1: Direct exact match
         if vc_table_lower in self.db_tables_lookup:
@@ -3850,7 +3851,7 @@ class TableauSiteSource:
             schema = db_table.get(c.SCHEMA, "")
             database_info = db_table.get(c.DATABASE, {})
 
-            logger.info(
+            logger.debug(
                 f"Creating URN for database table: name={table_name}, full_name={full_name}, schema={schema}"
             )
 
@@ -3863,12 +3864,12 @@ class TableauSiteSource:
                 database_name = ""
 
             if not connection_type:
-                logger.info(
+                logger.debug(
                     f"No connection type found for database table {table_name}, skipping URN creation"
                 )
                 return None
 
-            logger.info(
+            logger.debug(
                 f"Database info: connection_type={connection_type}, database_name={database_name}"
             )
 
@@ -3913,7 +3914,7 @@ class TableauSiteSource:
         if hasattr(self, "db_tables_lookup") and self.db_tables_lookup:
             return  # Already built
 
-        logger.info("Building database tables lookup")
+        logger.debug("Building database tables lookup")
 
         # Get database tables with full information
         for db_table in self.get_connection_objects(
@@ -3986,10 +3987,9 @@ class TableauSiteSource:
                         f"Added database table lookup variation: '{variation}' -> {name}"
                     )
 
-        logger.info(
+        logger.debug(
             f"Built database tables lookup with {len(self.db_tables_lookup)} entries"
         )
-        logger.info(self.db_tables_lookup.items())
 
     def _extract_table_name_only(self, full_name: str) -> Optional[str]:
         """Extract just the table name from a potentially qualified name"""
@@ -4038,7 +4038,7 @@ class TableauSiteSource:
 
             # Build database tables lookup early (if VCs will be processed)
             if self.config.ingest_virtual_connections:
-                logger.info("Building database tables lookup for VC processing")
+                logger.debug("Building database tables lookup for VC processing")
                 self._build_database_tables_lookup()
 
             if self.config.add_site_container:
@@ -4083,7 +4083,7 @@ class TableauSiteSource:
             # STEP 2: Now process Virtual Connections (after collecting VC references from datasources)
             if self.config.ingest_virtual_connections:
                 with PerfTimer() as timer:
-                    logger.info("Processing Virtual Connection lookups and emission")
+                    logger.debug("Processing Virtual Connection lookups and emission")
 
                     # Build VC mappings
                     self.vc_processor.lookup_vc_ids_from_table_ids()
@@ -4096,21 +4096,21 @@ class TableauSiteSource:
                         self.vc_processor.virtual_connection_ids_being_used
                     )
 
-                    logger.info(
+                    logger.debug(
                         f"VC Processing complete: {self.report.num_vc_table_references_found} table references, "
                         f"{self.report.num_virtual_connections_processed} VCs to process"
                     )
 
                     # Emit Virtual Connections
                     if self.vc_processor.virtual_connection_ids_being_used:
-                        logger.info(
+                        logger.debug(
                             f"Emitting {len(self.vc_processor.virtual_connection_ids_being_used)} Virtual Connections"
                         )
                         yield from self.vc_processor.emit_virtual_connections()
-                        logger.info("Virtual Connection emission complete")
+                        logger.debug("Virtual Connection emission complete")
 
                     # STEP 3: NOW emit datasource → VC lineage (mappings are built now!)
-                    logger.info("Creating datasource → VC lineage with built mappings")
+                    logger.debug("Creating datasource → VC lineage with built mappings")
                     yield from self.vc_processor.emit_datasource_vc_lineages()
 
                     self.report.emit_virtual_connections_timer[

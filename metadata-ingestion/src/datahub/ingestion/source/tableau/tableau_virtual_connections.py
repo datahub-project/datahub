@@ -15,24 +15,18 @@ from datahub.ingestion.source.tableau.tableau_common import (
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageType,
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
-    Upstream,
-    UpstreamLineage,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    DatasetSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    OtherSchema,
-    SchemaMetadata,
-)
 from datahub.metadata.schema_classes import (
+    DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    DatasetSnapshotClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    OtherSchemaClass,
+    SchemaMetadataClass,
     SubTypesClass,
+    UpstreamClass,
+    UpstreamLineageClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -129,10 +123,10 @@ class VirtualConnectionProcessor:
     def lookup_vc_ids_from_table_ids(self) -> None:
         """Step 2: Lookup VC IDs from VC table IDs and store mappings"""
         if not self.vc_table_ids_for_lookup:
-            logger.info("No VC table IDs to lookup")
+            logger.debug("No VC table IDs to lookup")
             return
 
-        logger.info(f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs")
+        logger.debug(f"Looking up {len(self.vc_table_ids_for_lookup)} VC table IDs")
 
         # Query all VCs to find matches
         for vc in self.tableau_source.get_connection_objects(
@@ -171,7 +165,7 @@ class VirtualConnectionProcessor:
                                 col_type
                             )
 
-        logger.info(
+        logger.debug(
             f"Found {len(self.vc_table_id_to_vc_id)} VC table mappings, "
             f"will process {len(self.virtual_connection_ids_being_used)} VCs"
         )
@@ -179,7 +173,7 @@ class VirtualConnectionProcessor:
     def emit_virtual_connections(self):
         """Emit Virtual Connection datasets with v2 schema fields"""
         if not self.virtual_connection_ids_being_used:
-            logger.info("No Virtual Connections to emit")
+            logger.debug("No Virtual Connections to emit")
             return
 
         vc_filter = {c.ID_WITH_IN: self.virtual_connection_ids_being_used}
@@ -217,7 +211,7 @@ class VirtualConnectionProcessor:
 
     def _get_vc_schema_metadata_grouped_by_table(
         self, vc_tables: List[dict]
-    ) -> Dict[str, SchemaMetadata]:
+    ) -> Dict[str, SchemaMetadataClass]:
         """Create separate schema metadata for each table in the Virtual Connection"""
         table_schemas = {}
 
@@ -254,25 +248,25 @@ class VirtualConnectionProcessor:
 
             if fields:
                 # Create schema metadata for this table
-                table_schemas[table_name] = SchemaMetadata(
+                table_schemas[table_name] = SchemaMetadataClass(
                     schemaName=f"VirtualConnection_{table_name}",
                     platform=f"urn:li:dataPlatform:{self.platform}",
                     version=0,
                     fields=fields,
                     hash="",
-                    platformSchema=OtherSchema(rawSchema=""),
+                    platformSchema=OtherSchemaClass(rawSchema=""),
                 )
 
         return table_schemas
 
     def _create_vc_upstream_lineage_v2(
         self, vc: dict, vc_tables: List[dict], vc_urn: str
-    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
         """Create upstream lineage for VC using v2 field paths"""
         upstream_tables = []
         fine_grained_lineages = []
 
-        logger.info(f"Processing VC upstream lineage for {len(vc_tables)} tables")
+        logger.debug(f"Processing VC upstream lineage for {len(vc_tables)} tables")
 
         for vc_table in vc_tables:
             vc_table_name = vc_table.get(c.NAME)
@@ -280,7 +274,7 @@ class VirtualConnectionProcessor:
                 logger.warning("VC table has no name, skipping")
                 continue
 
-            logger.info(f"Processing VC table: {vc_table_name}")
+            logger.debug(f"Processing VC table: {vc_table_name}")
 
             # Find matching database table
             matched_db_table = self.tableau_source._find_matching_database_table(
@@ -292,7 +286,7 @@ class VirtualConnectionProcessor:
                 )
                 continue
 
-            logger.info(f"Found matching database table for {vc_table_name}")
+            logger.debug(f"Found matching database table for {vc_table_name}")
 
             # Create database table URN
             db_table_urn = self.tableau_source._create_database_table_urn(
@@ -304,11 +298,13 @@ class VirtualConnectionProcessor:
                 )
                 continue
 
-            logger.info(f"Created database table URN: {db_table_urn}")
+            logger.debug(f"Created database table URN: {db_table_urn}")
 
             # Add table-level upstream
             upstream_tables.append(
-                Upstream(dataset=db_table_urn, type=DatasetLineageType.TRANSFORMED)
+                UpstreamClass(
+                    dataset=db_table_urn, type=DatasetLineageTypeClass.TRANSFORMED
+                )
             )
 
             # Create column-level lineage using v2 field paths
@@ -340,14 +336,14 @@ class VirtualConnectionProcessor:
 
                             # Create fine-grained lineage
                             fine_grained_lineages.append(
-                                FineGrainedLineage(
-                                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                FineGrainedLineageClass(
+                                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                                     downstreams=[
                                         builder.make_schema_field_urn(
                                             vc_urn, vc_field_path
                                         )
                                     ],
-                                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                                     upstreams=[
                                         builder.make_schema_field_urn(
                                             db_table_urn, db_col_name
@@ -356,17 +352,17 @@ class VirtualConnectionProcessor:
                                 )
                             )
 
-        logger.info(
+        logger.debug(
             f"Created {len(upstream_tables)} upstream table relationships for VC"
         )
         return upstream_tables, fine_grained_lineages
 
     def create_datasource_vc_lineage_v2(
         self, datasource_urn: str
-    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
         """Create datasource to VC lineage using v2 field paths - pointing to specific VC tables"""
-        upstream_tables: List[Upstream] = []
-        fine_grained_lineages: List[FineGrainedLineage] = []
+        upstream_tables: List[UpstreamClass] = []
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         # Extract datasource ID from URN
         try:
@@ -452,8 +448,9 @@ class VirtualConnectionProcessor:
                 if vc_table_urn not in vc_table_urns_seen:
                     vc_table_urns_seen.add(vc_table_urn)
                     upstream_tables.append(
-                        Upstream(
-                            dataset=vc_table_urn, type=DatasetLineageType.TRANSFORMED
+                        UpstreamClass(
+                            dataset=vc_table_urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
                         )
                     )
                     logger.debug(f"Added table-level upstream: {vc_table_urn}")
@@ -466,14 +463,14 @@ class VirtualConnectionProcessor:
                     )
 
                     fine_grained_lineages.append(
-                        FineGrainedLineage(
-                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        FineGrainedLineageClass(
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
                                 builder.make_schema_field_urn(
                                     datasource_urn, field_name
                                 )
                             ],
-                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
                                 builder.make_schema_field_urn(
                                     vc_table_urn, str(column_name)
@@ -497,7 +494,7 @@ class VirtualConnectionProcessor:
     def emit_datasource_vc_lineages(self) -> Iterable[MetadataWorkUnit]:
         """Emit datasource → VC lineage relationships"""
         if not self.datasource_vc_relationships or not self.vc_table_id_to_vc_id:
-            logger.info("No datasource VC relationships to emit")
+            logger.debug("No datasource VC relationships to emit")
             return
 
         for datasource_id in self.datasource_vc_relationships:
@@ -514,13 +511,13 @@ class VirtualConnectionProcessor:
             )
 
             if upstream_tables or fine_grained_lineages:
-                upstream_lineage = UpstreamLineage(
+                upstream_lineage = UpstreamLineageClass(
                     upstreams=upstream_tables,
                     fineGrainedLineages=fine_grained_lineages or None,
                 )
                 yield self.tableau_source.get_metadata_change_proposal(
                     datasource_urn,
-                    aspect_name=c.UPSTREAM_LINEAGE,
+                    aspect_name="upstreamLineage",
                     aspect=upstream_lineage,
                 )
 
@@ -601,7 +598,7 @@ class VirtualConnectionProcessor:
             )
 
             # Create dataset snapshot for the table
-            dataset_snapshot = DatasetSnapshot(
+            dataset_snapshot = DatasetSnapshotClass(
                 urn=table_urn,
                 aspects=[self.tableau_source.get_data_platform_instance()],
             )
@@ -629,13 +626,13 @@ class VirtualConnectionProcessor:
             )
 
             if upstream_tables:
-                upstream_lineage = UpstreamLineage(
+                upstream_lineage = UpstreamLineageClass(
                     upstreams=upstream_tables,
                     fineGrainedLineages=fine_grained_lineages or None,
                 )
                 yield self.tableau_source.get_metadata_change_proposal(
                     table_urn,
-                    aspect_name=c.UPSTREAM_LINEAGE,
+                    aspect_name="upstreamLineage",
                     aspect=upstream_lineage,
                 )
 
@@ -659,13 +656,13 @@ class VirtualConnectionProcessor:
             yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
             yield self.tableau_source.get_metadata_change_proposal(
                 dataset_snapshot.urn,
-                aspect_name=c.SUB_TYPES,
+                aspect_name="subTypes",
                 aspect=SubTypesClass(typeNames=["Virtual Connection Table"]),
             )
 
     def _create_table_upstream_lineage(
         self, table_info: dict, table_urn: str
-    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+    ) -> Tuple[List[UpstreamClass], List[FineGrainedLineageClass]]:
         """Create upstream lineage for a single table"""
         upstream_tables = []
         fine_grained_lineages = []
@@ -692,7 +689,9 @@ class VirtualConnectionProcessor:
 
         # Add table-level upstream
         upstream_tables.append(
-            Upstream(dataset=db_table_urn, type=DatasetLineageType.TRANSFORMED)
+            UpstreamClass(
+                dataset=db_table_urn, type=DatasetLineageTypeClass.TRANSFORMED
+            )
         )
 
         # Create column-level lineage
@@ -719,14 +718,14 @@ class VirtualConnectionProcessor:
 
                         # Create fine-grained lineage
                         fine_grained_lineages.append(
-                            FineGrainedLineage(
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            FineGrainedLineageClass(
+                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                                 downstreams=[
                                     builder.make_schema_field_urn(
                                         table_urn, vc_col_name
                                     )
                                 ],
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                                 upstreams=[
                                     builder.make_schema_field_urn(
                                         db_table_urn, db_col_name
