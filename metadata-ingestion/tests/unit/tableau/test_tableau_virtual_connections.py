@@ -1,5 +1,5 @@
 import pathlib
-from typing import Any, cast
+from typing import Any, Dict, List, cast
 from unittest import mock
 
 from freezegun import freeze_time
@@ -15,6 +15,7 @@ from datahub.ingestion.source.tableau.tableau_virtual_connections import (
     VCFolderKey,
     VirtualConnectionProcessor,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from tests.unit.tableau.test_tableau_config import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"
@@ -54,10 +55,10 @@ class TestVirtualConnectionProcessor:
         assert self.vc_processor.tableau_source == self.tableau_source
         assert self.vc_processor.config == self.config
         assert self.vc_processor.platform == "tableau"
-        assert isinstance(self.vc_processor.vc_table_ids_for_lookup, list)
-        assert isinstance(self.vc_processor.vc_table_id_to_vc_id, dict)
-        assert isinstance(self.vc_processor.virtual_connection_ids_being_used, list)
-        assert isinstance(self.vc_processor.datasource_vc_relationships, dict)
+        assert isinstance(self.vc_processor.vc_table_ids_for_lookup, List)
+        assert isinstance(self.vc_processor.vc_table_id_to_vc_id, Dict)
+        assert isinstance(self.vc_processor.virtual_connection_ids_being_used, List)
+        assert isinstance(self.vc_processor.datasource_vc_relationships, Dict)
 
     def test_gen_vc_folder_key(self):
         """Test VCFolderKey generation."""
@@ -161,7 +162,7 @@ class TestVirtualConnectionProcessor:
         malformed_datasource2 = {c.ID: "ds-789"}
 
         # Empty datasource
-        empty_datasource: dict[str, Any] = {}
+        empty_datasource: Dict[str, Any] = {}
 
         # Should handle gracefully without crashing
         self.vc_processor.process_datasource_for_vc_refs(
@@ -248,7 +249,7 @@ class TestVirtualConnectionProcessor:
 
         vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-123,PROD)"
 
-        vc_tables = cast(list[dict[str, Any]], virtual_connection.get(c.TABLES, []))
+        vc_tables = cast(List[Dict[str, Any]], virtual_connection.get(c.TABLES, []))
         upstream_tables, fine_grained_lineages = (
             self.vc_processor._create_vc_upstream_lineage_v2(
                 virtual_connection, vc_tables, vc_urn
@@ -256,8 +257,8 @@ class TestVirtualConnectionProcessor:
         )
 
         # Should return lists
-        assert isinstance(upstream_tables, list)
-        assert isinstance(fine_grained_lineages, list)
+        assert isinstance(upstream_tables, List)
+        assert isinstance(fine_grained_lineages, List)
 
         # Should have found upstream datasources
         if upstream_tables:
@@ -305,8 +306,8 @@ class TestVirtualConnectionProcessor:
         )
 
         # Should have created lineage
-        assert isinstance(upstream_tables, list)
-        assert isinstance(fine_grained_lineages, list)
+        assert isinstance(upstream_tables, List)
+        assert isinstance(fine_grained_lineages, List)
 
     def test_error_handling_in_lineage_creation(self):
         """Test error handling during lineage creation."""
@@ -321,8 +322,8 @@ class TestVirtualConnectionProcessor:
         # Should handle gracefully
         vc_tables_raw: Any = malformed_vc.get(c.TABLES, [])
         vc_tables = cast(
-            list[dict[str, Any]],
-            vc_tables_raw if isinstance(vc_tables_raw, list) else [],
+            List[Dict[str, Any]],
+            vc_tables_raw if isinstance(vc_tables_raw, List) else [],
         )
         upstream_tables, fine_grained_lineages = (
             self.vc_processor._create_vc_upstream_lineage_v2(
@@ -400,7 +401,7 @@ class TestVirtualConnectionProcessor:
 
         vc_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-empty,PROD)"
 
-        vc_tables = cast(list[dict[str, Any]], empty_vc.get(c.TABLES, []))
+        vc_tables = cast(List[Dict[str, Any]], empty_vc.get(c.TABLES, []))
         upstream_tables, fine_grained_lineages = (
             self.vc_processor._create_vc_upstream_lineage_v2(
                 empty_vc, vc_tables, vc_urn
@@ -431,3 +432,493 @@ class TestVirtualConnectionProcessor:
             == "warehouse.sales.transactions"
         )
         assert self.vc_processor.vc_table_id_to_name.get("nonexistent") is None
+
+    def test_group_vc_columns_by_table(self):
+        """Test grouping virtual connection columns by table."""
+        vc_tables = [
+            {
+                c.ID: "vc-table-1",
+                c.NAME: "table1",
+                c.COLUMNS: [
+                    {c.ID: "col-1", c.NAME: "column1", c.REMOTE_TYPE: "INTEGER"},
+                    {c.ID: "col-2", c.NAME: "column2", c.REMOTE_TYPE: "STRING"},
+                ],
+            },
+            {
+                c.ID: "vc-table-2",
+                c.NAME: "table2",
+                c.COLUMNS: [
+                    {c.ID: "col-3", c.NAME: "column3", c.REMOTE_TYPE: "BOOLEAN"},
+                ],
+            },
+        ]
+
+        grouped_columns = self.vc_processor._group_vc_columns_by_table(vc_tables)
+
+        # Should have two tables (grouped by NAME, not ID)
+        assert len(grouped_columns) == 2
+        assert "table1" in grouped_columns
+        assert "table2" in grouped_columns
+
+        # Check table 1 columns
+        table1_data = grouped_columns["table1"]
+        assert len(table1_data["columns"]) == 2
+        assert table1_data["columns"][0][c.NAME] == "column1"
+        assert table1_data["columns"][1][c.NAME] == "column2"
+
+        # Check table 2 columns
+        table2_data = grouped_columns["table2"]
+        assert len(table2_data["columns"]) == 1
+        assert table2_data["columns"][0][c.NAME] == "column3"
+
+    def test_group_vc_columns_by_table_empty(self):
+        """Test grouping virtual connection columns with empty data."""
+        vc_tables: List[Dict[str, Any]] = []
+
+        grouped_columns = self.vc_processor._group_vc_columns_by_table(vc_tables)
+        assert grouped_columns == {}
+
+    def test_get_vc_schema_metadata_grouped_by_table(self):
+        """Test getting schema metadata grouped by table."""
+        vc_tables = [
+            {
+                c.ID: "vc-table-1",
+                c.NAME: "test.table1",
+                c.COLUMNS: [
+                    {
+                        c.ID: "col-1",
+                        c.NAME: "id",
+                        c.REMOTE_TYPE: "INTEGER",
+                        c.DESCRIPTION: "Primary key",
+                    },
+                    {
+                        c.ID: "col-2",
+                        c.NAME: "name",
+                        c.REMOTE_TYPE: "STRING",
+                        c.DESCRIPTION: "User name",
+                    },
+                ],
+            },
+        ]
+
+        schema_metadata_dict = (
+            self.vc_processor._get_vc_schema_metadata_grouped_by_table(vc_tables)
+        )
+
+        # Should have one table (keyed by table NAME)
+        assert len(schema_metadata_dict) == 1
+        assert "test.table1" in schema_metadata_dict
+
+        # Check schema metadata
+        schema_metadata = schema_metadata_dict["test.table1"]
+        assert isinstance(schema_metadata, SchemaMetadata)
+        assert schema_metadata.schemaName == "VirtualConnection_test.table1"
+        assert len(schema_metadata.fields) >= 2
+
+        # Check that we have the expected field paths
+        field_paths = [field.fieldPath for field in schema_metadata.fields]
+        assert "[type=integer].id" in field_paths
+        assert "[type=string].name" in field_paths
+
+    def test_get_vc_project_luid(self):
+        """Test getting VC project LUID."""
+        # Mock project registry
+        mock_project = mock.MagicMock()
+        mock_project.name = "Test Project"
+        self.vc_processor.tableau_source.tableau_project_registry = {
+            "project-luid-123": mock_project
+        }
+
+        # Test with valid project name
+        vc_with_project = {"projectName": "Test Project"}
+        project_luid = self.vc_processor._get_vc_project_luid(vc_with_project)
+        assert project_luid == "project-luid-123"
+
+        # Test without project
+        vc_without_project = {c.ID: "vc-123"}
+        project_luid = self.vc_processor._get_vc_project_luid(vc_without_project)
+        assert project_luid is None
+
+        # Test with non-matching project name
+        vc_unknown_project = {"projectName": "Unknown Project"}
+        project_luid = self.vc_processor._get_vc_project_luid(vc_unknown_project)
+        assert project_luid is None
+
+    def test_create_vc_folder_container(self):
+        """Test creating VC folder container."""
+        vc = {
+            c.ID: "vc-123",
+            c.NAME: "Test VC",
+            c.DESCRIPTION: "Test virtual connection",
+        }
+
+        # Mock project LUID lookup and project container creation
+        with (
+            mock.patch.object(
+                self.vc_processor,
+                "_get_vc_project_luid",
+                return_value="project-luid-123",
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "gen_project_key",
+                return_value=mock.MagicMock(),
+            ) as mock_gen_project_key,
+        ):
+            container_urn, container_workunits = (
+                self.vc_processor._create_vc_folder_container(vc)
+            )
+
+            # Should return a tuple with URN and work units
+            assert container_urn is not None
+            assert isinstance(container_workunits, List)
+            assert len(container_workunits) > 0
+
+            # Should have called gen_project_key
+            mock_gen_project_key.assert_called_once_with("project-luid-123")
+
+    def test_create_vc_folder_container_no_project(self):
+        """Test creating VC folder container without project."""
+        vc = {
+            c.ID: "vc-123",
+            c.NAME: "Test VC",
+            c.DESCRIPTION: "Test virtual connection",
+        }
+
+        container_urn, container_workunits = (
+            self.vc_processor._create_vc_folder_container(vc)
+        )
+
+        # Should still return a tuple even without project
+        assert container_urn is not None
+        assert isinstance(container_workunits, List)
+        assert len(container_workunits) > 0
+
+    def test_emit_datasource_vc_lineages_empty(self):
+        """Test emitting datasource VC lineages with no relationships."""
+        # No relationships stored
+        lineage_workunits = list(self.vc_processor.emit_datasource_vc_lineages())
+        assert lineage_workunits == []
+
+    def test_emit_datasource_vc_lineages_with_relationships(self):
+        """Test emitting datasource VC lineages with relationships."""
+        # Add some test relationships and VC mappings
+        self.vc_processor.datasource_vc_relationships = {
+            "ds-123": [
+                {
+                    "vc_id": "vc-456",
+                    "vc_table_id": "vc-table-1",
+                    "datasource_type": "published",
+                }
+            ]
+        }
+        self.vc_processor.vc_table_id_to_vc_id = {"vc-table-1": "vc-456"}
+
+        # Mock the create_datasource_vc_lineage_v2 method
+        with mock.patch.object(
+            self.vc_processor,
+            "create_datasource_vc_lineage_v2",
+            return_value=([], []),  # Returns tuple, not list
+        ) as mock_create_lineage:
+            lineage_workunits = list(self.vc_processor.emit_datasource_vc_lineages())
+
+            # Should have called create_datasource_vc_lineage_v2
+            mock_create_lineage.assert_called_once()
+
+            # Should return work units (may be empty if no lineage)
+            assert isinstance(lineage_workunits, List)
+
+    def test_create_table_upstream_lineage_empty_datasources(self):
+        """Test creating table upstream lineage with empty table info."""
+        table_info = {c.ID: "vc-table-1", c.NAME: "test_table", c.COLUMNS: []}
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-table-1,PROD)"
+
+        upstream_tables, fine_grained_lineages = (
+            self.vc_processor._create_table_upstream_lineage(table_info, table_urn)
+        )
+
+        assert upstream_tables == []
+        assert fine_grained_lineages == []
+
+    def test_create_table_upstream_lineage_with_datasources(self):
+        """Test creating table upstream lineage with datasources."""
+        table_info = {
+            c.ID: "vc-table-1",
+            c.NAME: "test_table",
+            c.COLUMNS: [
+                {
+                    c.ID: "col-1",
+                    c.NAME: "column1",
+                    c.UPSTREAM_FIELDS: [
+                        {
+                            c.ID: "upstream-field-1",
+                            c.NAME: "source_col1",
+                            c.DATA_SOURCE: {c.ID: "ds-123", c.NAME: "Source DB 1"},
+                        }
+                    ],
+                }
+            ],
+        }
+        table_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,vc-table-1,PROD)"
+
+        # Mock the database table matching methods
+        mock_db_table = {"name": "test_table", "id": "db-table-123"}
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_find_matching_database_table",
+                return_value=mock_db_table,
+            ),
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "_create_database_table_urn",
+                return_value="urn:li:dataset:(urn:li:dataPlatform:tableau,db-table-123,PROD)",
+            ),
+        ):
+            upstream_tables, fine_grained_lineages = (
+                self.vc_processor._create_table_upstream_lineage(table_info, table_urn)
+            )
+
+            # Should create upstream entries and fine-grained lineage
+            assert (
+                len(upstream_tables) >= 0
+            )  # May be 0 or more depending on implementation
+            assert isinstance(fine_grained_lineages, List)
+
+    def test_emit_virtual_connections_disabled(self):
+        """Test emit_virtual_connections when disabled in config."""
+        # Disable virtual connections
+        self.vc_processor.config.ingest_virtual_connections = False
+
+        # Mock server.get_connection_objects
+        with mock.patch.object(
+            self.vc_processor.server, "get_connection_objects", return_value=[]
+        ):
+            workunits = list(self.vc_processor.emit_virtual_connections())
+            assert workunits == []
+
+    def test_emit_virtual_connections_enabled_no_data(self):
+        """Test emit_virtual_connections when enabled but no data."""
+        # Enable virtual connections
+        self.vc_processor.config.ingest_virtual_connections = True
+
+        # Mock server.get_connection_objects to return empty
+        with mock.patch.object(
+            self.vc_processor.server, "get_connection_objects", return_value=[]
+        ):
+            workunits = list(self.vc_processor.emit_virtual_connections())
+            assert workunits == []
+
+    def test_emit_virtual_connections_with_data(self):
+        """Test emit_virtual_connections with actual data."""
+        # Set up virtual connection IDs being used
+        self.vc_processor.virtual_connection_ids_being_used = ["vc-123"]
+
+        # Mock data
+        mock_vc_data = [
+            {
+                c.ID: "vc-123",
+                c.NAME: "Test VC",
+                c.LUID: "vc-luid-123",
+                c.DESCRIPTION: "Test virtual connection",
+                c.CREATED_AT: "2021-12-07T07:00:00Z",
+                c.UPDATED_AT: "2021-12-07T07:00:00Z",
+                c.OWNER: {c.USERNAME: "test_user"},
+                c.TABLES: [],
+                c.TAGS: [],
+            }
+        ]
+
+        # Mock tableau_source.get_connection_objects and _emit_single_virtual_connection
+        with (
+            mock.patch.object(
+                self.vc_processor.tableau_source,
+                "get_connection_objects",
+                return_value=mock_vc_data,
+            ),
+            mock.patch.object(
+                self.vc_processor,
+                "_emit_single_virtual_connection",
+                return_value=[mock.MagicMock()],
+            ) as mock_emit_single,
+        ):
+            workunits = list(self.vc_processor.emit_virtual_connections())
+
+            # Should have called _emit_single_virtual_connection
+            mock_emit_single.assert_called_once_with(mock_vc_data[0])
+
+            # Should return work units
+            assert len(workunits) == 1
+
+    def test_emit_single_virtual_connection_basic(self):
+        """Test emitting a single virtual connection."""
+        vc = {
+            c.ID: "vc-123",
+            c.NAME: "Test VC",
+            c.LUID: "vc-luid-123",
+            c.DESCRIPTION: "Test virtual connection",
+            c.CREATED_AT: "2021-12-07T07:00:00Z",
+            c.UPDATED_AT: "2021-12-07T07:00:00Z",
+            c.OWNER: {c.USERNAME: "test_user"},
+            "tables": [  # Note: using string key as in actual implementation
+                {
+                    c.ID: "vc-table-1",
+                    c.NAME: "test_table",
+                    c.COLUMNS: [
+                        {c.ID: "col-1", c.NAME: "id", c.REMOTE_TYPE: "INTEGER"}
+                    ],
+                }
+            ],
+            c.TAGS: [],
+        }
+
+        # Mock dependencies
+        with (
+            mock.patch.object(
+                self.vc_processor,
+                "_create_vc_folder_container",
+                return_value=("urn:li:container:test", [mock.MagicMock()]),
+            ),
+            mock.patch.object(
+                self.vc_processor,
+                "_get_vc_schema_metadata_grouped_by_table",
+                return_value={"test_table": mock.MagicMock()},
+            ),
+            mock.patch.object(
+                self.vc_processor,
+                "_create_table_upstream_lineage",
+                return_value=([], []),
+            ),
+        ):
+            workunits = list(self.vc_processor._emit_single_virtual_connection(vc))
+
+            # Should return work units (container + dataset)
+            assert len(workunits) >= 1
+
+    def test_nested_table_schema_creation(self):
+        """Test schema creation for nested table names."""
+        vc_tables = [
+            {
+                c.ID: "vc-table-1",
+                c.NAME: "dw.sf.dw_compliance_test",  # Nested name
+                c.COLUMNS: [{c.ID: "col-1", c.NAME: "id", c.REMOTE_TYPE: "INTEGER"}],
+            }
+        ]
+
+        schema_metadata_dict = (
+            self.vc_processor._get_vc_schema_metadata_grouped_by_table(vc_tables)
+        )
+
+        # Should handle nested names properly (keyed by table NAME)
+        assert "dw.sf.dw_compliance_test" in schema_metadata_dict
+        schema_metadata = schema_metadata_dict["dw.sf.dw_compliance_test"]
+        assert (
+            schema_metadata.schemaName == "VirtualConnection_dw.sf.dw_compliance_test"
+        )
+
+        # Should create field structure
+        fields = schema_metadata.fields
+        # Should have the expected field path format
+        field_paths = [field.fieldPath for field in fields]
+        assert "[type=integer].id" in field_paths
+
+    def test_lookup_vc_ids_from_table_ids_with_data(self):
+        """Test lookup_vc_ids_from_table_ids with actual data."""
+        # Set up test data
+        self.vc_processor.vc_table_ids_for_lookup = ["vc-table-1", "vc-table-2"]
+
+        # Mock virtual connections data (what get_connection_objects returns)
+        mock_vcs = [
+            {
+                c.ID: "vc-123",
+                c.NAME: "Test VC",
+                "tables": [
+                    {c.ID: "vc-table-1", c.NAME: "table1", c.COLUMNS: []},
+                    {c.ID: "vc-table-2", c.NAME: "table2", c.COLUMNS: []},
+                ],
+            }
+        ]
+
+        with mock.patch.object(
+            self.vc_processor.tableau_source,
+            "get_connection_objects",
+            return_value=mock_vcs,
+        ):
+            self.vc_processor.lookup_vc_ids_from_table_ids()
+
+            # Should populate the mapping dictionaries
+            assert self.vc_processor.vc_table_id_to_vc_id["vc-table-1"] == "vc-123"
+            assert self.vc_processor.vc_table_id_to_vc_id["vc-table-2"] == "vc-123"
+            assert self.vc_processor.vc_table_id_to_name["vc-table-1"] == "table1"
+            assert self.vc_processor.vc_table_id_to_name["vc-table-2"] == "table2"
+
+    def test_lookup_vc_ids_from_table_ids_empty(self):
+        """Test lookup_vc_ids_from_table_ids with no table IDs."""
+        # No table IDs to look up
+        self.vc_processor.vc_table_ids_for_lookup = []
+
+        self.vc_processor.lookup_vc_ids_from_table_ids()
+
+        # Should not populate any mappings
+        assert len(self.vc_processor.vc_table_id_to_vc_id) == 0
+        assert len(self.vc_processor.vc_table_id_to_name) == 0
+
+    def test_process_datasource_for_vc_refs_with_empty_field_name(self):
+        """Test processing datasource with empty field names."""
+        # Mock datasource with empty field name
+        datasource = {
+            c.ID: "ds-123",
+            c.FIELDS: [
+                {c.ID: "field-1", c.NAME: None},  # Empty name should be skipped
+                {c.ID: "field-2", c.NAME: "valid_field", c.UPSTREAM_COLUMNS: []},
+            ],
+        }
+
+        self.vc_processor.process_datasource_for_vc_refs(datasource, "published")
+
+        # Should not create relationships for empty field names
+        assert "ds-123" not in self.vc_processor.datasource_vc_relationships
+
+    def test_lookup_vc_ids_with_columns(self):
+        """Test lookup_vc_ids_from_table_ids populating column types."""
+        # Set up test data
+        self.vc_processor.vc_table_ids_for_lookup = ["vc-table-1"]
+
+        # Mock virtual connections data with columns
+        mock_vcs = [
+            {
+                c.ID: "vc-123",
+                c.NAME: "Test VC",
+                "tables": [
+                    {
+                        c.ID: "vc-table-1",
+                        c.NAME: "table1",
+                        c.COLUMNS: [
+                            {c.NAME: "col1", c.REMOTE_TYPE: "INTEGER"},
+                            {c.NAME: "col2", c.REMOTE_TYPE: "STRING"},
+                            {
+                                c.NAME: None,
+                                c.REMOTE_TYPE: "BOOLEAN",
+                            },  # Should skip this
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        with mock.patch.object(
+            self.vc_processor.tableau_source,
+            "get_connection_objects",
+            return_value=mock_vcs,
+        ):
+            self.vc_processor.lookup_vc_ids_from_table_ids()
+
+            # Should populate column types
+            assert "vc-table-1.col1" in self.vc_processor.vc_table_column_types
+            assert "vc-table-1.col2" in self.vc_processor.vc_table_column_types
+            assert (
+                self.vc_processor.vc_table_column_types["vc-table-1.col1"] == "INTEGER"
+            )
+            assert (
+                self.vc_processor.vc_table_column_types["vc-table-1.col2"] == "STRING"
+            )

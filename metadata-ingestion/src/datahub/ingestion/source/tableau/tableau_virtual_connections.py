@@ -517,8 +517,7 @@ class VirtualConnectionProcessor:
                 )
                 yield self.tableau_source.get_metadata_change_proposal(
                     datasource_urn,
-                    aspect_name="upstreamLineage",
-                    aspect=upstream_lineage,
+                    upstream_lineage,
                 )
 
     def _get_vc_project_luid(self, vc: dict) -> Optional[str]:
@@ -632,8 +631,7 @@ class VirtualConnectionProcessor:
                 )
                 yield self.tableau_source.get_metadata_change_proposal(
                     table_urn,
-                    aspect_name="upstreamLineage",
-                    aspect=upstream_lineage,
+                    upstream_lineage,
                 )
 
             # Add table to the VC folder container
@@ -656,8 +654,7 @@ class VirtualConnectionProcessor:
             yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
             yield self.tableau_source.get_metadata_change_proposal(
                 dataset_snapshot.urn,
-                aspect_name="subTypes",
-                aspect=SubTypesClass(typeNames=["Virtual Connection Table"]),
+                SubTypesClass(typeNames=["Virtual Connection Table"]),
             )
 
     def _create_table_upstream_lineage(
