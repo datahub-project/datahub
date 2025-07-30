@@ -1,5 +1,4 @@
 {
-  "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
     "target": "es2020",
     "lib": ["es2020"],
@@ -10,25 +9,13 @@
     "resolveJsonModule": true,
     "strict": false,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": false,
-    "outDir": "./dist",
-    "rootDir": ".",
-    "types": ["node"]
+    "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "generateDocsDir.ts",
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build"
-  ],
   "ts-node": {
     "compilerOptions": {
       "module": "commonjs",
-      "target": "es2020"
+      "target": "es2020",
+      "lib": ["es2020"]
     }
   }
 }
