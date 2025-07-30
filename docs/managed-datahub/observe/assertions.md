@@ -12,7 +12,7 @@ Assertions serve as the building blocks of [Data Contracts](/docs/managed-datahu
 
 Data quality tests (a.k.a. assertions) can be created and run by DataHub Cloud or ingested from a 3rd party tool.
 
-### DataHub Cloud Observe
+### DataHub Cloud Assertions
 
 For DataHub-provided assertion runners, we can deploy an agent in your environment to hit your sources and DataHub. DataHub Cloud Observe offers out-of-the-box evaluation of the following kinds of assertions:
 
@@ -22,7 +22,7 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
 - [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
-### Bulk Create Assertions
+#### Bulk Creating Assertions
 
 You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md):
 
