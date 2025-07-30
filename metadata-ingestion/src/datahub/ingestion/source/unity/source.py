@@ -1,7 +1,6 @@
 import logging
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
@@ -657,15 +656,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if len(table.columns) > self.config.column_lineage_column_limit:
                 self.report.num_column_lineage_skipped_column_count += 1
 
-            with ThreadPoolExecutor(
-                max_workers=self.config.lineage_max_workers
-            ) as executor:
-                for column in table.columns[: self.config.column_lineage_column_limit]:
-                    executor.submit(
-                        self.unity_catalog_api_proxy.get_column_lineage,
-                        table,
-                        column.name,
-                    )
+            column_names = [
+                column.name
+                for column in table.columns[: self.config.column_lineage_column_limit]
+            ]
+            self.unity_catalog_api_proxy.get_column_lineage(
+                table, column_names, max_workers=self.config.lineage_max_workers
+            )
 
         return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
 

@@ -9,7 +9,7 @@ import { NavMenuItem, NavSubMenuItem } from '@app/homeV2/layout/types';
 import { HOME_PAGE_INGESTION_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
 
 import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
@@ -108,6 +108,7 @@ export function NavLinksMenu(props: Props) {
     // Flags to show/hide menu items
     const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
@@ -163,6 +164,12 @@ export function NavLinksMenu(props: Props) {
                         description: 'View and modify your tags',
                         link: PageRoutes.MANAGE_TAGS,
                         isHidden: false,
+                    },
+                    {
+                        title: 'Business Attributes',
+                        description: 'Universal field for data consistency',
+                        link: PageRoutes.BUSINESS_ATTRIBUTE,
+                        isHidden: !businessAttributesFlag,
                     },
                     {
                         title: 'Domains',

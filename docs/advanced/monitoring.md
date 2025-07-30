@@ -409,6 +409,271 @@ histogram_quantile(0.99,
 rate(graphql_request_errors_total[5m])
 ```
 
+## Kafka Consumer Instrumentation (Micrometer)
+
+### Overview
+
+DataHub provides comprehensive instrumentation for Kafka message consumption through Micrometer metrics, enabling
+real-time monitoring of message queue latency and consumer performance. This instrumentation is critical for
+maintaining data freshness SLAs and identifying processing bottlenecks across DataHub's event-driven architecture.
+
+### Why Kafka Queue Time Monitoring Matters
+
+Traditional Kafka lag monitoring only tells you "we're behind by 10,000 messages"
+Without queue time metrics, you can't answer critical questions like "are we meeting our 5-minute data freshness SLA?"
+or "which consumer groups are experiencing delays?"
+
+#### Real-World Impact
+
+Consider these scenarios:
+
+Variable Production Rate:
+
+- Morning: 100 messages/second → 1000 message lag = 10 seconds old
+- Evening: 10 messages/second → 1000 message lag = 100 seconds old
+- Same lag count, vastly different business impact!
+
+Burst Traffic Patterns:
+
+- Bulk ingestion creates 1M message backlog
+- Are these messages from the last hour (recoverable) or last 24 hours (SLA breach)?
+
+Consumer Group Performance:
+
+- Real-time processors need < 1 minute latency
+- Analytics consumers can tolerate 1 hour latency
+- Different groups require different monitoring thresholds
+
+### Architecture
+
+Kafka queue time instrumentation is implemented across all DataHub consumers:
+
+- MetadataChangeProposals (MCP) Processor - SQL entity updates
+  - BatchMetadataChangeProposals (MCP) Processor - Bulk SQL entity updates
+- MetadataChangeLog (MCL) Processor & Hooks - Elasticsearch & downstream aspect operations
+- DataHubUsageEventsProcessor - Usage analytics events
+- PlatformEventProcessor - Platform operations & external consumers
+
+Each consumer automatically records queue time metrics using the message's embedded timestamp.
+
+### Metrics Collected
+
+#### Core Metric
+
+Metric: `kafka.message.queue.time`
+
+- Type: Timer with configurable percentiles and SLO buckets
+- Unit: Milliseconds
+- Tags:
+  - topic: Kafka topic name (e.g., "MetadataChangeProposal_v1")
+  - consumer.group: Consumer group ID (e.g., "generic-mce-consumer")
+- Use Case: Monitor end-to-end latency from message production to SQL transaction
+
+#### Statistical Distribution
+
+The timer automatically tracks:
+
+- Count: Total messages processed
+- Sum: Cumulative queue time
+- Max: Highest queue time observed
+- Percentiles: p50, p95, p99, p99.9 (configurable)
+- SLO Buckets: Percentage of messages meeting latency targets
+
+#### Configuration Guide
+
+Default Configuration:
+
+```yaml
+kafka:
+  consumer:
+    metrics:
+      # Percentiles to calculate
+      percentiles: "0.5,0.95,0.99,0.999"
+
+      # Service Level Objective buckets (seconds)
+      slo: "300,1800,3600,10800,21600,43200" # 5m,30m,1h,3h,6h,12h
+
+      # Maximum expected queue time
+      maxExpectedValue: 86400 # 24 hours (seconds)
+```
+
+#### Key Monitoring Patterns
+
+SLA Compliance Monitoring:
+
+```promql
+# Percentage of messages processed within 5-minute SLA
+sum(rate(kafka_message_queue_time_seconds_bucket{le="300"}[5m])) by (topic)
+/ sum(rate(kafka_message_queue_time_seconds_count[5m])) by (topic) * 100
+```
+
+Consumer Group Comparison:
+
+```promql
+# P99 queue time by consumer group
+histogram_quantile(0.99,
+  sum by (consumer_group, le) (
+    rate(kafka_message_queue_time_seconds_bucket[5m])
+  )
+)
+```
+
+#### Performance Considerations
+
+Metric Cardinality:
+
+The instrumentation is designed for low cardinality:
+
+- Only two tags: `topic` and `consumer.group`
+- No partition-level tags (avoiding explosion with high partition counts)
+- No message-specific tags
+
+Overhead Assessment:
+
+- CPU Impact: Minimal - single timestamp calculation per message
+- Memory Impact: ~5KB per topic/consumer-group combination
+- Network Impact: Negligible - metrics aggregated before export
+
+#### Migration from Legacy Metrics
+
+The new Micrometer-based queue time metrics coexist with the legacy DropWizard `kafkaLag` histogram:
+
+- Legacy: `kafkaLag` histogram via JMX
+- New: `kafka.message.queue.time` timer via Micrometer
+- Migration: Both metrics collected during transition period
+- Future: Legacy metrics will be deprecated in favor of Micrometer
+
+The new metrics provide:
+
+- Better percentile accuracy
+- SLO bucket tracking
+- Multi-backend support
+- Dimensional tagging
+
+## DataHub Request Hook Latency Instrumentation (Micrometer)
+
+### Overview
+
+DataHub provides comprehensive instrumentation for measuring the latency from initial request submission to post-MCL
+(Metadata Change Log) hook execution. This metric is crucial for understanding the end-to-end processing time of metadata
+changes, including both the time spent in Kafka queues and the time taken to process through the system to the final hooks.
+
+### Why Hook Latency Monitoring Matters
+
+Traditional metrics only show individual component performance. Request hook latency provides the complete picture of how long
+it takes for a metadata change to be fully processed through DataHub's pipeline:
+
+- Request Submission: When a metadata change request is initially submitted
+- Queue Time: Time spent in Kafka topics waiting to be consumed
+- Processing Time: Time for the change to be persisted and processed
+- Hook Execution: Final execution of MCL hooks
+
+This end-to-end view is essential for:
+
+- Meeting data freshness SLAs
+- Identifying bottlenecks in the metadata pipeline
+- Understanding the impact of system load on processing times
+- Ensuring timely updates to downstream systems
+
+### Configuration
+
+Hook latency metrics are configured separately from Kafka consumer metrics to allow fine-tuning based on your specific requirements:
+
+```yaml
+datahub:
+  metrics:
+    # Measures the time from request to post-MCL hook execution
+    hookLatency:
+      # Percentiles to calculate for latency distribution
+      percentiles: "0.5,0.95,0.99,0.999"
+
+      # Service Level Objective buckets (seconds)
+      # These define the latency targets you want to track
+      slo: "300,1800,3000,10800,21600,43200" # 5m, 30m, 1h, 3h, 6h, 12h
+
+      # Maximum expected latency (seconds)
+      # Values above this are considered outliers
+      maxExpectedValue: 86000 # 24 hours
+```
+
+### Metrics Collected
+
+#### Core Metric
+
+Metric: `datahub.request.hook.queue.time`
+
+- Type: Timer with configurable percentiles and SLO buckets
+- Unit: Milliseconds
+- Tags:
+  - `hook`: Name of the MCL hook being executed (e.g., "IngestionSchedulerHook", "SiblingsHook")
+- Use Case: Monitor the complete latency from request submission to hook exe
+
+#### Key Monitoring Patterns
+
+SLA Compliance by Hook:
+
+Monitor which hooks are meeting their latency SLAs:
+
+```promql
+# Percentage of requests processed within 5-minute SLA per hook
+sum(rate(datahub_request_hook_queue_time_seconds_bucket{le="300"}[5m])) by (hook)
+/ sum(rate(datahub_request_hook_queue_time_seconds_count[5m])) by (hook) * 100
+```
+
+Hook Performance Comparison:
+
+Identify which hooks have the highest latency:
+
+```promql
+# P99 latency by hook
+histogram_quantile(0.99,
+  sum by (hook, le) (
+    rate(datahub_request_hook_queue_time_seconds_bucket[5m])
+  )
+)
+```
+
+Latency Trends:
+
+Track how hook latency changes over time:
+
+```promql
+# Average hook latency trend
+avg by (hook) (
+  rate(datahub_request_hook_queue_time_seconds_sum[5m])
+  / rate(datahub_request_hook_queue_time_seconds_count[5m])
+)
+```
+
+#### Implementation Details
+
+The hook latency metric leverages the trace ID embedded in the system metadata of each request:
+
+1. Trace ID Generation: Each request generates a unique trace ID with an embedded timestamp
+1. Propagation: The trace ID flows through the entire processing pipeline via system metadata
+1. Measurement: When an MCL hook executes, the metric calculates the time difference between the current time and the trace ID timestamp
+1. Recording: The latency is recorded as a timer metric with the hook name as a tag
+
+#### Performance Considerations
+
+- Overhead: Minimal - only requires trace ID extraction and time calculation per hook execution
+- Cardinality: Low - only one tag (hook name) with typically < 20 unique values
+- Accuracy: High - measures actual wall-clock time from request to hook execution
+
+#### Relationship to Kafka Queue Time Metrics
+
+While Kafka queue time metrics (`kafka.message.queue.time`) measure the time messages spend in Kafka topics, request hook
+latency metrics provide the complete picture:
+
+- Kafka Queue Time: Time from message production to consumption
+- Hook Latency: Time from initial request to final hook execution
+
+Together, these metrics help identify where delays occur:
+
+- High Kafka queue time but low hook latency: Bottleneck in Kafka consumption
+- Low Kafka queue time but high hook latency: Bottleneck in processing or persistence
+- Both high: System-wide performance issues
+
 ## Cache Monitoring (Micrometer)
 
 ### Overview

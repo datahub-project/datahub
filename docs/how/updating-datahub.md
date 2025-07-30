@@ -20,6 +20,7 @@
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 - #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
+- #14162: Added fields to SystemMetadata updating the MCP Avro schema which can affect users of external schema registries with mixed version deployments.
 
 -->
 

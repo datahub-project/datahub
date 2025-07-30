@@ -1511,6 +1511,7 @@ fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     createdActor {
         urn
     }
+    cardinality
 }
 
 fragment relationshipFieldMapping on RelationshipFieldMapping {
@@ -1531,6 +1532,7 @@ fragment datasetERModelRelationshipFields on Dataset {
         description
     }
     editableProperties {
+        name
         description
     }
     schemaMetadata {
