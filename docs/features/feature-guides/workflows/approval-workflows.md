@@ -411,10 +411,12 @@ For detailed event schemas and integration examples, see the [DataHub Actions Fr
 
 ### GraphQL
 
-- [upsertActionWorkflow Mutation](#) - Create or update workflow definitions
-- [createActionWorkflowFormRequest Mutation](#) - Submit workflow requests
-- [reviewActionWorkflowFormRequest Mutation](#) - Review workflow requests
-- [deleteActionWorkflow Mutation](#) - Delete workflow definitions
+- **upsertActionWorkflow** Mutation - Create or update workflow definitions
+- **createActionWorkflowFormRequest** Mutation - Submit workflow requests
+- **reviewActionWorkflowFormRequest** Mutation - Review workflow requests
+- **d**eleteActionWorkflow** Mutation - Delete workflow definitions
+
+More information can be found by exploring the full schema at https://your-datahub-instance.acryl.io/api/graphiql.
 
 ### DataHub Blog
 
