@@ -112,6 +112,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 maxHeight="80vh"
                 stickyHeader
                 addPaddingLeft
+                secondary
             />
         </Modal>
     );
