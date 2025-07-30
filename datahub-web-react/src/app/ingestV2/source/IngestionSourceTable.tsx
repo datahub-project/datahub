@@ -103,7 +103,7 @@ function IngestionSourceTable({
             title: 'Name',
             key: 'name',
             render: (record) => {
-                return <NameColumn type={record.type} record={record} />;
+                return <NameColumn type={record.type} record={record} onNameClick={() => onEdit(record.urn)} />;
             },
             width: '25%',
             sorter: true,
