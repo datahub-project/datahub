@@ -176,7 +176,7 @@ export const AssertionsByAssertionSummary = () => {
     const hasFilters =
         statuses.length !== DEFAULT_STATUS_OPTIONS.length ||
         searchQuery.length > 0 ||
-        assertionTypes.length > 0 ||
+        assertionTypes.length !== ASSERTION_TYPE_OPTIONS.length ||
         assertionTags.length > 0 ||
         Object.values(assetFilterOptions).some((value) => value.length > 0);
 

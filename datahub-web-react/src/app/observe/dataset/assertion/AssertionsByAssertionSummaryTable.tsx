@@ -315,20 +315,28 @@ export const AssertionsByAssertionSummaryTable = ({
         return (
             <Container>
                 <EmptyState>
-                    <Text size="lg" weight="semiBold">
-                        No assertions have run during the filtered time period.
-                    </Text>
-                    {hasModifiedDefaultFilters && [
-                        <Text size="lg" color="gray">
-                            Assertions are data quality checks that run automatically to ensure your data is accurate
-                            and up to date.
-                        </Text>,
-                        <a href={ASSERTIONS_DOCS_LINK} target="_blank" rel="noreferrer">
-                            <Text size="lg" weight="semiBold">
-                                Learn more
-                            </Text>
-                        </a>,
-                    ]}
+                    {!hasModifiedDefaultFilters
+                        ? [
+                              <Text size="lg" weight="semiBold">
+                                  Create Assertions to detect data quality issues.
+                              </Text>,
+                              <Text size="lg" color="gray">
+                                  Tip: Use <i>&lsquo;Bulk Create&rsquo;</i> to set up AI Anomaly Detection.
+                              </Text>,
+                              <a href={ASSERTIONS_DOCS_LINK} target="_blank" rel="noreferrer">
+                                  <Text size="lg" weight="semiBold">
+                                      Learn more
+                                  </Text>
+                              </a>,
+                          ]
+                        : [
+                              <Text size="lg" weight="semiBold">
+                                  No assertions have run during the filtered time period.
+                              </Text>,
+                              <Text size="md" color="gray">
+                                  Try changing the time range or filters.
+                              </Text>,
+                          ]}
                 </EmptyState>
             </Container>
         );
