@@ -4,9 +4,7 @@ import com.linkedin.metadata.system_info.SystemInfoService;
 import com.linkedin.metadata.system_info.collectors.PropertiesCollector;
 import com.linkedin.metadata.system_info.collectors.SpringComponentsCollector;
 import com.linkedin.metadata.version.GitVersion;
-import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
@@ -26,10 +24,8 @@ public class SystemInfoServiceFactory {
   @Scope("singleton")
   @Nonnull
   protected SpringComponentsCollector createSpringComponentsCollector(
-      @Qualifier("systemOperationContext") final OperationContext systemOperationContext,
-      final GitVersion gitVersion,
-      final PropertiesCollector propertiesCollector) {
-    return new SpringComponentsCollector(systemOperationContext, gitVersion, propertiesCollector);
+      final GitVersion gitVersion, final PropertiesCollector propertiesCollector) {
+    return new SpringComponentsCollector(gitVersion, propertiesCollector);
   }
 
   @Bean(name = "systemInfoService")

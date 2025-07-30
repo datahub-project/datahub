@@ -8,7 +8,6 @@ import com.linkedin.metadata.system_info.ComponentInfo;
 import com.linkedin.metadata.system_info.ComponentStatus;
 import com.linkedin.metadata.system_info.SpringComponentsInfo;
 import com.linkedin.metadata.version.GitVersion;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import org.testng.annotations.BeforeMethod;
@@ -17,19 +16,16 @@ import org.testng.annotations.Test;
 public class SpringComponentsCollectorTest {
 
   private SpringComponentsCollector springComponentsCollector;
-  private OperationContext mockOperationContext;
   private GitVersion mockGitVersion;
   private PropertiesCollector mockPropertiesCollector;
 
   @BeforeMethod
   public void setUp() {
-    mockOperationContext = mock(OperationContext.class);
     mockGitVersion = mock(GitVersion.class);
     mockPropertiesCollector = mock(PropertiesCollector.class);
 
     springComponentsCollector =
-        new SpringComponentsCollector(
-            mockOperationContext, mockGitVersion, mockPropertiesCollector);
+        new SpringComponentsCollector(mockGitVersion, mockPropertiesCollector);
   }
 
   @Test
