@@ -42,7 +42,7 @@ const MenuComponent = ({ items }: Props) => (
             .map((item: any) => (
                 <StyledMenuItem key={item.key} onClick={item.onClick} disabled={item.disabled}>
                     <StyledTooltip title={item.tooltip} placement="left">
-                        <Icon icon={item.icon} size="md" />
+                        <Icon icon={item.icon} size="md" source="phosphor" />
                         {item.label}
                     </StyledTooltip>
                 </StyledMenuItem>

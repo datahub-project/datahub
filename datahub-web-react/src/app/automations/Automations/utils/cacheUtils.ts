@@ -104,8 +104,6 @@ export const removeFromListAutomationsCache = (client, urn, pageSize) => {
             },
         },
     });
-
-    console.log(`deleted from cache~`);
 };
 
 /**
@@ -117,8 +115,6 @@ export const updateGetActionPipelineStatusCache = (client, urn: string, newState
         query: GetActionPipelineStatusDocument,
         variables: { urn },
     });
-
-    console.log(`curr data in cache`, currData);
 
     // Write our data back to the cache.
     client.writeQuery({

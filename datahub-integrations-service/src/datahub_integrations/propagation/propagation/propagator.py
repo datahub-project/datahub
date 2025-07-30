@@ -25,7 +25,7 @@ from datahub_integrations.propagation.propagation.propagation_utils import (
     PropertyPropagationDirective,
     SourceDetails,
 )
-from datahub_integrations.propagation.propagation.utils.mce_utils import ECEProcessor
+from datahub_integrations.propagation.propagation.utils.ece_utils import ECEProcessor
 
 logger = logging.getLogger(__name__)
 

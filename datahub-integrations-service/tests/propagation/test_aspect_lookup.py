@@ -40,7 +40,9 @@ def stats() -> MagicMock:
 
 @pytest.fixture
 def aspect_lookup() -> AspectLookup:
-    return AspectLookup(aspect_name="schemaMetadata", field="platform")
+    return AspectLookup(
+        lookup_type="aspect", aspect_name="schemaMetadata", field="platform"
+    )
 
 
 @pytest.fixture
@@ -80,7 +82,9 @@ class TestAspectBasedStrategy:
             origin="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD)",
         )
 
-        lookup = AspectLookup(aspect_name="Siblings", field="sibling")
+        lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="Siblings", field="sibling"
+        )
         # Mock sibling URNs returned from aspect lookup
         sibling_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,test.test,PROD),fieldA)"
         mock_get_urns.return_value = [sibling_urn]
@@ -129,7 +133,9 @@ class TestAspectBasedStrategy:
             origin="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD)",
         )
 
-        lookup = AspectLookup(aspect_name="Siblings", field="sibling")
+        lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="Siblings", field="sibling"
+        )
 
         # Mock URNs returned from aspect lookup - different entity type
         different_urn_type = "urn:li:chart:(tableau,my-dashboard,PROD)"
@@ -148,7 +154,9 @@ class TestGetUrnsFromAspect:
     def test_aspect_not_in_schema_types(self, graph: MagicMock) -> None:
         """Test that an empty list is returned when aspect is not in schema types."""
         entity_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD),fieldA)"
-        aspect_lookup = AspectLookup(aspect_name="nonExistentAspect", field="platform")
+        aspect_lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="nonExistentAspect", field="platform"
+        )
 
         result = get_urns_from_aspect(graph, entity_urn, aspect_lookup)
 
@@ -157,7 +165,9 @@ class TestGetUrnsFromAspect:
     def test_aspect_not_found(self, graph: MagicMock) -> None:
         """Test that an empty list is returned when the aspect is not found."""
         entity_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD),fieldA)"
-        aspect_lookup = AspectLookup(aspect_name="Siblings", field="siblings")
+        aspect_lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="Siblings", field="siblings"
+        )
 
         # Mock the graph to return None for the aspect
         graph.graph.get_aspect.return_value = None
@@ -172,7 +182,9 @@ class TestGetUrnsFromAspect:
     def test_field_not_found(self, graph: MagicMock) -> None:
         """Test that an empty list is returned when the field is not found in the aspect."""
         entity_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD),fieldA)"
-        aspect_lookup = AspectLookup(aspect_name="Siblings", field="nonExistentField")
+        aspect_lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="Siblings", field="nonExistentField"
+        )
 
         # Mock the aspect
         mock_aspect = MagicMock()
@@ -191,7 +203,9 @@ class TestGetUrnsFromAspect:
         entity_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD),fieldA)"
         parent_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD)"
         target_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test.test,PROD)"
-        aspect_lookup = AspectLookup(aspect_name="Siblings", field="sibling")
+        aspect_lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="Siblings", field="sibling"
+        )
 
         # Mock the aspect
         mock_aspect = MagicMock()
@@ -234,7 +248,9 @@ class TestGetUrnsFromAspect:
         target_urn2 = (
             "urn:li:dataset:(urn:li:dataPlatform:hive,test.test_sibling2,PROD)"
         )
-        aspect_lookup = AspectLookup(aspect_name="Siblings", field="siblings")
+        aspect_lookup = AspectLookup(
+            lookup_type="aspect", aspect_name="Siblings", field="siblings"
+        )
 
         mock_schema_metadata1 = SchemaMetadataClass(
             platformSchema=MySqlDDL(tableSchema=""),
@@ -299,7 +315,7 @@ class TestGetUrnsFromAspect:
         parent_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.test,PROD)"
         target_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,test.test,PROD)"
         aspect_lookup = AspectLookup(
-            aspect_name="Siblings", field="properties.upstream"
+            lookup_type="aspect", aspect_name="Siblings", field="properties.upstream"
         )
 
         # Mock the aspect with a nested field

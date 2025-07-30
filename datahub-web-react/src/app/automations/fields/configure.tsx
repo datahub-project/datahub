@@ -10,13 +10,13 @@ interface Props {
 }
 
 export const Configure = ({ isEdit = false }: Props) => {
-    const { formState, typeTemplate, setFormState } = useAutomationContext();
+    const { formState, template, setFormState } = useAutomationContext();
 
     // Compute the fields that should be displayed in the form, based on the recipe type template.
     const allFields = useMemo(() => {
-        if (typeTemplate) {
+        if (template) {
             // The default recipe fields come from the type template, which defined the fields to be collected.
-            const recipeFields = cloneDeep(typeTemplate.fields);
+            const recipeFields = cloneDeep(template.fields);
 
             // Add unique keys to each step & field component
             (recipeFields || []).forEach((step, i) => {
@@ -34,7 +34,7 @@ export const Configure = ({ isEdit = false }: Props) => {
             return recipeFields;
         }
         return [];
-    }, [typeTemplate]);
+    }, [template]);
 
     // Conditional steps (steps that have the key `conditionalKey`)
     const conditionalFields = allFields.filter((step) => step.conditionalKey);

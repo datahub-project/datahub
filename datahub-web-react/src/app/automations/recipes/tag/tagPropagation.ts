@@ -13,7 +13,7 @@ import AcrylLogo from '@images/acryl-logo.svg';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
-export const automationType = 'datahub_integrations.propagation.tag.tag_propagation_action.TagPropagationAction';
+const automationType = 'datahub_integrations.propagation.tag.tag_propagation_action.TagPropagationAction';
 
 const automationName = 'Tag Propagation';
 const automationDescription = 'Propagate Tags to downstream assets and columns automatically (datasets only)';
@@ -36,7 +36,7 @@ const defaultRecipe: AutomationRecipe = {
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
-export const configMap: Record<string, string> = {
+const configMap: Record<string, string> = {
     ...commonFieldsMapping,
     tagsEnabled: 'action.config.enabled',
     tags: 'action.config.tag_prefixes',
@@ -75,7 +75,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template: AutomationTemplate = {
+const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'acryl',
@@ -86,4 +86,7 @@ export const template: AutomationTemplate = {
     isDisabled: (appConfig: AppConfig) => appConfig.featureFlags.tagPropagationV2Enabled,
     isBeta: true,
     fields,
+    configMap,
 };
+
+export default template;

@@ -94,14 +94,14 @@ class PropagationDirective(BaseModel):
                         entity_lookups.append(
                             RelationshipLookup(
                                 type=PropagationRelationships.UPSTREAM,
-                                relationshipNames=["DownstreamOf"],
+                                relationship_names=["DownstreamOf"],
                             )
                         )
                     if direction.DOWN or direction.ALL:
                         entity_lookups.append(
                             RelationshipLookup(
                                 type=PropagationRelationships.DOWNSTREAM,
-                                relationshipNames=["DownstreamOf"],
+                                relationship_names=["DownstreamOf"],
                             )
                         )
         return entity_lookups
@@ -192,7 +192,7 @@ class SourceDetails(BaseModel):
             if self.propagation_relationship == RelationshipType.SIBLING:
                 entity_lookups.append(
                     AspectLookup(
-                        type="aspect", field="siblings", aspect_name="Siblings"
+                        lookup_type="aspect", field="siblings", aspect_name="Siblings"
                     )
                 )
             elif self.propagation_relationship == RelationshipType.LINEAGE:
@@ -200,7 +200,7 @@ class SourceDetails(BaseModel):
                     entity_lookups.append(
                         RelationshipLookup(
                             type=PropagationRelationships.UPSTREAM,
-                            relationshipNames=["UpstreamOf"],
+                            relationship_names=["UpstreamOf"],
                         )
                     )
                 if self.propagation_direction in [
@@ -210,7 +210,7 @@ class SourceDetails(BaseModel):
                     entity_lookups.append(
                         RelationshipLookup(
                             type=PropagationRelationships.DOWNSTREAM,
-                            relationshipNames=["DownstreamOf"],
+                            relationship_names=["DownstreamOf"],
                         )
                     )
         return entity_lookups

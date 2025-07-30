@@ -18,9 +18,9 @@ import {
     PropagationOptionsStateType,
 } from '@app/automations/fields/PropagationOptions/PropagationOptions';
 import {
-    PropagationOptionsV2,
-    PropagationOptionsV2StateType,
-} from '@app/automations/fields/PropagationOptions/PropagationOptionsV2';
+    TargetUrnResolutionSelector,
+    TargetUrnResolutionStateType,
+} from '@app/automations/fields/PropagationOptions/TargetUrnResolutionSelector';
 import { RadioSelector } from '@app/automations/fields/RadioSelector';
 import { TermSelector, TermSelectorStateType } from '@app/automations/fields/TermSelector';
 import { TraversalSelector, TraversalSelectorStateType } from '@app/automations/fields/TraversalSelector';
@@ -142,16 +142,15 @@ const propagationOptions: Field = {
 };
 
 // Determine whether to propagate upstream or downstream, for use with the generic propagation framework
-const propagationOptionsV2: Field = {
+const targetUrnResolution: Field = {
     title: 'Configure Propagation Options',
-    description: 'Determine if tags should propagate to upstreams and / or downstreams',
+    description: 'Determine if metadata should propagate to upstream and / or downstream assets',
     fields: [
         {
-            component: PropagationOptionsV2,
-
+            component: TargetUrnResolutionSelector,
             state: {
-                targetUrnResolution: [{ type: 'downstream' }],
-            } as PropagationOptionsV2StateType,
+                targetUrnResolution: [{ lookup_type: 'relationship', type: 'downstream' }],
+            } as TargetUrnResolutionStateType,
         },
     ],
 };
@@ -453,7 +452,7 @@ const fields = {
     // Specific fields
     select_tags_and_terms: termSelector,
     select_propagation_options: propagationOptions,
-    select_propagation_options_v2: propagationOptionsV2,
+    propagation_rule: targetUrnResolution,
     select_entity_types: entityTypeSelector,
     select_traversal_types: traversalSelector,
     select_connection: connectionSelector,

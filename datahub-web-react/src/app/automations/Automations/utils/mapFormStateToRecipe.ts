@@ -2,7 +2,7 @@ import { configMaps, defaultRecipes, mapFormStateToActionConfig } from '@app/aut
 
 // Utility that updates the recipe of an automation with the new form data
 export const mapFormStateToRecipe = (formState: any) => {
-    const defaultRecipe = defaultRecipes[formState?.type];
+    const defaultRecipe = defaultRecipes[formState?.key];
     return {
         name: formState.name || defaultRecipe?.name || '',
         description: formState.description || defaultRecipe?.description || '',
@@ -10,7 +10,7 @@ export const mapFormStateToRecipe = (formState: any) => {
         executorId: formState.executorId || defaultRecipe?.executorId,
         action: {
             type: formState.type,
-            config: mapFormStateToActionConfig(formState, configMaps[formState?.type], defaultRecipe?.action?.config),
+            config: mapFormStateToActionConfig(formState, configMaps[formState?.key], defaultRecipe?.action?.config),
         },
     };
 };

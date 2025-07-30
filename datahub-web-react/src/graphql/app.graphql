@@ -149,6 +149,7 @@ query appConfig {
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
             tagPropagationV2Enabled
+            termPropagationV2Enabled
             showCreatedAtFilter
             showProductUpdates
             formsNotificationsEnabled

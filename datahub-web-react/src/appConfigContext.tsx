@@ -123,6 +123,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         onlineSmartAssertionsEnabled: false,
         showDefaultExternalLinks: true,
         tagPropagationV2Enabled: false,
+        termPropagationV2Enabled: false,
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
         showProductUpdates: false,

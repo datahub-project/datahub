@@ -9,7 +9,7 @@ import { SelectDropdown } from '@app/automations/fields/TermSelector/SelectDropd
 import type { RadioValue, SelectDropdownProps } from '@app/automations/fields/TermSelector/types';
 import { getEntitiesByTagORTerm } from '@app/automations/fields/TermSelector/utils';
 import { useGlossaryOptionsBuilder } from '@app/automations/fields/hooks';
-import { sharedStyles } from '@app/automations/sharedComponents';
+import { sharedStyles } from '@app/automations/shared/sharedComponents';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { isResolutionRequired } from '@src/app/entityV2/view/builder/utils';
 import GlossaryTermsSelector from '@src/app/govern/Dashboard/Forms/questionTypes/GlossaryTermsSelector';

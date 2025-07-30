@@ -13,7 +13,7 @@ import BigQueryLogo from '@images/bigquerylogo.png';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
-export const automationType = 'datahub_integrations.propagation.bigquery.tag_propagator.BigqueryTagPropagatorAction';
+const automationType = 'datahub_integrations.propagation.bigquery.tag_propagator.BigqueryTagPropagatorAction';
 
 const automationName = 'BigQuery Metadata Sync';
 const automationDescription = 'Sync tag, term, or description changes to BigQuery';
@@ -56,7 +56,7 @@ const defaultRecipe: AutomationRecipe = {
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
-export const configMap: ConfigMap = {
+const configMap: ConfigMap = {
     ...commonFieldsMapping,
     termsEnabled: 'action.config.term_propagation.enabled',
     tagsEnabled: 'action.config.tag_propagation.enabled',
@@ -231,7 +231,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template: AutomationTemplate = {
+const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'bigquery',
@@ -241,4 +241,7 @@ export const template: AutomationTemplate = {
     description: automationDescription,
     isBeta: true,
     fields,
+    configMap,
 };
+
+export default template;

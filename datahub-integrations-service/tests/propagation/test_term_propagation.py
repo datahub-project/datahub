@@ -51,8 +51,8 @@ def term_propagator_setup() -> Dict:
 
     # Create propagation rule
     propagation_rule = PropagationRule(
-        entityTypes=["dataset", "schemaField"],
-        targetUrnResolution=[
+        entity_types=["dataset", "schemaField"],
+        target_urn_resolution=[
             RelationshipLookup(type=PropagationRelationships.UPSTREAM)
         ],
     )
@@ -737,7 +737,7 @@ def test_term_propagator_asset_filters() -> None:
 
     # Create propagation rule with multiple entity types
     rule = PropagationRule(
-        entityTypes=[
+        entity_types=[
             "dataset",
             "schemaField",
             "chart",
@@ -745,7 +745,7 @@ def test_term_propagator_asset_filters() -> None:
             "dataJob",
             "dataFlow",
         ],
-        targetUrnResolution=[
+        target_urn_resolution=[
             RelationshipLookup(type=PropagationRelationships.UPSTREAM)
         ],
     )
@@ -837,8 +837,8 @@ def test_term_propagator_asset_filters_with_single_entity_type() -> None:
 
     # Create propagation rule with only dataset entity type
     rule = PropagationRule(
-        entityTypes=["dataset"],
-        targetUrnResolution=[
+        entity_types=["dataset"],
+        target_urn_resolution=[
             RelationshipLookup(type=PropagationRelationships.UPSTREAM)
         ],
     )
@@ -896,8 +896,8 @@ def test_term_propagator_asset_filters_with_no_terms() -> None:
 
     # Create propagation rule
     rule = PropagationRule(
-        entityTypes=["dataset", "schemaField"],
-        targetUrnResolution=[
+        entity_types=["dataset", "schemaField"],
+        target_urn_resolution=[
             RelationshipLookup(type=PropagationRelationships.UPSTREAM)
         ],
     )

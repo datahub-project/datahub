@@ -579,18 +579,18 @@ class TermPropagator(EntityPropagator):
 
         terms = self.all_terms
         logger.info(
-            f"Bootstrapping terms for {asset_urn} with config {self.config} and entity types {self.config.propagation_rule.entityTypes}"
+            f"Bootstrapping terms for {asset_urn} with config {self.config} and entity types {self.config.propagation_rule.entity_types}"
         )
 
         if (
             asset_urn.entity_type == "dataset"
-            and "schemaField" in self.config.propagation_rule.entityTypes
+            and "schemaField" in self.config.propagation_rule.entity_types
         ):
             yield from self._bootstrap_dataset_fields(asset_urn, terms)
 
         if (
             asset_urn.entity_type == "dataset"
-            and "dataset" in self.config.propagation_rule.entityTypes
+            and "dataset" in self.config.propagation_rule.entity_types
         ):
             yield from self._bootstrap_dataset(asset_urn, terms)
         else:
@@ -709,7 +709,7 @@ class TermPropagator(EntityPropagator):
             },
         }
 
-        for entity_type in self.config.propagation_rule.entityTypes:
+        for entity_type in self.config.propagation_rule.entity_types:
             index_field_map = entity_index_field_map.get(entity_type, {})
             asset_filters[entity_type] = {}
 

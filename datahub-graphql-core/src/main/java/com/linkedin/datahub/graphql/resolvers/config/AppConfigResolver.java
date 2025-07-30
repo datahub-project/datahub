@@ -329,6 +329,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                 _featureFlags.isViewIngestionSourcePrivilegesEnabled())
             .setActionWorkflowsEnabled(_featureFlags.isActionWorkflowsEnabled())
             .setTagPropagationV2Enabled(_featureFlags.isTagPropagationV2Enabled())
+            .setTermPropagationV2Enabled(_featureFlags.isTermPropagationV2Enabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

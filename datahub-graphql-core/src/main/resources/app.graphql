@@ -1631,6 +1631,11 @@ type FeatureFlagsConfig {
   If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
   """
   tagPropagationV2Enabled: Boolean!
+
+  """
+  If enabled, the new V2 glossary term propagation automation will be available instead of the original V1 version
+  """
+  termPropagationV2Enabled: Boolean!
 }
 
 """

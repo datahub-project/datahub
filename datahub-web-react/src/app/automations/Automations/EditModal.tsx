@@ -20,7 +20,7 @@ type AutomationEditModalProps = {
 };
 
 export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalProps) => {
-    const { recipe, typeTemplate, updateAutomation } = useAutomationContext();
+    const { recipe, template, updateAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
 
     // Check if the form is disabled
@@ -56,7 +56,7 @@ export const AutomationEditModal = ({ isOpen, setIsOpen }: AutomationEditModalPr
         <Modal
             title={
                 <AutomationsModalHeader>
-                    {typeTemplate?.logo && <AutomationLogo src={typeTemplate?.logo} alt={typeTemplate?.name} />}
+                    {template?.logo && <AutomationLogo src={template?.logo} alt={template?.name} />}
                     <div>
                         <h2>{formInfo.modalTitle}</h2>
                         <AutomationsDescription>{formInfo?.modalDescription}</AutomationsDescription>

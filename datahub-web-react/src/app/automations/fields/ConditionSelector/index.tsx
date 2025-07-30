@@ -27,7 +27,7 @@ import {
     predicateOptions,
     transformConditions,
 } from '@app/automations/fields/ConditionSelector/utils';
-import { DeleteButton, PrimaryButton, SecondaryButton, TextButton } from '@app/automations/sharedComponents';
+import { DeleteButton, PrimaryButton, SecondaryButton, TextButton } from '@app/automations/shared/sharedComponents';
 
 type ConditionType = {
     id: number;
@@ -305,31 +305,28 @@ any) => {
         updateValue,
     };
 
-    // Prepare conditions for backend
-    const prepareConditions = (cndts: ConditionType[]) => {
-        const preparedConditions = cndts.map((c: any, idx: number) => {
-            if (c.type === 'group') {
-                return {
-                    [idx !== 0 ? c.props.operator : null]: prepareConditions(c.props.conditions),
-                };
-            }
-            return {
-                [idx !== 0 ? c.props.operator : 'and']: {
-                    property: c.props.field,
-                    operator: c.props.predicate,
-                    value: c.props.value,
-                },
-            };
-        });
-
-        return preparedConditions;
-    };
-
-    // Prepare conditions for backend
-    const preparedConditions = prepareConditions(conditions);
-
     // TODO: Send preparedConditions to parent component
-    console.log('preparedConditions', preparedConditions);
+    // Prepare conditions for backend
+    // const prepareConditions = (cndts: ConditionType[]) => {
+    //     const preparedConditions = cndts.map((c: any, idx: number) => {
+    //         if (c.type === 'group') {
+    //             return {
+    //                 [idx !== 0 ? c.props.operator : null]: prepareConditions(c.props.conditions),
+    //             };
+    //         }
+    //         return {
+    //             [idx !== 0 ? c.props.operator : 'and']: {
+    //                 property: c.props.field,
+    //                 operator: c.props.predicate,
+    //                 value: c.props.value,
+    //             },
+    //         };
+    //     });
+    //
+    //     return preparedConditions;
+    // };
+    // const preparedConditions = prepareConditions(conditions);
+    // console.log('preparedConditions', preparedConditions);
 
     if (conditions.length === 0) {
         return (

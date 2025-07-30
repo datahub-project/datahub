@@ -49,8 +49,8 @@ def tag_propagator_setup() -> Dict:
 
     # Create propagation rule
     propagation_rule = PropagationRule(
-        entityTypes=["dataset", "schemaField"],
-        targetUrnResolution=[
+        entity_types=["dataset", "schemaField"],
+        target_urn_resolution=[
             RelationshipLookup(type=PropagationRelationships.UPSTREAM)
         ],
     )

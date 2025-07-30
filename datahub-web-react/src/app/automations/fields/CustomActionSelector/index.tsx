@@ -16,7 +16,13 @@ import {
 } from '@app/automations/fields/CustomActionSelector/components';
 import { EntityTypeSelector } from '@app/automations/fields/EntityTypeSelector';
 import { SelectInputMode } from '@app/automations/fields/types/values';
-import { DeleteButton, FailureIcon, PrimaryButton, SuccessIcon, TextButton } from '@app/automations/sharedComponents';
+import {
+    DeleteButton,
+    FailureIcon,
+    PrimaryButton,
+    SuccessIcon,
+    TextButton,
+} from '@app/automations/shared/sharedComponents';
 
 type Action = {
     id: number;

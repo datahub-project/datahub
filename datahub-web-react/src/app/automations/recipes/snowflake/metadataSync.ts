@@ -13,7 +13,7 @@ import SnowflakeLogo from '@images/snowflakelogo.png';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
-export const automationType = 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction';
+const automationType = 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction';
 
 const automationName = 'Snowflake Tag Sync';
 const automationDescription = 'Sync tag and glossary term changes to Snowflake';
@@ -51,7 +51,7 @@ const defaultRecipe: AutomationRecipe = {
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
-export const configMap: Record<string, string> = {
+const configMap: Record<string, string> = {
     ...commonFieldsMapping,
     termsEnabled: 'action.config.term_propagation.enabled',
     tagsEnabled: 'action.config.tag_propagation.enabled',
@@ -104,7 +104,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template: AutomationTemplate = {
+const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'snowflake',
@@ -115,4 +115,7 @@ export const template: AutomationTemplate = {
     isDisabled: (appConfig: AppConfig) => !appConfig.classificationConfig.automations.snowflake,
     isBeta: true,
     fields,
+    configMap,
 };
+
+export default template;

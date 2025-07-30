@@ -11,10 +11,8 @@ import { EntityType } from '@src/types.generated';
 
 import DatabricksLogo from '@images/databrickslogo.png';
 
-// Common unique ID for the action
 // TODO: Update.
-export const automationType =
-    'datahub_integrations.propagation.unity_catalog.tag_propagator:UnityCatalogPropagatorAction';
+const automationType = 'datahub_integrations.propagation.unity_catalog.tag_propagator:UnityCatalogPropagatorAction';
 
 const automationName = 'Databricks Metadata Sync';
 const automationDescription = 'Sync tag or description changes to Databricks';
@@ -47,7 +45,7 @@ const defaultRecipe: AutomationRecipe = {
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
-export const configMap: ConfigMap = {
+const configMap: ConfigMap = {
     ...commonFieldsMapping,
     tagsEnabled: 'action.config.tag_propagation.enabled',
     tags: 'action.config.tag_propagation.tag_prefixes',
@@ -165,7 +163,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template: AutomationTemplate = {
+const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'databricks',
@@ -175,4 +173,7 @@ export const template: AutomationTemplate = {
     description: automationDescription,
     isBeta: true,
     fields,
+    configMap,
 };
+
+export default template;

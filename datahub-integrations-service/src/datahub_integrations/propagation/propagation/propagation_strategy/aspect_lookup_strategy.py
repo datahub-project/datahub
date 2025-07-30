@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class AspectBasedStrategyConfig(BaseStrategyConfig):
-    entityTypes: List[str] = ["dataset", "schemaField"]
+    entity_types: List[str] = ["dataset", "schemaField"]
 
 
 class AspectBasedStrategy(BaseStrategy):
@@ -54,7 +54,7 @@ class AspectBasedStrategy(BaseStrategy):
 
         urns = get_urns_from_aspect(self.graph, directive.entity, entity_lookup)
         for urn in set(urns):
-            if guess_entity_type(urn) in self.config.entityTypes:
+            if guess_entity_type(urn) in self.config.entity_types:
                 maybe_mcp = propagator.create_property_change_proposal(
                     directive, Urn.from_string(urn), context
                 )

@@ -12,17 +12,17 @@ action:
   type: datahub_integrations.propagation.propagation.generic_propagation_action.GenericPropagationAction
   config:
     propagation_rule:
-      entityTypes:
+      entity_types:
         - "dataset"
         - "schemaField"
-      targetUrnResolution:
-        - type: upstream
-        - type: downstream
-        - aspect_name: "Siblings"
+      target_urn_resolution:
+        - lookup_type: relationship
+          type: upstream
+        - lookup_type: relationship
+          type: downstream
+        - lookup_type: aspect
+          aspect_name: "Siblings"
           field: "siblings"
-      metadataPropagated:
+      metadata_propagated:
         documentation:
           enabled: true
-
-
-

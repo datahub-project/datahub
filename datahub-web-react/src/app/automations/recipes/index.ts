@@ -1,43 +1,36 @@
 import _ from 'lodash';
 
-import * as BigQueryTagSync from '@app/automations/recipes/bigQuery/metadataSync';
-import * as DatabicksMetadataSync from '@app/automations/recipes/databricks/metadataSync';
-import * as DocumentationColumnPropagation from '@app/automations/recipes/documentation/columnLevelPropagation';
-import * as AIGlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/glossaryTermAI';
-import * as GlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/termPropagation';
-import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
-import * as TagPropagation from '@app/automations/recipes/tag/tagPropagation';
-import * as TagPropagationV2 from '@app/automations/recipes/tag/tagPropagationV2';
+import BigQueryTagSync from '@app/automations/recipes/bigQuery/metadataSync';
+import DatabricksMetadataSync from '@app/automations/recipes/databricks/metadataSync';
+import DocumentationColumnPropagation from '@app/automations/recipes/documentation/columnLevelPropagation';
+import AIGlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/glossaryTermAI';
+import GlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/termPropagation';
+import GlossaryTermPropagationV2 from '@app/automations/recipes/glossaryTerm/termPropagationV2';
+import SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
+import TagPropagation from '@app/automations/recipes/tag/tagPropagation';
+import TagPropagationV2 from '@app/automations/recipes/tag/tagPropagationV2';
 
 // Map of all templates available in the application (this needs to be in sync with the recipes)
 export const templates = [
-    DocumentationColumnPropagation.template,
-    GlossaryTermPropagation.template,
-    TagPropagation.template,
-    TagPropagationV2.template,
-    SnowflakeTagPropagation.template,
-    AIGlossaryTermPropagation.template,
-    BigQueryTagSync.template,
-    DatabicksMetadataSync.template,
+    DocumentationColumnPropagation,
+    GlossaryTermPropagation,
+    GlossaryTermPropagationV2,
+    TagPropagation,
+    TagPropagationV2,
+    SnowflakeTagPropagation,
+    AIGlossaryTermPropagation,
+    BigQueryTagSync,
+    DatabricksMetadataSync,
 ];
 
 // For each automation, the default action recipe configs. This allows some defaults to be set without any associated field in the form.
 export const defaultRecipes = Object.fromEntries(
-    templates.map((template) => [template.type, Object.seal(template.defaultRecipe)]),
+    templates.map((template) => [template.key, Object.seal(template.defaultRecipe)]),
 );
 
 // Map of all config maps available in the application (this needs to be in sync with the recipes/templates)
 // This is used to map the config fields to the form state
-export const configMaps = {
-    [DocumentationColumnPropagation.automationType]: DocumentationColumnPropagation.configMap,
-    [GlossaryTermPropagation.automationType]: GlossaryTermPropagation.configMap,
-    [TagPropagation.automationType]: TagPropagation.configMap,
-    [TagPropagationV2.automationType]: TagPropagationV2.configMap,
-    [SnowflakeTagPropagation.automationType]: SnowflakeTagPropagation.configMap,
-    [AIGlossaryTermPropagation.automationType]: AIGlossaryTermPropagation.configMap,
-    [BigQueryTagSync.automationType]: BigQueryTagSync.configMap,
-    [DatabicksMetadataSync.automationType]: DatabicksMetadataSync.configMap,
-};
+export const configMaps = Object.fromEntries(templates.map((template) => [template.key, template.configMap]));
 
 // Utility function to get a nested value
 export const getNestedValue = (obj: any, path: string) => {

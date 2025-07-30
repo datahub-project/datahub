@@ -6,10 +6,10 @@ import { AppConfig, Test } from '@src/types.generated';
 /**
  * Component Base Type (props)
  */
-export type ComponentBaseProps = {
+export type ComponentBaseProps<T = any> = {
     props: any;
-    state: any;
-    passStateToParent: (newState: any) => void;
+    state: T;
+    passStateToParent: (newState: T) => void;
 };
 
 /**
@@ -95,6 +95,7 @@ export type AutomationTemplate = {
     isBeta: boolean;
     isDisabled?: (appConfig: AppConfig) => boolean;
     defaultRecipe: AutomationRecipe;
+    configMap: ConfigMap;
 };
 
 /**

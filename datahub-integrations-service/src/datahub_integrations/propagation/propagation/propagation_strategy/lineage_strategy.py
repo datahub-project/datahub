@@ -92,7 +92,7 @@ class LineageBasedStrategy(BaseStrategy):
                 directive,
                 context,
                 DirectionType.DOWN,
-                entity_lookup.relationshipNames,
+                entity_lookup.relationship_names,
             )
         if entity_lookup.type == PropagationRelationships.UPSTREAM:
             yield from self._propagate_to_direction(
@@ -100,7 +100,7 @@ class LineageBasedStrategy(BaseStrategy):
                 directive,
                 context,
                 DirectionType.UP,
-                entity_lookup.relationshipNames,
+                entity_lookup.relationship_names,
             )
 
     def _propagate_to_direction(

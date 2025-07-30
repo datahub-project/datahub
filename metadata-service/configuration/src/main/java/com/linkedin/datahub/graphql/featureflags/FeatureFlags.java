@@ -80,4 +80,5 @@ public class FeatureFlags {
   private boolean formsNotificationsEnabled = false;
   private boolean actionWorkflowsEnabled = false;
   private boolean tagPropagationV2Enabled = false;
+  private boolean termPropagationV2Enabled = false;
 }

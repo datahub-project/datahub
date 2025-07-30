@@ -5,7 +5,7 @@ import React, { createContext, useContext, useMemo } from 'react';
 import type { CSSProperties, PropsWithChildren } from 'react';
 
 // TODO: Bring this into this component so it's fully resuable / self-contained
-import { SortButton } from '@app/automations/sharedComponents';
+import { SortButton } from '@app/automations/shared/sharedComponents';
 
 interface Props {
     id: UniqueIdentifier;

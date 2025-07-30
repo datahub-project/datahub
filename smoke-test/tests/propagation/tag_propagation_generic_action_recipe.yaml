@@ -12,12 +12,12 @@ action:
   type: datahub_integrations.propagation.propagation.generic_propagation_action.GenericPropagationAction
   config:
     propagation_rule:
-      entityTypes:
+      entity_types:
         - "dataset"
         - "schemaField"
-      targetUrnResolution:
+      target_urn_resolution:
         - type: upstream
         - type: downstream
-      metadataPropagated:
+      metadata_propagated:
           tags:
             enabled: true

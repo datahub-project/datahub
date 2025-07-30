@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 
-import { H3, P, sharedStyles } from '@app/automations/sharedComponents';
+import { H3, P, sharedStyles } from '@app/automations/shared/sharedComponents';
 
 const predicateSelectHeight = '16px';
 

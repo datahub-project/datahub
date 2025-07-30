@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import React from 'react';
 
 import { AutomationCreateModal } from '@app/automations/Automations/CreateModal';
-import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
+import SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 describe('CreateModal', () => {
@@ -27,7 +27,7 @@ describe('CreateModal', () => {
                 <AutomationCreateModal isOpen setIsOpen={() => null} />
             </AppConfigContext.Provider>,
         );
-        expect(queryByText(SnowflakeTagPropagation.template.name)).toBeInTheDocument();
+        expect(queryByText(SnowflakeTagPropagation.name)).toBeInTheDocument();
     });
 
     it.skip('should not display Snowflake automation when disabled', () => {
@@ -51,6 +51,6 @@ describe('CreateModal', () => {
                 <AutomationCreateModal isOpen setIsOpen={() => null} />
             </AppConfigContext.Provider>,
         );
-        expect(queryByText(SnowflakeTagPropagation.template.name)).not.toBeInTheDocument();
+        expect(queryByText(SnowflakeTagPropagation.name)).not.toBeInTheDocument();
     });
 });

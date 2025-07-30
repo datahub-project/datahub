@@ -894,6 +894,8 @@ featureFlags:
   # Whether to enable action workflows, which allow users to create, configure notifications, and more for action workflows.
   tagPropagationV2Enabled: ${TAG_PROPAGATION_V2_ENABLED:false}
   # If enabled, the new V2 tag propagation automation will be available instead of the original V1 version
+  termPropagationV2Enabled: ${TERM_PROPAGATION_V2_ENABLED:false}
+  # If enabled, the new V2 glossary term propagation automation will be available instead of the original V1 version
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

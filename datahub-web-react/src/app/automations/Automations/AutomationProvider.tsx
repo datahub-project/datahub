@@ -12,6 +12,7 @@ import {
 import { mapFormStateToRecipe } from '@app/automations/Automations/utils/mapFormStateToRecipe';
 import { mapRecipeToFormState } from '@app/automations/Automations/utils/mapRecipeToFormState';
 import { configMaps } from '@app/automations/recipes';
+import { GENERIC_PROPAGATION_ACTION, getGenericPropagationTemplateKey } from '@app/automations/shared/propagation';
 import { getTemplate } from '@app/automations/utils';
 import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import { ActionPipelineState, EntityType } from '@src/types.generated';
@@ -34,7 +35,7 @@ export interface AutomationContextType {
     // Locally Set Data
     type?: string;
     setAutomationType?: (newType: string) => void;
-    typeTemplate?: any;
+    template?: any;
     formState?: any;
     setFormState?: (data: any) => void;
     recipe?: any;
@@ -77,11 +78,11 @@ const cleanRecipe = (r: any) => {
 };
 
 const resolveVirtualFormStateFields = (formState: any): any => {
-    if (!formState.type) {
+    if (!formState.key) {
         return formState;
     }
 
-    const configMap = configMaps[formState.type];
+    const configMap = configMaps[formState.key];
     const virtualFormState = { ...formState };
 
     if (!configMap) {
@@ -89,9 +90,8 @@ const resolveVirtualFormStateFields = (formState: any): any => {
     }
     Object.keys(configMap).forEach((field) => {
         const fieldConfig = configMap[field];
-        if (fieldConfig?.isVirtual) {
-            const derivedValue = fieldConfig.resolveVirtualFormStateFieldValue(formState);
-            virtualFormState[field] = derivedValue;
+        if (typeof fieldConfig === 'object' && fieldConfig.isVirtual) {
+            virtualFormState[field] = fieldConfig.resolveVirtualFormStateFieldValue?.(formState);
         }
     });
 
@@ -101,15 +101,15 @@ const resolveVirtualFormStateFields = (formState: any): any => {
 const resolveBaseFormStateFromVirtualFields = (newFormState: any, oldFormState: any) => {
     let resolvedFormState = { ...newFormState };
 
-    if (!newFormState.type) {
+    if (!newFormState.key) {
         return newFormState;
     }
 
-    const configMap = configMaps[newFormState.type];
+    const configMap = configMaps[newFormState.key];
 
     Object.keys(configMap).forEach((field) => {
         const fieldConfig = configMap[field];
-        if (fieldConfig.isVirtual && newFormState[field] !== oldFormState[field]) {
+        if (typeof fieldConfig === 'object' && fieldConfig.isVirtual && newFormState[field] !== oldFormState[field]) {
             // If a virtual field has changed, reverse map it to the base form state
             const partialFormState = fieldConfig.onChangeVirtualFormStateFieldValue(newFormState[field]);
             resolvedFormState = { ...resolvedFormState, ...partialFormState };
@@ -132,9 +132,14 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
     const [upsertActionPipelineMutation] = useUpsertActionPipelineMutation();
     const [deleteActionPipeline] = useDeleteActionPipelineMutation();
 
+    const key =
+        context?.type === GENERIC_PROPAGATION_ACTION
+            ? getGenericPropagationTemplateKey(context?.initialRecipe)
+            : context?.type;
     // This represents a global state for the automation form contents.
-    const [formState, setFormState] = useState<Record<string, any>>({
-        type: context?.type,
+    const [formState, setFormState] = useState({
+        key,
+        type: context?.type || '',
         name: context?.initialName,
         category: context?.initialCategory,
         description: context?.initialDescription,
@@ -148,9 +153,9 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
 
     // This represents the "template" or "configuration" for a given automation type, or the set of predefined fields and placeholder text,
     // for a given automation type.
-    const typeTemplate = useMemo(() => {
-        return formState.type ? getTemplate(formState.type) : undefined;
-    }, [formState.type]);
+    const template = useMemo(() => {
+        return formState.key ? getTemplate(formState.key) : undefined;
+    }, [formState.key]);
 
     const setFormStateFromRecipe = useCallback(
         (r: any) => {
@@ -286,15 +291,16 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
     /**
      * Called within children components to change the automation type being edited.
      */
-    const onChangeAutomationType = (newType: string) => {
+    const onChangeAutomationKey = (newKey: string) => {
         // When changing the automation type, simply reset form state based on the default recipe provided
         // for the automation! (e.g. when creating a new automation)
-        const partialFormState = { type: newType };
-        const defaultRecipe = getTemplate(newType)?.defaultRecipe;
+        const partialFormState = { key: newKey };
+        const defaultRecipe = getTemplate(newKey)?.defaultRecipe;
         const defaultRecipeFormState = defaultRecipe
             ? mapRecipeToFormState(defaultRecipe, partialFormState)
             : partialFormState;
         const resolvedFormState = resolveVirtualFormStateFields(defaultRecipeFormState);
+        console.log('HERE', { newKey, defaultRecipe, defaultRecipeFormState, resolvedFormState });
         setFormState(resolvedFormState);
     };
 
@@ -313,8 +319,8 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
             value={{
                 ...context,
                 type: formState.type, // Special type field is elevated.
-                setAutomationType: onChangeAutomationType,
-                typeTemplate,
+                setAutomationType: onChangeAutomationKey,
+                template,
                 formState,
                 setFormState: onSetFormState,
                 recipe,

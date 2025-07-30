@@ -64,7 +64,7 @@ from datahub_integrations.propagation.propagation.term.term_propagator import (
     TermPropagator,
     TermPropagatorConfig,
 )
-from datahub_integrations.propagation.propagation.utils.mce_utils import ECEProcessor
+from datahub_integrations.propagation.propagation.utils.ece_utils import ECEProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -151,7 +151,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
         """Initialize propagators based on configuration."""
 
         propagators: List[EntityPropagator] = []
-        metadata_map = self.config.propagation_rule.metadataPropagated
+        metadata_map = self.config.propagation_rule.metadata_propagated
 
         # Add documentation propagator if configured
         if PropagatedMetadata.DOCUMENTATION in metadata_map:
@@ -239,7 +239,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
         # )
         strategies[LookupType.ASPECT.value] = AspectBasedStrategy(
             AspectBasedStrategyConfig(
-                entityTypes=self.config.propagation_rule.entityTypes
+                entity_types=self.config.propagation_rule.entity_types
             ),
             self.ctx.graph,
             self._stats,
@@ -372,7 +372,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
             propagation_depth=directive.propagation_depth,
         )
 
-        for resolution in self.config.propagation_rule.targetUrnResolution:
+        for resolution in self.config.propagation_rule.target_urn_resolution:
             logger.info(f"Resolution: {resolution}")
             if strategy := self.propagation_strategies.get(resolution.lookup_type):
                 logger.info(

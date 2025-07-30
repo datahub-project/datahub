@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Dict, List, NewType, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.filters import SearchFilterRule
@@ -21,7 +21,7 @@ class AspectReference(ConfigModel):
 
 
 class AspectLookup(ConfigModel):
-    lookup_type: str = LookupType.ASPECT.value
+    lookup_type: Literal["aspect"]
     aspect_name: str
     field: str  # Can denote a chain of fields, separated by periods
     # Whether to look at the MCL's previous or new aspect value.
@@ -37,20 +37,13 @@ class RelationshipReference(ConfigModel):
 class RelationshipLookup(ConfigModel):
     lookup_type: str = LookupType.RELATIONSHIP.value
     type: PropagationRelationships
-    relationshipNames: List[str] = ["DownstreamOf"]
+    relationship_names: List[str] = ["DownstreamOf"]
     # Whether to search for urn as search or destination.
     # Will usually be destination.
-    isSource: Optional[bool] = False
-
-
-class MCLLookup(ConfigModel):
-    type: str
-    field: str
-    use_previous_value: bool = False
+    is_source: Optional[bool] = False
 
 
 EntityLookup = Union[AspectLookup, RelationshipLookup]
-Filter = NewType("Filter", str)
 
 
 class PropagatedMetadata(str, Enum):
@@ -63,12 +56,12 @@ class PropagatedMetadata(str, Enum):
 
 class MclTriggerRule(ConfigModel):
     trigger: AspectLookup
-    sourceUrnResolution: List[EntityLookup]
-    targetUrnResolution: List[EntityLookup]
+    source_urn_resolution: List[EntityLookup]
+    target_urn_resolution: List[EntityLookup]
 
 
 class PropagationRule(ConfigModel):
-    metadataPropagated: Dict[PropagatedMetadata, Dict] = {}
-    entityTypes: List[str] = ["dataset", "schemaField"]
-    targetUrnResolution: List[EntityLookup]
+    metadata_propagated: Dict[PropagatedMetadata, Dict] = {}
+    entity_types: List[str] = ["dataset", "schemaField"]
+    target_urn_resolution: List[EntityLookup]
     bootstrap: Optional[List[SearchFilterRule]] = None

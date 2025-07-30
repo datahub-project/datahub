@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { colors } from '@components/theme';
 
 import { AutomationStatus } from '@app/automations/constants';
-import { sharedStyles } from '@app/automations/sharedComponents';
+import { sharedStyles } from '@app/automations/shared/sharedComponents';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 

@@ -37,13 +37,14 @@ def config() -> PropertyPropagationConfig:
     return PropertyPropagationConfig(
         enabled=True,
         propagation_rule=PropagationRule(
-            metadataPropagated={
+            metadata_propagated={
                 PropagatedMetadata.DOCUMENTATION: {},
                 PropagatedMetadata.TAGS: {},
             },
-            entityTypes=["schemaField", "dataset"],
-            targetUrnResolution=[
+            entity_types=["schemaField", "dataset"],
+            target_urn_resolution=[
                 AspectLookup(
+                    lookup_type="aspect",
                     aspect_name="Siblings",
                     field="siblings",
                 )
@@ -159,12 +160,12 @@ def create_action(
     config = (
         PropertyPropagationConfig(
             propagation_rule=PropagationRule(
-                metadataPropagated={
+                metadata_propagated={
                     PropagatedMetadata.DOCUMENTATION: {},
                     PropagatedMetadata.TAGS: {},
                 },
-                entityTypes=["schemaField", "dataset"],
-                targetUrnResolution=[
+                entity_types=["schemaField", "dataset"],
+                target_urn_resolution=[
                     RelationshipLookup(
                         type=PropagationRelationships.DOWNSTREAM,
                     ),
@@ -172,6 +173,7 @@ def create_action(
                         type=PropagationRelationships.UPSTREAM,
                     ),
                     AspectLookup(
+                        lookup_type="aspect",
                         aspect_name="Siblings",
                         field="siblings",
                     ),
@@ -445,13 +447,13 @@ def test_term_propagation_upstream(monkeypatch: pytest.MonkeyPatch) -> None:
     config = PropertyPropagationConfig(
         enabled=True,
         propagation_rule=PropagationRule(
-            targetUrnResolution=[
+            target_urn_resolution=[
                 RelationshipLookup(
                     type=PropagationRelationships.UPSTREAM,
                 )
             ],
-            entityTypes=["schemaField", "dataset"],
-            metadataPropagated={
+            entity_types=["schemaField", "dataset"],
+            metadata_propagated={
                 PropagatedMetadata.TERMS: {},
             },
         ),
@@ -500,13 +502,13 @@ def test_field_term_propagation_upstream(monkeypatch: pytest.MonkeyPatch) -> Non
     config = PropertyPropagationConfig(
         enabled=True,
         propagation_rule=PropagationRule(
-            targetUrnResolution=[
+            target_urn_resolution=[
                 RelationshipLookup(
                     type=PropagationRelationships.UPSTREAM,
                 )
             ],
-            entityTypes=["schemaField", "dataset"],
-            metadataPropagated={
+            entity_types=["schemaField", "dataset"],
+            metadata_propagated={
                 PropagatedMetadata.TERMS: {},
             },
         ),
@@ -608,14 +610,15 @@ def test_sibling_propagation() -> None:
     config = PropertyPropagationConfig(
         enabled=True,
         propagation_rule=PropagationRule(
-            targetUrnResolution=[
+            target_urn_resolution=[
                 AspectLookup(
+                    lookup_type="aspect",
                     aspect_name="Siblings",
                     field="siblings",
                 )
             ],
-            entityTypes=["schemaField", "dataset"],
-            metadataPropagated={
+            entity_types=["schemaField", "dataset"],
+            metadata_propagated={
                 PropagatedMetadata.DOCUMENTATION: {"columns_enabled": True},
                 PropagatedMetadata.TAGS: {},
             },

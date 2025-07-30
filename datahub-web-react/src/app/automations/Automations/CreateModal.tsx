@@ -45,7 +45,7 @@ type AutomationCreateModalProps = {
 };
 
 export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateModalProps) => {
-    const { type, typeTemplate, recipe, setAutomationType, setFormState, createAutomation } = useAutomationContext();
+    const { type, template, recipe, setAutomationType, setFormState, createAutomation } = useAutomationContext();
     const [showYaml, setShowYaml] = useState(false);
 
     // Check if the form is disabled
@@ -84,12 +84,12 @@ export const AutomationCreateModal = ({ isOpen, setIsOpen }: AutomationCreateMod
     return (
         <Modal
             title={
-                typeTemplate ? (
+                template ? (
                     <AutomationsModalHeader>
-                        {typeTemplate?.logo && <AutomationLogo src={typeTemplate?.logo} alt={typeTemplate?.name} />}
+                        {template?.logo && <AutomationLogo src={template?.logo} alt={template?.name} />}
                         <div>
-                            <h2>{typeTemplate?.name}</h2>
-                            <AutomationsDescription>{typeTemplate?.description}</AutomationsDescription>
+                            <h2>{template?.name}</h2>
+                            <AutomationsDescription>{template?.description}</AutomationsDescription>
                         </div>
                     </AutomationsModalHeader>
                 ) : (

@@ -12,12 +12,12 @@ action:
   type: datahub_integrations.propagation.propagation.generic_propagation_action.GenericPropagationAction
   config:
     propagation_rule:
-      entityTypes:
+      entity_types:
         - "dataset"
         - "schemaField"
-      targetUrnResolution:
+      target_urn_resolution:
         - type: downstream
-      metadataPropagated:
+      metadata_propagated:
           terms:
              target_terms:
                - urn:li:glossaryTerm:TestTerm1_1 # This term and any terms inherited from it will be propagated
@@ -25,5 +25,3 @@ action:
                - urn:li:glossaryTerm:TestTerm2_2 # leaf term that will be propagated
              term_groups:
                - urn:li:glossaryNode:TestGlossaryNode1 # Any terms contained under this node will be propagated
-
-

@@ -124,18 +124,18 @@ class TagPropagator(EntityPropagator):
         """Bootstrap tags for an asset."""
 
         logger.info(
-            f"Bootstrapping tags for {asset_urn} with config {self.config} and entity types {self.config.propagation_rule.entityTypes}"
+            f"Bootstrapping tags for {asset_urn} with config {self.config} and entity types {self.config.propagation_rule.entity_types}"
         )
 
         if (
             asset_urn.entity_type == "dataset"
-            and "schemaField" in self.config.propagation_rule.entityTypes
+            and "schemaField" in self.config.propagation_rule.entity_types
         ):
             yield from self._bootstrap_dataset_fields(asset_urn)
 
         if (
             asset_urn.entity_type == "dataset"
-            and "dataset" in self.config.propagation_rule.entityTypes
+            and "dataset" in self.config.propagation_rule.entity_types
         ):
             yield from self._bootstrap_dataset(asset_urn)
         else:

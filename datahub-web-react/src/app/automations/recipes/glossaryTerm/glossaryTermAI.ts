@@ -13,7 +13,7 @@ import AcrylLogo from '@images/acryl-logo.svg';
 
 // Common unique ID for the action
 // Used to identify the action in the backend & provide common key between template <> recipe
-export const automationType = 'ai_term_suggestion';
+const automationType = 'ai_term_suggestion';
 
 const automationName = 'Glossary Term AI';
 const automationDescription = 'Add or propose Glossary Terms to assets and columns using AI';
@@ -39,7 +39,7 @@ const defaultRecipe: AutomationRecipe = {
 
 // Mapping between the UI state values and the recipe config structure
 // This is used to enable dynamic updates to the recipe based on custom UI state structures
-export const configMap: Record<string, string> = {
+const configMap: Record<string, string> = {
     ...commonFieldsMapping,
     entities: 'action.config.entity_types_enabled',
     terms: 'action.config.glossary_term_urns',
@@ -100,7 +100,7 @@ const fields = [
 
 // Template for rendering all the things needed in the UI for creating/editing
 // an automation based off a templated recipe system
-export const template: AutomationTemplate = {
+const template: AutomationTemplate = {
     key: automationType,
     type: automationType,
     platform: 'acryl',
@@ -111,4 +111,7 @@ export const template: AutomationTemplate = {
     isDisabled: (appConfig: AppConfig) => !appConfig.classificationConfig.automations.aiTermClassification,
     isBeta: true,
     fields,
+    configMap,
 };
+
+export default template;

@@ -5,7 +5,7 @@ export const mapRecipeToFormState = (recipe: any, formState: any) => {
     if (!recipe || !recipe.action) return formState;
     const { action } = recipe;
 
-    const configMap = configMaps[action.type];
+    const configMap = configMaps[formState.key];
     if (!configMap) return formState;
 
     return mapRecipeToFormStateWithConfig(

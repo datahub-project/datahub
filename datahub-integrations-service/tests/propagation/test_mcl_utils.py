@@ -4,11 +4,7 @@ import pytest
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
-
-from datahub_integrations.propagation.propagation.propagation_rule_config import (
-    MclTriggerRule,
-)
-from datahub_integrations.propagation.propagation.utils.mcl_utils import MCLProcessor
+from datahub_actions.plugin.action.mcl_utils import MCLProcessor
 
 
 @pytest.fixture
@@ -54,12 +50,6 @@ def test_init() -> None:
     # Test default initialization
     processor = MCLProcessor()
     assert processor.entity_aspect_processors == {}
-    assert processor.trigger_rule is None
-
-    # Test with trigger rule
-    mock_rule = MagicMock(spec=MclTriggerRule)
-    processor_with_rule = MCLProcessor(trigger_rule=mock_rule)
-    assert processor_with_rule.trigger_rule == mock_rule
 
 
 def test_is_mcl(
