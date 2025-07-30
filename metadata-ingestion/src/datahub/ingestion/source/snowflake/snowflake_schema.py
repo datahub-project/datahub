@@ -105,8 +105,10 @@ class SnowflakeTable(BaseTable):
 
 @dataclass
 class SnowflakeDynamicTable(SnowflakeTable):
-    definition: Optional[str] = None
-    target_lag: Optional[str] = None
+    definition: Optional[str] = (
+        None  # SQL query that defines the dynamic table's content
+    )
+    target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.DYNAMIC_TABLE

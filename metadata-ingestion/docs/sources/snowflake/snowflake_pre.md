@@ -11,7 +11,7 @@ create or replace role datahub_role;
 // Grant access to a warehouse to run queries to view metadata
 grant operate, usage on warehouse "<your-warehouse>" to role datahub_role;
 
-// Grant access to view database and schema in which your tables/views exist
+// Grant access to view database and schema in which your tables/views/dynamic tables exist
 grant usage on DATABASE "<your-database>" to role datahub_role;
 grant usage on all schemas in database "<your-database>" to role datahub_role;
 grant usage on future schemas in database "<your-database>" to role datahub_role;
@@ -156,6 +156,7 @@ If you are using [Snowflake Shares](https://docs.snowflake.com/en/user-guide/dat
 
 ### Caveats
 
-- Some of the features are only available in the Snowflake Enterprise Edition. This doc has notes mentioning where this applies.
+- Some of the features are only available in the Snowflake Enterprise Edition. This includes dynamic tables, advanced lineage features, and tags. This doc has notes mentioning where this applies.
+- Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [incident going on for Snowflake](https://status.snowflake.com/) we will not be able to get the metadata until that incident is resolved.
