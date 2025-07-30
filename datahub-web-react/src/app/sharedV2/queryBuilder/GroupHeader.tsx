@@ -18,6 +18,7 @@ interface Props {
     onChangeOperator: (operator: LogicalOperatorType) => void;
     index: number;
     operator?: LogicalOperatorType;
+    showDeleteButton?: boolean;
 }
 
 const GroupHeader = ({
@@ -27,6 +28,7 @@ const GroupHeader = ({
     onChangeOperator,
     index,
     operator,
+    showDeleteButton,
 }: Props) => {
     const [selectedOperation, setSelectedOperation] = useState<LogicalOperatorType>(
         operator ?? LogicalOperatorType.AND,
@@ -105,12 +107,14 @@ const GroupHeader = ({
                     Add Group
                 </ButtonComponent>
                 <CardIcons>
-                    <Icon
-                        icon="Delete"
-                        size="md"
-                        onClick={() => onDeletePredicate(index)}
-                        data-testid="query-builder-delete-button"
-                    />
+                    {showDeleteButton && (
+                        <Icon
+                            icon="Delete"
+                            size="md"
+                            onClick={() => onDeletePredicate(index)}
+                            data-testid="query-builder-delete-button"
+                        />
+                    )}
                 </CardIcons>
             </ActionsContainer>
         </ToolbarContainer>
