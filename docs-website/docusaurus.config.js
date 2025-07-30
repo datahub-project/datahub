@@ -477,7 +477,16 @@ module.exports = {
     ],
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],
     "docusaurus-plugin-sass",
-    ["@graphql-markdown/docusaurus", {}],
+    [
+      "@graphql-markdown/docusaurus",
+      {
+        schema: "./graphql/combined.graphql",
+        rootPath: "./docs", // output location
+        baseURL: "graphql",
+        homepage: "./docs/graphql/index.md",
+        linkRoot: "/docs",
+      },
+    ],
     // [
     //   require.resolve("@easyops-cn/docusaurus-search-local"),
     //   {
