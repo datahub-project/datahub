@@ -64,19 +64,12 @@ function list_markdown_files(): string[] {
     .toString()
     .trim()
     .split("\n");
-  let all_generated_markdown_files: string[] = [];
-  try {
-    all_generated_markdown_files = execSync(
-      "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md"
-    )
-      .toString()
-      .trim()
-      .split("\n")
-      .filter(file => file.trim() !== "");
-  } catch (error) {
-    // Generated docs don't exist yet, which is fine
-    console.log("No generated docs found, continuing without them...");
-  }
+  let all_generated_markdown_files = execSync(
+    "cd .. && ls docs/generated/**/**/*.md && ls docs/generated/**/*.md"
+  )
+    .toString()
+    .trim()
+    .split("\n");
 
   all_markdown_files = [...all_markdown_files, ...all_generated_markdown_files];
 
