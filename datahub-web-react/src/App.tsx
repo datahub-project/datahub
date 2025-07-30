@@ -69,7 +69,7 @@ const client = new ApolloClient({
             ActionWorkflowField: {
                 keyFields: false, // Disable normalization for this type
             },
-            ActionWorkflowRequestField: {
+            ActionWorkflowFormRequestField: {
                 keyFields: false, // Disable normalization for this type
             },
         },
