@@ -69,6 +69,14 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 
 ## Creating an Access Workflow
 
+For each Access Workflow, you can configure the following:
+
+- **Form Fields**: Define what data needs to be collected from the user within the access request, with full control over which fields are required versus optional to match your organization's needs
+
+- **Form Entry Points**: Specify exactly where workflows should be activated, allowing you to display workflows on the home page or specific asset profiles.
+
+- **Approval Chain**: Designate specific individuals or groups who have the authority to review and finalize approvals. This can be dynamically assigned to a selected asset's owners, domain owners, or data product owners. 
+
 Currently, workflow creation is must be done via the GraphQL API using the `upsertActionWorkflow` mutation.
 
 Here's a Python example that uses the DataHub Python client to create a basic dataset approval workflow:
