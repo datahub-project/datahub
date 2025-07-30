@@ -75,7 +75,7 @@ For each Access Workflow, you can configure the following:
 
 - **Form Entry Points**: Specify exactly where workflows should be activated, allowing you to display workflows on the home page or specific asset profiles.
 
-- **Approval Chain**: Designate specific individuals or groups who have the authority to review and finalize approvals. This can be dynamically assigned to a selected asset's owners, domain owners, or data product owners. 
+- **Approval Chain**: Designate specific individuals or groups who have the authority to review and finalize approvals. This can be dynamically assigned to a selected asset's owners, domain owners, or data product owners.
 
 Currently, workflow creation is must be done via the GraphQL API using the `upsertActionWorkflow` mutation.
 
@@ -361,7 +361,7 @@ For event schemas & examples, see [Entity Change Events](https://docs.datahub.co
 - **reviewActionWorkflowFormRequest** - Review workflow requests
 - **deleteActionWorkflow** - Delete workflow definitions
 
-To see the full schema types and documentation, visit GraphiQL at https://<your-datahub-instance>.acryl.io/api/graphiql and view definitions under the `Mutation` type. 
+To see the full schema types and documentation, visit GraphiQL at https://<your-datahub-instance>.acryl.io/api/graphiql and view definitions under the `Mutation` type.
 
 ## FAQ and Troubleshooting
 
