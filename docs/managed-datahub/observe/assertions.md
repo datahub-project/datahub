@@ -20,8 +20,17 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 - [Volume](/docs/managed-datahub/observe/volume-assertions.md)
 - [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md)
 - [Column](/docs/managed-datahub/observe/column-assertions.md)
+- [Schema](/docs/managed-datahub/observe/schema-assertions.md)
 
-### Anomaly detection
+### Bulk Create Assertions
+You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md):
+
+[![Bulk Create Demo]](https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/observe/assertions/bulk_create.mp4
+)
+
+To bulk create column metric assertions on a given dataset, follow the steps under the [Anomaly Detection section of the Column Assertion docs](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
+
+### AI Anomaly detection (Smart Assertions)
 
 There are many cases where either you do not have the time to figure out what a good rule for an assertion is, or strict rules simply do not suffice for your data validation needs. Traditional rule-based assertions can become inadequate when dealing with complex data patterns or large-scale operations.
 
@@ -29,13 +38,13 @@ There are many cases where either you do not have the time to figure out what a 
 
 Here are some typical situations where manual assertion rules fall short:
 
-• **Seasonal data patterns** - A table whose row count changes exhibit weekly seasonality may need a different set of assertions for each day of the week, making static rules impractical to maintain.
+- **Seasonal data patterns** - A table whose row count changes exhibit weekly seasonality may need a different set of assertions for each day of the week, making static rules impractical to maintain.
 
-• **Statistical complexity across large datasets** - Figuring out what the expected standard deviation is for each column can be incredibly time consuming and not feasible across hundreds of tables, especially when each table has unique characteristics.
+- **Statistical complexity across large datasets** - Figuring out what the expected standard deviation is for each column can be incredibly time consuming and not feasible across hundreds of tables, especially when each table has unique characteristics.
 
-• **Dynamic data environments** - When data patterns evolve over time, manually updating assertion rules becomes a maintenance burden that can lead to false positives or missed anomalies.
+- **Dynamic data environments** - When data patterns evolve over time, manually updating assertion rules becomes a maintenance burden that can lead to false positives or missed anomalies.
 
-## The Smart Assertion Solution
+### The Smart Assertion Solution
 
 In these scenarios, you may want to consider creating a [Smart Assertion](./smart-assertions.md) to let machine learning automatically detect the normal patterns in your data and alert you when anomalies occur. This approach allows for more flexible and adaptive data quality monitoring without the overhead of manual rule maintenance.
 
@@ -78,8 +87,8 @@ There are a few ways DataHub Cloud assertions can be executed:
    a. `Information Schema` tables are used by default to power cheap, fast checks on a table's freshness or row count.
    b. `Audit log` or `Operation log` tables can be used to granularly monitor table operations.
    c. The table itself can also be queried directly. This is useful for freshness checks referencing `last_updated` columns, row count checks targetting a subset of the data, and column value checks. We offer several optimizations to reduce query costs for these checks.
-2. Reference DataHub profiling information
-   a. `Operation`s that are reported via ingestion or our SDKs can power monitoring table freshness.
+2. Reference DataHub metadata
+   a. [Operations](/docs/api/tutorials/operations.md) that are reported via ingestion or our SDKs can power monitoring table freshness.
    b. `DatasetProfile` and `SchemaFieldProfile` ingested or reported via SDKs can power monitoring table metrics and column metrics.
 
 ### Privacy: Execute In-Network, avoid exposing data externally
