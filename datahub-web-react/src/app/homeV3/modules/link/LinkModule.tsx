@@ -2,6 +2,7 @@ import { Icon, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import SmallModule from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 
@@ -41,6 +42,10 @@ export default function LinkModule(props: ModuleProps) {
     function goToLink() {
         if (linkParams?.linkUrl) {
             window.open(linkParams.linkUrl, '_blank');
+            analytics.event({
+                type: EventType.HomePageTemplateModuleLinkClick,
+                link: linkParams.linkUrl,
+            });
         }
     }
 

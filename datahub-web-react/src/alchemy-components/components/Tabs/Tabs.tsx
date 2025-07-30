@@ -79,7 +79,7 @@ const StyledTabs = styled(AntTabs)<{
     }
 
     .ant-tabs-nav {
-        margin-bottom: 24px;
+        margin-bottom: 0px;
     }
 
     ${({ $stickyHeader }) =>

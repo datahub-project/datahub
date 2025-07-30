@@ -1,4 +1,4 @@
-import { Icon, colors } from '@components';
+import { Icon, Text, Tooltip, colors } from '@components';
 import { Dropdown } from 'antd';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
@@ -16,6 +16,12 @@ const StyledIcon = styled(Icon)`
 ` as typeof Icon;
 
 const DropdownWrapper = styled.div``;
+
+const StyledDropdownContainer = styled.div`
+    .ant-dropdown-menu {
+        border-radius: 12px;
+    }
+`;
 
 interface Props {
     module: PageModuleFragment;
@@ -46,33 +52,47 @@ export default function ModuleMenu({ module, position }: Props) {
         e.stopPropagation();
     }, []);
 
+    const menuItemStyle = { fontSize: '14px', padding: '5px 16px' };
+
     return (
         <DropdownWrapper onClick={handleMenuClick}>
             <Dropdown
                 trigger={['click']}
+                dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
                 menu={{
                     items: [
-                        ...(canEdit
-                            ? [
-                                  {
-                                      title: 'Edit',
-                                      key: 'edit',
-                                      label: 'Edit',
-                                      style: {
-                                          color: colors.gray[600],
-                                          fontSize: '14px',
-                                      },
-                                      onClick: handleEditModule,
-                                  },
-                              ]
-                            : []),
+                        {
+                            title: 'Edit',
+                            key: 'edit',
+                            label: (
+                                <>
+                                    {!canEdit ? (
+                                        <Tooltip title="You can not edit Default widgets">
+                                            <Text color="gray" colorLevel={300}>
+                                                Edit
+                                            </Text>
+                                        </Tooltip>
+                                    ) : (
+                                        <Text color="gray" colorLevel={600}>
+                                            Edit
+                                        </Text>
+                                    )}
+                                </>
+                            ),
+                            style: {
+                                ...menuItemStyle,
+                            },
+                            onClick: handleEditModule,
+                            disabled: !canEdit,
+                        },
+
                         {
                             title: 'Remove',
                             label: 'Remove',
                             key: 'remove',
                             style: {
+                                ...menuItemStyle,
                                 color: colors.red[500],
-                                fontSize: '14px',
                             },
                             onClick: handleRemove,
                         },

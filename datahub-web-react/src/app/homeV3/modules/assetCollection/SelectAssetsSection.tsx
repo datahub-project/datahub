@@ -11,7 +11,7 @@ import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { Entity } from '@types';
+import { DataHubPageModuleType, Entity } from '@types';
 
 const AssetsSection = styled.div`
     display: flex;
@@ -78,6 +78,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 entity={entity}
                 key={entity.urn}
                 customDetailsRenderer={customDetailsRenderer}
+                moduleType={DataHubPageModuleType.AssetCollection}
                 navigateOnlyOnNameClick
             />
         ));

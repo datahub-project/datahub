@@ -777,3 +777,13 @@
     displayName: Hex
     type: OTHERS
     logoUrl: "/assets/platforms/hex.png"
+- entityUrn: urn:li:dataPlatform:grafana
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: grafana
+    displayName: Grafana
+    type: OTHERS
+    logoUrl: "/assets/platforms/grafana.png"
