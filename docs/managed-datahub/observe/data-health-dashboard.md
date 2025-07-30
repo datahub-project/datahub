@@ -68,6 +68,7 @@ In addition, both the `By Tables` tab and the `Incidents` tab will apply your gl
 </p>
 
 ## Bulk Create Smart Assertions
+
 (Smart Assertions)[./smart-assertions.md] are AI Anomaly Checks that can be used to quickly 'strap a seatbelt' across your data landscape. You can hit the 'Bulk Create' button in the top right corner of the data health dashboard to quickly set up anomaly detection on your key assets:
 
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
