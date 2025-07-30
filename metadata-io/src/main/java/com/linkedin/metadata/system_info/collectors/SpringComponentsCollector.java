@@ -2,17 +2,10 @@ package com.linkedin.metadata.system_info.collectors;
 
 import static com.linkedin.metadata.system_info.SystemInfoConstants.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.system_info.ComponentInfo;
 import com.linkedin.metadata.system_info.ComponentStatus;
 import com.linkedin.metadata.system_info.SpringComponentsInfo;
 import com.linkedin.metadata.version.GitVersion;
-import io.datahubproject.metadata.context.OperationContext;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +49,6 @@ public class SpringComponentsCollector {
 
   public static final String SYSTEM_INFO_ENDPOINT = "/openapi/v1/system-info";
 
-  private final OperationContext systemOperationContext;
   private final GitVersion gitVersion;
   private final PropertiesCollector propertiesCollector;
 
@@ -188,77 +180,6 @@ public class SpringComponentsCollector {
         .build();
   }
 
-  /**
-   * Fetches component information from a remote service via HTTP.
-   *
-   * <p>NOTE: This method is currently not used to avoid circular dependency issues in embedded
-   * mode. See getMaeConsumerInfo() and getMceConsumerInfo() for details.
-   *
-   * <p>This method would be used in a future implementation that properly detects when consumers
-   * are running in separate containers and can safely make HTTP calls.
-   *
-   * <p>SECURITY NOTE: The baseUrl parameter comes from system configuration
-   * (maeConsumerUrl/mceConsumerUrl) which is set by administrators via environment variables or
-   * config files. This is not user input and does not represent an SSRF vulnerability. The URLs are
-   * controlled by the same administrators who manage database connections and other infrastructure
-   * settings.
-   */
-  // semgrep:ignore java.lang.security.audit.ssrf.ssrf-injection
-  // nosec: SSRF - URL comes from admin-controlled system configuration
-  // aikido:ignore
-  @SuppressWarnings({"security:ssrf", "aikido:ssrf"})
-  private CompletableFuture<ComponentInfo> fetchRemoteComponentInfo(
-      String name, String baseUrl, String componentField) {
-    try {
-      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-
-      HttpRequest request =
-          HttpRequest.newBuilder()
-              .uri(URI.create(baseUrl + SYSTEM_INFO_ENDPOINT))
-              .timeout(Duration.ofSeconds(5))
-              .GET()
-              .build();
-
-      return client
-          .sendAsync(request, HttpResponse.BodyHandlers.ofString())
-          .thenApply(
-              response -> {
-                if (response.statusCode() == 200) {
-                  try {
-                    ObjectMapper mapper = systemOperationContext.getObjectMapper();
-                    SpringComponentsInfo springInfo =
-                        mapper.readValue(response.body(), SpringComponentsInfo.class);
-
-                    switch (componentField) {
-                      case MAE_COMPONENT_KEY:
-                        return springInfo.getMaeConsumer();
-                      case MCE_COMPONENT_KEY:
-                        return springInfo.getMceConsumer();
-                      case GMS_COMPONENT_KEY:
-                        return springInfo.getGms();
-                      default:
-                        throw new IllegalArgumentException("Unknown component: " + componentField);
-                    }
-                  } catch (Exception e) {
-                    log.error("Error parsing component info for {}", name, e);
-                    return createErrorComponent(name, e);
-                  }
-                } else {
-                  log.warn("Received non-200 response: {}", response.statusCode());
-                  return createUnavailableComponent(name);
-                }
-              })
-          .exceptionally(
-              e -> {
-                log.error("Error fetching remote component info for {}", name, e);
-                return createErrorComponent(name, e);
-              });
-    } catch (Exception e) {
-      log.error("Error creating HTTP request for component {}", name, e);
-      return CompletableFuture.completedFuture(createErrorComponent(name, e));
-    }
-  }
-
   private ComponentInfo createErrorComponent(String name) {
     return ComponentInfo.builder()
         .name(name)
@@ -273,9 +194,5 @@ public class SpringComponentsCollector {
         .status(ComponentStatus.ERROR)
         .errorMessage("Failed to connect: " + e.getMessage())
         .build();
-  }
-
-  private ComponentInfo createUnavailableComponent(String name) {
-    return ComponentInfo.builder().name(name).status(ComponentStatus.UNAVAILABLE).build();
   }
 }
