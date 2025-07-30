@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -15,6 +16,7 @@ import com.linkedin.actionrequest.ActionRequestParams;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequest;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequestField;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequestFieldArray;
+import com.linkedin.actionworkflow.ActionWorkflowRequestAccess;
 import com.linkedin.actionworkflow.ActionWorkflowRequestStepState;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -187,6 +189,11 @@ public class WorkflowFormRequestStepCompletionChangeEventGeneratorTest {
     ActionRequestInfo previousActionRequestInfo = createTestWorkflowActionRequestInfo();
     ActionRequestInfo newActionRequestInfo = createTestWorkflowActionRequestInfo();
 
+    // Previous step state
+    ActionWorkflowRequestStepState previousStepState = new ActionWorkflowRequestStepState();
+    previousStepState.setStepId("owner_approval");
+    previousActionRequestInfo.getParams().getWorkflowFormRequest().setStepState(previousStepState);
+
     // Change the step state to simulate step completion
     ActionWorkflowRequestStepState newStepState = new ActionWorkflowRequestStepState();
     newStepState.setStepId("data_steward_approval");
@@ -216,8 +223,9 @@ public class WorkflowFormRequestStepCompletionChangeEventGeneratorTest {
 
     // Verify step completion parameters
     Map<String, Object> parameters = event.getParameters();
-    assertEquals(parameters.get("stepId"), "data_steward_approval");
-    assertEquals(parameters.get("stepResult"), "APPROVED");
+    assertEquals(
+        parameters.get("stepId"), "owner_approval"); // Should be the previous/completed step
+    assertEquals(parameters.get("stepResult"), ACTION_REQUEST_RESULT_ACCEPTED);
   }
 
   @Test
@@ -677,6 +685,155 @@ public class WorkflowFormRequestStepCompletionChangeEventGeneratorTest {
     assertTrue(parameters.containsKey("fields"));
     String fieldsJson = (String) parameters.get("fields");
     assertEquals(fieldsJson, "{}"); // Empty object since no valid fields
+  }
+
+  @Test
+  public void testWorkflowRequestWithExpiresAt() {
+    // Create workflow request with access information
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+
+    // Add access information with expiresAt
+    ActionWorkflowRequestAccess accessInfo = new ActionWorkflowRequestAccess();
+    accessInfo.setExpiresAt(1234567890123L); // Example timestamp
+    actionRequestInfo.getParams().getWorkflowFormRequest().setAccess(accessInfo);
+
+    Aspect<ActionRequestInfo> fromAspect = new Aspect<>(null, null);
+    Aspect<ActionRequestInfo> toAspect = new Aspect<>(actionRequestInfo, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestInfo",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify expiresAtMs parameter is included
+    Map<String, Object> parameters = event.getParameters();
+    assertEquals(parameters.get("expiresAtMs"), 1234567890123L);
+  }
+
+  @Test
+  public void testWorkflowRequestWithoutExpiresAt() {
+    // Create workflow request without access information
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+
+    Aspect<ActionRequestInfo> fromAspect = new Aspect<>(null, null);
+    Aspect<ActionRequestInfo> toAspect = new Aspect<>(actionRequestInfo, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestInfo",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify expiresAtMs parameter is not included
+    Map<String, Object> parameters = event.getParameters();
+    assertFalse(parameters.containsKey("expiresAtMs"));
+  }
+
+  @Test
+  public void testWorkflowRequestWithAccessButNoExpiresAt() {
+    // Create workflow request with access information but no expiresAt
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+
+    // Add access information without expiresAt
+    ActionWorkflowRequestAccess accessInfo = new ActionWorkflowRequestAccess();
+    // Don't set expiresAt
+    actionRequestInfo.getParams().getWorkflowFormRequest().setAccess(accessInfo);
+
+    Aspect<ActionRequestInfo> fromAspect = new Aspect<>(null, null);
+    Aspect<ActionRequestInfo> toAspect = new Aspect<>(actionRequestInfo, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestInfo",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify expiresAtMs parameter is not included when expiresAt is not set
+    Map<String, Object> parameters = event.getParameters();
+    assertFalse(parameters.containsKey("expiresAtMs"));
+  }
+
+  @Test
+  public void testStepCompletionEventWithExpiresAt() {
+    // Create previous and new workflow requests with different step states and access info
+    ActionRequestInfo previousActionRequestInfo = createTestWorkflowActionRequestInfo();
+    ActionRequestInfo newActionRequestInfo = createTestWorkflowActionRequestInfo();
+
+    // Previous step state
+    ActionWorkflowRequestStepState previousStepState = new ActionWorkflowRequestStepState();
+    previousStepState.setStepId("owner_approval");
+    previousActionRequestInfo.getParams().getWorkflowFormRequest().setStepState(previousStepState);
+
+    // Change the step state to simulate step completion
+    ActionWorkflowRequestStepState newStepState = new ActionWorkflowRequestStepState();
+    newStepState.setStepId("data_steward_approval");
+    newActionRequestInfo.getParams().getWorkflowFormRequest().setStepState(newStepState);
+
+    // Add access information with expiresAt to both requests
+    ActionWorkflowRequestAccess accessInfo = new ActionWorkflowRequestAccess();
+    accessInfo.setExpiresAt(1234567890123L);
+    previousActionRequestInfo.getParams().getWorkflowFormRequest().setAccess(accessInfo);
+    newActionRequestInfo.getParams().getWorkflowFormRequest().setAccess(accessInfo);
+
+    Aspect<ActionRequestInfo> fromAspect = new Aspect<>(previousActionRequestInfo, null);
+    Aspect<ActionRequestInfo> toAspect = new Aspect<>(newActionRequestInfo, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestInfo",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    assertEquals(event.getCategory(), ChangeCategory.LIFECYCLE);
+    assertEquals(event.getOperation(), ChangeOperation.MODIFY);
+
+    // Verify step completion parameters and expiresAtMs
+    Map<String, Object> parameters = event.getParameters();
+    assertEquals(
+        parameters.get("stepId"), "owner_approval"); // Should be the previous/completed step
+    assertEquals(parameters.get("stepResult"), ACTION_REQUEST_RESULT_ACCEPTED);
+    assertEquals(parameters.get("expiresAtMs"), 1234567890123L);
   }
 
   private ActionRequestInfo createTestWorkflowActionRequestInfo() {

@@ -131,6 +131,10 @@ public class WorkflowFormRequestCompletionChangeEventGenerator
         parameters.put("workflowId", workflowId);
       }
 
+      if (workflowRequest.hasAccess() && workflowRequest.getAccess().hasExpiresAt()) {
+        parameters.put("expiresAtMs", workflowRequest.getAccess().getExpiresAt());
+      }
+
       // Add workflow request fields
       if (workflowRequest.hasFields()) {
         ObjectMapper objectMapper = new ObjectMapper();

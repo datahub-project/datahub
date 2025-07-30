@@ -113,9 +113,9 @@ public class WorkflowFormRequestChangeEventGeneratorTest {
     ActionRequestInfo newActionRequestInfo = createTestWorkflowActionRequestInfo();
 
     // Change the step state to simulate step completion
-    ActionWorkflowRequestStepState newStepState = new ActionWorkflowRequestStepState();
-    newStepState.setStepId("data_steward_approval");
-    newActionRequestInfo.getParams().getWorkflowFormRequest().setStepState(newStepState);
+    ActionWorkflowRequestStepState prevStepState = new ActionWorkflowRequestStepState();
+    prevStepState.setStepId("data_steward_approval");
+    previousActionRequestInfo.getParams().getWorkflowFormRequest().setStepState(prevStepState);
 
     Aspect<ActionRequestInfo> fromAspect = new Aspect<>(previousActionRequestInfo, null);
     Aspect<ActionRequestInfo> toAspect = new Aspect<>(newActionRequestInfo, null);
@@ -143,7 +143,7 @@ public class WorkflowFormRequestChangeEventGeneratorTest {
     Map<String, Object> parameters = event.getParameters();
     assertFalse(parameters.containsKey("operation")); // No longer setting operation override
     assertEquals(parameters.get("stepId"), "data_steward_approval");
-    assertEquals(parameters.get("stepResult"), "APPROVED"); // Updated parameter name and value
+    assertEquals(parameters.get("stepResult"), "ACCEPTED"); // Updated parameter name and value
   }
 
   @Test

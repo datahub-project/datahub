@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_RESULT_ACCEPTED;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -151,13 +152,22 @@ public class WorkflowFormRequestStepCompletionChangeEventGenerator
         parameters.put("workflowId", workflowId);
       }
 
+      if (workflowRequest.hasAccess() && workflowRequest.getAccess().hasExpiresAt()) {
+        parameters.put("expiresAtMs", workflowRequest.getAccess().getExpiresAt());
+      }
+
       // Check if this is a step completion and add step-specific parameters
       if (operation == ChangeOperation.MODIFY
           && previousAspect != null
           && isStepCompletion(previousAspect, actionRequestInfo)) {
         if (workflowRequest.hasStepState()) {
-          parameters.put("stepId", workflowRequest.getStepState().getStepId());
-          parameters.put("stepResult", "APPROVED");
+          ActionWorkflowFormRequest prevWorkflowRequest =
+              previousAspect.getParams().getWorkflowFormRequest();
+          parameters.put("stepId", prevWorkflowRequest.getStepState().getStepId());
+          // If we've gotten to this point, the step is accepted. Otherwise we'd not be in this
+          // generator,
+          // and request would be denied.
+          parameters.put("stepResult", ACTION_REQUEST_RESULT_ACCEPTED);
         }
       }
 

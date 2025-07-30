@@ -19,6 +19,7 @@ import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequest;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequestField;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequestFieldArray;
+import com.linkedin.actionworkflow.ActionWorkflowRequestAccess;
 import com.linkedin.actionworkflow.ActionWorkflowRequestStepState;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -776,6 +777,143 @@ public class WorkflowFormRequestCompletionChangeEventGeneratorTest {
     assertTrue(parameters.containsKey("fields"));
     String fieldsJson = (String) parameters.get("fields");
     assertEquals(fieldsJson, "{}"); // Empty object since no valid fields
+  }
+
+  @Test
+  public void testWorkflowCompletionWithExpiresAt() throws Exception {
+    // Create workflow request with access information and expiration
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+
+    // Add access information with expiresAt
+    ActionWorkflowRequestAccess accessInfo = new ActionWorkflowRequestAccess();
+    accessInfo.setExpiresAt(1234567890123L); // Example timestamp
+    actionRequestInfo.getParams().getWorkflowFormRequest().setAccess(accessInfo);
+
+    when(mockActionWorkflowService.getActionRequestInfo(
+            any(OperationContext.class), eq(TEST_ACTION_REQUEST_URN)))
+        .thenReturn(actionRequestInfo);
+
+    ActionRequestStatus previousStatus = new ActionRequestStatus();
+    previousStatus.setStatus("PENDING");
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
+    newStatus.setResult(ACTION_REQUEST_RESULT_ACCEPTED);
+
+    Aspect<ActionRequestStatus> fromAspect = new Aspect<>(previousStatus, null);
+    Aspect<ActionRequestStatus> toAspect = new Aspect<>(newStatus, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestStatus",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify expiresAtMs parameter is included
+    Map<String, Object> parameters = event.getParameters();
+    assertEquals(parameters.get("expiresAtMs"), 1234567890123L);
+    assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
+  }
+
+  @Test
+  public void testWorkflowCompletionWithoutExpiresAt() throws Exception {
+    // Create workflow request without access information
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+    // Don't add access information
+
+    when(mockActionWorkflowService.getActionRequestInfo(
+            any(OperationContext.class), eq(TEST_ACTION_REQUEST_URN)))
+        .thenReturn(actionRequestInfo);
+
+    ActionRequestStatus previousStatus = new ActionRequestStatus();
+    previousStatus.setStatus("PENDING");
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
+    newStatus.setResult(ACTION_REQUEST_RESULT_ACCEPTED);
+
+    Aspect<ActionRequestStatus> fromAspect = new Aspect<>(previousStatus, null);
+    Aspect<ActionRequestStatus> toAspect = new Aspect<>(newStatus, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestStatus",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify expiresAtMs parameter is not included
+    Map<String, Object> parameters = event.getParameters();
+    assertFalse(parameters.containsKey("expiresAtMs"));
+    assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
+  }
+
+  @Test
+  public void testWorkflowCompletionWithAccessButNoExpiresAt() throws Exception {
+    // Create workflow request with access information but no expiresAt
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+
+    // Add access information without expiresAt
+    ActionWorkflowRequestAccess accessInfo = new ActionWorkflowRequestAccess();
+    // Don't set expiresAt
+    actionRequestInfo.getParams().getWorkflowFormRequest().setAccess(accessInfo);
+
+    when(mockActionWorkflowService.getActionRequestInfo(
+            any(OperationContext.class), eq(TEST_ACTION_REQUEST_URN)))
+        .thenReturn(actionRequestInfo);
+
+    ActionRequestStatus previousStatus = new ActionRequestStatus();
+    previousStatus.setStatus("PENDING");
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
+    newStatus.setResult(ACTION_REQUEST_RESULT_ACCEPTED);
+
+    Aspect<ActionRequestStatus> fromAspect = new Aspect<>(previousStatus, null);
+    Aspect<ActionRequestStatus> toAspect = new Aspect<>(newStatus, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestStatus",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify expiresAtMs parameter is not included when expiresAt is not set
+    Map<String, Object> parameters = event.getParameters();
+    assertFalse(parameters.containsKey("expiresAtMs"));
+    assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
   }
 
   private ActionRequestInfo createTestWorkflowActionRequestInfo() {
