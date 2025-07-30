@@ -38,7 +38,7 @@ import { GetDataJobQuery, useGetDataJobQuery, useUpdateDataJobMutation } from '@
 import { DataJob, DataProcessInstanceResult, EntityType, SearchResult } from '@types';
 
 const getPlatformForDataJob = (data?: DataJob) => {
-    return data?.dataPlatformInstance?.platform || data?.dataFlow?.platform;
+    return data?.platform || data?.dataFlow?.platform;
 };
 
 const getDataJobPlatformName = (data?: DataJob): string => {
