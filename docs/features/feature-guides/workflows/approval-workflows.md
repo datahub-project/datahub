@@ -364,7 +364,7 @@ DataHub emits events for key workflow lifecycle moments:
 2. **Approval Workflow Request Step Complete**: When an intermediate review step is completed
 3. **Approval Workflow Request Complete**: When the workflow request is fully approved or rejected
 
-The format of each JSON event can be found by visiting the 
+The format of each JSON event can be found [here](https://docs.datahub.com/docs/actions/events/entity-change-event). 
 
 #### Setting Up Event Integration
 
