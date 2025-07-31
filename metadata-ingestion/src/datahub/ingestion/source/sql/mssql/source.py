@@ -160,7 +160,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             uri_opts=uri_opts,
         )
         if self.use_odbc:
-            uri = f"{uri}?{urllib.parse.urlencode(self.uri_args)}"
+            uri_args = ({k:v for k,v in self.uri_args.items() if k.lower() != 'database'}
+                       if current_db else
+                       self.uri_args)
+            uri = f"{uri}?{urllib.parse.urlencode(uri_args)}"
         return uri
 
     @property
@@ -939,6 +942,24 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_flow.as_container_aspect,
             ).as_workunit()
 
+    def _database_names_from_engine(self, engine):
+        """
+        Helper method to get database names from the engine.
+        This is used to fetch the list of databases in the SQL Server instance.
+        """
+        with engine.begin() as conn:
+            databases = conn.execute(
+                "SELECT name FROM master.sys.databases WHERE name NOT IN \
+                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
+                       'distribution' , 'reportserver', 'reportservertempdb'); "
+            ).fetchall()
+        return [db["name"] for db in databases]
+    
+    def _inspector_for_database(self, db_name: str) -> Inspector:
+        url = self.config.get_sql_alchemy_url(current_db=db_name)
+        engine = create_engine(url, **self.config.options)
+        return inspect(engine)
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
@@ -950,19 +971,10 @@ class SQLServerSource(SQLAlchemySource):
             inspector = inspect(engine)
             yield inspector
         else:
-            with engine.begin() as conn:
-                databases = conn.execute(
-                    "SELECT name FROM master.sys.databases WHERE name NOT IN \
-                  ('master', 'model', 'msdb', 'tempdb', 'Resource', \
-                       'distribution' , 'reportserver', 'reportservertempdb'); "
-                ).fetchall()
-
-            for db in databases:
-                if self.config.database_pattern.allowed(db["name"]):
-                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                    engine = create_engine(url, **self.config.options)
-                    inspector = inspect(engine)
-                    self.current_database = db["name"]
+            for db_name in self._database_names_from_engine(engine):
+                if self.config.database_pattern.allowed(db_name):
+                    inspector = self._inspector_for_database(db_name)
+                    self.current_database = db_name
                     yield inspector
 
     def get_identifier(
