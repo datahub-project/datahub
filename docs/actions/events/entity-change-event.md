@@ -643,7 +643,7 @@ submitted the approval request form. It contains a serialized JSON object that m
 This event is emitted when an approval step within a workflow request has been completed (approved, rejected, or requires more information).
 
 Note that `parameters.fields` contains all of the form fields provided when the user originally
-submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing! 
+submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing!
 
 #### Sample Event
 
@@ -679,7 +679,7 @@ submitted the approval request form. It contains a serialized JSON object that m
 This event is emitted when an approval workflow request has been fully completed - either approved through all steps or rejected at any step.
 
 Note that `parameters.fields` contains all of the form fields provided when the user originally
-submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing! 
+submitted the approval request form. It contains a serialized JSON object that must be deserialized from string before accessing!
 
 #### Sample Event
 

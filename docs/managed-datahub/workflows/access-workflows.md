@@ -361,7 +361,7 @@ For event schemas & examples, see [Entity Change Events](https://docs.datahub.co
 - **reviewActionWorkflowFormRequest** - Review workflow requests
 - **deleteActionWorkflow** - Delete workflow definitions
 
-To see the full schema types and documentation, visit GraphiQL at https://<your-datahub-instance>.acryl.io/api/graphiql and view definitions under the `Mutation` type.
+To see the full schema types and documentation, visit GraphiQL at https://your-datahub-instance.acryl.io/api/graphiql and view definitions under the `Mutation` type.
 
 ## FAQ and Troubleshooting
 
