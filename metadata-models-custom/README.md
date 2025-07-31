@@ -270,6 +270,8 @@ plugins:
           aspectName: customDataQualityRules
 ```
 
+To see an example working validator, please refer to the [Demo Dataset Validator](../contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator).
+
 #### Custom Mutator
 
 **Warning: This hook is for advanced users only. It is possible to corrupt data and render your system inoperable.**

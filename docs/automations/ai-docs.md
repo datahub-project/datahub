@@ -41,5 +41,5 @@ Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedr
 
 ## Limitations
 
-- AI documentation is not available for tables with more than 1000 columns (prior to v0.3.12, this limit was 100 columns).
+- AI documentation is not available for tables with more than 3000 columns (in v0.3.12 the limit was 1000 columns; prior to v0.3.12, it was 100 columns).
 - This feature is powered by LLMs, which can produce inaccurate results. While we've taken steps to reduce the likelihood of hallucinations, they may still occur.
