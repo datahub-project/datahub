@@ -111,6 +111,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     ViewProperties,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
@@ -441,6 +442,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     UpstreamClass(
                         dataset=self.gen_dataset_urn(upstream_ref),
                         type=DatasetLineageTypeClass.COPY,
+                        auditStamp=AuditStampClass(
+                            time=int(upstream_ref.last_updated.timestamp() * 1000)
+                            if upstream_ref.last_updated
+                            else int(time.time() * 1000),
+                            actor="urn:li:corpuser:unknown",
+                        ),
                     )
                     for upstream_ref in notebook.upstreams
                 ]
@@ -647,9 +654,21 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def ingest_lineage(self, table: Table) -> Optional[UpstreamLineageClass]:
+        # Calculate datetime filters for lineage
+        lineage_start_time = None
+        lineage_end_time = self.config.end_time
+
+        if self.config.ignore_start_time_lineage:
+            lineage_start_time = None  # Ignore start time to get all lineage
+        else:
+            lineage_start_time = self.config.start_time
+
         if self.config.include_table_lineage:
             self.unity_catalog_api_proxy.table_lineage(
-                table, include_entity_lineage=self.config.include_notebooks
+                table,
+                include_entity_lineage=self.config.include_notebooks,
+                start_time=lineage_start_time,
+                end_time=lineage_end_time,
             )
 
         if self.config.include_column_lineage and table.upstreams:
@@ -661,7 +680,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for column in table.columns[: self.config.column_lineage_column_limit]
             ]
             self.unity_catalog_api_proxy.get_column_lineage(
-                table, column_names, max_workers=self.config.lineage_max_workers
+                table,
+                column_names,
+                max_workers=self.config.lineage_max_workers,
+                start_time=lineage_start_time,
+                end_time=lineage_end_time,
             )
 
         return self._generate_lineage_aspect(self.gen_dataset_urn(table.ref), table)
@@ -694,14 +717,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 UpstreamClass(
                     dataset=upstream_urn,
                     type=DatasetLineageTypeClass.TRANSFORMED,
+                    auditStamp=AuditStampClass(
+                        time=int(upstream_ref.last_updated.timestamp() * 1000)
+                        if upstream_ref.last_updated
+                        else int(time.time() * 1000),
+                        actor="urn:li:corpuser:unknown",
+                    ),
                 )
             )
 
         for notebook in table.upstream_notebooks:
             upstreams.append(
                 UpstreamClass(
-                    dataset=self.gen_notebook_urn(notebook),
+                    dataset=self.gen_notebook_urn(notebook.id),
                     type=DatasetLineageTypeClass.TRANSFORMED,
+                    auditStamp=AuditStampClass(
+                        time=int(notebook.last_updated.timestamp() * 1000)
+                        if notebook.last_updated
+                        else int(time.time() * 1000),
+                        actor="urn:li:corpuser:unknown",
+                    ),
                 )
             )
 
