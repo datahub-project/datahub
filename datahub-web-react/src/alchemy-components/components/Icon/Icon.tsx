@@ -19,7 +19,9 @@ export const Icon = ({
     variant = iconDefaults.variant,
     size = iconDefaults.size,
     color = iconDefaults.color,
+    colorLevel,
     rotate = iconDefaults.rotate,
+    weight,
     ...props
 }: IconProps) => {
     const { filled, outlined } = getIconNames();
@@ -44,14 +46,20 @@ export const Icon = ({
 
     const IconComponent = getIconComponent(source, iconName);
 
+    if (!IconComponent) {
+        console.warn(`Unknown icon: ${source} / ${iconName}`);
+        return null;
+    }
+
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
             <IconComponent
                 sx={{
                     fontSize: getFontSize(size),
-                    color: getColor(color),
+                    color: getColor(color, colorLevel),
                 }}
-                style={{ color: getColor(color) }}
+                style={{ color: getColor(color, colorLevel) }}
+                weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
             />
         </IconWrapper>
     );

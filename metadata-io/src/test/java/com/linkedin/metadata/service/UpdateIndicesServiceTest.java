@@ -12,8 +12,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -30,11 +29,10 @@ import org.testng.annotations.Test;
 public class UpdateIndicesServiceTest {
 
   @Mock private UpdateGraphIndicesService updateGraphIndicesService;
-  @Mock private EntitySearchService entitySearchService;
+  @Mock private ElasticSearchService entitySearchService;
   @Mock private TimeseriesAspectService timeseriesAspectService;
   @Mock private SystemMetadataService systemMetadataService;
   @Mock private SearchDocumentTransformer searchDocumentTransformer;
-  @Mock private EntityIndexBuilders entityIndexBuilders;
 
   private OperationContext operationContext;
   private UpdateIndicesService updateIndicesService;
@@ -50,7 +48,6 @@ public class UpdateIndicesServiceTest {
             timeseriesAspectService,
             systemMetadataService,
             searchDocumentTransformer,
-            entityIndexBuilders,
             "MD5");
   }
 

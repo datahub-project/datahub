@@ -41,7 +41,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     CorpGroupInfoClass,
     CorpUserInfoClass,
     GroupMembershipClass,
@@ -202,7 +201,7 @@ class OktaSourceReport(StaleEntityRemovalSourceReport):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DESCRIPTIONS, "Optionally enabled via configuration")
 @capability(
-    SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
 class OktaSource(StatefulIngestionSourceBase):
     """
@@ -332,18 +331,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpGroup",
                     entityUrn=datahub_corp_group_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 
@@ -418,18 +411,12 @@ class OktaSource(StatefulIngestionSourceBase):
                 yield MetadataWorkUnit(id=wu_id, mce=mce)
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="origin",
                     aspect=OriginClass(OriginTypeClass.EXTERNAL, "OKTA"),
                 ).as_workunit()
 
                 yield MetadataChangeProposalWrapper(
-                    entityType="corpuser",
                     entityUrn=datahub_corp_user_snapshot.urn,
-                    changeType=ChangeTypeClass.UPSERT,
-                    aspectName="status",
                     aspect=StatusClass(removed=False),
                 ).as_workunit()
 

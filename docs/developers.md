@@ -116,7 +116,7 @@ The frontend will be available at `http://localhost:3000` and will automatically
 
 ### Refreshing components of quickStart
 
-To refresh any of the running system stared by `./gradlew quickStartDebug`, run
+To refresh any of the running system started by `./gradlew quickStartDebug`, run
 
 ```shell
 ./gradlew debugReload
@@ -220,7 +220,7 @@ This is a [known issue](https://github.com/linkedin/rest.li/issues/287) when bui
 
 #### Various errors related to `generateDataTemplate` or other `generate` tasks
 
-As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should reosolve the issue.
+As we generate quite a few files from the models, it is possible that old generated files may conflict with new model changes. When this happens, a simple `./gradlew clean` should resolve the issue.
 
 #### `Execution failed for task ':metadata-service:restli-servlet-impl:checkRestModel'`
 
@@ -250,10 +250,10 @@ To be able to create symbolic links in Windows 10/11 the [Developer Mode](https:
 # enable core.symlinks config
 git config --global core.symlinks true
 
-# check the current core.sysmlinks config and scope
+# check the current core.symlinks config and scope
 git config --show-scope --show-origin core.symlinks
 
-# in case the core.sysmlinks config is still set locally to false, remove the local config
+# in case the core.symlinks config is still set locally to false, remove the local config
 git config --unset core.symlinks
 
 # reset the current branch to recreate the missing symbolic links (alternatively it is also possibly to switch branches away and back)
@@ -261,3 +261,25 @@ git reset --hard
 ```
 
 See also [here](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for more information on how to enable symbolic links on Windows 10/11 and Git.
+
+## Security Testing
+
+### Configuration Property Classification Test
+
+**Location**: `metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java`
+
+This test ensures all configuration properties are explicitly classified as either sensitive (redacted) or non-sensitive (visible in system info). It prevents accidental exposure of secrets through DataHub's system information endpoints.
+
+**When you add new configuration properties:**
+
+1. The test will fail if your property is unclassified
+2. Follow the test failure message to add your property to the appropriate classification list
+3. When in doubt, classify as sensitive - it's safer to over-redact than expose secrets
+
+**Run the test:**
+
+```bash
+./gradlew :metadata-io:test --tests "*.PropertiesCollectorConfigurationTest"
+```
+
+Refer to the test file itself for comprehensive documentation on classification lists, template syntax, and examples. This is a mandatory security guardrail that protects against credential leaks.

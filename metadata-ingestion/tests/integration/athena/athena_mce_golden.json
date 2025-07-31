@@ -91,6 +91,132 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD)",
+                    "type": "COPY"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),annual_salary)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),annual_salary)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),employee_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),employee_name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.year)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history.year)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.company)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history.company)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.role)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history.role)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),department_budgets)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),department_budgets)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),skills)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),skills)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1671098400000,
+        "runId": "athena-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -978,6 +1104,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -990,6 +1117,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),annual_salary)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"annual_salary\" AS \"annual_salary\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1002,6 +1130,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1014,6 +1143,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),job_history)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"job_history\" AS \"job_history\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1026,6 +1156,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),department_budgets)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"department_budgets\" AS \"department_budgets\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1038,6 +1169,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 }
@@ -1186,6 +1318,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_id)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 },
@@ -1198,6 +1331,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_name)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 },
@@ -1210,6 +1344,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),skills)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 }

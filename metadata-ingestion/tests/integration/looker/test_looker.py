@@ -48,7 +48,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeEventClass
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -913,10 +913,13 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     mocked_client = mock.MagicMock()
     pipeline_run1 = None
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
@@ -939,10 +942,13 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     pipeline_run2 = None
     mocked_client = mock.MagicMock()
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
@@ -1037,10 +1043,13 @@ def ingest_independent_looks(
     }
     new_recipe["pipeline_name"] = "execution-1"
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mock_sdk.return_value = mocked_client
@@ -1101,10 +1110,13 @@ def test_file_path_in_view_naming_pattern(
         "{project}.{file_path}.view.{name}"
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mock_sdk.return_value = mocked_client
@@ -1327,10 +1339,13 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
 def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     mocked_client = mock.MagicMock()
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mock_sdk.return_value = mocked_client
@@ -1401,10 +1416,13 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     mocked_client = mock.MagicMock()
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         tags: List[str] = ["metrics", "all"]
@@ -1592,4 +1610,122 @@ def test_folder_path_pattern(pytestconfig, tmp_path, mock_time, mock_datahub_gra
             pytestconfig,
             output_path=tmp_path / "looker_mces.json",
             golden_path=f"{test_resources_dir}/{mce_out_file}",
+        )
+
+
+def setup_mock_explore_with_group_label(mocked_client):
+    """Setup a mock explore with fields that have group_label attributes."""
+    mock_model = mock.MagicMock(project_name="lkml_samples")
+    mocked_client.lookml_model.return_value = mock_model
+
+    lkml_fields = [
+        LookmlModelExploreField(
+            name="dim1",
+            type="string",
+            dimension_group=None,
+            description="dimension one description",
+            label_short="Dimensions One Label",
+            field_group_label="Createdon Date",  # Adding group_label
+        ),
+        LookmlModelExploreField(
+            name="dim2",
+            type="string",
+            dimension_group=None,
+            description="dimension two description",
+            label_short="Dimensions Two Label",
+            field_group_label="User Info",  # Different group_label
+        ),
+        LookmlModelExploreField(
+            name="measure1",
+            type="number",
+            description="measure description",
+            label_short="Measure Label",
+            field_group_label="Metrics",  # Group label for measure
+            category=Category.measure,
+        ),
+    ]
+
+    mocked_client.lookml_model_explore.return_value = LookmlModelExplore(
+        id="1",
+        name="my_explore_name",
+        label="My Explore View",
+        description="lorem ipsum",
+        view_name="underlying_view",
+        project_name="lkml_samples",
+        fields=LookmlModelExploreFieldset(
+            dimensions=lkml_fields[:2],  # First two fields are dimensions
+            measures=[lkml_fields[2]],  # Third field is a measure
+        ),
+        source_file="test_source_file.lkml",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_group_label_tags(pytestconfig, tmp_path, mock_time):
+    """Test that group_label values are correctly extracted and added as tags."""
+    mocked_client = mock.MagicMock()
+    with mock.patch("looker_sdk.init40") as mock_sdk:
+        mock_sdk.return_value = mocked_client
+        setup_mock_dashboard(mocked_client)
+        setup_mock_explore_with_group_label(mocked_client)
+
+        test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
+        output_file = tmp_path / "looker_group_label_mces.json"
+
+        pipeline = Pipeline.create(
+            {
+                "run_id": "looker-group-label-test",
+                "source": {
+                    "type": "looker",
+                    "config": {
+                        "base_url": "https://looker.company.com",
+                        "client_id": "foo",
+                        "client_secret": "bar",
+                        "extract_usage_history": False,
+                    },
+                },
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": str(output_file),
+                    },
+                },
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # First, manually check that group labels are present in the output
+        expected_group_labels = [
+            "Createdon Date",
+            "User Info",
+            "Metrics",
+        ]
+
+        # Read the output file line by line, searching for the group_label tags
+        group_labels_found = set()
+        with open(output_file, "r") as f:
+            for line in f:
+                for label in expected_group_labels:
+                    if label in line:
+                        group_labels_found.add(label)
+
+        # Print what we found for debugging
+        print(f"Found group_label tags: {group_labels_found}")
+
+        # Check that at least one group_label tag was found
+        assert len(group_labels_found) > 0, "No group_label tags found in the output"
+
+        # Verify that each expected group_label tag was found
+        for label in expected_group_labels:
+            assert label in group_labels_found, (
+                f"Expected group_label tag '{label}' not found in output"
+            )
+
+        # Now also verify using the golden file method
+        mce_out_file = "golden_test_group_label_mces.json"
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=test_resources_dir / mce_out_file,
         )

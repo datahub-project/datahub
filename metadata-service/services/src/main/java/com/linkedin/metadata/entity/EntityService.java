@@ -369,7 +369,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   List<UpdateAspectResult> ingestAspects(
       @Nonnull OperationContext opContext,
@@ -442,7 +442,7 @@ public interface EntityService<U extends ChangeMCP> {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count);
+      @Nullable Integer count);
 
   @Deprecated
   Entity getEntity(

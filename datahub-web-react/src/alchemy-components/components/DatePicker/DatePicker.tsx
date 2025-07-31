@@ -16,6 +16,7 @@ export function DatePicker({
     variant = datePickerDefault.variant,
     disabled = datePickerDefault.disabled,
     disabledDate,
+    placeholder,
 }: DatePickerProps) {
     const [internalValue, setInternalValue] = useState<DatePickerValue | undefined>(value);
 
@@ -38,8 +39,9 @@ export function DatePicker({
                     open: isOpen,
                     setValue: setInternalValue,
                 },
+                placeholder,
             });
-    }, [disabled, isOpen, inputRender]);
+    }, [disabled, placeholder, isOpen, inputRender]);
 
     return (
         <StyledAntdDatePicker

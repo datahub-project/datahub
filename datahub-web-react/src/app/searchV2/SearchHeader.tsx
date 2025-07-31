@@ -129,6 +129,7 @@ type Props = {
     onSearch: (query: string) => void;
     onQueryChange: (query: string) => void;
     entityRegistry: EntityRegistry;
+    hideSearchBar?: boolean;
 };
 
 /**
@@ -141,6 +142,7 @@ export const SearchHeader = ({
     onSearch,
     onQueryChange,
     entityRegistry,
+    hideSearchBar,
 }: Props) => {
     const [, setIsSearchBarFocused] = useState(false);
     const appConfig = useAppConfig();
@@ -164,34 +166,36 @@ export const SearchHeader = ({
                             <NavBarToggler />
                         </NavBarTogglerWrapper>
                     )}
-                    <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-                        <FinalSearchBar
-                            isLoading={isUserInitializing || !appConfig.loaded}
-                            id={V2_SEARCH_BAR_ID}
-                            style={styles.searchBoxContainer}
-                            autoCompleteStyle={styles.searchBox}
-                            inputStyle={styles.input}
-                            initialQuery={initialQuery}
-                            placeholderText={placeholderText}
-                            suggestions={suggestions}
-                            onSearch={onSearch}
-                            onQueryChange={onQueryChange}
-                            entityRegistry={entityRegistry}
-                            setIsSearchBarFocused={setIsSearchBarFocused}
-                            viewsEnabled={viewsEnabled}
-                            isShowNavBarRedesign={isShowNavBarRedesign}
-                            combineSiblings
-                            fixAutoComplete
-                            showQuickFilters
-                            showViewAllResults
-                            showCommandK
-                        />
-                        {isShowNavBarRedesign && (
-                            <StyledButton type="link" onClick={searchViewAll}>
-                                View all <ArrowRight />
-                            </StyledButton>
-                        )}
-                    </SearchBarContainer>
+                    {!hideSearchBar && (
+                        <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            <FinalSearchBar
+                                isLoading={isUserInitializing || !appConfig.loaded}
+                                id={V2_SEARCH_BAR_ID}
+                                style={styles.searchBoxContainer}
+                                autoCompleteStyle={styles.searchBox}
+                                inputStyle={styles.input}
+                                initialQuery={initialQuery}
+                                placeholderText={placeholderText}
+                                suggestions={suggestions}
+                                onSearch={onSearch}
+                                onQueryChange={onQueryChange}
+                                entityRegistry={entityRegistry}
+                                setIsSearchBarFocused={setIsSearchBarFocused}
+                                viewsEnabled={viewsEnabled}
+                                isShowNavBarRedesign={isShowNavBarRedesign}
+                                combineSiblings
+                                fixAutoComplete
+                                showQuickFilters
+                                showViewAllResults
+                                showCommandK
+                            />
+                            {isShowNavBarRedesign && (
+                                <StyledButton type="link" onClick={searchViewAll}>
+                                    View all <ArrowRight />
+                                </StyledButton>
+                            )}
+                        </SearchBarContainer>
+                    )}
                 </Header>
             </Wrapper>
         </>

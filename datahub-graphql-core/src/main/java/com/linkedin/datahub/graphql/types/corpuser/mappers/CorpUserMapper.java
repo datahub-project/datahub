@@ -11,11 +11,14 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.CorpUserAppearanceSettings;
+import com.linkedin.datahub.graphql.generated.CorpUserHomePageSettings;
 import com.linkedin.datahub.graphql.generated.CorpUserProperties;
 import com.linkedin.datahub.graphql.generated.CorpUserViewsSettings;
+import com.linkedin.datahub.graphql.generated.DataHubPageTemplate;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
@@ -30,6 +33,8 @@ import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.structured.StructuredProperties;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -118,6 +123,11 @@ public class CorpUserMapper {
       result.setViews(mapCorpUserViewsSettings(corpUserSettings.getViews()));
     }
 
+    // Map Home page Settings.
+    if (corpUserSettings.hasHomePage()) {
+      result.setHomePage(mapCorpUserHomePageSettings(corpUserSettings.getHomePage()));
+    }
+
     corpUser.setSettings(result);
   }
 
@@ -152,6 +162,29 @@ public class CorpUserMapper {
     }
 
     return viewsResult;
+  }
+
+  @Nonnull
+  private CorpUserHomePageSettings mapCorpUserHomePageSettings(
+      @Nonnull final com.linkedin.identity.CorpUserHomePageSettings homePageSettings) {
+    CorpUserHomePageSettings result = new CorpUserHomePageSettings();
+
+    if (homePageSettings.getPageTemplate() != null) {
+      result.setPageTemplate(
+          (DataHubPageTemplate) UrnToEntityMapper.map(null, homePageSettings.getPageTemplate()));
+    } else {
+      result.setPageTemplate(null);
+    }
+
+    if (homePageSettings.hasDismissedAnnouncements()) {
+      List<String> dismissedUrnStrings =
+          homePageSettings.getDismissedAnnouncements().stream()
+              .map(Urn::toString)
+              .collect(Collectors.toList());
+      result.setDismissedAnnouncementUrns(dismissedUrnStrings);
+    }
+
+    return result;
   }
 
   private void mapCorpUserKey(@Nonnull CorpUser corpUser, @Nonnull DataMap dataMap) {

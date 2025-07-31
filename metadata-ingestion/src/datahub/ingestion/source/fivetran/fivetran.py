@@ -1,8 +1,8 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.datajob import DataFlow, DataJob
+from datahub.api.entities.datajob import DataJob as DataJobV1
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
@@ -42,8 +42,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.metadata.urns import CorpUserUrn, DataFlowUrn, DatasetUrn
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
+from datahub.sdk.entity import Entity
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -75,8 +77,8 @@ class FivetranSource(StatefulIngestionSourceBase):
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
 
     def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
-        input_dataset_urn_list: List[DatasetUrn] = []
-        output_dataset_urn_list: List[DatasetUrn] = []
+        input_dataset_urn_list: List[Union[str, DatasetUrn]] = []
+        output_dataset_urn_list: List[Union[str, DatasetUrn]] = []
         fine_grained_lineage: List[FineGrainedLineage] = []
 
         # TODO: Once Fivetran exposes the database via the API, we shouldn't ask for it via config.
@@ -178,9 +180,9 @@ class FivetranSource(StatefulIngestionSourceBase):
                         )
                     )
 
-        datajob.inlets.extend(input_dataset_urn_list)
-        datajob.outlets.extend(output_dataset_urn_list)
-        datajob.fine_grained_lineages.extend(fine_grained_lineage)
+        datajob.set_inlets(input_dataset_urn_list)
+        datajob.set_outlets(output_dataset_urn_list)
+        datajob.set_fine_grained_lineages(fine_grained_lineage)
 
         return dict(
             **{
@@ -197,10 +199,10 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         return DataFlow(
-            orchestrator=Constant.ORCHESTRATOR,
-            id=connector.connector_id,
+            platform=Constant.ORCHESTRATOR,
+            name=connector.connector_id,
             env=self.config.env,
-            name=connector.connector_name,
+            display_name=connector.connector_name,
             platform_instance=self.config.platform_instance,
         )
 
@@ -213,11 +215,11 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
         owner_email = self.audit_log.get_user_email(connector.user_id)
         datajob = DataJob(
-            id=connector.connector_id,
+            name=connector.connector_id,
             flow_urn=dataflow_urn,
             platform_instance=self.config.platform_instance,
-            name=connector.connector_name,
-            owners={owner_email} if owner_email else set(),
+            display_name=connector.connector_name,
+            owners=[CorpUserUrn(owner_email)] if owner_email else None,
         )
 
         # Map connector source and destination table with dataset entity
@@ -232,16 +234,24 @@ class FivetranSource(StatefulIngestionSourceBase):
             "sync_frequency": str(connector.sync_frequency),
             "destination_id": connector.destination_id,
         }
-        datajob.properties = {
-            **connector_properties,
-            **lineage_properties,
-        }
+
+        datajob.set_custom_properties({**connector_properties, **lineage_properties})
 
         return datajob
 
     def _generate_dpi_from_job(self, job: Job, datajob: DataJob) -> DataProcessInstance:
+        # hack: convert to old instance for DataProcessInstance.from_datajob compatibility
+        datajob_v1 = DataJobV1(
+            id=datajob.name,
+            flow_urn=datajob.flow_urn,
+            platform_instance=self.config.platform_instance,
+            name=datajob.name,
+            inlets=datajob.inlets,
+            outlets=datajob.outlets,
+            fine_grained_lineages=datajob.fine_grained_lineages,
+        )
         return DataProcessInstance.from_datajob(
-            datajob=datajob,
+            datajob=datajob_v1,
             id=job.job_id,
             clone_inlets=True,
             clone_outlets=True,
@@ -278,17 +288,15 @@ class FivetranSource(StatefulIngestionSourceBase):
 
     def _get_connector_workunits(
         self, connector: Connector
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         self.report.report_connectors_scanned()
         # Create dataflow entity with same name as connector name
         dataflow = self._generate_dataflow_from_connector(connector)
-        for mcp in dataflow.generate_mcp():
-            yield mcp.as_workunit()
+        yield dataflow
 
         # Map Fivetran's connector entity with Datahub's datajob entity
         datajob = self._generate_datajob_from_connector(connector)
-        for mcp in datajob.generate_mcp(materialize_iolets=False):
-            yield mcp.as_workunit()
+        yield datajob
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
@@ -310,7 +318,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """
         Datahub Ingestion framework invoke this method
         """

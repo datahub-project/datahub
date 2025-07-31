@@ -20,7 +20,11 @@
                 },
                 "native_column_type": "INT"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "1 AS \"ORDERKEY\""
+            }
         },
         {
             "downstream": {
@@ -33,9 +37,14 @@
                 },
                 "native_column_type": "INT"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "2 AS \"TOTALPRICE\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "UPDATE snowflake_sample_data.tpch_sf1.orders SET orderkey = ?, totalprice = ? WHERE orderkey = ?"

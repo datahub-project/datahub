@@ -1,15 +1,15 @@
 package com.linkedin.gms.factory.entity.update.indices;
 
-import com.linkedin.gms.factory.search.EntityIndexBuildersFactory;
+import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 @Configuration
-@Import(EntityIndexBuildersFactory.class)
+@Import(ElasticSearchServiceFactory.class)
 public class UpdateIndicesServiceFactory {
 
   @Value("${featureFlags.searchServiceDiffModeEnabled}")
@@ -43,20 +43,24 @@ public class UpdateIndicesServiceFactory {
   @ConditionalOnProperty(name = "entityClient.impl", havingValue = "restli")
   public UpdateIndicesService searchIndicesServiceNonGMS(
       GraphService graphService,
-      EntitySearchService entitySearchService,
+      ElasticSearchService entitySearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
 
     return new UpdateIndicesService(
-        new UpdateGraphIndicesService(graphService, graphDiffMode, graphStatusEnabled),
+        new UpdateGraphIndicesService(
+            graphService,
+            graphDiffMode,
+            graphStatusEnabled,
+            fineGrainedLineageNotAllowedForPlatforms),
         entitySearchService,
         timeseriesAspectService,
         systemMetadataService,
         searchDocumentTransformer,
-        entityIndexBuilders,
         idHashAlgo,
         searchDiffMode,
         structuredPropertiesHookEnabled,
@@ -67,22 +71,26 @@ public class UpdateIndicesServiceFactory {
   @ConditionalOnProperty(name = "entityClient.impl", havingValue = "java", matchIfMissing = true)
   public UpdateIndicesService searchIndicesServiceGMS(
       final GraphService graphService,
-      final EntitySearchService entitySearchService,
+      final ElasticSearchService entitySearchService,
       final TimeseriesAspectService timeseriesAspectService,
       final SystemMetadataService systemMetadataService,
       final SearchDocumentTransformer searchDocumentTransformer,
-      final EntityIndexBuilders entityIndexBuilders,
       final EntityService<?> entityService,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
+          final List<String> fineGrainedLineageNotAllowedForPlatforms) {
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
-            new UpdateGraphIndicesService(graphService, graphDiffMode, graphStatusEnabled),
+            new UpdateGraphIndicesService(
+                graphService,
+                graphDiffMode,
+                graphStatusEnabled,
+                fineGrainedLineageNotAllowedForPlatforms),
             entitySearchService,
             timeseriesAspectService,
             systemMetadataService,
             searchDocumentTransformer,
-            entityIndexBuilders,
             idHashAlgo,
             searchDiffMode,
             structuredPropertiesHookEnabled,

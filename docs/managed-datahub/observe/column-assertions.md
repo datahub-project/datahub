@@ -127,7 +127,7 @@ Once these are in place, you're ready to create your Column Assertions!
 ### Steps
 
 1. Navigate to the Table that you want to monitor
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -227,11 +227,23 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/profile-passing-column-assertions-expanded.png"/>
 </p>
 
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides [Smart Assertions](./smart-assertions.md) out of the box. These are dynamic, AI-powered Column Metric Assertions that you can use to monitor anomalies on column metrics of important warehouse Tables, without requiring any manual setup.
+
+You can create smart assertions by simply selecting the column and the metric you wish to monitor, and then clicking the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/column-smart-assertion.png"/>
+</p>
+
+_Coming soon: we're making it easier to create Smart Assertions for multiple fields on a table, across multiple metrics, all in one go. If you're interested in this today, please let your DataHub representative know._
+
 ## Stopping a Column Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Column** to open the Column Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -278,6 +290,44 @@ mutation upsertDatasetFieldAssertionMonitor {
         }
         operator: GREATER_THAN
         parameters: { value: { type: NUMBER, value: "10" } }
+        failThreshold: { type: COUNT, value: 0 }
+        excludeNulls: true
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: { sourceType: ALL_ROWS_QUERY }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create an AI Smart Column Nullness Metric Assertion:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: FIELD_METRIC
+      inferWithAI: true
+      fieldMetricAssertion: {
+        field: {
+          path: "<name of the column to be monitored>"
+          type: "NUMBER"
+          nativeType: "NUMBER(38,0)"
+        }
+        metric: NULL_PERCENTAGE
+        operator: BETWEEN
+        # you can provide any value for this as it will be overwritten continuously by the AI engine
+        parameters: {
+          minValue: { value: "0", type: NUMBER }
+          maxValue: { value: "0", type: NUMBER }
+        }
         failThreshold: { type: COUNT, value: 0 }
         excludeNulls: true
       }

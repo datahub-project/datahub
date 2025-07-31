@@ -45,6 +45,7 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.mockitoInline
+    testImplementation externalDependency.springBootTest
 }
 
 task avroSchemaSources(type: Copy) {

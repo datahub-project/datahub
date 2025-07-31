@@ -125,28 +125,23 @@ class DockerPluginExtension {
 def extension = project.extensions.create("docker", DockerPluginExtension)
 
 project.afterEvaluate {
-  def buildContext = "${rootProject.buildDir}/dockerBuildContext/${rootProject.relativePath(project.projectDir)}/docker"
-  // ensure this directory exists
-  new File(buildContext).mkdirs()
-  println("buildContext: ${buildContext}")
+  def buildContext = "${rootProject.projectDir}"
 
-  tasks.register("dockerPrepare", Sync) {
+  tasks.register("dockerPrepare") {
     group "docker"
-    with extension.copySpec
-    from extension.dockerfile
-    into buildContext
     dependsOn extension.dependencies.get()
   }
 
   project.tasks.register("docker", Exec) {
+    // This task is no longer used once we have moved to bake based builds. This task is useful just to ensure individual
+    // docker builds still work. But a quickstart* tasks no longer uses this task.
     group "docker"
     description "Builds the docker image and applies all tags defined"
     dependsOn dockerPrepare
 
-    def marker = "${buildContext}/../imageCreated-${name}.json"
+    def marker = "${project.buildDir}/imageCreated-${name}.json"
 
     inputs.file(extension.dockerfile)
-    inputs.dir(buildContext)
     inputs.property("tags", extension.tags)
     inputs.property("buildArgs", extension.buildArgs)
     outputs.file(marker)

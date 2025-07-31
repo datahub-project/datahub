@@ -24,6 +24,7 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasTags,
     HasTerms,
     HasVersion,
@@ -31,6 +32,7 @@ from datahub.sdk._shared import (
     LinksInputType,
     MLTrainingJobInputType,
     OwnersInputType,
+    StructuredPropertyInputType,
     TagsInputType,
     TermsInputType,
     TrainingMetricsInputType,
@@ -50,6 +52,7 @@ class MLModel(
     HasTerms,
     HasDomain,
     HasVersion,
+    HasStructuredProperties,
     Entity,
 ):
     __slots__ = ()
@@ -82,53 +85,43 @@ class MLModel(
         model_group: Optional[Union[str, MlModelGroupUrn]] = None,
         training_jobs: Optional[MLTrainingJobInputType] = None,
         downstream_jobs: Optional[MLTrainingJobInputType] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         urn = MlModelUrn(platform=platform, name=id, env=env)
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
-
         self._set_platform_instance(urn.platform, platform_instance)
-
         self._ensure_model_props()
 
-        if version is not None:
-            self.set_version(version)
-        if name is not None:
-            self.set_name(name)
-        if aliases is not None:
-            self.set_version_aliases(aliases)
-        if description is not None:
-            self.set_description(description)
-        if training_metrics is not None:
-            self.set_training_metrics(training_metrics)
-        if hyper_params is not None:
-            self.set_hyper_params(hyper_params)
-        if external_url is not None:
-            self.set_external_url(external_url)
-        if custom_properties is not None:
-            self.set_custom_properties(custom_properties)
-        if created is not None:
-            self.set_created(created)
-        if last_modified is not None:
-            self.set_last_modified(last_modified)
+        # Initialize properties in logical groups
+        self._init_basic_properties(
+            version=version,
+            name=name,
+            aliases=aliases,
+            description=description,
+            external_url=external_url,
+            custom_properties=custom_properties,
+            created=created,
+            last_modified=last_modified,
+        )
 
-        if owners is not None:
-            self.set_owners(owners)
-        if links is not None:
-            self.set_links(links)
-        if tags is not None:
-            self.set_tags(tags)
-        if terms is not None:
-            self.set_terms(terms)
-        if domain is not None:
-            self.set_domain(domain)
-        if model_group is not None:
-            self.set_model_group(model_group)
-        if training_jobs is not None:
-            self.set_training_jobs(training_jobs)
-        if downstream_jobs is not None:
-            self.set_downstream_jobs(downstream_jobs)
+        self._init_ml_specific_properties(
+            training_metrics=training_metrics,
+            hyper_params=hyper_params,
+            model_group=model_group,
+            training_jobs=training_jobs,
+            downstream_jobs=downstream_jobs,
+        )
+
+        self._init_metadata_properties(
+            owners=owners,
+            links=links,
+            tags=tags,
+            terms=terms,
+            domain=domain,
+            structured_properties=structured_properties,
+        )
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: AspectBag) -> Self:
@@ -299,3 +292,73 @@ class MLModel(
             props.downstreamJobs = [
                 job for job in props.downstreamJobs if job != job_str
             ]
+
+    def _init_basic_properties(
+        self,
+        version: Optional[str] = None,
+        name: Optional[str] = None,
+        aliases: Optional[List[str]] = None,
+        description: Optional[str] = None,
+        external_url: Optional[str] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
+        created: Optional[datetime] = None,
+        last_modified: Optional[datetime] = None,
+    ) -> None:
+        if version is not None:
+            self.set_version(version)
+        if name is not None:
+            self.set_name(name)
+        if aliases is not None:
+            self.set_version_aliases(aliases)
+        if description is not None:
+            self.set_description(description)
+        if external_url is not None:
+            self.set_external_url(external_url)
+        if custom_properties is not None:
+            self.set_custom_properties(custom_properties)
+        if created is not None:
+            self.set_created(created)
+        if last_modified is not None:
+            self.set_last_modified(last_modified)
+
+    def _init_ml_specific_properties(
+        self,
+        training_metrics: Optional[TrainingMetricsInputType] = None,
+        hyper_params: Optional[HyperParamsInputType] = None,
+        model_group: Optional[Union[str, MlModelGroupUrn]] = None,
+        training_jobs: Optional[MLTrainingJobInputType] = None,
+        downstream_jobs: Optional[MLTrainingJobInputType] = None,
+    ) -> None:
+        if training_metrics is not None:
+            self.set_training_metrics(training_metrics)
+        if hyper_params is not None:
+            self.set_hyper_params(hyper_params)
+        if model_group is not None:
+            self.set_model_group(model_group)
+        if training_jobs is not None:
+            self.set_training_jobs(training_jobs)
+        if downstream_jobs is not None:
+            self.set_downstream_jobs(downstream_jobs)
+
+    def _init_metadata_properties(
+        self,
+        owners: Optional[OwnersInputType] = None,
+        links: Optional[LinksInputType] = None,
+        tags: Optional[TagsInputType] = None,
+        terms: Optional[TermsInputType] = None,
+        domain: Optional[DomainInputType] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+    ) -> None:
+        if owners is not None:
+            self.set_owners(owners)
+        if links is not None:
+            self.set_links(links)
+        if tags is not None:
+            self.set_tags(tags)
+        if terms is not None:
+            self.set_terms(terms)
+        if domain is not None:
+            self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)

@@ -21,7 +21,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,upstream2,PROD)",
                     "column": "a"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"upstream2\".\"a\" AS \"a\""
+            }
         },
         {
             "downstream": {
@@ -35,9 +39,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,upstream2,PROD)",
                     "column": "c"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"upstream2\".\"c\" AS \"c\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "INSERT INTO downstream (a, c) SELECT a, c FROM upstream2"

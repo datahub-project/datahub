@@ -125,6 +125,7 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
         "Supported only in `snowflake` and `BigQuery`.",
+        schema_extra={"supported_sources": ["snowflake", "bigquery"]},
     )
 
     profile_table_size_limit: Optional[int] = Field(
@@ -132,6 +133,9 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Profile tables only if their size is less than specified GBs. If set to `null`, "
         "no limit on the size of tables to profile. Supported only in `Snowflake`, `BigQuery` and "
         "`Databricks`. Supported for `Oracle` based on calculated size from gathered stats.",
+        schema_extra={
+            "supported_sources": ["snowflake", "bigquery", "unity-catalog", "oracle"]
+        },
     )
 
     profile_table_row_limit: Optional[int] = Field(
@@ -139,12 +143,14 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         description="Profile tables only if their row count is less than specified count. "
         "If set to `null`, no limit on the row count of tables to profile. Supported only in "
         "`Snowflake`, `BigQuery`. Supported for `Oracle` based on gathered stats.",
+        schema_extra={"supported_sources": ["snowflake", "bigquery", "oracle"]},
     )
 
     profile_table_row_count_estimate_only: bool = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
         "less accurate. Only supported for Postgres and MySQL. ",
+        schema_extra={"supported_sources": ["postgres", "mysql"]},
     )
 
     # The query combiner enables us to combine multiple queries into a single query,
@@ -161,27 +167,32 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         default=True,
         description="Whether to profile partitioned tables. Only BigQuery and Aws Athena supports this. "
         "If enabled, latest partition data is used for profiling.",
+        schema_extra={"supported_sources": ["athena", "bigquery"]},
     )
     partition_datetime: Optional[datetime.datetime] = Field(
         default=None,
         description="If specified, profile only the partition which matches this datetime. "
         "If not specified, profile the latest partition. Only Bigquery supports this.",
+        schema_extra={"supported_sources": ["bigquery"]},
     )
     use_sampling: bool = Field(
         default=True,
         description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
         "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
+        schema_extra={"supported_sources": ["bigquery", "snowflake"]},
     )
 
     sample_size: int = Field(
         default=10000,
         description="Number of rows to be sampled from table for column level profiling."
         "Applicable only if `use_sampling` is set to True.",
+        schema_extra={"supported_sources": ["bigquery", "snowflake"]},
     )
 
     profile_external_tables: bool = Field(
         default=False,
         description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
+        schema_extra={"supported_sources": ["redshift", "snowflake"]},
     )
 
     tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(

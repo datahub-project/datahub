@@ -1,8 +1,9 @@
 import enum
 import os
+import pathlib
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Set
 
 import docker
 import docker.errors
@@ -13,6 +14,7 @@ from datahub.configuration.common import ExceptionWithProps
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
+MIN_DISK_SPACE_NEEDED = 12  # GB
 
 DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
 DATAHUB_COMPOSE_PROJECT_FILTER = {
@@ -34,6 +36,10 @@ class DockerNotRunningError(Exception):
 
 
 class DockerLowMemoryError(Exception):
+    SHOW_STACK_TRACE = False
+
+
+class DockerLowDiskSpaceError(Exception):
     SHOW_STACK_TRACE = False
 
 
@@ -102,6 +108,24 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
             "You can increase the memory allocated to Docker in the Docker settings."
         )
 
+    result = client.containers.run(
+        "alpine:latest",
+        "sh -c \"df -B1 / | tail -1 | awk '{print $2, $4}'\"",  # total, available
+        remove=True,
+        stdout=True,
+        stderr=True,
+    )
+
+    output = result.decode("utf-8").strip()
+    total_bytes, available_bytes = map(int, output.split())
+
+    available_gb = available_bytes / (1024**3)
+    if available_gb < MIN_DISK_SPACE_NEEDED:
+        raise DockerLowDiskSpaceError(
+            f"Total Docker disk space available {available_gb:.2f}GB is below the minimum threshold {MIN_DISK_SPACE_NEEDED}GB. "
+            "You can increase the disk space allocated to Docker in the Docker settings or free up disk space`"
+        )
+
 
 class ContainerStatus(enum.Enum):
     OK = "is ok"
@@ -126,10 +150,24 @@ class DockerContainerStatus:
 @dataclass
 class QuickstartStatus:
     containers: List[DockerContainerStatus]
+    volumes: Set[str]
+    # On moving to compose profiles, this CLI will no longer support running quickstart instances from earlier versions.
+    # While the check command can work, upgrades or
+    running_unsupported_version: bool
+
+    def __init__(
+        self,
+        containers: List[DockerContainerStatus],
+        volumes: List[str],
+        running_unsupported_version: bool = False,
+    ):
+        self.containers = containers
+        self.running_unsupported_version = running_unsupported_version
+        self.volumes = set(volumes)
 
     def errors(self) -> List[str]:
         if not self.containers:
-            return ["quickstart.sh or dev.sh is not running"]
+            return ["datahub is not running"]
 
         return [
             f"{container.name} {container.status.value}"
@@ -176,6 +214,26 @@ class QuickstartStatus:
             },
         )
 
+    def get_containers(self) -> Set[str]:
+        if self.containers:
+            return {container.name for container in self.containers}
+        else:
+            return set()
+
+
+def detect_legacy_quickstart_compose(containers: Set[str]) -> bool:
+    return "zookeeper" in containers
+
+
+def _get_services_from_compose(compose_file: str) -> Set[str]:
+    with open(compose_file) as config_file:
+        return yaml.safe_load(config_file).get("services", {}).keys()
+
+
+def _get_volumes_from_compose(compose_file: str) -> Set[str]:
+    with open(compose_file) as config_file:
+        return yaml.safe_load(config_file).get("volumes", {}).keys()
+
 
 def check_docker_quickstart() -> QuickstartStatus:
     container_statuses: List[DockerContainerStatus] = []
@@ -188,7 +246,7 @@ def check_docker_quickstart() -> QuickstartStatus:
             ignore_removed=True,
         )
         if len(containers) == 0:
-            return QuickstartStatus([])
+            return QuickstartStatus([], [], running_unsupported_version=False)
 
         # load the expected containers from the docker-compose file
         config_files = (
@@ -197,16 +255,17 @@ def check_docker_quickstart() -> QuickstartStatus:
             .split(",")
         )
 
-        # If using profiles, alternative check
+        # If using profiles, alternative check  ##TODO: Does this really work? Check mixpanel for usage of this.
         if config_files and "/profiles/" in config_files[0]:
             return check_docker_quickstart_profiles(client)
 
         all_containers = set()
         for config_file in config_files:
-            with open(config_file) as config_file:
-                all_containers.update(
-                    yaml.safe_load(config_file).get("services", {}).keys()
-                )
+            all_containers.update(_get_services_from_compose(config_file))
+
+        all_volumes = set()
+        for config_file in config_files:
+            all_volumes.update(_get_volumes_from_compose(config_file))
 
         existing_containers = set()
         # Check that the containers are running and healthy.
@@ -240,8 +299,12 @@ def check_docker_quickstart() -> QuickstartStatus:
             container_statuses.append(
                 DockerContainerStatus(missing, ContainerStatus.MISSING)
             )
-
-    return QuickstartStatus(container_statuses)
+        running_unsupported_version = detect_legacy_quickstart_compose(all_containers)
+    return QuickstartStatus(
+        containers=container_statuses,
+        volumes=list(all_volumes),
+        running_unsupported_version=running_unsupported_version,
+    )
 
 
 def check_docker_quickstart_profiles(client: docker.DockerClient) -> QuickstartStatus:
@@ -254,7 +317,7 @@ def check_docker_quickstart_profiles(client: docker.DockerClient) -> QuickstartS
         ignore_removed=True,
     )
     if len(containers) == 0:
-        return QuickstartStatus([])
+        return QuickstartStatus([], [], running_unsupported_version=False)
 
     existing_containers = set()
     # Check that the containers are running and healthy.
@@ -273,4 +336,36 @@ def check_docker_quickstart_profiles(client: docker.DockerClient) -> QuickstartS
 
         container_statuses.append(DockerContainerStatus(name, status))
 
-    return QuickstartStatus(container_statuses)
+    # TODO: Can this be handled with older verions?
+    return QuickstartStatus(
+        container_statuses, volumes=[], running_unsupported_version=False
+    )
+
+
+def check_upgrade_supported(
+    quickstart_compose_file: List[pathlib.Path], quickstart_status: QuickstartStatus
+) -> bool:
+    if (
+        quickstart_status.running_unsupported_version
+    ):  # we detected a legacy quickstart service
+        return False
+
+    if not quickstart_status.get_containers():  # no containers are running
+        return True
+
+    compose_services = set()
+    compose_volumes = set()
+
+    for compose_file in quickstart_compose_file:
+        compose_services.update(_get_services_from_compose(str(compose_file)))
+        compose_volumes.update(_get_volumes_from_compose(str(compose_file)))
+
+    # if all services and volumes are not the same, the state in the volumes may not be compatible with the new services.
+    # We are checking for containers and volumes per the compose file, not necessarily all of them being present
+    if (
+        compose_services == quickstart_status.get_containers()
+        and compose_volumes == quickstart_status.volumes
+    ):
+        return True
+    else:
+        return False

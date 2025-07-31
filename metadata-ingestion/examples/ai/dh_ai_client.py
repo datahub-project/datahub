@@ -6,6 +6,7 @@ import datahub.metadata.schema_classes as models
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceInput,
     DataProcessInstanceOutput,
@@ -294,7 +295,9 @@ class DatahubAIClient:
                 models.ContainerPropertiesClass, kwargs
             )
 
-        container_subtype = models.SubTypesClass(typeNames=["ML Experiment"])
+        container_subtype = models.SubTypesClass(
+            typeNames=[MLAssetSubTypes.MLFLOW_EXPERIMENT]
+        )
         browse_path = models.BrowsePathsV2Class(path=[])
         platform_instance = models.DataPlatformInstanceClass(platform=str(platform_urn))
 
@@ -327,7 +330,9 @@ class DatahubAIClient:
             aspects.append(properties)
 
         # Always add the subtype
-        aspects.append(models.SubTypesClass(typeNames=["ML Training Run"]))
+        aspects.append(
+            models.SubTypesClass(typeNames=[MLAssetSubTypes.MLFLOW_TRAINING_RUN])
+        )
 
         # Add training run properties if provided
         if training_run_properties:

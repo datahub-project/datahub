@@ -4,8 +4,9 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import networkx as nx
+import pydantic
 import pytest
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ConfigDict
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -360,8 +361,7 @@ class ScenarioExpectation:
 
 
 class Scenario(BaseModel):
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     class LineageStyle(Enum):
         DATASET_QUERY_DATASET = "DATASET_QUERY_DATASET"
@@ -389,16 +389,9 @@ class Scenario(BaseModel):
     transformation_job: str = "job1"
     transformation_flow: str = "flow1"
     _generated_urns: Set[str] = set()
-    expectations: Optional[ScenarioExpectation] = None
-
-    @validator("expectations", pre=True, always=True)
-    def expectations_validator(
-        cls, v: Optional[ScenarioExpectation]
-    ) -> ScenarioExpectation:
-        if v is None:
-            return ScenarioExpectation()
-        else:
-            return v
+    expectations: ScenarioExpectation = pydantic.Field(
+        default_factory=ScenarioExpectation
+    )
 
     def get_column_name(self, column_index: int) -> str:
         return f"column_{column_index}"

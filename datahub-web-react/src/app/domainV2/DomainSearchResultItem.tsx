@@ -66,7 +66,7 @@ function DomainSearchResultItem({ entity, entityRegistry, query, onResultClick }
                 <Highlight matchStyle={highlightMatchStyle} search={query}>
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </Highlight>
-                <ParentEntities parentEntities={getParentDomains(entity, entityRegistry)} />
+                <ParentEntities hideIcon parentEntities={getParentDomains(entity, entityRegistry)} />
             </ContentWrapper>
         </SearchResult>
     );

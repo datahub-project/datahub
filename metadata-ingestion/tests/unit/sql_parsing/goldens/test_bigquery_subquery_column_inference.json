@@ -19,7 +19,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.UserDetail,PROD)",
                     "column": "user_id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`userdetail`.`user_id` AS `user_id`"
+            }
         },
         {
             "downstream": {
@@ -33,7 +37,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.UserDetail,PROD)",
                     "column": "source"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`userdetail`.`source` AS `source`"
+            }
         },
         {
             "downstream": {
@@ -47,9 +55,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,invent_dw.UserDetail,PROD)",
                     "column": "user_source"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`userdetail`.`user_source` AS `user_source`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail) AS source_user WHERE rank_ = ?"

@@ -22,6 +22,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.constants import (
     DATAHUB_API_PAGE_SIZE_DEFAULT,
@@ -179,6 +180,13 @@ class HexReport(
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Supported by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.HEX_PROJECT,
+    ],
+)
 class HexSource(StatefulIngestionSourceBase):
     def __init__(self, config: HexSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -283,7 +291,12 @@ class HexSource(StatefulIngestionSourceBase):
                         self.report.report_warning(
                             title="Missing project for lineage",
                             message="Lineage missed because missed project, likely due to filter patterns or deleted project.",
-                            context=str(query_metadata),
+                            context=str(
+                                dict(
+                                    query_urn=query_metadata.urn,
+                                    hex_project_id=query_metadata.hex_project_id,
+                                )
+                            ),
                         )
 
         with self.report.new_stage("Emit"):
