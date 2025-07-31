@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 assert MLFLOW_INITIALIZED
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
-# e.g. "us" or "eu"
+# e.g. "us", "eu", or "apac"
 _ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX = os.getenv(
     "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX", "us"
 )
@@ -39,15 +39,17 @@ _MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "4"))
 
 
 class BedrockModel(enum.Enum):
-    # These are the system-defined inference profile name, not the model ID.
+    # These are the system-defined inference profile name, not the raw model ID.
     # Cross-region inference profiles allow higher request and token quota.
+    # See https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html
+    # for details on per-region availability.
     CLAUDE_3_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-haiku-20240307-v1:0"
     CLAUDE_35_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20240620-v1:0"
 
+    # WARNING: Claude 3.5 Haiku is only available in the US region, not EU or APAC.
     CLAUDE_35_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-haiku-20241022-v1:0"
     CLAUDE_35_SONNET_V2 = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
-    # Newer AWS Bedrock models require cross-region inference.
     CLAUDE_37_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
 
     CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"
