@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-31T11:40:34.384148+00:00",
+  "generated_at": "2025-07-31T12:40:41.227949+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -1240,7 +1240,7 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Extract Hive catalogs and databases",
+          "description": "Enabled by default",
           "subtype_modifier": [
             "Catalog"
           ],
@@ -2422,7 +2422,7 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Extract Hive catalogs and databases",
+          "description": "Enabled by default",
           "subtype_modifier": [
             "Catalog"
           ],

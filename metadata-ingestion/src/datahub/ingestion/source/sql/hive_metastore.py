@@ -171,7 +171,7 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 )
 @capability(
     SourceCapability.CONTAINERS,
-    "Extract Hive catalogs and databases",
+    "Enabled by default",
     subtype_modifier=[
         SourceCapabilityModifier.CATALOG,
     ],
