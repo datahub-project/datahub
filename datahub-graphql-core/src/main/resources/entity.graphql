@@ -6799,6 +6799,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
   dataPlatformInstance: DataPlatformInstance
 
   """
+  Standardized platform urn where the data job is defined
+  """
+  platform: DataPlatform
+
+  """
   The parent container in which the entity resides
   """
   container: Container

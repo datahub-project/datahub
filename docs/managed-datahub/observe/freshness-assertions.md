@@ -145,6 +145,8 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
+You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
+
 ### Steps
 
 1. Navigate to the Table that to monitor for freshness
