@@ -123,7 +123,7 @@ class LineageBasedStrategy(BaseStrategy):
         Returns:
             Iterable of metadata change proposals
         """
-        logger.info(
+        logger.debug(
             f"Propagating to {direction} for {directive.entity}, "
             f"context: {context} with propagator {propagator.__class__.__name__}"
         )
@@ -234,7 +234,7 @@ class LineageBasedStrategy(BaseStrategy):
             field_path = schema_field_urn.entity_ids[1]
             parent_entity_type = guess_entity_type(parent_urn)
 
-            logger.info(
+            logger.debug(
                 f"Will {directive.operation} directive: {directive} for {field_path} on {schema_field_urn}"
             )
 
@@ -312,7 +312,7 @@ class LineageBasedStrategy(BaseStrategy):
                 continue
 
             dataset_urn = Urn.from_string(dataset)
-            logger.info(
+            logger.debug(
                 f"Will {directive.operation} directive: {directive} for {dataset_urn}"
             )
 

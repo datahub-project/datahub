@@ -158,7 +158,7 @@ class TagPropagator(EntityPropagator):
                 for field in schema_metadata.fields
                 if field.globalTags
             }
-            logger.info(f"Field tags map: {tags_map}")
+            logger.debug(f"Field tags map: {tags_map}")
 
         # Get tags from editable schema metadata
         editable_schema_metadata = self.graph.graph.get_aspect(
@@ -175,13 +175,15 @@ class TagPropagator(EntityPropagator):
                     if field.globalTags
                 }
             )
-            logger.info(f"Post update: Field tags map: {tags_map}")
+            logger.debug(f"Post update: Field tags map: {tags_map}")
 
         # Create directives for each field and tag
         for field_path, field_tags in tags_map.items():
             field_urn = SchemaFieldUrn(asset_urn, field_path)
             for tag in field_tags:
-                logger.info(f"Bootstrapping tags for schema field {tag} in {asset_urn}")
+                logger.debug(
+                    f"Bootstrapping tags for schema field {tag} in {asset_urn}"
+                )
                 source_details = SourceDetails(
                     actor=self.actor_urn,
                     propagation_started_at=int(time.time() * 1000.0),
@@ -682,11 +684,11 @@ class TagPropagator(EntityPropagator):
     def _rollback_editable_schema_tags(self, asset: Urn) -> None:
         """Rollback tag associations from editable schema metadata."""
 
-        logger.info("Checking if there is any field tag to rollback")
+        logger.debug("Checking if there is any field tag to rollback")
         editable_schema_metadata = self.graph.graph.get_aspect(
             asset.urn(), EditableSchemaMetadataClass
         )
-        logger.info(f"metadata: {editable_schema_metadata}")
+        logger.debug(f"metadata: {editable_schema_metadata}")
 
         if not editable_schema_metadata:
             return
@@ -721,9 +723,9 @@ class TagPropagator(EntityPropagator):
     def _rollback_schema_tags(self, asset: Urn) -> None:
         """Rollback tag associations from schema metadata."""
 
-        logger.info("Checking if there is any schema field tag to rollback")
+        logger.debug("Checking if there is any schema field tag to rollback")
         schema_metadata = self.graph.graph.get_aspect(asset.urn(), SchemaMetadataClass)
-        logger.info(f"Schema metadata info: {schema_metadata}")
+        logger.debug(f"Schema metadata info: {schema_metadata}")
 
         if not schema_metadata:
             return

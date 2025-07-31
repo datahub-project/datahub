@@ -101,7 +101,7 @@ class TermPropagator(EntityPropagator):
         if not self.config.term_groups:
             return
 
-        logger.info(self.config)
+        logger.debug(self.config)
         logger.info(
             f"[Config] Will propagate all terms in groups {self.config.term_groups}"
         )
@@ -195,7 +195,7 @@ class TermPropagator(EntityPropagator):
         Process metadata change events.
         Return a term propagation directive or None if no propagation is desired.
         """
-        logger.info("Processing TERM MCE")
+        logger.debug("Processing TERM MCE")
 
         if not (event.event_type == "EntityChangeEvent_v1" and self.config.enabled):
             return None
@@ -233,7 +233,7 @@ class TermPropagator(EntityPropagator):
 
                 # Determine origin and via - correct propagation logic
                 context_origin = context.get("origin")
-                logger.info(f"[MCL PROCESSOR] Origin from context: {context_origin}")
+                logger.debug(f"[MCL PROCESSOR] Origin from context: {context_origin}")
 
                 if context_origin:
                     # This is a propagated event, keep original origin and set via to current entity
@@ -244,11 +244,9 @@ class TermPropagator(EntityPropagator):
                     origin = semantic_event.entityUrn
                     via = None
 
-                logger.info(f"[MCL PROCESSOR] Using origin: {origin}")
-                logger.info(f"[MCL PROCESSOR] Entity Urn: {semantic_event.entityUrn}")
-                logger.info(f"[MCL PROCESSOR] VIA: {via}")
-
-                logger.info(f"[MCL PROCESSOR] VIA: {via}")
+                logger.debug(f"[MCL PROCESSOR] Using origin: {origin}")
+                logger.debug(f"[MCL PROCESSOR] Entity Urn: {semantic_event.entityUrn}")
+                logger.debug(f"[MCL PROCESSOR] VIA: {via}")
 
                 propagation_depth = int(context.get("propagation_depth", 0)) + 1
                 propagation_started_at = context.get(
@@ -256,7 +254,7 @@ class TermPropagator(EntityPropagator):
                     int(time.time() * 1000.0),
                 )
 
-                logger.info(
+                logger.debug(
                     f"[MCL PROCESSOR] Creating directive for term {semantic_event.modifier} and parameter {parameters} with origin {origin} and via {via}, propagation depth {propagation_depth} and started at {propagation_started_at}"
                 )
 
@@ -642,7 +640,7 @@ class TermPropagator(EntityPropagator):
         for field_path, field_terms in field_terms_map.items():
             field_urn = SchemaFieldUrn(asset_urn, field_path)
             for term in field_terms:
-                logger.info(
+                logger.debug(
                     f"Bootstrapping terms for schema field {term} in {asset_urn}"
                 )
                 source_details = SourceDetails(
@@ -806,11 +804,11 @@ class TermPropagator(EntityPropagator):
     def _rollback_editable_schema_terms(self, asset: Urn) -> None:
         """Rollback term associations from editable schema metadata."""
 
-        logger.info("Checking if there is any field term to rollback")
+        logger.debug("Checking if there is any field term to rollback")
         editable_schema_metadata = self.graph.graph.get_aspect(
             asset.urn(), EditableSchemaMetadataClass
         )
-        logger.info(f"metadata: {editable_schema_metadata}")
+        logger.debug(f"metadata: {editable_schema_metadata}")
 
         if not editable_schema_metadata:
             return
@@ -845,9 +843,9 @@ class TermPropagator(EntityPropagator):
     def _rollback_schema_terms(self, asset: Urn) -> None:
         """Rollback term associations from schema metadata."""
 
-        logger.info("Checking if there is any schema field term to rollback")
+        logger.debug("Checking if there is any schema field term to rollback")
         schema_metadata = self.graph.graph.get_aspect(asset.urn(), SchemaMetadataClass)
-        logger.info(f"Schema metadata info: {schema_metadata}")
+        logger.debug(f"Schema metadata info: {schema_metadata}")
 
         if not schema_metadata:
             return

@@ -91,15 +91,10 @@ class EntityPropagator:
         self, event: EventEnvelope
     ) -> Optional[PropertyPropagationDirective]:
         """Determine if the event should trigger property propagation."""
-        logger.info(
-            f"Checking {self.__class__.__name__} propagator if event should trigger property propagation {event} with {self.ece_processor.entity_aspect_processors}"
-        )
         if self.mcl_processor.is_mcl(event):
-            logger.info("Event is MCL")
             return self.mcl_processor.process(event)
 
         if self.ece_processor.is_ece(event):
-            logger.info(f"Event is MCE {event}")
             return self.ece_processor.process(event)
 
         return None

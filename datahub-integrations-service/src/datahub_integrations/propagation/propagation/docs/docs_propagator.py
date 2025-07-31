@@ -317,7 +317,7 @@ class DocsPropagator(EntityPropagator):
               then we stop propagation and don't return a directive.
         """
         assert isinstance(self.config, DocsPropagatorConfig)
-        logger.info("Process MCL from DocPropagation")
+        logger.debug("Process MCL from DocPropagation")
 
         if (
             aspect_name != "documentation"
@@ -326,7 +326,7 @@ class DocsPropagator(EntityPropagator):
             # not a documentation aspect or not a schemaField entity
             return None
 
-        logger.info("Processing 'documentation' MCL")
+        logger.debug("Processing 'documentation' MCL")
         if self.config.columns_enabled:
             current_docs = DocumentationClass.from_obj(json.loads(aspect_value.value))
             old_docs = (

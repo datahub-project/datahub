@@ -115,7 +115,6 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
         """Initialize the GenericPropagationAction."""
 
         super().__init__(config, ctx)
-        self.action_urn = self._build_action_urn(ctx.pipeline_name)
         self.config: PropertyPropagationConfig = config
         self.last_config_refresh = 0
         self.ctx = ctx
@@ -139,13 +138,6 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
 
         # Initialize propagation strategies
         self.propagation_strategies = self._init_propagation_strategies()
-
-    def _build_action_urn(self, pipeline_name: str) -> str:
-        """Build action URN from pipeline name."""
-
-        if pipeline_name.startswith("urn:li:dataHubAction"):
-            return pipeline_name
-        return f"urn:li:dataHubAction:{pipeline_name}"
 
     def _init_propagators(self) -> List[EntityPropagator]:
         """Initialize propagators based on configuration."""
@@ -343,15 +335,18 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
     def _process_event_with_propagators(
         self, event: EventEnvelope
     ) -> PropagationOutput:
-        logger.info("Calling propagators:")
+        logger.debug("Calling propagators:")
         for propagator in self.propagators:
-            logger.info(
+            logger.debug(
                 f"Calling propagator: {propagator.__class__.__name__} with event {event}"
             )
             directive = propagator.should_propagate(event)
             logger.debug(f"Propagation directive {directive}")
 
             if directive is not None and directive.propagate:
+                logger.info(
+                    f"Propagating {directive} based on {event} for {propagator.__class__.__name__}"
+                )
                 self._stats.increment_assets_processed(directive.entity)
                 yield from self._propagate_directive(
                     propagator=propagator, directive=directive
@@ -373,11 +368,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
         )
 
         for resolution in self.config.propagation_rule.target_urn_resolution:
-            logger.info(f"Resolution: {resolution}")
             if strategy := self.propagation_strategies.get(resolution.lookup_type):
-                logger.info(
-                    f"Propagating {directive} to {strategy} entities with {type(strategy)}"
-                )
                 yield from strategy.propagate(
                     resolution, propagator, directive, context
                 )
@@ -391,14 +382,14 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
 
         for propagator in self.propagators:
             propagator_filters = propagator.asset_filters()
-            logger.info(
+            logger.debug(
                 f"Propagator {propagator.__class__.__name__} filters: {propagator_filters}"
             )
 
             # Process each entity type and its filters
             for entity_type, index_filters in propagator_filters.items():
                 for index, filters in index_filters.items():
-                    logger.info(
+                    logger.debug(
                         f"Bootstrapping assets for {entity_type} with {index} filters: {self.config.propagation_rule.bootstrap} and extra filters: {filters}"
                     )
 
@@ -418,7 +409,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
 
         for propagator in self.propagators:
             urn = asset.urn
-            logger.info(f"Bootstrapping asset {urn}")
+            logger.debug(f"Bootstrapping asset {urn}")
 
             # Check if entity type is supported by this propagator
             if not self._is_entity_supported(propagator, urn):
@@ -430,7 +421,7 @@ class GenericPropagationAction(ExtendedAction[SourcedAsset]):
 
             # Process all directives for this asset
             for directive in propagator.boostrap_asset(urn):
-                logger.info(
+                logger.debug(
                     f"Bootstrapping asset {urn} with {propagator.__class__.__name__} and directive {directive}"
                 )
                 if directive is not None and directive.propagate:
