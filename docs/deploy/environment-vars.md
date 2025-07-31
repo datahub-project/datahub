@@ -465,7 +465,7 @@ Reference Links:
 
 Reference Links:
 
-- **Access Management**: [Access Management Feature](../features/feature-guides/access-management.md)
+- **Access Management**: [Access Management Feature](../features/feature-guides/access-roles.md)
 - **Structured Properties**: [Structured Properties Overview](../features/feature-guides/properties/overview.md)
 - **Lineage Features**: [Data Lineage](../features/feature-guides/lineage.md), [UI Lineage Management](../features/feature-guides/ui-lineage.md)
 - **Compliance Forms**: [Compliance Forms Overview](../features/feature-guides/compliance-forms/overview.md)
