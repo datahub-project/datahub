@@ -787,3 +787,13 @@
     displayName: Grafana
     type: OTHERS
     logoUrl: "/assets/platforms/grafana.png"
+- entityUrn: urn:li:dataPlatform:msfabric
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: msfabric
+    displayName: "Microsoft Fabric"
+    type: OTHERS
+    logoUrl: "/assets/platforms/msfabric.png"
