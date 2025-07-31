@@ -2,8 +2,6 @@
 
 This directory contains end-to-end smoke tests for DataHub functionality. These tests can be run locally for faster development and debugging compared to the full CI pipeline.
 
-> 📖 **Official Documentation**: For additional setup details and troubleshooting, see the [Running smoke tests locally](https://www.notion.so/acryldata/Running-smoke-tests-locally-23ffc6a6427780df8f22dd0a4e57d793) guide.
-
 ## Quick Start
 
 ### Prerequisites
