@@ -161,5 +161,5 @@ Fill out
 
 ## More Ways to Act on Metadata
 
-- [Approval Workflows](docs/managed-datahub/approval-workflows.md)
+- [Approval Workflows](docs/managed-datahub/change-proposals.md)
 - [Metadata Tests](docs/tests/metadata-tests.md) -->
