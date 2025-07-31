@@ -2461,6 +2461,16 @@ public class GmsGraphQLEngine {
                                   : null;
                             }))
                     .dataFetcher(
+                        "platform",
+                        new LoadableTypeResolver<>(
+                            dataPlatformType,
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob != null && dataJob.getPlatform() != null
+                                  ? dataJob.getPlatform().getUrn()
+                                  : null;
+                            }))
+                    .dataFetcher(
                         "container",
                         new LoadableTypeResolver<>(
                             containerType,
