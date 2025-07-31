@@ -103,7 +103,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     "We will attempt to guess the platform based on the connector type. "
                     "Note that we use connector_id as the key not connector_name which you may see in the UI of Fivetran. ",
                     context=f"connector_name: {connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
-                    log_type=StructuredLogCategory.LINEAGE,
+                    log_category=StructuredLogCategory.LINEAGE,
                 )
                 source_details.platform = connector.connector_type
 
