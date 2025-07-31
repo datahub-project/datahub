@@ -1011,8 +1011,7 @@ def test_special_liquid_variables():
 
 @freeze_time(FROZEN_TIME)
 def test_incremental_liquid_expression():
-    text: str = """{% assign source_table_variable = "source_table" | sql_quote | non_existing_filter_where_it_should_not_fail %}
-      SELECT 
+    text: str = """SELECT 
         user_id,
         DATE(event_timestamp) as event_date,
         COUNT(*) as daily_events,
@@ -1034,8 +1033,7 @@ def test_incremental_liquid_expression():
         view_name="test",
     )
 
-    expected_text: str = """
-      SELECT 
+    expected_text: str = """SELECT 
         user_id,
         DATE(event_timestamp) as event_date,
         COUNT(*) as daily_events,

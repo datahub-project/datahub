@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import ClassVar, Optional, TextIO
+from typing import ClassVar, Optional, TextIO, Type
 
 from liquid import Environment
 from liquid.ast import Node
@@ -39,6 +39,7 @@ class IncrementConditionNode(Node):
         # For incrementcondition, we need to generate a condition that would be used
         # in incremental PDT updates. This typically involves date/time comparisons.
         # We'll render it as a date comparison with a placeholder value
+        # See details in Looker documentation for incrementcondition tag -> cloud.google.com/looker/docs/reference/param-view-increment-key
         buffer.write(f"{self.sql_or_lookml_reference} > '2023-01-01'")
         return True
 
@@ -129,7 +130,7 @@ class IncrementConditionTag(Tag):
 
 
 # Updated custom_tags list to include both tags
-custom_tags = [ConditionTag, IncrementConditionTag]
+custom_tags: list[Type[Tag]] = [ConditionTag, IncrementConditionTag]
 
 
 @string_filter
