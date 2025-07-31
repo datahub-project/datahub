@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-31T12:40:41.227949+00:00",
+  "generated_at": "2025-07-31T12:54:30.557618+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -542,13 +542,6 @@
       "platform_name": "File Based Lineage",
       "support_status": "CERTIFIED"
     },
-    "datahub-mock-data": {
-      "capabilities": [],
-      "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
-      "platform_id": "datahubmockdata",
-      "platform_name": "DataHubMockData",
-      "support_status": "TESTING"
-    },
     "dbt": {
       "capabilities": [
         {
@@ -657,6 +650,14 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Extract column-level lineage",
+          "subtype_modifier": [
+            "Table"
+          ],
+          "supported": true
+        },
+        {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
           "subtype_modifier": null,
@@ -701,7 +702,9 @@
         {
           "capability": "LINEAGE_COARSE",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Table"
+          ],
           "supported": true
         }
       ],
