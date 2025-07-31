@@ -19,7 +19,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceReport,
-    StructuredLogType,
+    StructuredLogCategory,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
@@ -103,7 +103,7 @@ class FivetranSource(StatefulIngestionSourceBase):
                     "We will attempt to guess the platform based on the connector type. "
                     "Note that we use connector_id as the key not connector_name which you may see in the UI of Fivetran. ",
                     context=f"connector_name: {connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
-                    log_type=StructuredLogType.LINEAGE,
+                    log_type=StructuredLogCategory.LINEAGE,
                 )
                 source_details.platform = connector.connector_type
 
