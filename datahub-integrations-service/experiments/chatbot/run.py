@@ -104,6 +104,7 @@ has_response_metric = mlflow_metrics.make_metric(
 )
 
 
+# TODO: also validate instance name and entity type in entity link
 def _has_valid_links_metric_fn(predictions, targets):
     """Check if all DataHub links in response reference valid URNs from tool results."""
     all_scores: List[Optional[bool]] = []

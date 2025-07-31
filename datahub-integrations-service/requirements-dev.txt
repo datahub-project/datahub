@@ -755,6 +755,7 @@ pandas==2.2.3
     #   mlflow
     #   seaborn
     #   streamlit
+    #   streamlit-aggrid
 papermill==2.6.0
     # via acryl-datahub-integrations (pyproject.toml)
 parse==1.20.2
@@ -938,6 +939,8 @@ python-dateutil==2.8.2
     #   jupyter-client
     #   matplotlib
     #   pandas
+python-decouple==3.8
+    # via streamlit-aggrid
 python-dotenv==1.1.1
     # via
     #   -r requirements.txt
@@ -1157,6 +1160,10 @@ starlette==0.46.2
     #   fastapi
     #   mcp
 streamlit==1.44.1
+    # via
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   streamlit-aggrid
+streamlit-aggrid==1.1.7
     # via acryl-datahub-integrations (pyproject.toml)
 tabulate==0.9.0
     # via

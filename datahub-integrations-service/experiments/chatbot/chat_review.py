@@ -1,3 +1,4 @@
+import argparse
 import json
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
@@ -9,6 +10,7 @@ import pandas as pd
 import pydantic
 import streamlit as st
 from mlflow import entities as mlflow_entities
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from datahub_integrations.chat.chat_history import ChatHistory
 from datahub_integrations.experimentation.chatbot import (
@@ -120,6 +122,7 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
             "Justification": evaluation.justification,
             "Guidelines": prompt.response_guidelines or "",
             "Instance": prompt.instance,
+            "Tags": ", ".join(prompt.tags) if prompt.tags else "",
             "Raw Data": {
                 "prompt": prompt,
                 "history": history,
@@ -158,9 +161,9 @@ def main(run_name: Optional[str] = None):
     run_data = load_run_data(run.info.run_id)
     table_data = format_table_data(run_data)
 
-    event = st.dataframe(
-        table_data.copy().drop(columns=["Raw Data"]),
-        column_order=[
+    # Configure AgGrid with minimal settings
+    display_data = table_data.copy().drop(columns=["Raw Data"])[
+        [
             "Prompt ID",
             "Prompt",
             "Response",
@@ -168,15 +171,32 @@ def main(run_name: Optional[str] = None):
             "Justification",
             "Guidelines",
             "Instance",
-        ],
-        on_select="rerun",
-        selection_mode="single-row",
-        hide_index=True,
+            "Tags",
+        ]
+    ]
+    gb = GridOptionsBuilder.from_dataframe(display_data)
+    gb.configure_selection(selection_mode="single", use_checkbox=True)
+    gb.configure_default_column(
+        filter=True,
+        maxWidth=300,
+    )
+
+    grid_response = AgGrid(
+        display_data,
+        gridOptions=gb.build(),
+        update_mode=GridUpdateMode.SELECTION_CHANGED,
+        height=400,
     )
 
     # Show selected prompt details
-    if selected_row_index := event.selection["rows"]:  # type: ignore
-        selected_row = table_data.iloc[selected_row_index[0]]
+    selected_rows = grid_response["selected_rows"]
+    if selected_rows is not None and not selected_rows.empty:
+        # Get the selected row data from the grid response
+        selected_data = selected_rows.iloc[0]
+        # Find the corresponding row in the original table_data using Prompt ID
+        selected_row = table_data[
+            table_data["Prompt ID"] == selected_data["Prompt ID"]
+        ].iloc[0]
         prompt_id = selected_row["Prompt ID"]
         st.text(f"Prompt ID: {prompt_id}")
 
@@ -223,4 +243,13 @@ def main(run_name: Optional[str] = None):
                 st.json(old_evaluation.model_dump())
 
 
-main()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Chat Review Streamlit App")
+    parser.add_argument(
+        "--run-name",
+        type=str,
+        help="Optional MLflow run name to load specific run data",
+        default=None,
+    )
+    args = parser.parse_args()
+    main(run_name=args.run_name)

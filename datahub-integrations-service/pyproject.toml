@@ -81,6 +81,7 @@ dev = [
 	"papermill",
 	"json5",
 	"streamlit",
+	"streamlit-aggrid",
 	"tiktoken",
 	"mlflow",
 	"diskcache",
