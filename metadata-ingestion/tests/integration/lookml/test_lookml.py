@@ -1009,6 +1009,48 @@ def test_special_liquid_variables():
     assert actual_text == expected_text
 
 
+@freeze_time(FROZEN_TIME)
+def test_incremental_liquid_expression():
+    text: str = """{% assign source_table_variable = "source_table" | sql_quote | non_existing_filter_where_it_should_not_fail %}
+      SELECT 
+        user_id,
+        DATE(event_timestamp) as event_date,
+        COUNT(*) as daily_events,
+        SUM(revenue) as daily_revenue,
+        MAX(event_timestamp) as last_event_time
+      FROM warehouse.events.user_events
+      WHERE {% incrementcondition %} event_timestamp {% endincrementcondition %}
+        AND event_type IN ('purchase', 'signup', 'login')
+        AND user_id IS NOT NULL
+      GROUP BY 1, 2
+    """
+    input_liquid_variable: dict = {}
+
+    # Match template after resolution of liquid variables
+    actual_text = resolve_liquid_variable(
+        text=text,
+        liquid_variable=input_liquid_variable,
+        report=LookMLSourceReport(),
+        view_name="test",
+    )
+
+    expected_text: str = """
+      SELECT 
+        user_id,
+        DATE(event_timestamp) as event_date,
+        COUNT(*) as daily_events,
+        SUM(revenue) as daily_revenue,
+        MAX(event_timestamp) as last_event_time
+      FROM warehouse.events.user_events
+      WHERE event_timestamp > '2023-01-01'
+        AND event_type IN ('purchase', 'signup', 'login')
+        AND user_id IS NOT NULL
+      GROUP BY 1, 2
+    """
+
+    assert actual_text == expected_text
+
+
 @pytest.mark.parametrize(
     "view, expected_result, warning_expected",
     [
