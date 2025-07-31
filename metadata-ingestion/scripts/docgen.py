@@ -308,7 +308,7 @@ def generate(
         if source and source != plugin_name:
             continue
 
-        if plugin_name in DENY_LIST::
+        if plugin_name in DENY_LIST:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
