@@ -13,7 +13,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport, StructuredLogType
+from datahub.ingestion.api.source import Source, SourceReport, StructuredLogCategory
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
@@ -178,7 +178,7 @@ class DataHubMockDataSource(Source):
                     message="This is test warning",
                     title="Test Warning",
                     context=f"This is test warning {i}",
-                    log_type=StructuredLogType.LINEAGE,
+                    log_category=StructuredLogCategory.LINEAGE,
                 )
 
         # We don't want any implicit aspects to be produced

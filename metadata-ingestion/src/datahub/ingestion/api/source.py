@@ -81,7 +81,7 @@ class StructuredLogLevel(Enum):
     ERROR = logging.ERROR
 
 
-class StructuredLogType(Enum):
+class StructuredLogCategory(Enum):
     """
     This is used to categorise the errors mainly based on the biggest impact area
     This is to be used to help in self-serve understand the impact of any log entry
@@ -89,6 +89,8 @@ class StructuredLogType(Enum):
     """
 
     LINEAGE = "LINEAGE"
+    USAGE = "USAGE"
+    PROFILING = "PROFILING"
 
 
 @dataclass
@@ -96,7 +98,7 @@ class StructuredLogEntry(Report):
     title: Optional[str]
     message: str
     context: LossyList[str]
-    log_type: Optional[StructuredLogType] = None
+    log_category: Optional[StructuredLogCategory] = None
 
 
 @dataclass
@@ -119,7 +121,7 @@ class StructuredLogs(Report):
         exc: Optional[BaseException] = None,
         log: bool = False,
         stacklevel: int = 1,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
         Report a user-facing log for the ingestion run.
@@ -130,7 +132,7 @@ class StructuredLogs(Report):
             title: The category / heading to present on for this message in the UI.
             context: Additional context (e.g. where, how) for the log entry.
             exc: The exception associated with the event. We'll show the stack trace when in debug mode.
-            log_type: The type of the log entry. This is used to categorise the log entry.
+            log_category: The type of the log entry. This is used to categorise the log entry.
             log: Whether to log the entry to the console.
             stacklevel: The stack level to use for the log entry.
         """
@@ -175,7 +177,7 @@ class StructuredLogs(Report):
                 title=title,
                 message=message,
                 context=context_list,
-                log_type=log_type,
+                log_category=log_category,
             )
         else:
             if context is not None:
@@ -235,7 +237,7 @@ class SourceReport(ExamplesReport):
         context: Optional[str] = None,
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
         See docs of StructuredLogs.report_log for details of args
@@ -247,7 +249,7 @@ class SourceReport(ExamplesReport):
             context,
             exc,
             log=False,
-            log_type=log_type,
+            log_category=log_category,
         )
 
     def warning(
@@ -257,7 +259,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
         See docs of StructuredLogs.report_log for details of args
@@ -269,7 +271,7 @@ class SourceReport(ExamplesReport):
             context,
             exc,
             log=log,
-            log_type=log_type,
+            log_category=log_category,
         )
 
     def report_failure(
@@ -279,7 +281,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
         See docs of StructuredLogs.report_log for details of args
@@ -291,7 +293,7 @@ class SourceReport(ExamplesReport):
             context,
             exc,
             log=log,
-            log_type=log_type,
+            log_category=log_category,
         )
 
     def failure(
@@ -301,7 +303,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
         See docs of StructuredLogs.report_log for details of args
@@ -313,7 +315,7 @@ class SourceReport(ExamplesReport):
             context,
             exc,
             log=log,
-            log_type=log_type,
+            log_category=log_category,
         )
 
     def info(
@@ -323,7 +325,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         exc: Optional[BaseException] = None,
         log: bool = True,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> None:
         """
         See docs of StructuredLogs.report_log for details of args
@@ -335,7 +337,7 @@ class SourceReport(ExamplesReport):
             context,
             exc,
             log=log,
-            log_type=log_type,
+            log_category=log_category,
         )
 
     @contextlib.contextmanager
@@ -345,7 +347,7 @@ class SourceReport(ExamplesReport):
         title: Optional[LiteralString] = None,
         context: Optional[str] = None,
         level: StructuredLogLevel = StructuredLogLevel.ERROR,
-        log_type: Optional[StructuredLogType] = None,
+        log_category: Optional[StructuredLogCategory] = None,
     ) -> Iterator[None]:
         # Convenience method that helps avoid boilerplate try/except blocks.
         # TODO: I'm not super happy with the naming here - it's not obvious that this
@@ -359,7 +361,7 @@ class SourceReport(ExamplesReport):
                 title=title,
                 context=context,
                 exc=exc,
-                log_type=log_type,
+                log_category=log_category,
             )
 
     def __post_init__(self) -> None:
