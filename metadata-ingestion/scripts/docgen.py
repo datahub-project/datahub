@@ -24,13 +24,6 @@ from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
-DENY_LIST = {
-    "snowflake-summary",
-    "snowflake-queries",
-    "bigquery-queries",
-    "datahub-mock-data",
-}
-
 
 def get_snippet(long_string: str, max_length: int = 100) -> str:
     snippet = ""
@@ -309,7 +302,11 @@ def generate(
         if source and source != plugin_name:
             continue
 
-        if plugin_name in DENY_LIST:
+        if plugin_name in {
+            "snowflake-summary",
+            "snowflake-queries",
+            "bigquery-queries",
+        }:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
