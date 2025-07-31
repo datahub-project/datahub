@@ -67,6 +67,7 @@ ban-relative-imports = "all"
 "__init__.py" = ["F401"]
 
 [tool.mypy]
+plugins = ["pydantic.mypy", "pydantic.v1.mypy"]
 exclude = "^(venv/|build/|dist/)"
 ignore_missing_imports = true
 namespace_packages = false

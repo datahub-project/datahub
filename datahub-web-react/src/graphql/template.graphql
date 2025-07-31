@@ -33,6 +33,19 @@ fragment PageModule on DataHubPageModule {
             richTextParams {
                 content
             }
+            assetCollectionParams {
+                assetUrns
+            }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+                relatedEntitiesFilterJson
+            }
         }
     }
 }
@@ -47,4 +60,8 @@ mutation upsertPageModule($input: UpsertPageModuleInput!) {
     upsertPageModule(input: $input) {
         urn
     }
+}
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
 }

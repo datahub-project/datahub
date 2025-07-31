@@ -1,11 +1,13 @@
 package com.linkedin.metadata.service;
 
+import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DataHubPageModuleKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -30,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PageModuleService {
   private final EntityClient entityClient;
 
-  // Default module URNs that cannot be deleted
+  // Default module URNs that cannot be deleted. Keep this in sync with homeV3/modules/constants.ts
   private static final List<String> DEFAULT_MODULE_URNS =
       List.of(
           "urn:li:dataHubPageModule:your_assets",
@@ -195,11 +197,19 @@ public class PageModuleService {
               "Attempted to delete a page module that does not exist with urn %s", moduleUrn));
     }
 
+    if (properties.getVisibility().getScope().equals(PageModuleScope.GLOBAL)
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+      throw new UnauthorizedException("User is unauthorized to delete global modules.");
+    }
+
     if (properties.getVisibility().getScope().equals(PageModuleScope.PERSONAL)
-        && !properties.getCreated().getActor().equals(opContext.getActorContext().getActorUrn())) {
+        && !properties
+            .getCreated()
+            .getActor()
+            .toString()
+            .equals(opContext.getSessionAuthentication().getActor().toUrnStr())) {
       throw new UnauthorizedException(
           "Attempted to delete personal a page module that was not created by the actor");
     }
-    // TODO: check permissions for deleting a GLOBAL module in CH-510
   }
 }

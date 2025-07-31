@@ -11,11 +11,13 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -440,5 +442,36 @@ public class TraceServiceImplTest {
         TraceWriteStatus.HISTORIC_STATE,
         "When primary storage is HISTORIC_STATE, search storage should also be HISTORIC_STATE");
     assertTrue(status.isSuccess());
+  }
+
+  @Test
+  public void testExtractTraceIdEpochMillis() {
+    // Test case 1: Valid system metadata with trace ID
+    SystemMetadata systemMetadata = new SystemMetadata();
+    Map<String, String> properties = new HashMap<>();
+    properties.put(SystemTelemetryContext.TELEMETRY_TRACE_KEY, TEST_TRACE_ID);
+    systemMetadata.setProperties(new StringMap(properties));
+
+    Long epochMillis = TraceServiceImpl.extractTraceIdEpochMillis(systemMetadata);
+    assertNotNull(epochMillis);
+    assertEquals(epochMillis, TraceIdGenerator.getTimestampMillis(TEST_TRACE_ID));
+
+    // Test case 2: System metadata without trace ID property
+    SystemMetadata systemMetadataNoTrace = new SystemMetadata();
+    systemMetadataNoTrace.setProperties(new StringMap(new HashMap<>()));
+
+    Long epochMillisNoTrace = TraceServiceImpl.extractTraceIdEpochMillis(systemMetadataNoTrace);
+    assertNull(epochMillisNoTrace);
+
+    // Test case 3: System metadata with null properties
+    SystemMetadata systemMetadataNullProps = new SystemMetadata();
+    systemMetadataNullProps.setProperties(null, SetMode.REMOVE_IF_NULL);
+
+    Long epochMillisNullProps = TraceServiceImpl.extractTraceIdEpochMillis(systemMetadataNullProps);
+    assertNull(epochMillisNullProps);
+
+    // Test case 4: Null system metadata
+    Long epochMillisNull = TraceServiceImpl.extractTraceIdEpochMillis(null);
+    assertNull(epochMillisNull);
   }
 }

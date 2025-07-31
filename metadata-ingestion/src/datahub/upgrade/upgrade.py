@@ -7,7 +7,7 @@ from typing import Any, Callable, Optional, Tuple, TypeVar
 
 import click
 import humanfriendly
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel
 
 from datahub._version import __version__
@@ -26,6 +26,18 @@ T = TypeVar("T")
 class VersionStats(BaseModel, arbitrary_types_allowed=True):
     version: Version
     release_date: Optional[datetime] = None
+
+
+def _safe_version_stats(version_string: str) -> Optional[VersionStats]:
+    """
+    Safely create a VersionStats object from a version string.
+    Returns None if the version string is invalid.
+    """
+    try:
+        return VersionStats(version=Version(version_string), release_date=None)
+    except InvalidVersion:
+        log.warning(f"Invalid version format received: {version_string!r}")
+        return None
 
 
 class ServerVersionStats(BaseModel):
@@ -233,10 +245,7 @@ async def _retrieve_version_stats(
                 version=current_server_version, release_date=current_server_release_date
             ),
             current_server_default_cli_version=(
-                VersionStats(
-                    version=Version(current_server_default_cli_version),
-                    release_date=None,
-                )
+                _safe_version_stats(current_server_default_cli_version)
                 if current_server_default_cli_version
                 else None
             ),
@@ -343,9 +352,11 @@ def _maybe_print_upgrade_message(
             if version_stats.client.latest
             else None
         )
-        client_server_compat = is_client_server_compatible(
-            version_stats.client.current, version_stats.server.current
-        )
+        client_server_compat = 0
+        if version_stats.server.current_server_type != "cloud":
+            client_server_compat = is_client_server_compatible(
+                version_stats.client.current, version_stats.server.current
+            )
 
         if latest_release_date and current_release_date:
             assert version_stats.client.latest

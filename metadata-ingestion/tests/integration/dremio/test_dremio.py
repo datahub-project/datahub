@@ -12,6 +12,8 @@ from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
+pytestmark = pytest.mark.integration_batch_4
+
 FROZEN_TIME = "2023-10-15 07:00:00"
 MINIO_PORT = 9000
 MYSQL_PORT = 3306

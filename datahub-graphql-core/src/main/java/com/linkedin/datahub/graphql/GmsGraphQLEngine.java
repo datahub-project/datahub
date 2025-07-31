@@ -1962,7 +1962,11 @@ public class GmsGraphQLEngine {
                 new LoadableTypeResolver<>(
                     dataHubPageTemplateType,
                     (env) ->
-                        ((CorpUserHomePageSettings) env.getSource()).getPageTemplate().getUrn())));
+                        ((CorpUserHomePageSettings) env.getSource()).getPageTemplate() != null
+                            ? ((CorpUserHomePageSettings) env.getSource())
+                                .getPageTemplate()
+                                .getUrn()
+                            : null)));
     builder.type(
         "CorpUserEditableProperties",
         typeWiring ->
@@ -2454,6 +2458,16 @@ public class GmsGraphQLEngine {
                               final DataJob dataJob = env.getSource();
                               return dataJob.getDataPlatformInstance() != null
                                   ? dataJob.getDataPlatformInstance().getUrn()
+                                  : null;
+                            }))
+                    .dataFetcher(
+                        "platform",
+                        new LoadableTypeResolver<>(
+                            dataPlatformType,
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob != null && dataJob.getPlatform() != null
+                                  ? dataJob.getPlatform().getUrn()
                                   : null;
                             }))
                     .dataFetcher(

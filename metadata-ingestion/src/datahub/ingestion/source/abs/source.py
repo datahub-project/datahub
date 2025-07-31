@@ -44,7 +44,10 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_key_prefix,
     strip_abs_prefix,
 )
-from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    ContainerWUCreator,
+    add_partition_columns_to_schema,
+)
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -53,10 +56,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -223,35 +223,11 @@ class ABSSource(StatefulIngestionSourceBase):
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
         if self.source_config.add_partition_columns_to_schema:
-            self.add_partition_columns_to_schema(
+            add_partition_columns_to_schema(
                 fields=fields, path_spec=path_spec, full_path=table_data.full_path
             )
 
         return fields
-
-    def add_partition_columns_to_schema(
-        self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
-    ) -> None:
-        vars = path_spec.get_named_vars(full_path)
-        if vars is not None and "partition" in vars:
-            for partition in vars["partition"].values():
-                partition_arr = partition.split("=")
-                if len(partition_arr) != 2:
-                    logger.debug(
-                        f"Could not derive partition key from partition field {partition}"
-                    )
-                    continue
-                partition_key = partition_arr[0]
-                fields.append(
-                    SchemaField(
-                        fieldPath=f"{partition_key}",
-                        nativeDataType="string",
-                        type=SchemaFieldDataType(StringTypeClass()),
-                        isPartitioningKey=True,
-                        nullable=True,
-                        recursive=False,
-                    )
-                )
 
     def _create_table_operation_aspect(self, table_data: TableData) -> OperationClass:
         reported_time = int(time.time() * 1000)
