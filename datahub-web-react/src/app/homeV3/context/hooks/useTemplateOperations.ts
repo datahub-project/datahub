@@ -43,7 +43,7 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
     return rowIndex !== undefined && rowIndex >= 0 && rowIndex < rows.length;
 };
 
-export function useTemplateOperations() {
+export function useTemplateOperations(setPersonalTemplate: (template: PageTemplateFragment | null) => void) {
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
 
@@ -120,6 +120,7 @@ export function useTemplateOperations() {
             templateToUpdate: PageTemplateFragment | null,
             moduleUrn: string,
             position: ModulePositionInput,
+            shouldRemoveEmptyRow: boolean,
         ): PageTemplateFragment | null => {
             if (!isValidRemovalPosition(templateToUpdate, position)) {
                 return templateToUpdate;
@@ -142,7 +143,7 @@ export function useTemplateOperations() {
             }
 
             // If the row is now empty, remove the entire row
-            if (updatedModules.length === 0) {
+            if (shouldRemoveEmptyRow && updatedModules.length === 0) {
                 newRows.splice(rowIndex!, 1);
             } else {
                 row.modules = updatedModules;
@@ -194,9 +195,21 @@ export function useTemplateOperations() {
         [upsertPageTemplateMutation, updateUserHomePageSettings],
     );
 
+    const resetTemplateToDefault = () => {
+        setPersonalTemplate(null);
+        updateUserHomePageSettings({
+            variables: {
+                input: {
+                    removePageTemplate: true,
+                },
+            },
+        });
+    };
+
     return {
         updateTemplateWithModule,
         removeModuleFromTemplate,
         upsertTemplate,
+        resetTemplateToDefault,
     };
 }

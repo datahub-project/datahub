@@ -86,7 +86,16 @@ public class UpdateUserHomePageSettingsResolver implements DataFetcher<Completab
       @Nonnull final CorpUserHomePageSettings settings,
       @Nonnull final UpdateUserHomePageSettingsInput input) {
 
-    if (input.getPageTemplate() != null) {
+    Boolean shouldRemoveTemplate = input.getRemovePageTemplate();
+
+    if (input.getPageTemplate() != null && Boolean.TRUE.equals(shouldRemoveTemplate)) {
+      throw new IllegalArgumentException(
+          "Invalid inputs: Cannot specify both pageTemplate and removePageTemplate.");
+    }
+
+    if (Boolean.TRUE.equals(shouldRemoveTemplate)) {
+      settings.data().remove("pageTemplate");
+    } else if (input.getPageTemplate() != null) {
       settings.setPageTemplate(UrnUtils.getUrn(input.getPageTemplate()));
     }
 

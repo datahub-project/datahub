@@ -199,15 +199,27 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         const customGlobalModules: PageModuleFragment[] = getCustomGlobalModules(globalTemplate);
         if (customGlobalModules.length > 0) {
             const adminModuleItems = customGlobalModules.map((module) => ({
-                title: module.properties.name,
+                name: module.properties.name,
                 key: module.urn,
-                label: <ModuleMenuItem module={convertModuleToModuleInfo(module)} />,
+                label: (
+                    <ModuleMenuItem
+                        module={convertModuleToModuleInfo(module)}
+                        isDisabled={
+                            (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
+                            (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow)
+                        }
+                        isSmallModule={SMALL_MODULE_TYPES.includes(module.properties.type)}
+                    />
+                ),
                 onClick: () => handleAddExistingModule(module),
+                disabled:
+                    (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
+                    (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow),
             }));
 
             const homeDefaults = {
                 key: 'adminCreatedModulesGroup',
-                title: 'Home Defaults',
+                name: 'Home Defaults',
                 label: (
                     <MenuItem
                         icon="Database"

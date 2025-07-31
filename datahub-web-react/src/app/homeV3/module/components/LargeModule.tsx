@@ -1,8 +1,9 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
-import React, { memo } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
@@ -75,6 +76,16 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
         },
     });
 
+    const hasViewAll = useMemo(() => !!onClickViewAll, [onClickViewAll]);
+
+    const onClickViewAllHandler = useCallback(() => {
+        onClickViewAll?.();
+        analytics.event({
+            type: EventType.HomePageTemplateModuleViewAllClick,
+            moduleType: module.properties.type,
+        });
+    }, [onClickViewAll, module.properties.type]);
+
     return (
         <ModuleContainer $height="316px" ref={setNodeRef}>
             <ModuleHeader>
@@ -95,7 +106,7 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
                     <ModuleMenu module={module} position={position} />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
-            <Content $hasViewAll={!!onClickViewAll}>
+            <Content $hasViewAll={hasViewAll}>
                 {loading ? (
                     <LoaderContainer>
                         <Loader />
@@ -104,8 +115,14 @@ function LargeModule({ children, module, position, loading, onClickViewAll }: Re
                     children
                 )}
             </Content>
-            {onClickViewAll && (
-                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} data-testid="view-all">
+            {hasViewAll && (
+                <ViewAllButton
+                    variant="link"
+                    color="gray"
+                    size="sm"
+                    onClick={onClickViewAllHandler}
+                    data-testid="view-all"
+                >
                     View all
                 </ViewAllButton>
             )}
