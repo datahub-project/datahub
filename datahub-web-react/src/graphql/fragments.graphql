@@ -178,6 +178,22 @@ fragment glossaryTerms on GlossaryTerms {
             urn
         }
         associatedUrn
+        attribution {
+            time
+            actor {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+            source {
+                urn
+                type
+            }
+            sourceDetail {
+                key
+                value
+            }
+        }
     }
 }
 
@@ -946,6 +962,9 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     }
     documentation {
         ...documentationFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
     }
 }
 

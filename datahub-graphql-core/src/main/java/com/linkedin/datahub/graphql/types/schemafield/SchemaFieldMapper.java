@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.businessattribute.BusinessAttributes;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Documentation;
+import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
+import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
@@ -64,7 +66,12 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setDeprecation(
                 DeprecationMapper.map(context, new Deprecation((dataMap))))));
-
+    mappingHelper.mapToResult(
+        GLOSSARY_TERMS_ASPECT_NAME,
+        ((schemaFieldEntity, dataMap) -> {
+          schemaFieldEntity.setGlossaryTerms(
+              GlossaryTermsMapper.map(context, new GlossaryTerms(dataMap), entityUrn));
+        }));
     return result;
   }
 
