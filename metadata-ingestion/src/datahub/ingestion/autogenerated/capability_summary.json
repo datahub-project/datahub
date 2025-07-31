@@ -1,9 +1,18 @@
 {
-  "generated_at": "2025-07-24T13:24:05.751563+00:00",
+  "generated_at": "2025-07-31T11:40:34.384148+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
       "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Extract ABS containers and folders",
+          "subtype_modifier": [
+            "Folder",
+            "ABS container"
+          ],
+          "supported": true
+        },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
@@ -468,7 +477,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -607,7 +618,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Folder"
+          ],
           "supported": true
         },
         {
@@ -1227,10 +1240,9 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Enabled by default",
+          "description": "Extract Hive catalogs and databases",
           "subtype_modifier": [
-            "Database",
-            "Schema"
+            "Catalog"
           ],
           "supported": true
         },
@@ -2387,8 +2399,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
@@ -2409,10 +2422,9 @@
       "capabilities": [
         {
           "capability": "CONTAINERS",
-          "description": "Enabled by default",
+          "description": "Extract Hive catalogs and databases",
           "subtype_modifier": [
-            "Database",
-            "Schema"
+            "Catalog"
           ],
           "supported": true
         },
@@ -2598,7 +2610,8 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Database"
+            "Database",
+            "Schema"
           ],
           "supported": true
         },
@@ -2811,6 +2824,15 @@
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extract table-level lineage for Salesforce objects",
+          "subtype_modifier": [
+            "Custom Object",
+            "Object"
+          ],
           "supported": true
         }
       ],
@@ -3207,7 +3229,9 @@
         {
           "capability": "CONTAINERS",
           "description": "Enabled by default",
-          "subtype_modifier": null,
+          "subtype_modifier": [
+            "Database"
+          ],
           "supported": true
         },
         {
@@ -3339,8 +3363,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "description": "Extract table-level lineage",
           "subtype_modifier": [
+            "Table",
             "View"
           ],
           "supported": true
