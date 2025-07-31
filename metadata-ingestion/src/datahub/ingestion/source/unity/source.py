@@ -442,7 +442,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     UpstreamClass(
                         dataset=self.gen_dataset_urn(upstream_ref),
                         type=DatasetLineageTypeClass.COPY,
-                        auditStamp=AuditStampClass(
+                        created=AuditStampClass(
                             time=int(upstream_ref.last_updated.timestamp() * 1000)
                             if upstream_ref.last_updated
                             else int(time.time() * 1000),
@@ -718,7 +718,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 UpstreamClass(
                     dataset=upstream_urn,
                     type=DatasetLineageTypeClass.TRANSFORMED,
-                    auditStamp=AuditStampClass(
+                    created=AuditStampClass(
                         time=int(upstream_ref.last_updated.timestamp() * 1000)
                         if upstream_ref.last_updated
                         else int(time.time() * 1000),
@@ -732,7 +732,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 UpstreamClass(
                     dataset=self.gen_notebook_urn(notebook.id),
                     type=DatasetLineageTypeClass.TRANSFORMED,
-                    auditStamp=AuditStampClass(
+                    created=AuditStampClass(
                         time=int(notebook.last_updated.timestamp() * 1000)
                         if notebook.last_updated
                         else int(time.time() * 1000),
