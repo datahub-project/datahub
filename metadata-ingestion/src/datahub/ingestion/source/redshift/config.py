@@ -1,8 +1,9 @@
 import logging
+import re
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import root_validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
@@ -178,6 +179,34 @@ class RedshiftConfig(
         default=False,
         description="Whether to skip EXTERNAL tables.",
     )
+
+    alternative_system_tables_schema: Optional[str] = Field(
+        default=None,
+        description="Alternative schema location for accessing system tables when required permissions cannot be granted. "
+        "Issue: Redshift datashares require ALTER/SHARE or USAGE permissions that may not be allowed in organizations with strict security policies. "
+        "Solution: (1) Create an alternate schema, (2) Grant DataHub ingestion user read permissions on it, "
+        "(3) Clone and periodically refresh the restricted system tables in this schema. "
+        "When specified, ingestion will use this schema to access exactly these system tables: SVV_DATASHARES, "
+        "SVV_REDSHIFT_DATABASES, SVV_REDSHIFT_SCHEMAS, SVV_REDSHIFT_TABLES, SVV_REDSHIFT_COLUMNS, "
+        "SVV_EXTERNAL_SCHEMAS, SVV_EXTERNAL_TABLES, and SVV_EXTERNAL_COLUMNS. "
+        "Format: 'database_name.schema_name'.",
+        hidden_from_docs=True,
+    )
+
+    @validator("alternative_system_tables_schema")
+    def validate_alternative_system_tables_schema(cls, v):
+        if v is None:
+            return v
+
+        # Check if the format is database.schema with no spaces around the dot
+        # Pattern: non-empty string + dot + non-empty string, no leading/trailing spaces
+        if not re.match(r"^[^\s.]+\.[^\s.]+$", v):
+            raise ValueError(
+                "alternative_system_tables_schema must be in the format 'database_name.schema_name'. "
+                "Both database and schema names must be non-empty and cannot contain spaces or dots."
+            )
+
+        return v
 
     @root_validator(pre=True)
     def check_email_is_set_on_usage(cls, values):
