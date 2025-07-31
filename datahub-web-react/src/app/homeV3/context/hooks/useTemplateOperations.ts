@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import useShowToast from '@app/homeV3/toast/useShowToast';
 
 import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
@@ -46,6 +47,8 @@ const isValidRemovalPosition = (template: PageTemplateFragment | null, position:
 export function useTemplateOperations(setPersonalTemplate: (template: PageTemplateFragment | null) => void) {
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
+
+    const { showToast } = useShowToast();
 
     // Helper function to update template state with a new module
     const updateTemplateWithModule = useCallback(
@@ -189,10 +192,14 @@ export function useTemplateOperations(setPersonalTemplate: (template: PageTempla
             }).then(({ data }) => {
                 if (isCreatingPersonalTemplate && data?.upsertPageTemplate.urn) {
                     updateUserHomePageSettings({ variables: { input: { pageTemplate: data.upsertPageTemplate.urn } } });
+                    showToast(
+                        'You’ve edited your home page',
+                        `To reset your home page click "Reset to Organization Default"`,
+                    );
                 }
             });
         },
-        [upsertPageTemplateMutation, updateUserHomePageSettings],
+        [upsertPageTemplateMutation, updateUserHomePageSettings, showToast],
     );
 
     const resetTemplateToDefault = () => {
