@@ -17,6 +17,8 @@ public class DataHubConfiguration {
 
   private DataHubMetrics metrics;
 
+  private PoliciesConfiguration policies;
+
   @Data
   public static class DataHubMetrics {
     private MetricsOptions hookLatency;

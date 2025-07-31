@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Change Proposals & Approval Workflows
+# Change Proposals
 
 <FeatureAvailability saasOnly />
 
