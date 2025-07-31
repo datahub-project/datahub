@@ -1,5 +1,6 @@
 import { Button } from 'antd';
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import Tour from 'reactour';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -22,7 +23,11 @@ export const OnboardingTour = ({ stepIds }: Props) => {
     const userUrn = useUserContext()?.user?.urn;
     const isThemeV2 = useIsThemeV2();
     const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen } = useContext(OnboardingContext);
+    const location = useLocation();
     const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
+
+    // Don't show OnboardingTour on homepage - WelcomeToDataHubModal is used there instead
+    const isHomepage = location.pathname === '/';
 
     const steps = getStepsToRender(educationSteps, stepIds, userUrn || '', tourReshow);
     const filteredSteps = steps.filter((step) => step.id && educationStepIdsAllowlist.has(step.id));
@@ -30,6 +35,19 @@ export const OnboardingTour = ({ stepIds }: Props) => {
 
     const [batchUpdateStepStates] = useBatchUpdateStepStatesMutation();
     const shouldSkipOnboardingTour = useShouldSkipOnboardingTour();
+
+    // Automatically open tour for first-time visits when there are unseen steps
+    useEffect(() => {
+        if (
+            !tourReshow && // Only for automatic tours, not manual reshows
+            !shouldSkipOnboardingTour && // Don't show if globally disabled
+            !isHomepage && // Don't show on homepage - WelcomeToDataHubModal is used there
+            filteredSteps.length > 0 && // Only if there are steps to show
+            !isTourOpen // Don't open if already open
+        ) {
+            setIsTourOpen(true);
+        }
+    }, [filteredSteps.length, tourReshow, shouldSkipOnboardingTour, isHomepage, isTourOpen, setIsTourOpen]);
 
     function closeTour() {
         setIsTourOpen(false);
@@ -45,7 +63,9 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         });
     }
 
-    if (!filteredSteps.length || shouldSkipOnboardingTour) return null;
+    // For automatic tours (tourReshow=false), only check if we have steps to show and not on homepage
+    // For manual tours (tourReshow=true), also check the global skip flag
+    if (!filteredSteps.length || isHomepage || (tourReshow && shouldSkipOnboardingTour)) return null;
 
     return (
         <Tour
