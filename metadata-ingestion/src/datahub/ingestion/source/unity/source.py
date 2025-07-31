@@ -470,14 +470,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, metastore: Optional[Metastore]
     ) -> Iterable[MetadataWorkUnit]:
         for catalog in self._get_catalogs(metastore):
-            if not self.config.catalog_pattern.allowed(catalog.id):
-                self.report.catalogs.dropped(catalog.id)
-                continue
+            with self.report.new_stage(f"Ingest catalog {catalog.id}"):
+                if not self.config.catalog_pattern.allowed(catalog.id):
+                    self.report.catalogs.dropped(catalog.id)
+                    continue
 
-            yield from self.gen_catalog_containers(catalog)
-            yield from self.process_schemas(catalog)
+                yield from self.gen_catalog_containers(catalog)
+                yield from self.process_schemas(catalog)
 
-            self.report.catalogs.processed(catalog.id)
+                self.report.catalogs.processed(catalog.id)
 
     def _get_catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
         if self.config.catalogs:

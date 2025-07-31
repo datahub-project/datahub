@@ -847,7 +847,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.warning(f"Failed to execute SQL query: {e}")
             return []
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    # It is enough to keep the cache size to 1, since we only process one catalog at a time
+    # We need to change this if we want to support parallel processing of multiple catalogs
+    @cached(cachetools.FIFOCache(maxsize=1))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching schema tags for catalog: `{catalog}`")
@@ -870,7 +872,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    # It is enough to keep the cache size to 1, since we only process one catalog at a time
+    # We need to change this if we want to support parallel processing of multiple catalogs
+    @cached(cachetools.FIFOCache(maxsize=1))
     def get_catalog_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
@@ -892,7 +896,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    # It is enough to keep the cache size to 1, since we only process one catalog at a time
+    @cached(cachetools.FIFOCache(maxsize=1))
     def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
