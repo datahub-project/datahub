@@ -1,10 +1,11 @@
 import { Icon, Text, Tooltip, colors } from '@components';
 import { Dropdown } from 'antd';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { DEFAULT_GLOBAL_MODULE_TYPES } from '@app/homeV3/modules/constants';
+import { getCustomGlobalModules } from '@app/homeV3/template/components/addModuleMenu/utils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
@@ -36,6 +37,12 @@ export default function ModuleMenu({ module, position }: Props) {
     const [showRemoveModuleConfirmation, setShowRemoveModuleConfirmation] = useState<boolean>(false);
     const { type } = module.properties;
     const canEdit = !DEFAULT_GLOBAL_MODULE_TYPES.includes(type);
+
+    const { globalTemplate } = usePageTemplateContext();
+    const isAdminCreatedModule = useMemo(() => {
+        const adminCreatedModules = getCustomGlobalModules(globalTemplate);
+        return adminCreatedModules.some((adminCreatedModule) => adminCreatedModule.urn === module.urn);
+    }, [globalTemplate, module.urn]);
 
     const {
         removeModule,
@@ -113,8 +120,12 @@ export default function ModuleMenu({ module, position }: Props) {
                 isOpen={!!showRemoveModuleConfirmation}
                 handleConfirm={handleRemove}
                 handleClose={() => setShowRemoveModuleConfirmation(false)}
-                modalTitle="Confirm removing"
-                modalText="Are you sure you want to remove this module?"
+                modalTitle="Remove Module?"
+                modalText={
+                    isAdminCreatedModule
+                        ? 'Are you sure you want to remove this module? You can re-add it later from the Home Defaults section when adding a new module.'
+                        : 'Are you sure you want to remove this module? You can always create a new one later if needed.'
+                }
                 closeButtonText="Cancel"
                 confirmButtonText="Confirm"
             />
