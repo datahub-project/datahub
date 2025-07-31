@@ -3,7 +3,7 @@
 :::note Supported Data Platforms
 Currently we support monitoring data on Snowflake, Redshift, BigQuery, and Databricks as part of DataHub Cloud Observe.
 For other data platforms, DataHub Cloud Observe can monitor assertions against dataset metrics (such as volume, or column nullness) and dataset freshenss by using the ingested statistics for each asset.
-Column Value and Custom SQL Assertions are not currently supported for other data platforms. 
+Column Value and Custom SQL Assertions are not currently supported for other data platforms.
 :::
 
 An assertion is **a data quality test that finds data that violates a specified rule.**
