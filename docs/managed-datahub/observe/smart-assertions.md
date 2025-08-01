@@ -24,6 +24,10 @@ Today, you can create Smart Assertions for 3 types of assertions. To learn more 
 2. [Freshness](./freshness-assertions.md#anomaly-detection-with-smart-assertions-)
 3. [Column Metrics](./column-assertions.md#anomaly-detection-with-smart-assertions-)
 
+You can also create Freshness & Volume Smart Assertions in bulk on the [Data Health page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions):
+
+<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+
 ## Improving Smart assertion quality
 
 You can improve predictions through two key levers:
