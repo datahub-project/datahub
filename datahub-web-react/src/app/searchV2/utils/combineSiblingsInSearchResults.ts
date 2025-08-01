@@ -58,7 +58,7 @@ export function combineSiblingsInSearchResults(
             if (isSiblingAheadInTheList) {
                 return;
             }
-            
+
             // If this is a DBT entity and sibling is not ahead, use the warehouse URN
             if (entityPlatform === DBT_PLATFORM) {
                 entityToProcess = {

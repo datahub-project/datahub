@@ -825,22 +825,26 @@ describe('siblingUtils', () => {
 
         describe('edge cases', () => {
             it('handles entities with missing sibling URN gracefully', () => {
-                const searchResultWithMissingSibling = [{
-                    entity: {
-                        urn: dbtUrn,
-                        platform: { name: 'dbt' },
-                        siblingsSearch: {
-                            searchResults: [{ 
-                                entity: { 
-                                    // Missing urn property
-                                    platform: { name: 'snowflake' }
-                                }
-                            }]
-                        }
+                const searchResultWithMissingSibling = [
+                    {
+                        entity: {
+                            urn: dbtUrn,
+                            platform: { name: 'dbt' },
+                            siblingsSearch: {
+                                searchResults: [
+                                    {
+                                        entity: {
+                                            // Missing urn property
+                                            platform: { name: 'snowflake' },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                        matchedFields: [],
                     },
-                    matchedFields: []
-                }];
-                
+                ];
+
                 const result = combineSiblingsInSearchResults(false, searchResultWithMissingSibling as any);
                 // Should not crash and should process normally
                 expect(result).toHaveLength(1);
@@ -848,17 +852,19 @@ describe('siblingUtils', () => {
             });
 
             it('handles entities with empty siblingsSearch gracefully', () => {
-                const searchResultWithEmptySiblings = [{
-                    entity: {
-                        urn: dbtUrn,
-                        platform: { name: 'dbt' },
-                        siblingsSearch: {
-                            searchResults: []
-                        }
+                const searchResultWithEmptySiblings = [
+                    {
+                        entity: {
+                            urn: dbtUrn,
+                            platform: { name: 'dbt' },
+                            siblingsSearch: {
+                                searchResults: [],
+                            },
+                        },
+                        matchedFields: [],
                     },
-                    matchedFields: []
-                }];
-                
+                ];
+
                 const result = combineSiblingsInSearchResults(false, searchResultWithEmptySiblings as any);
                 // Should not crash and should process normally
                 expect(result).toHaveLength(1);
