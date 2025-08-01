@@ -9,14 +9,13 @@ import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { getParentEntities } from '@app/search/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { ENTER_KEY_CODE } from '@app/shared/constants';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import CreateTagModal from '@app/shared/tags/CreateTagModal';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, Modal } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 import { getModalDomContainer } from '@utils/focus';
 
 import {

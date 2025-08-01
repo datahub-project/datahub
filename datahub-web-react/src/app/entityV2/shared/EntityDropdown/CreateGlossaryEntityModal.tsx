@@ -25,13 +25,6 @@ const OptionalWrapper = styled.span`
     font-weight: normal;
 `;
 
-const ButtonContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: end;
-    gap: 16px;
-`;
-
 interface Props {
     entityType: EntityType;
     onClose: () => void;

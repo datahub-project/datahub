@@ -81,7 +81,6 @@ export function Modal({
     children,
     onCancel,
     dataTestId,
-    titleIcon,
     ...props
 }: ModalProps & AntModalProps) {
     return (

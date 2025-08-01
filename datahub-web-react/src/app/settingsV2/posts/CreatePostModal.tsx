@@ -13,8 +13,7 @@ import {
 } from '@app/settingsV2/posts/constants';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Modal } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType } from '@types';
@@ -171,6 +170,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                     variant: 'filled',
                     disabled: !createButtonEnabled,
                     buttonDataTestId: !editData ? 'create-post-button' : 'update-post-button',
+                    id: CREATE_POST_BUTTON_ID,
                 },
             ]}
         >
