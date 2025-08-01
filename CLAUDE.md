@@ -89,6 +89,16 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 - Frontend: Tests in `__tests__/` or `.test.tsx` files
 - Smoke tests go in the `smoke-test/` directory
 
+#### Security Testing: Configuration Property Classification
+
+**Critical test**: `metadata-io/src/test/java/com/linkedin/metadata/system_info/collectors/PropertiesCollectorConfigurationTest.java`
+
+This test prevents sensitive data leaks by requiring explicit classification of all configuration properties as either sensitive (redacted) or non-sensitive (visible in system info).
+
+**When adding new configuration properties**: The test will fail with clear instructions on which classification list to add your property to. Refer to the test file's comprehensive documentation for template syntax and examples.
+
+This is a mandatory security guardrail - never disable or skip this test.
+
 ### Commits
 
 - Follow Conventional Commits format for commit messages

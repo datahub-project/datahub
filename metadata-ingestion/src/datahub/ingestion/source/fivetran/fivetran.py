@@ -16,7 +16,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import (
+    MetadataWorkUnitProcessor,
+    SourceReport,
+    StructuredLogCategory,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.fivetran.config import (
     KNOWN_DATA_PLATFORM_MAPPING,
@@ -96,8 +100,10 @@ class FivetranSource(StatefulIngestionSourceBase):
                 self.report.info(
                     title="Guessing source platform for lineage",
                     message="We encountered a connector type that we don't fully support yet. "
-                    "We will attempt to guess the platform based on the connector type.",
-                    context=f"{connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
+                    "We will attempt to guess the platform based on the connector type. "
+                    "Note that we use connector_id as the key not connector_name which you may see in the UI of Fivetran. ",
+                    context=f"connector_name: {connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
+                    log_category=StructuredLogCategory.LINEAGE,
                 )
                 source_details.platform = connector.connector_type
 
