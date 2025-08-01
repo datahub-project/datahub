@@ -64,7 +64,7 @@ datahub datacontract upsert -f contract_definition.yml
 ### UI
 
 1. Navigate to the Dataset Profile for the dataset you wish to create a contract for
-2. Under the **Validations** > **Data Contracts** tab, click **Create**.
+2. Under the **Quality** > **Data Contracts** tab, click **Create**.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/create-data-contract-ui.png"/>

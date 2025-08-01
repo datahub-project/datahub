@@ -1,7 +1,10 @@
 import {
     EXECUTION_REQUEST_STATUS_ABORTED,
     EXECUTION_REQUEST_STATUS_CANCELLED,
+    EXECUTION_REQUEST_STATUS_DUPLICATE,
     EXECUTION_REQUEST_STATUS_FAILURE,
+    EXECUTION_REQUEST_STATUS_LOADING,
+    EXECUTION_REQUEST_STATUS_PENDING,
     EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED,
     EXECUTION_REQUEST_STATUS_ROLLED_BACK,
     EXECUTION_REQUEST_STATUS_ROLLING_BACK,
@@ -24,7 +27,7 @@ export const getExecutionRequestStatusIcon = (status: string) => {
     return (
         (status === EXECUTION_REQUEST_STATUS_RUNNING && 'CircleNotch') ||
         (status === EXECUTION_REQUEST_STATUS_SUCCESS && 'Check') ||
-        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'ExclamationMark') ||
+        (status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS && 'WarningCircle') ||
         (status === EXECUTION_REQUEST_STATUS_FAILURE && 'X') ||
         (status === EXECUTION_REQUEST_STATUS_CANCELLED && 'Prohibit') ||
         (status === EXECUTION_REQUEST_STATUS_UP_FOR_RETRY && 'CircleNotch') ||
@@ -32,6 +35,8 @@ export const getExecutionRequestStatusIcon = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && 'CircleNotch') ||
         (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && 'X') ||
         (status === EXECUTION_REQUEST_STATUS_ABORTED && 'X') ||
+        (status === EXECUTION_REQUEST_STATUS_DUPLICATE && 'Copy') ||
+        (status === EXECUTION_REQUEST_STATUS_PENDING && 'Clock') ||
         'CircleNotch'
     );
 };
@@ -48,6 +53,9 @@ export const getExecutionRequestStatusDisplayText = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && 'Rolling Back') ||
         (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && 'Rollback Failed') ||
         (status === EXECUTION_REQUEST_STATUS_ABORTED && 'Aborted') ||
+        (status === EXECUTION_REQUEST_STATUS_DUPLICATE && 'Duplicate') ||
+        (status === EXECUTION_REQUEST_STATUS_PENDING && 'Pending') ||
+        (status === EXECUTION_REQUEST_STATUS_LOADING && 'Loading') ||
         status
     );
 };
@@ -64,6 +72,8 @@ export const getExecutionRequestStatusDisplayColor = (status: string) => {
         (status === EXECUTION_REQUEST_STATUS_ROLLING_BACK && 'yellow') ||
         (status === EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED && 'red') ||
         (status === EXECUTION_REQUEST_STATUS_ABORTED && 'gray') ||
+        (status === EXECUTION_REQUEST_STATUS_DUPLICATE && 'gray') ||
+        (status === EXECUTION_REQUEST_STATUS_PENDING && 'gray') ||
         'gray'
     );
 };

@@ -52,6 +52,9 @@ query listIngestionExecutionRequests($input: ListExecutionRequestsInput!) {
             ...ingestionExecutionRequestFields
             source {
                 ...ingestionSourceFields
+                latestSuccessfulExecution {
+                    ...minimalIngestionExecutionRequestFields
+                }
             }
         }
     }

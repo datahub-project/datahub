@@ -177,6 +177,10 @@ All Aspects:
 
 For Rest.li, see [Restore Indices API](../api/restli/restore-indices.md).
 
+### CLI
+
+The [datahub CLI](../cli.md) also supports a utility command for restoring indices.
+
 ## Best Practices
 
 In general, this process is not required to run unless there has been a disruption of storage services or infrastructure,

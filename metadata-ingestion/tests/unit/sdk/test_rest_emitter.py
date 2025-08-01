@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import timedelta
 from typing import Any, Dict
 from unittest.mock import ANY, MagicMock, Mock, patch
@@ -9,6 +10,7 @@ from requests import Response, Session
 
 from datahub.configuration.common import (
     ConfigurationError,
+    OperationalError,
     TraceTimeoutError,
     TraceValidationError,
 )
@@ -35,6 +37,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProperties,
 )
 from datahub.metadata.schema_classes import (
+    KEY_ASPECT_NAMES,
+    KEY_ASPECTS,
     ChangeTypeClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -827,11 +831,13 @@ class TestDataHubRestEmitter:
             assert not trace.data
 
     def test_await_status_logging(self, openapi_emitter):
-        with patch.object(logger, "debug") as mock_debug, patch.object(
-            logger, "error"
-        ) as mock_error, patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit:
+        with (
+            patch.object(logger, "debug") as mock_debug,
+            patch.object(logger, "error") as mock_error,
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+        ):
             # Test empty trace data logging
             openapi_emitter._await_status([], timedelta(seconds=10))
             mock_debug.assert_called_once_with("No trace data to verify")
@@ -897,10 +903,11 @@ class TestDataHubRestEmitter:
 
     def test_openapi_emitter_mixed_method_chunking(self, openapi_emitter):
         """Test that chunking works correctly across different HTTP methods"""
-        with patch(
-            "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
-        ) as mock_emit, patch(
-            "datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2
+        with (
+            patch(
+                "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+            ) as mock_emit,
+            patch("datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2),
         ):
             # Create more items than the chunk size for each method
             items = [
@@ -1022,6 +1029,442 @@ class TestDataHubRestEmitter:
                 == "true"
             )
 
+    def test_config_cache_ttl(self, mock_session, mock_response):
+        """Test that config is cached and respects TTL"""
+        mock_session.get.return_value = mock_response
+
+        # Create emitter with 2 second TTL
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT, server_config_refresh_interval=2
+        )
+        emitter._session = mock_session
+
+        # First call should fetch from server
+        config1 = emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Second call within TTL should use cache
+        config2 = emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1  # Still 1, not 2
+        assert config1 is config2  # Same object reference
+
+        # Wait for TTL to expire
+        time.sleep(2.1)
+
+        # Next call should fetch from server again
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2
+
+    def test_config_cache_default_ttl(self, mock_session, mock_response):
+        """Test that default TTL is 60 seconds"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        assert emitter._server_config_refresh_interval is None
+
+    def test_config_cache_manual_invalidation(self, mock_session, mock_response):
+        """Test manual cache invalidation"""
+        mock_session.get.return_value = mock_response
+
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT, server_config_refresh_interval=60
+        )
+        emitter._session = mock_session
+
+        # First call fetches from server
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Second call uses cache
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Invalidate cache
+        emitter.invalidate_config_cache()
+
+        # Next call should fetch from server
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2
+
+    def test_config_cache_with_pre_set_config(self):
+        """Test that pre-set config doesn't trigger fetch"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+
+        # Manually set config without fetch time
+        test_config = RestServiceConfig(raw_config={"noCode": "true", "test": "value"})
+        emitter._server_config = test_config
+
+        # Mock session to ensure it's not called
+        with patch.object(emitter._session, "get") as mock_get:
+            config = emitter.fetch_server_config()
+
+            # Should not have made any HTTP calls
+            mock_get.assert_not_called()
+
+            # Should return the pre-set config
+            assert config is test_config
+
+    def test_config_cache_with_connection_error(self, mock_session):
+        """Test that failed fetches don't affect cache"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter._session = mock_session
+
+        # First call fails
+        mock_session.get.side_effect = ConfigurationError("Connection failed")
+
+        with pytest.raises(ConfigurationError):
+            emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Cache should still be empty
+        assert not hasattr(emitter, "_server_config") or emitter._server_config is None
+        assert emitter._config_fetch_time is None
+
+        # Fix the error and set up successful response
+        mock_session.get.side_effect = None
+        mock_response = Mock(
+            status_code=200, json=lambda: {"noCode": "true", "test": "value"}
+        )
+        mock_session.get.return_value = mock_response
+
+        # Second call should still hit server (no cache from failed attempt)
+        config = emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2
+        assert config is not None
+
+    def test_config_property_uses_fetch_method(self, mock_session, mock_response):
+        """Test that server_config property uses fetch_server_config method"""
+        mock_session.get.return_value = mock_response
+
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter._session = mock_session
+
+        # Access via property
+        with patch.object(
+            emitter, "fetch_server_config", wraps=emitter.fetch_server_config
+        ) as mock_fetch:
+            config = emitter.server_config
+            mock_fetch.assert_called_once()
+            assert config is not None
+
+    def test_config_cache_multiple_emitters(self, mock_session, mock_response):
+        """Test that each emitter has its own cache"""
+        mock_session.get.return_value = mock_response
+
+        emitter1 = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter1._session = mock_session
+
+        emitter2 = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        # Create a separate mock for emitter2
+        mock_session2 = Mock()
+        mock_session2.get.return_value = mock_response
+        emitter2._session = mock_session2
+
+        # Each emitter should make its own call
+        config1 = emitter1.fetch_server_config()
+        config2 = emitter2.fetch_server_config()
+
+        assert mock_session.get.call_count == 1
+        assert mock_session2.get.call_count == 1
+
+        # Configs should be different objects
+        assert config1 is not config2
+
+    def test_config_cache_custom_ttl(self, mock_session, mock_response):
+        """Test creating emitter with custom TTL"""
+        mock_session.get.return_value = mock_response
+
+        # Create with 5 minute TTL
+        emitter = DataHubRestEmitter(
+            MOCK_GMS_ENDPOINT, server_config_refresh_interval=300
+        )
+        emitter._session = mock_session
+
+        assert emitter._server_config_refresh_interval == 300
+
+        # Fetch config
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # After 1 minute, should still use cache
+        # Simulate time passing by manipulating _config_fetch_time
+        emitter._config_fetch_time = time.time() - 60  # 1 minute ago
+
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1  # Still cached
+
+        # After 6 minutes, should fetch again
+        emitter._config_fetch_time = time.time() - 360  # 6 minutes ago
+
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2  # Fetched again
+
+    def test_unicode_character_emission(self):
+        """Test that unicode characters are properly escaped"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Create MCP with unicode characters in dataset properties
+        test_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,UnicodeTest,PROD)",
+            aspect=DatasetProperties(
+                name="Test Dataset with émojis 🚀 and spëcial chars ñ",
+                description="Dataset with unicode: café, naïve, résumé, 中文, العربية",
+            ),
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            emitter.emit_mcp(test_mcp)
+
+            # Verify _emit_generic was called
+            mock_emit.assert_called_once()
+
+            # Get the payload and verify unicode escaping
+            payload = mock_emit.call_args[0][1]  # Second positional argument
+
+            # unicode escapes are double-escaped within the JSON structure
+            assert "\\\\u00e9" in payload  # é (double-escaped)
+            assert (
+                "\\\\ud83d\\\\ude80" in payload
+            )  # 🚀 rocket emoji as UTF-16 surrogate pair (double-escaped)
+            assert "\\\\u00eb" in payload  # ë (double-escaped)
+            assert "\\\\u00f1" in payload  # ñ (double-escaped)
+            assert "\\\\u4e2d\\\\u6587" in payload  # 中文 (double-escaped)
+
+            # ASCII characters should remain unescaped
+            assert "Test Dataset" in payload
+            assert "Dataset with unicode" in payload
+
+    def test_preserve_unicode_escapes_function_directly(self):
+        """Test the preserve_unicode_escapes function with various unicode scenarios"""
+        from datahub.emitter.rest_emitter import preserve_unicode_escapes
+
+        # Test simple unicode characters
+        test_dict = {
+            "name": "Café",
+            "description": "naïve résumé",
+            "emoji": "Hello 👋 World 🌍",
+            "chinese": "你好世界",
+            "arabic": "مرحبا بالعالم",
+            "nested": {
+                "field": "spëciàl chàrs",
+                "list": ["item1", "itëm2 🚀", "中文项目"],
+            },
+        }
+
+        result = preserve_unicode_escapes(test_dict)
+
+        # Verify unicode escaping - check the actual dictionary values
+        assert result["name"] == "Caf\\u00e9"  # é
+        assert result["description"] == "na\\u00efve r\\u00e9sum\\u00e9"  # ï, é
+        assert result["emoji"] == "Hello \\u1f44b World \\u1f30d"  # 👋 🌍
+        assert result["chinese"] == "\\u4f60\\u597d\\u4e16\\u754c"  # 你好世界
+        assert result["nested"]["field"] == "sp\\u00ebci\\u00e0l ch\\u00e0rs"  # ë, à, à
+        assert result["nested"]["list"][1] == "it\\u00ebm2 \\u1f680"  # ë, 🚀
+        assert result["nested"]["list"][2] == "\\u4e2d\\u6587\\u9879\\u76ee"  # 中文项目
+
+        # ASCII should remain unchanged
+        assert result["nested"]["list"][0] == "item1"  # Pure ASCII
+
+    def test_emit_mcp_delete_functionality(self):
+        """Test that MCP delete operations use correct URL and payload format"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Test Case 1: Delete with key aspect (should succeed)
+        delete_mcp_key_aspect = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetKey",  # This is a key aspect
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,  # No aspect data needed for delete
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            emitter.emit_mcp(delete_mcp_key_aspect)
+
+            # Verify _emit_generic was called once
+            mock_emit.assert_called_once()
+
+            # Check that delete URL format was used
+            url = mock_emit.call_args[0][0]
+            assert url == f"{MOCK_GMS_ENDPOINT}/entities?action=delete"
+
+            # Check that delete payload format was used (just URN)
+            payload = mock_emit.call_args[0][1]
+            payload_dict = json.loads(payload)
+            expected_payload = {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+            }
+            assert payload_dict == expected_payload
+
+        # Test Case 2: Delete with non-key aspect (should log error and return)
+        delete_mcp_non_key_aspect = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetProperties",  # This is NOT a key aspect
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        with (
+            patch.object(emitter, "_emit_generic") as mock_emit,
+        ):
+            try:
+                emitter.emit_mcp(delete_mcp_non_key_aspect)
+            except OperationalError as e:
+                assert e.message == (
+                    "Delete not supported for non key aspect: datasetProperties for urn: "
+                    "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+                )
+
+            # Verify _emit_generic was NOT called
+            mock_emit.assert_not_called()
+
+    def test_emit_mcp_delete_vs_upsert_different_urls(self):
+        """Test that delete and upsert operations use different URLs"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Create delete MCP
+        delete_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetKey",
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        # Create upsert MCP
+        upsert_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,UpsertTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetProperties",
+            changeType=ChangeTypeClass.UPSERT,
+            aspect=DatasetProperties(name="Test Dataset"),
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            # Test delete
+            emitter.emit_mcp(delete_mcp)
+            delete_url = mock_emit.call_args[0][0]
+
+            # Reset mock
+            mock_emit.reset_mock()
+
+            # Test upsert
+            emitter.emit_mcp(upsert_mcp)
+            upsert_url = mock_emit.call_args[0][0]
+
+            # Verify different URLs were used
+            assert delete_url == f"{MOCK_GMS_ENDPOINT}/entities?action=delete"
+            assert upsert_url == f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal"
+            assert delete_url != upsert_url
+
+    def test_emit_mcp_delete_payload_structure(self):
+        """Test that delete payload has correct structure compared to upsert"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Create delete MCP
+        delete_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetKey",
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        # Create upsert MCP for comparison
+        upsert_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,UpsertTest,PROD)",
+            entityType="dataset",
+            aspectName="datasetProperties",
+            changeType=ChangeTypeClass.UPSERT,
+            aspect=DatasetProperties(name="Test Dataset"),
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            # Test delete payload
+            emitter.emit_mcp(delete_mcp)
+            delete_payload = json.loads(mock_emit.call_args[0][1])
+
+            # Reset mock
+            mock_emit.reset_mock()
+
+            # Test upsert payload
+            emitter.emit_mcp(upsert_mcp)
+            upsert_payload = json.loads(mock_emit.call_args[0][1])
+
+            # Verify delete payload structure
+            assert "urn" in delete_payload
+            assert (
+                delete_payload["urn"]
+                == "urn:li:dataset:(urn:li:dataPlatform:mysql,DeleteTest,PROD)"
+            )
+            assert (
+                "proposal" not in delete_payload
+            )  # Should not have proposal for delete
+            assert "async" not in delete_payload  # Should not have async for delete
+
+            # Verify upsert payload structure (for comparison)
+            assert "proposal" in upsert_payload
+            assert "async" in upsert_payload
+            assert "urn" not in upsert_payload  # URN is inside proposal for upsert
+
+    def test_emit_mcp_delete_with_key_aspects_only(self):
+        """Test that delete only works with key aspects from KEY_ASPECTS"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+
+        # Test with a known key aspect (should work)
+        key_aspect = next(iter(KEY_ASPECT_NAMES))  # Get first key aspect
+        delete_mcp_key = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,KeyAspectTest,PROD)",
+            entityType="dataset",
+            aspectName=key_aspect,
+            changeType=ChangeTypeClass.DELETE,
+            aspect=None,
+        )
+
+        with patch.object(emitter, "_emit_generic") as mock_emit:
+            emitter.emit_mcp(delete_mcp_key)
+
+            # Should have called _emit_generic
+            mock_emit.assert_called_once()
+
+            # Verify URL and payload
+            url = mock_emit.call_args[0][0]
+            payload = json.loads(mock_emit.call_args[0][1])
+
+            assert url == f"{MOCK_GMS_ENDPOINT}/entities?action=delete"
+            assert payload == {
+                "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,KeyAspectTest,PROD)"
+            }
+
+        # Test with a non-key aspect (should fail)
+        non_key_aspects = ["datasetProperties", "datasetProfile", "status"]
+        for aspect_name in non_key_aspects:
+            if aspect_name not in KEY_ASPECTS:  # Ensure it's actually not a key aspect
+                delete_mcp_non_key = MetadataChangeProposalWrapper(
+                    entityUrn="urn:li:dataset:(urn:li:dataPlatform:mysql,NonKeyAspectTest,PROD)",
+                    entityType="dataset",
+                    aspectName=aspect_name,
+                    changeType=ChangeTypeClass.DELETE,
+                    aspect=None,
+                )
+
+                with (
+                    patch.object(emitter, "_emit_generic") as mock_emit,
+                ):
+                    try:
+                        emitter.emit_mcp(delete_mcp_non_key)
+                    except OperationalError as e:
+                        assert (
+                            f"Delete not supported for non key aspect: {aspect_name} for urn: "
+                            "urn:li:dataset:(urn:li:dataPlatform:mysql,NonKeyAspectTest,PROD)"
+                        ) == e.message
+
+                    # Should NOT have called _emit_generic
+                    mock_emit.assert_not_called()
+
+                    # Reset for next iteration
+                    mock_emit.reset_mock()
+                break  # Only need to test one non-key aspect
+
 
 class TestOpenApiModeSelection:
     def test_sdk_client_mode_no_env_var(self, mock_session, mock_response):
@@ -1059,11 +1502,16 @@ class TestOpenApiModeSelection:
         """Test that env var set to RESTLI overrides SDK client mode default"""
         mock_session.get.return_value = mock_response
 
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.RESTLI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.RESTLI,
+            ),
         ):
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
             emitter._session = mock_session
@@ -1074,11 +1522,16 @@ class TestOpenApiModeSelection:
         """Test that env var set to OPENAPI enables OpenAPI for any client mode"""
         mock_session.get.return_value = mock_response
 
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.OPENAPI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.OPENAPI,
+            ),
         ):
             # Test INGESTION mode
             emitter = DataHubRestEmitter(
@@ -1102,11 +1555,16 @@ class TestOpenApiModeSelection:
 
     def test_constructor_param_true_overrides_all(self):
         """Test that explicit constructor parameter True overrides all other settings"""
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.RESTLI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.RESTLI,
+            ),
         ):
             # Even with env var and non-SDK mode, constructor param should win
             emitter = DataHubRestEmitter(
@@ -1118,11 +1576,16 @@ class TestOpenApiModeSelection:
 
     def test_constructor_param_false_overrides_all(self):
         """Test that explicit constructor parameter False overrides all other settings"""
-        with patch.dict(
-            os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
-        ), patch(
-            "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
-            RestSinkEndpoint.OPENAPI,
+        with (
+            patch.dict(
+                os.environ,
+                {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"},
+                clear=True,
+            ),
+            patch(
+                "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
+                RestSinkEndpoint.OPENAPI,
+            ),
         ):
             # Even with env var and SDK mode, constructor param should win
             emitter = DataHubRestEmitter(

@@ -6,7 +6,7 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
+FROM golang:1-alpine3.22 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
@@ -50,7 +50,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install
-COPY mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
+COPY metadata-jobs/mae-consumer-job/build/libs/mae-consumer-job.jar /datahub/datahub-mae-consumer/bin/
 COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-mae-consumer/resources/entity-registry.yml
 COPY docker/datahub-mae-consumer/start.sh /datahub/datahub-mae-consumer/scripts/
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-mae-consumer/scripts/prometheus-config.yaml

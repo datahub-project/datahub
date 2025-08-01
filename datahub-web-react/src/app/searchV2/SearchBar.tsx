@@ -9,7 +9,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { ViewSelect } from '@app/entityV2/view/select/ViewSelect';
+import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
 import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import ViewAllSearchItem from '@app/searchV2/ViewAllSearchItem';
@@ -152,7 +152,7 @@ export interface SearchBarProps {
     isLoading?: boolean;
     initialQuery?: string;
     placeholderText: string;
-    suggestions: Array<AutoCompleteResultForEntity>;
+    suggestions?: Array<AutoCompleteResultForEntity>;
     onSearch: (query: string, filters?: FacetFilterInput[]) => void;
     onQueryChange?: (query: string) => void;
     style?: React.CSSProperties;
@@ -284,7 +284,7 @@ export const SearchBar = ({
     }, [effectiveQuery, showViewAllResults]);
 
     const autoCompleteEntityOptions = useMemo(() => {
-        return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
+        return (suggestions ?? []).map((suggestion: AutoCompleteResultForEntity) => {
             const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, {
                 combineSiblings: finalCombineSiblings,
             });
@@ -509,7 +509,7 @@ export const SearchBar = ({
                     </StyledAutoComplete>
                     {viewsEnabled && (
                         <ViewSelectContainer id={V2_SEARCH_BAR_VIEWS}>
-                            <ViewSelect />
+                            <ViewSelectButtonWithPopover />
                         </ViewSelectContainer>
                     )}
                 </AutoCompleteContainer>

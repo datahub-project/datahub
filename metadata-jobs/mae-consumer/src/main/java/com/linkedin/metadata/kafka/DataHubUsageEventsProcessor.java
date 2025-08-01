@@ -2,8 +2,6 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.SIMPLE_EVENT_CONSUMER_NAME;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.kafka.config.DataHubUsageEventsProcessorCondition;
@@ -16,10 +14,12 @@ import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -32,14 +32,16 @@ import org.springframework.stereotype.Component;
 @Conditional(DataHubUsageEventsProcessorCondition.class)
 @Import({SimpleKafkaConsumerFactory.class})
 public class DataHubUsageEventsProcessor {
+  public static final String DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_VALUE =
+      "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}";
 
   private final ElasticsearchConnector elasticSearchConnector;
   private final DataHubUsageEventTransformer dataHubUsageEventTransformer;
   private final String indexName;
   private final OperationContext systemOperationContext;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
+  @Value(DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_VALUE)
+  private String datahubUsageEventConsumerGroupId;
 
   public DataHubUsageEventsProcessor(
       ElasticsearchConnector elasticSearchConnector,
@@ -53,7 +55,7 @@ public class DataHubUsageEventsProcessor {
   }
 
   @KafkaListener(
-      id = "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}",
+      id = DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_VALUE,
       topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
       containerFactory = SIMPLE_EVENT_CONSUMER_NAME,
       autoStartup = "false")
@@ -61,7 +63,31 @@ public class DataHubUsageEventsProcessor {
     systemOperationContext.withSpan(
         "consume",
         () -> {
-          kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils -> {
+                    long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+
+                    // Dropwizard legacy
+                    metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
+
+                    // Micrometer with tags
+                    // TODO: include priority level when available
+                    metricUtils
+                        .getRegistry()
+                        .ifPresent(
+                            meterRegistry -> {
+                              meterRegistry
+                                  .timer(
+                                      MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                                      "topic",
+                                      consumerRecord.topic(),
+                                      "consumer.group",
+                                      datahubUsageEventConsumerGroupId)
+                                  .record(Duration.ofMillis(queueTimeMs));
+                            });
+                  });
           final String record = consumerRecord.value();
 
           log.info(

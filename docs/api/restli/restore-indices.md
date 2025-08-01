@@ -1,5 +1,7 @@
 # Restore Indices Endpoint
 
+This is reference material for the REST.li `restoreIndices` endpoint. For general information on reindexing and restoring indices, see [Restore Indices](../../how/restore-indices.md).
+
 You can do a HTTP POST request to `/gms/operations?action=restoreIndices` endpoint with the `urn` as part of JSON Payload to restore indices for the particular URN, or with the `urnLike` regex to restore for `batchSize` URNs matching the pattern starting from `start`.
 
 ```

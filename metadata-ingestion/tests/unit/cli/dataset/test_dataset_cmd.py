@@ -213,8 +213,9 @@ class TestDatasetCli:
         files_before = len(list(TEST_RESOURCES_DIR.glob("*.tmp")))
 
         runner = CliRunner()
-        with patch("datahub.cli.specific.dataset_cli.Dataset"), patch(
-            "filecmp.cmp", return_value=True
+        with (
+            patch("datahub.cli.specific.dataset_cli.Dataset"),
+            patch("filecmp.cmp", return_value=True),
         ):
             runner.invoke(dataset, ["file", "--lintCheck", str(test_yaml_file)])
 

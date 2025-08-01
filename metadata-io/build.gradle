@@ -32,12 +32,8 @@ dependencies {
   implementation externalDependency.guava
   implementation externalDependency.reflections
 
-  api(externalDependency.dgraph4j) {
-    exclude group: 'com.google.guava', module: 'guava'
-    exclude group: 'io.grpc', module: 'grpc-protobuf'
-  }
-  implementation externalDependency.dgraphNetty
-  implementation externalDependency.dgraphShadedNetty
+  implementation externalDependency.neo4jJavaDriver
+  implementation externalDependency.graphqlJava
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
@@ -49,7 +45,6 @@ dependencies {
   }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
-  api externalDependency.elasticSearchJava
   implementation externalDependency.javatuples
   api externalDependency.javaxValidation
   runtimeOnly externalDependency.jna
@@ -72,20 +67,14 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
-  testImplementation project(':datahub-graphql-core')
+  testFixturesApi project(':datahub-graphql-core')
   testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   testImplementation project(':metadata-service:auth-impl')
+  testFixturesApi project(':metadata-service:configuration')
   testImplementation project(':li-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
-  testImplementation externalDependency.neo4jHarness
-  testImplementation (externalDependency.neo4jApocCore) {
-    exclude group: 'org.yaml', module: 'snakeyaml'
-  }
-  testImplementation (externalDependency.neo4jApocCommon) {
-    exclude group: 'org.yaml', module: 'snakeyaml'
-  }
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.iStackCommons
@@ -95,8 +84,9 @@ dependencies {
   testImplementation externalDependency.testContainersElasticsearch
   testImplementation externalDependency.testContainersOpenSearch
   testImplementation externalDependency.testContainersCassandra
+  testImplementation externalDependency.testContainersNeo4j
   testImplementation externalDependency.lombok
-  testImplementation externalDependency.springBootTest
+  testFixturesApi externalDependency.springBootTest
   testImplementation spec.product.pegasus.restliServer
   testImplementation externalDependency.ebeanTest
   testImplementation externalDependency.opentelemetrySdk

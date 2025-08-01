@@ -21,12 +21,14 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
+    StructuredPropertyInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
@@ -45,6 +47,7 @@ class DataFlow(
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
     """Represents a dataflow in DataHub.
@@ -86,6 +89,7 @@ class DataFlow(
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
         parent_container: ParentContainerInputType | Unset = unset,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         """Initialize a new Dataflow instance.
@@ -150,6 +154,9 @@ class DataFlow(
             self.set_domain(domain)
         if parent_container is not unset:
             self._set_container(parent_container)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:

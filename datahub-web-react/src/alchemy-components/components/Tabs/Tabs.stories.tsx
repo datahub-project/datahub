@@ -90,6 +90,19 @@ const meta = {
         getCurrentUrl: {
             description: 'A custom function to get the current URL. Defaults to window.location.pathname',
         },
+        scrollToTopOnChange: {
+            description: 'Whether to scroll to the top of the tabs container when switching tabs',
+            control: { type: 'boolean' },
+        },
+        maxHeight: {
+            description:
+                'Maximum height of the scrollable tabs container (only applies when scrollToTopOnChange is true)',
+            control: { type: 'text' },
+        },
+        stickyHeader: {
+            description: 'Whether to make the tab headers sticky when scrolling',
+            control: { type: 'boolean' },
+        },
     },
 
     // Args for the story
@@ -135,4 +148,78 @@ const UrlAwareTabsDemo = () => {
 export const urlAware: Story = {
     tags: ['dev'],
     render: () => <UrlAwareTabsDemo />,
+};
+
+const StickyHeaderTabsDemo = () => {
+    const [selectedTab, setSelectedTab] = React.useState('tab1');
+
+    const stickyTabs = [
+        {
+            key: 'tab1',
+            name: 'Tab One',
+            component: (
+                <div style={{ padding: '20px' }}>
+                    <h3>Tab One with Sticky Header</h3>
+                    {Array.from({ length: 40 }, (_, i) => (
+                        <p key={i}>
+                            This is paragraph {i + 1}. The tab header will stick to the top when you scroll down. Lorem
+                            ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
+                            labore et dolore magna aliqua.
+                        </p>
+                    ))}
+                </div>
+            ),
+        },
+        {
+            key: 'tab2',
+            name: 'Tab Two',
+            component: (
+                <div style={{ padding: '20px' }}>
+                    <h3>Tab Two Content</h3>
+                    {Array.from({ length: 35 }, (_, i) => (
+                        <div key={i} style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#f0f0f0' }}>
+                            Content block {i + 1} - Notice how the tab header remains visible at the top while
+                            scrolling.
+                        </div>
+                    ))}
+                </div>
+            ),
+        },
+        {
+            key: 'tab3',
+            name: 'Tab Three',
+            component: (
+                <div style={{ padding: '20px' }}>
+                    <h3>Tab Three Content</h3>
+                    {Array.from({ length: 50 }, (_, i) => (
+                        <p key={i}>
+                            Line {i + 1}: The sticky header allows you to easily switch between tabs even when scrolled
+                            deep into the content. This is particularly useful for long content like logs or detailed
+                            configuration files.
+                        </p>
+                    ))}
+                </div>
+            ),
+        },
+    ];
+
+    return (
+        <div style={{ width: '700px', height: '500px' }}>
+            <h4>Sticky Header & Scroll to Top on Tab Change Demo</h4>
+            <p>Scroll down within the tab content to see the sticky header behavior and switch between tabs</p>
+            <Tabs
+                tabs={stickyTabs}
+                selectedTab={selectedTab}
+                onChange={setSelectedTab}
+                scrollToTopOnChange
+                maxHeight="400px"
+                stickyHeader
+            />
+        </div>
+    );
+};
+
+export const stickyHeader: Story = {
+    tags: ['dev'],
+    render: () => <StickyHeaderTabsDemo />,
 };

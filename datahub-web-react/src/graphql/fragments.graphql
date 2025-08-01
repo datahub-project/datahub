@@ -448,7 +448,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
-    ...entityDataProduct
+    application {
+        ...entityApplication
+    }
     container {
         ...entityContainer
     }
@@ -491,6 +493,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
@@ -517,12 +522,18 @@ fragment nonRecursiveDataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
     }
     subTypes {
         typeNames
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -562,6 +573,9 @@ fragment dataJobFields on DataJob {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
@@ -592,6 +606,9 @@ fragment dataJobFields on DataJob {
     }
     dataTransformLogic {
         ...dataTransformLogicFields
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -639,6 +656,9 @@ fragment dashboardFields on Dashboard {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     parentContainers {
@@ -735,6 +755,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -886,6 +909,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -1079,6 +1105,9 @@ fragment nonRecursiveMLModel on MLModel {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     tags {
         ...globalTagsFields
@@ -1122,6 +1151,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -1239,6 +1271,9 @@ fragment domainEntitiesFields on Domain {
     dataProducts: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "DATA_PRODUCT" }] }) {
         total
     }
+    applications: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "APPLICATION" }] }) {
+        total
+    }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
         total
     }
@@ -1261,6 +1296,33 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+}
+
+fragment entityApplication on ApplicationAssociation {
+    application {
+        urn
+        type
+        properties {
+            name
+            description
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
+            total
+        }
+    }
 }
 
 fragment entityDataProduct on Entity {
@@ -1416,6 +1478,11 @@ fragment entityDisplayNameFields on Entity {
             name
         }
     }
+    ... on Application {
+        properties {
+            name
+        }
+    }
     ... on DataPlatformInstance {
         instanceId
     }
@@ -1450,6 +1517,7 @@ fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     createdActor {
         urn
     }
+    cardinality
 }
 
 fragment relationshipFieldMapping on RelationshipFieldMapping {
@@ -1470,6 +1538,7 @@ fragment datasetERModelRelationshipFields on Dataset {
         description
     }
     editableProperties {
+        name
         description
     }
     schemaMetadata {
@@ -1852,6 +1921,19 @@ fragment ingestionSourceFields on IngestionSource {
         urn
         type
         name
+    }
+}
+
+fragment minimalIngestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        task
     }
 }
 
