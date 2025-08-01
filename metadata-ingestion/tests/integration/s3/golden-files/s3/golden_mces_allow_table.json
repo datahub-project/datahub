@@ -10,6 +10,7 @@
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/folder_aaaa/pokemon_abilities_yearwise_2021/month=march/part2.json",
                 "number_of_partitions": "6"
             },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/folder_aaaa",
             "name": "folder_aaaa",
             "description": "",
             "created": {

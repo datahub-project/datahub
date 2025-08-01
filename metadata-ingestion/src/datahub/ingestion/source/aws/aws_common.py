@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
+    from mypy_boto3_lakeformation import LakeFormationClient
     from mypy_boto3_s3 import S3Client, S3ServiceResource
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sts import STSClient
@@ -453,6 +454,9 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())
+
+    def get_lakeformation_client(self) -> "LakeFormationClient":
+        return self.get_session().client("lakeformation", config=self._aws_config())
 
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):

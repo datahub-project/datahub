@@ -184,6 +184,14 @@ class RestServiceConfig:
         return managed_ingestion.get("enabled", False)
 
     @property
+    def default_cli_version(self) -> Optional[str]:
+        """
+        Get the default CLI version.
+        """
+        managed_ingestion = self.raw_config.get("managedIngestion") or {}
+        return managed_ingestion.get("defaultCliVersion")
+
+    @property
     def is_datahub_cloud(self) -> bool:
         """
         Check if DataHub Cloud is enabled.

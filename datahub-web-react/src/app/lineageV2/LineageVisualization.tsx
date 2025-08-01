@@ -1,4 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styled from 'styled-components';
@@ -18,6 +19,8 @@ import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV2/co
 import LineageControls from '@app/lineageV2/controls/LineageControls';
 import SearchControl from '@app/lineageV2/controls/SearchControl';
 import ZoomControls from '@app/lineageV2/controls/ZoomControls';
+import { getLineageUrl } from '@app/lineageV2/lineageUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
     .react-flow__node-lineage-entity:not(.dragging) {
@@ -56,6 +59,9 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
+    const entityRegistry = useEntityRegistry();
+    const history = useHistory();
+    const location = useLocation();
 
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
@@ -73,6 +79,11 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onNodeDragStart={(_e, node) => {
                     // eslint-disable-next-line no-param-reassign
                     node.data.dragged = true;
+                }}
+                onNodeDoubleClick={(_e, node) => {
+                    if (node.data?.urn && node.data?.type) {
+                        history.push(getLineageUrl(node.data.urn, node.data.type, location, entityRegistry));
+                    }
                 }}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}

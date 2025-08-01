@@ -1,0 +1,93 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "debezium-postgres-connector",
+            "description": "Source connector using `io.debezium.connector.postgresql.PostgresConnector` plugin."
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-debezium-postgres-3-level-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD),postgres.public.member)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "debezium-postgres-connector:postgres.public.member",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-debezium-postgres-3-level-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD),postgres.public.member)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,postgres.public.member,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,postgres.debezium.public.member,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-debezium-postgres-3-level-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-debezium-postgres-3-level-run",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(kafka-connect,debezium-postgres-connector,PROD),postgres.public.member)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1635166800000,
+        "runId": "kafka-connect-debezium-postgres-3-level-run",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

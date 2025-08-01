@@ -6,6 +6,9 @@
 
 ### Breaking Changes
 
+- #13726: Default search results per page (new: 5000, old: 10000) can be configured with environment variable `ELASTICSEARCH_LIMIT_RESULTS_API_DEFAULT`
+- #13726: Maximum lineage visualization hops (new: 20, old: 1000) can be configured with environment variable `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`
+
 ### Known Issues
 
 ### Potential Downtime
@@ -13,6 +16,11 @@
 ### Deprecations
 
 ### Other Notable Changes
+
+- #13726: Removed dgraph from tests
+- #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
+- #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
+- #14162: Added fields to SystemMetadata updating the MCP Avro schema which can affect users of external schema registries with mixed version deployments.
 
 -->
 
@@ -22,15 +30,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
-- #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
-- #13397: `async_flag` removed from rest emitter, replaced with emit mode ASYNC
-
 ### Known Issues
-
-- #13397: Ingestion Rest Emitter
-  - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
-  - SYNC_WAIT - Only available with OpenAPI ingestion
 
 ### Potential Downtime
 
@@ -38,12 +38,77 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+## 1.2.0
+
+### Breaking Changes
+
+- All DataHub Python packages now require Python 3.9+. This affects the following packages:
+  - `acryl-datahub` (DataHub CLI and SDK)
+  - `acryl-datahub-actions`
+  - `acryl-datahub-airflow-plugin`
+  - `acryl-datahub-prefect-plugin`
+  - `acryl-datahub-gx-plugin`
+  - `acryl-datahub-dagster-plugin` (already required Python 3.9+)
+- #13619: The `acryl-datahub-airflow-plugin` has dropped support for Airflow versions less than 2.7.
+- #14054: The v1 plugin in `acryl-datahub-airflow-plugin` has been removed. The v2 plugin has been the default for a while already, so this should not impact most users. Users who were explicitly setting `DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN=true` will need to either upgrade or pin to an older version to continue using the v1 plugin.
+- #14015: In the sql-queries source, the `default_dialect` configuration parameter has been renamed to `override_dialect`. This also affects the Python SDK methods:
+  - `DataHubGraph.parse_sql_lineage(default_dialect=...)` → `DataHubGraph.parse_sql_lineage(override_dialect=...)`
+  - `LineageClient.add_lineage_via_sql(default_dialect=...)` → `LineageClient.add_lineage_via_sql(override_dialect=...)`
+- #14059: The `acryl-datahub-gx-plugin` now requires pydantic v2, which means the effective minimum supported version of GX is 0.17.15 (from Sept 2023).
+- #13601: The `use_queries_v2` flag is now enabled by default for Snowflake and BigQuery ingestion. This improves the quality of lineage and quantity of queries extracted.
+
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+- #13858: For folks using `bigquery` and `redshift` connectors please update `schema_pattern` to match against fully qualified schema name `<database_name>.<schema_name>` and set config `match_fully_qualified_names : True`. Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. The config option `match_fully_qualified_names` will be removed in future and the default behavior will be like `match_fully_qualified_names: True`.
+
+### Other Notable Changes
+
+- The `acryl-datahub-actions` package now requires Pydantic V2, while it previously was compatible with both Pydantic V1 and V2.
+- #14123: Adds a new environment variable `DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_BYTES` to control batch size limits when using the RestEmitter in ingestions. Default is 15MB but configurable.
+
+## 1.1.0
+
+### Breaking Changes
+
+- #12795: slack source v2 - now ingests all user and channels. Make sure the ingestion source and GMS are on the same version of DataHub.
+- #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
+- #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
+- #13397: `async_flag` removed from rest emitter, replaced with emit mode ASYNC
+- #13120: DataHub Actions Integration: Moved datahub-actions into OSS DataHub. Users building their own DataHub Actions docker images can now build from the OSS project.
+
+### Known Issues
+
+- #13397: Ingestion Rest Emitter
+  - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
+  - SYNC_WAIT - Only available with OpenAPI ingestion
+- OpenAPI Reports OpenAPI Spec 3.1.0 when it only supports 3.0.1
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+- SDK Improvements: Added URN to URL helpers, lineage client, ML model support, and search enhancements.
+- Connector Improvements: Significant enhancements to PowerBI, Superset, MLflow, and Redshift connectors.
+- New Connectors: Added connectors for Hex notebooks and VertexAI.
+- Iceberg Connector Refactoring: The Iceberg connector has been completely refactored to use MCPWs instead of MCEs.
+- Entity Subtypes Model Change: The addition of subtypes to most entities.
+- #13151 #13255: UI Search Bar Redesign: search bar with new autocomplete functionality has been added.
+- #12976: Edit Lineage Feature: Added ability to edit lineage directly in the UI.
+- #12983 #13107: Manage Tags Interface: Added a dedicated "Manage Tags" navigation page.
+- #13361: Theme Support: Added foundation for basic theme support with primary color configuration.
 - #13165 - OpenAPI v3 Patching Improvements
 - #13397 - Ingestion Rest Emitter - Added EmitMode parameter for write guarantees.
   - SYNC_WAIT: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - SYNC_PRIMARY: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - ASYNC: Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
   - ASYNC_WAIT: Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted. More efficient than fully synchronous operations due to backend parallelization and batching while still providing strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
+- #13426 - Added support for extracting column transformation logic when using `use_queries_v2` with warehouse ingestion.
 - #13499 - Added ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH configuration for ElasticSearch index config. If modified from the default, this configuration can have significant impact on search performance if changed and will trigger reindexing causing large delays in updates. Most users will not want to modify this.
 
 ## 1.0.0
@@ -67,6 +132,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
 - #12714: API Tracing requires at least one mutation of the aspect being updated using this version of DataHub.
 - #12797: See Breaking Change above. Entity Type names are case sensitive, this will result in 4xx exceptions when this rule is violated.
+- Python SDK v1.0.0.3 - direct accesses to the `server_config` property on `DataHubRestEmitter` can throw an unknown attribute error if `test_connection` is not called prior to directly accessing it as the default empty map initialization was removed. This is resolved in v1.1.0.
 
 ### Potential Downtime
 

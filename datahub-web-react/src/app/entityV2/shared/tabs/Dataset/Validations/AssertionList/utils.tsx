@@ -29,7 +29,7 @@ import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import { getPlainTextDescriptionFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
 import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { getPlatformName } from '@src/app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import {
     Assertion,
     AssertionInfo,
@@ -144,7 +144,7 @@ export const useSiblingOptionsForAssertionBuilder = (
         optionsToAuthorOn.push({
             urn: sibling.urn,
             title:
-                getPlatformName(sibling) ??
+                getPlatformNameFromEntityData(sibling) ??
                 sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,

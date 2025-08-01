@@ -380,7 +380,9 @@ class HanaConfig(BaseHanaConfig):
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 class HanaSource(SQLAlchemySource):
     config: HanaConfig
     report: SQLSourceReport = SQLSourceReport()

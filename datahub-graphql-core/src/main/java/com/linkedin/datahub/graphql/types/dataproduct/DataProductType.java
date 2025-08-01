@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.dataproduct;
 
+import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
@@ -53,7 +54,8 @@ public class DataProductType
           DOMAINS_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override
@@ -99,7 +101,7 @@ public class DataProductType
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Queries", e);
+      throw new RuntimeException("Failed to batch load Data Products", e);
     }
   }
 
@@ -108,7 +110,7 @@ public class DataProductType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -122,7 +124,7 @@ public class DataProductType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     throw new NotImplementedException(

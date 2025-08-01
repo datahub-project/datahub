@@ -157,17 +157,17 @@ Input arguments for listing access tokens
 """
 input ListAccessTokenInput {
   """
-  The starting offset of the result set
+  The starting offset of the result set, default is 0
   """
   start: Int
 
   """
-  The number of results to be returned
+  The number of results to be returned, default is 20
   """
   count: Int
 
   """
-  Facet filters to apply to search results
+  Facet filters to apply to search results, default is no filters
   """
   filters: [FacetFilterInput!]
 }

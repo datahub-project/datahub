@@ -78,7 +78,10 @@
     "joins": [
         {
             "join_type": "LEFT JOIN",
-            "tables": [
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)"
             ],

@@ -51,8 +51,10 @@
     "joins": [
         {
             "join_type": "inner JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,t2,PROD)"
             ],
             "on_clause": "`t1`.`id` = `t2`.`id`",

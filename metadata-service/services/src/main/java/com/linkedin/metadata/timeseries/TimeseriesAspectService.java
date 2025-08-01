@@ -246,7 +246,17 @@ public interface TimeseriesAspectService {
       @Nullable Filter filter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);
+
+  /**
+   * Returns the latest raw timeseries document
+   *
+   * @param opContext operation context
+   * @param urnAspects the urn to timeseries aspects to retrieve
+   * @return the raw ES documents
+   */
+  Map<Urn, Map<String, Map<String, Object>>> raw(
+      OperationContext opContext, Map<String, Set<String>> urnAspects);
 }

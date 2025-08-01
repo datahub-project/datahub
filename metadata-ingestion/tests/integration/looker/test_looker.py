@@ -48,7 +48,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeEventClass
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -913,10 +913,13 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     mocked_client = mock.MagicMock()
     pipeline_run1 = None
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard_multiple_charts(mocked_client)
@@ -939,10 +942,13 @@ def test_looker_ingest_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_
 
     pipeline_run2 = None
     mocked_client = mock.MagicMock()
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
@@ -1037,10 +1043,13 @@ def ingest_independent_looks(
     }
     new_recipe["pipeline_name"] = "execution-1"
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mock_sdk.return_value = mocked_client
@@ -1101,10 +1110,13 @@ def test_file_path_in_view_naming_pattern(
         "{project}.{file_path}.view.{name}"
     )
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mock_sdk.return_value = mocked_client
@@ -1327,10 +1339,13 @@ def test_looker_ingest_multi_model_explores(pytestconfig, tmp_path, mock_time):
 def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     mocked_client = mock.MagicMock()
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         mock_sdk.return_value = mocked_client
@@ -1401,10 +1416,13 @@ def test_upstream_cll(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 def test_explore_tags(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     mocked_client = mock.MagicMock()
 
-    with mock.patch(
-        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
-        mock_datahub_graph,
-    ) as mock_checkpoint, mock.patch("looker_sdk.init40") as mock_sdk:
+    with (
+        mock.patch(
+            "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+            mock_datahub_graph,
+        ) as mock_checkpoint,
+        mock.patch("looker_sdk.init40") as mock_sdk,
+    ):
         mock_checkpoint.return_value = mock_datahub_graph
 
         tags: List[str] = ["metrics", "all"]

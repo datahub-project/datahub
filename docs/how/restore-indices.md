@@ -1,122 +1,135 @@
-# Restoring Search and Graph Indices from Local Database
+# Search and Graph Reindexing
 
-If search infrastructure (Elasticsearch/Opensearch) or graph services (Elasticsearch/Opensearch/Neo4j) become inconsistent,
-you can restore them from the aspects stored in the local database.
+If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).
 
-When a new version of the aspect gets ingested, GMS initiates an MCL event for the aspect which is consumed to update
-the search and graph indices. As such, we can fetch the latest version of each aspect in the local database and produce
-MCL events corresponding to the aspects to restore the search and graph indices.
+This process works by fetching the latest version of each aspect from the database and replaying them as Metadata Change Log (MCL) events. These events will regenerate your search and graph indexes, effectively restoring a consistent view.
 
-By default, restoring the indices from the local database will not remove any existing documents in
-the search and graph indices that no longer exist in the local database, potentially leading to inconsistencies
-between the search and graph indices and the local database.
+> ⚠️ **Note**: By default, this process does **not remove** stale documents from the index that no longer exist in the database. To ensure full consistency, we recommend reindexing into a clean instance, or using the `-a clean` option to wipe existing index contents before replay.
 
-## Configuration
+---
 
-The upgrade jobs take arguments as command line args to the job itself rather than environment variables for job specific
-configuration. The RestoreIndices job is specified through the `-u RestoreIndices` upgrade ID parameter and then additional
-parameters are specified like `-a batchSize=1000`.
+## How it Works
 
-The following configurations are available:
+Reindexing is powered by the `datahub-upgrade` utility (packaged as the `datahub-upgrade` container in Docker/Kubernetes). It supports a special upgrade task called `RestoreIndices`, which replays aspects from the database back into search and graph stores.
 
-### Time-Based Filtering
+You can run this utility in three main environments:
 
-- `lePitEpochMs`: Restore records created before this timestamp (in milliseconds)
-- `gePitEpochMs`: Restore records created after this timestamp (in milliseconds)
+- Quickstart (via CLI)
+- Docker Compose (via shell script)
+- Kubernetes (via Helm + CronJob)
 
-### Pagination and Performance Options
+---
 
-- `urnBasedPagination`: Enable key-based pagination instead of offset-based pagination. Recommended for large datasets as it's typically more efficient.
-- `startingOffset`: When using default pagination, start from this offset
-- `lastUrn`: Resume from a specific URN when using URN-based pagination
-- `lastAspect`: Used with lastUrn to resume from a specific aspect, preventing reprocessing
-- `numThreads`: Number of concurrent threads for processing restoration, only used with default offset based paging
-- `batchSize`: Configures the size of each batch as the job pages through rows
-- `batchDelayMs`: Adds a delay in between each batch to avoid overloading backend systems
+## Reindexing Configuration Options
 
-### Content Filtering
+When running the `RestoreIndices` job, you can pass additional arguments to customize the behavior:
 
-- `aspectNames`: Comma-separated list of aspects to restore (e.g., "ownership,status")
-- `urnLike`: SQL LIKE pattern to filter URNs (e.g., "urn:li:dataset%")
+### 🔄 Pagination & Performance
 
-### Default Aspects
+| Argument             | Description                                                                 |
+| -------------------- | --------------------------------------------------------------------------- |
+| `urnBasedPagination` | Use URN-based pagination instead of offset. Recommended for large datasets. |
+| `startingOffset`     | Starting offset for offset-based pagination.                                |
+| `lastUrn`            | Resume from this URN (used with URN pagination).                            |
+| `lastAspect`         | Resume from this aspect name (used with `lastUrn`).                         |
+| `numThreads`         | Number of concurrent threads for reindexing.                                |
+| `batchSize`          | Number of records per batch.                                                |
+| `batchDelayMs`       | Delay in milliseconds between each batch (throttling).                      |
 
-- `createDefaultAspects`: Create default aspects in both SQL and ES if missing.
+### 📅 Time Filtering
 
-During the restore indices process, it will create default aspects in SQL. While this may be
-desired in some situations, disabling this feature is required when using a read-only SQL replica.
+| Argument       | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `gePitEpochMs` | Only restore aspects created **after** this timestamp (in ms).  |
+| `lePitEpochMs` | Only restore aspects created **before** this timestamp (in ms). |
 
-### Nuclear option
+### 🔍 Content Filtering
 
-- `clean`: This option wipes out the current indices by running deletes of all the documents to guarantee a consistent state with SQL. This is generally not recommended unless there is significant data corruption on the instance.
+| Argument      | Description                                                            |
+| ------------- | ---------------------------------------------------------------------- |
+| `aspectNames` | Comma-separated list of aspects to restore (e.g., `ownership,status`). |
+| `urnLike`     | SQL LIKE pattern to filter URNs (e.g., `urn:li:dataset%`).             |
 
-### Helm
+### 🧱 Other Options
 
-These are available in the helm charts as configurations for Kubernetes deployments under the `datahubUpgrade.restoreIndices.args` path which will set them up as args to the pod command.
+| Argument               | Description                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica. |
+| `clean`                | **Deletes existing index documents before restoring.** Use with caution.                                    |
 
-## Execution Methods
+---
 
-### Quickstart
+## Running the Restore Job
 
-If you're using the quickstart images, you can use the `datahub` cli to restore the indices.
+### 🧪 Quickstart CLI
 
-```shell
+If you're using DataHub's quickstart image, you can restore indices using a single CLI command:
+
+```bash
 datahub docker quickstart --restore-indices
 ```
 
 :::info
-Using the `datahub` CLI to restore the indices when using the quickstart images will also clear the search and graph indices before restoring.
+This command automatically clears the search and graph indices before restoring them.
 :::
 
-See [this section](../quickstart.md#restore-datahub) for more information.
+More details in the [Quickstart Docs](../quickstart.md#restore-datahub).
 
-### Docker-compose
+---
 
-If you are on a custom docker-compose deployment, run the following command (you need to checkout [the source repository](https://github.com/datahub-project/datahub)) from the root of the repo to send MAE for each aspect in the local database.
+### 🐳 Docker Compose
 
-```shell
+If you're using Docker Compose and have cloned the [DataHub source repo](https://github.com/datahub-project/datahub), run:
+
+```bash
 ./docker/datahub-upgrade/datahub-upgrade.sh -u RestoreIndices
 ```
 
-:::info
-By default this command will not clear the search and graph indices before restoring, thous potentially leading to inconsistencies between the local database and the indices, in case aspects were previously deleted in the local database but were not removed from the correponding index.
-:::
+To clear existing index contents before restore (recommended if you suspect inconsistencies), add `-a clean`:
 
-If you need to clear the search and graph indices before restoring, add `-a clean` to the end of the command. Please take note that the search and graph services might not be fully functional during reindexing when the indices are cleared.
-
-```shell
+```bash
 ./docker/datahub-upgrade/datahub-upgrade.sh -u RestoreIndices -a clean
 ```
 
-Refer to this [doc](../../docker/datahub-upgrade/README.md#environment-variables) on how to set environment variables
-for your environment.
+:::info
+Without the `-a clean` flag, old documents may remain in your search/graph index, even if they no longer exist in your SQL database.
+:::
 
-### Kubernetes
+Refer to the [Upgrade Script Docs](../../docker/datahub-upgrade/README.md#environment-variables) for more info on environment configuration.
 
-Run `kubectl get cronjobs` to see if the restoration job template has been deployed. If you see results like below, you
-are good to go.
+---
 
+### ☸️ Kubernetes (Helm)
+
+1. **Check if the Job Template Exists**
+
+Run:
+
+```bash
+kubectl get cronjobs
 ```
-NAME                                          SCHEDULE    SUSPEND   ACTIVE   LAST SCHEDULE   AGE
-datahub-datahub-cleanup-job-template          * * * * *   True      0        <none>          2d3h
-datahub-datahub-restore-indices-job-template  * * * * *   True      0        <none>          2d3h
+
+You should see a result like:
+
+```bash
+datahub-datahub-restore-indices-job-template
 ```
 
-If not, deploy latest helm charts to use this functionality.
+If not, make sure you're using the latest Helm chart version that includes the restore job.
 
-Once restore indices job template has been deployed, run the following command to start a job that restores indices.
+2. **Trigger the Restore Job**
 
-```shell
+Run:
+
+```bash
 kubectl create job --from=cronjob/datahub-datahub-restore-indices-job-template datahub-restore-indices-adhoc
 ```
 
-Once the job completes, your indices will have been restored.
+This will create and run a one-off job to restore indices from your SQL database.
 
-:::info
-By default the restore indices job template will not clear the search and graph indices before restoring, thous potentially leading to inconsistencies between the local database and the indices, in case aspects were previously deleted in the local database but were not removed from the correponding index.
-:::
+3. **To Enable Clean Reindexing**
 
-If you need to clear the search and graph indices before restoring, modify the `values.yaml` for your deployment and overwrite the default arguments of the restore indices job template to include the `-a clean` argument. Please take note that the search and graph services might not be fully functional during reindexing when the indices are cleared.
+Edit your `values.yaml` to include the `-a clean` argument:
 
 ```yaml
 datahubUpgrade:
@@ -126,12 +139,16 @@ datahubUpgrade:
         - "-u"
         - "RestoreIndices"
         - "-a"
-        - "batchSize=1000" # default value of datahubUpgrade.batchSize
+        - "batchSize=1000"
         - "-a"
-        - "batchDelayMs=100" # default value of datahubUpgrade.batchDelayMs
+        - "batchDelayMs=100"
         - "-a"
         - "clean"
 ```
+
+:::info
+The default job does **not** delete existing documents before restoring. Add `-a clean` to ensure full sync.
+:::
 
 ### Through APIs
 
@@ -160,11 +177,22 @@ All Aspects:
 
 For Rest.li, see [Restore Indices API](../api/restli/restore-indices.md).
 
+### CLI
+
+The [datahub CLI](../cli.md) also supports a utility command for restoring indices.
+
 ## Best Practices
 
 In general, this process is not required to run unless there has been a disruption of storage services or infrastructure,
 such as Elasticsearch/Opensearch cluster failures, data corruption events, or significant version upgrade inconsistencies
 that have caused the search and graph indices to become out of sync with the local database.
+
+Some pointers to keep in mind when running this process:
+
+- Always test reindexing in a **staging environment** first.
+- Consider taking a backup of your Elasticsearch/OpenSearch index before a `clean` restore.
+- For very large deployments, use `urnBasedPagination` and limit `batchSize` to avoid overloading your backend.
+- Monitor Elasticsearch/OpenSearch logs during the restore for throttling or memory issues.
 
 ### K8 Job vs. API
 
