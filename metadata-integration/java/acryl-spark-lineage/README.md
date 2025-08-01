@@ -428,7 +428,6 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - FileStreamMicroBatchStream and foreachBatch for Spark streaming
   - MERGE INTO operations now capture both dataset-level AND column-level lineage
 
-
 ### Version 0.2.17
 
 - _Major changes_:
