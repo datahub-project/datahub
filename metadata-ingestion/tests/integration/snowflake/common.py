@@ -644,8 +644,11 @@ def default_query_results(  # noqa: C901
                         {
                             "query_text": f"INSERT INTO TEST_DB.TEST_SCHEMA.TABLE_{op_idx} SELECT * FROM TEST_DB.TEST_SCHEMA.TABLE_2",
                             "query_id": f"01b2576e-0804-4957-0034-7d83066cd0ee{op_idx}",
-                            "start_time": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
-                                tzinfo=timezone.utc
+                            "start_time": (
+                                datetime(2022, 6, 6, 0, 0, 0, 0)
+                                .replace(tzinfo=timezone.utc)
+                                .date()
+                                .isoformat()
                             ),
                         }
                     ]

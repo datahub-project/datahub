@@ -77,6 +77,44 @@ action:
   | `topic_routes.pe` | ❌ | `PlatformEvent_v1` | The name of the topic containing PlatformEvent events |
 </details>
 
+## Schema Registry Configuration
+
+The Kafka Event Source requires a schema registry to deserialize events. There are several ways to configure the schema registry:
+
+### Default Schema Registry
+
+When using the default schema registry that comes with DataHub, you can use the internal URL:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: "http://datahub-datahub-gms:8080/schema-registry/api/"
+```
+
+Note: If you're running this outside the DataHub cluster, you'll need to map this internal URL to an externally accessible URL.
+
+### External Schema Registry
+
+For external schema registries (like Confluent Cloud), you'll need to provide the full URL and any necessary authentication:
+
+```yml
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: "https://your-schema-registry-url"
+      schema_registry_config:
+        basic.auth.user.info: "${REGISTRY_API_KEY_ID}:${REGISTRY_API_KEY_SECRET}"
+```
+
+### AWS Glue Schema Registry
+
+If you're using AWS Glue Schema Registry, you'll need to configure it differently. See the [AWS deployment guide](/docs/deploy/aws#aws-glue-schema-registry) for details.
+
 ## FAQ
 
 1. Is there a way to always start processing from the end of the topics on Actions start?

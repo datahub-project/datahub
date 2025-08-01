@@ -1,0 +1,230 @@
+name: Quickstart Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "2 0 * * *"
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - "metadata-ingestion/src/datahub/cli/quickstart_versioning.py"
+      - ".github/workflows/quickstart-test.yml"
+      - "docker/quickstart/*"
+  pull_request:
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - "metadata-ingestion/src/datahub/cli/quickstart_versioning.py"
+      - ".github/workflows/quickstart-test.yml"
+      - "docker/quickstart/*"
+
+jobs:
+  test-quickstart-pr:
+    name: Quickstart Smoke Tests
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Run quickstart
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          # Use compose and version mapping files from PR
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+          docker images
+
+      - name: Run quickstart check
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          datahub docker check
+
+      - name: Smoke test
+        if: false
+        env:
+          RUN_QUICKSTART: false
+          DATAHUB_VERSION: head
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: cypress
+          BATCH_COUNT: 30
+          BATCH_NUMBER: 2
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./gradlew --stop
+          ./smoke-test/smoke.sh
+
+      - name: Run quickstart check
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          datahub docker check
+
+  test-quickstart-pr-compatiblity-checks:
+    name: Quickstart compatiliby Tests
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install older datahub cli
+        run: |
+          pip install acryl-datahub==1.0
+
+      - name: bring up datahub using old cli
+        run: |
+          datahub docker quickstart
+          datahub docker check
+          datahub docker ingest-sample-data
+          datahub docker check
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Run quickstart
+        run: |
+          source metadata-ingestion/venv/bin/activate
+
+          # Use compose and version mapping files from PR
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          if datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml; then
+            echo "Command succeeded when it should have failed"
+            exit 1
+          else
+            echo "Command failed as expected"
+          fi
+
+      - name: Backup, nuke and restart and restore
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          echo "Running backup"
+          datahub docker quickstart --backup
+          echo "Running nuke"
+          datahub docker nuke
+          # Use compose and version mapping files from PR
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          echo "Running quickstart"
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+          echo "Running restore"
+          echo "y" | datahub docker quickstart --restore
+          datahub docker check
+
+  test-quickstart-regression:
+    name: Verify upgrades work with latest CLI
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: once more supported versions are aded, this should become list last n versions
+        datahub_version: ["v1.1.0", "head"]
+      fail-fast: false
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install datahub cli
+        run: |
+          pip install acryl-datahub
+
+      - name: bring up older version datahub
+        run: |
+          datahub docker quickstart --version ${{ matrix.datahub_version }}
+          datahub docker check
+          datahub docker ingest-sample-data
+          datahub docker check
+
+      - name: Backup, nuke and restart and restore
+        run: |
+          echo "Running backup"
+          datahub docker quickstart --backup
+          echo "Running nuke"
+          datahub docker nuke
+          datahub docker quickstart
+          echo "Running restore"
+          echo "y" | datahub docker quickstart --restore
+          datahub docker check
+
+  test-quickstart-regression-unsupported-versions:
+    name: Verifiy handling of unsupported older versions
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: last n unsupported versions to be added here
+        datahub_version: ["v1.0.0"]
+      fail-fast: false
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install datahub cli
+        run: |
+          pip install acryl-datahub
+
+      - name: bring up datahub
+        run: |
+          if datahub docker quickstart --version ${{ matrix.datahub_version }}; then
+            echo "Command succeeded when it should have failed"
+            exit 1
+          else
+            echo "Command failed as expected"
+          fi
+
+  test-quickstart-regression-old-cli:
+    name: Verify migration from old-cli deployments
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # TODO: once more supported versions are aded, this should become list last n versions
+        datahub_version: ["v1.0.0", "v1.1.0"]
+      fail-fast: false
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install datahub cli
+        run: |
+          pip install acryl-datahub==${{ matrix.datahub_version }}
+
+      - name: bring up datahub using old cli
+        run: |
+          datahub docker quickstart --version ${{ matrix.datahub_version }}
+          datahub docker check
+          datahub docker ingest-sample-data
+          datahub docker check
+
+      - name: Backup, nuke and restart and restore
+        run: |
+          echo "Running backup"
+          datahub docker quickstart --backup
+          echo "Running nuke"
+          datahub docker nuke
+
+          # Install latest version of datahub cli
+          pip install --upgrade acryl-datahub
+
+          datahub docker quickstart
+          echo "Running restore"
+          echo "y" | datahub docker quickstart --restore
+          datahub docker check

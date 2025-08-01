@@ -44,7 +44,11 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
     const [searchData, setSearchData] = useState<Entity[]>([]);
     const [dataUrnsSet, setDataUrnsSet] = useState<Set<string>>(new Set());
     const [data, setData] = useState<Entity[]>([]);
-    const { data: scrollData, loading } = useScrollAcrossEntitiesQuery({
+    const {
+        data: scrollData,
+        loading,
+        refetch,
+    } = useScrollAcrossEntitiesQuery({
         variables: {
             ...getGlossaryChildrenScrollInput(entityUrn || '', scrollId),
         },
@@ -86,7 +90,7 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         },
         skip: !query || !entityUrn || !shouldDoAutoComplete,
         onCompleted: (d) => {
-            const results = d.autoCompleteForMultiple?.suggestions.flatMap((s) => s.entities);
+            const results = d.autoCompleteForMultiple?.suggestions?.flatMap((s) => s.entities);
             if (results) {
                 setSearchData(results);
             }
@@ -140,5 +144,6 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         loading: loading || (shouldDoAutoComplete && autoCompleteLoading),
         searchQuery,
         setSearchQuery,
+        refetch,
     };
 }

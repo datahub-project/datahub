@@ -25,7 +25,7 @@ import {
     IncidentTable,
     IncidentTableRow,
 } from '@app/entityV2/shared/tabs/Incident/types';
-import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
@@ -49,7 +49,7 @@ const getIncidentGroupTypeIcon = () => {
 };
 
 const mapLinkedAssetData = (incident) => {
-    return incident?.linkedAssets?.relationships.map((item) => item.entity);
+    return incident?.linkedAssets?.relationships?.map((item) => item.entity);
 };
 
 const mapIncidentData = (incidents: Incident[]): IncidentTableRow[] => {
@@ -548,8 +548,8 @@ export const useSiblingOptionsForIncidentBuilder = (
         optionsToAuthorOn.push({
             urn: sibling.urn,
             title:
-                getPlatformName(sibling) ??
-                sibling?.dataPlatformInstance?.platform.name ??
+                getPlatformNameFromEntityData(sibling) ??
+                sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,
             platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,

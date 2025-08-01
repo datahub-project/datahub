@@ -2,18 +2,14 @@ name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'  # Run at midnight UTC every day
+    - cron: "0 0 * * *" # Run at midnight UTC every day
   push:
     branches:
       - master
+      - releases/**
   pull_request:
     branches:
       - "**"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
   release:
     types: [published]
 
@@ -39,7 +35,7 @@ jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
     outputs:
-      # TODO: Many of the vars below should not be required anymore. 
+      # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       full_tag: ${{ steps.tag.outputs.full_tag }}
@@ -53,11 +49,11 @@ jobs:
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
       repository_name: ${{ steps.tag.outputs.repository_name }}
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
-      actions_change: ${{ steps.ci-optimize.outputs.actions-change == 'true' }}
-      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
+      actions_change: ${{ steps.ci-optimize.outputs.actions-change == 'true' || github.event_name != 'pull_request'}}
+      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_base_change: ${{ steps.ci-optimize.outputs.ingestion-base-change == 'true' }}
-      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       backend_only: ${{ steps.ci-optimize.outputs.backend-only == 'true' }}
@@ -69,17 +65,22 @@ jobs:
       integrations_service_change: "false"
       datahub_executor_change: "false"
 
-      run_publish_images: ${{ steps.run-publish-images.outputs.run_publish_images}}
-
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
       test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
       use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
+      uv_cache_key: ${{ steps.uv-cache-key.outputs.uv_cache_key }}
+      uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
+      yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
+      yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Compute Tag
         id: tag
+        env:
+          GITHUB_REF_FALLBACK: ${{ github.event_name == 'release' && format('refs/tags/{0}', github.event.release.tag_name) || github.ref}}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: |
           source .github/scripts/docker_helpers.sh
           {
@@ -106,7 +107,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') 
+               (github.event_name == 'release' || ((github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'push')  && github.ref == 'refs/heads/master'))
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -130,12 +131,12 @@ jobs:
         id: set-runner
         # This needs to handle two scenarios:
         # 1. Running on a PR from a fork. There are some auth issues that prevent us from using depot in that case.
-        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test. 
+        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test.
         #    Note, concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
-        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master. 
-        #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency 
-        #    and hence short queue times and higher parallelism of smoke tests 
-        
+        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
+        #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
+        #    and hence short queue times and higher parallelism of smoke tests
+
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
@@ -149,6 +150,24 @@ jobs:
             echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
           fi
+
+      - name: Compute UV Cache Key
+        id: uv-cache-key
+        run: |
+          echo "uv_cache_key=docker-unified-${{ runner.os }}-uv-${{ hashFiles(
+            './datahub-actions/pyproject.toml',
+            './datahub-actions/setup.py',
+            './smoke-test/requirements.txt',
+            './smoke-test/pyproject.toml',
+            './metadata-ingestion/pyproject.toml',
+            './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
+          echo "uv_cache_key_prefix=docker-unified-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Yarn Cache Key
+        id: yarn-cache-key
+        run: |
+          echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
   smoke_test_lint:
     name: Lint on smoke tests
@@ -164,17 +183,21 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
-      - uses: actions/cache@v4
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Run lint on smoke test
         run: |
@@ -186,7 +209,7 @@ jobs:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
-    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}   # On fork, smoke test job does the build since depot cache is not available
+    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
@@ -197,21 +220,21 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
@@ -257,16 +280,14 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-
-
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   scan_images:
     permissions:
@@ -289,10 +310,10 @@ jobs:
         run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target ${{ matrix.target}}
           docker images
-          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT 
+          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.30.0
+        uses: aquasecurity/trivy-action@0.32.0
         env:
           TRIVY_OFFLINE_SCAN: true
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
@@ -313,7 +334,6 @@ jobs:
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
-    if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
@@ -364,16 +384,15 @@ jobs:
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs:
-      [
-        setup,
-        smoke_test_matrix,
-        base_build,
-      ]
+    needs: [setup, smoke_test_matrix, base_build]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    env:
+      # TODO Chakru: Review if required
+      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
+      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
         if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
@@ -382,23 +401,22 @@ jobs:
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker image prune -a -f || true
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-uv-
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
-            ~/.npm
-            ~/.cache/Cypress
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
           restore-keys: |
-            ${{ runner.os }}-yarn-
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
 
@@ -518,21 +536,22 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
+        # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
           path: |
             ~/.cache/uv
-          key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ needs.setup.outputs.uv_cache_key }}
 
       - uses: actions/cache/save@v4
-        if: ${{ github.ref == 'refs/heads/master' }}
+        if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
             ~/.cache/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
 
   deploy_datahub_head:
     name: Deploy to Datahub HEAD

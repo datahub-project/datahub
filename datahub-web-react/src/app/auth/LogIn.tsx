@@ -67,7 +67,7 @@ export type LogInProps = Record<string, never>;
 export const LogIn: React.VFC<LogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
-    const params = QueryString.parse(location.search);
+    const params = QueryString.parse(location.search, { decode: true });
     const maybeRedirectError = params.error_msg;
 
     const themeConfig = useTheme();
@@ -95,8 +95,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     analytics.event({ type: EventType.LogInEvent });
                     return Promise.resolve();
                 })
-                .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                .catch((e) => {
+                    message.error(`Failed to log in! ${e}`);
                 })
                 .finally(() => setLoading(false));
         },
@@ -105,7 +105,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
 
     if (isLoggedIn) {
         const maybeRedirectUri = params.redirect_uri;
-        return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
+        // NOTE we do not decode the redirect_uri because it is already decoded by QueryString.parse
+        return <Redirect to={maybeRedirectUri || '/'} />;
     }
 
     return (

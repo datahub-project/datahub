@@ -1,5 +1,7 @@
 package client;
 
+import static com.linkedin.metadata.Constants.DATAHUB_LOGIN_SOURCE_HEADER_NAME;
+
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -70,7 +72,7 @@ public class AuthServiceClient {
    * an Actor of type USER.
    */
   @Nonnull
-  public String generateSessionTokenForUser(@Nonnull final String userId) {
+  public String generateSessionTokenForUser(@Nonnull final String userId, String loginSource) {
     Objects.requireNonNull(userId, "userId must not be null");
     CloseableHttpResponse response = null;
 
@@ -97,6 +99,8 @@ public class AuthServiceClient {
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
+
+      request.addHeader(DATAHUB_LOGIN_SOURCE_HEADER_NAME, loginSource);
 
       response = httpClient.execute(request);
       final HttpEntity entity = response.getEntity();
@@ -300,47 +304,6 @@ public class AuthServiceClient {
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to verify credentials for user", e);
-    } finally {
-      try {
-        if (response != null) {
-          response.close();
-        }
-      } catch (Exception e) {
-        log.error("Failed to close http response", e);
-      }
-    }
-  }
-
-  /** Call the Auth Service to track an analytics event */
-  public void track(@Nonnull final String event) {
-    Objects.requireNonNull(event, "event must not be null");
-    CloseableHttpResponse response = null;
-
-    try {
-      final String protocol = this.metadataServiceUseSsl ? "https" : "http";
-      final HttpPost request =
-          new HttpPost(
-              String.format(
-                  "%s://%s:%s/%s",
-                  protocol, this.metadataServiceHost, this.metadataServicePort, TRACK_ENDPOINT));
-
-      // Build JSON request to track event.
-      request.setEntity(new StringEntity(event, StandardCharsets.UTF_8));
-
-      // Add authorization header with DataHub frontend system id and secret.
-      request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
-
-      response = httpClient.execute(request);
-      final HttpEntity entity = response.getEntity();
-
-      if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK || entity == null) {
-        throw new RuntimeException(
-            String.format(
-                "Bad response from the Metadata Service: %s %s",
-                response.getStatusLine().toString(), response.getEntity().toString()));
-      }
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to track event", e);
     } finally {
       try {
         if (response != null) {

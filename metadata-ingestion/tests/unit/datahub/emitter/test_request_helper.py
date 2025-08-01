@@ -32,7 +32,6 @@ CHART_INFO = ChartInfoClass(
 def test_from_mcp_none_no_aspect():
     """Test that from_mcp returns None when aspect is missing"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.UPSERT,
@@ -45,11 +44,8 @@ def test_from_mcp_none_no_aspect():
 def test_from_mcp_upsert():
     """Test creating an OpenApiRequest from an UPSERT MCP"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
@@ -68,11 +64,8 @@ def test_from_mcp_upsert():
 def test_from_mcp_upsert_with_system_metadata():
     """Test creating an OpenApiRequest from an UPSERT MCP with system metadata"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
         systemMetadata=SystemMetadataClass(runId="test-run-id"),
     )
 
@@ -114,7 +107,6 @@ def test_from_mcp_upsert_without_wrapper():
 def test_from_mcp_delete():
     """Test creating an OpenApiRequest from a DELETE MCP"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
         aspectName="chartInfo",
         changeType=ChangeTypeClass.DELETE,
@@ -191,13 +183,10 @@ def test_upsert_incompatible_content_type():
 
 
 def test_from_mcp_async_flag():
-    """Test creating an OpenApiRequest with async flag specified"""
+    """Test creating an OpenApiRequest with async/sync"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
     request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_flag=True)
@@ -205,36 +194,99 @@ def test_from_mcp_async_flag():
     assert request is not None
     assert "async=true" in request.url
 
-
-def test_from_mcp_async_default():
-    """Test creating an OpenApiRequest with async_default=True"""
-    mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
-        entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
-        aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
-    )
-
-    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_default=True)
+    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_flag=False)
 
     assert request is not None
-    assert "async=true" in request.url
+    assert "async=false" in request.url
 
 
-def test_from_mcp_async_flag_override():
-    """Test that async_flag overrides async_default"""
+def test_from_mcp_search_sync_flag():
+    """Test that search_sync_flag adds the appropriate header to the request only when async_flag is False"""
     mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
         aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
     )
 
+    # Test with default values (async_flag=False, search_sync_flag=False)
+    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER)
+
+    assert request is not None
+    assert "async=false" in request.url
+    assert request.payload[0]["chartInfo"]["headers"] == {}
+
+    # Test with search_sync_flag=True and async_flag=False - should add header
     request = OpenApiRequest.from_mcp(
-        mcp, GMS_SERVER, async_flag=False, async_default=True
+        mcp, GMS_SERVER, async_flag=False, search_sync_flag=True
     )
 
     assert request is not None
     assert "async=false" in request.url
+    assert request.payload[0]["chartInfo"]["headers"] == {
+        "X-DataHub-Sync-Index-Update": "true"
+    }
+
+    # Test with async_flag=True and search_sync_flag=True - should NOT add header
+    request = OpenApiRequest.from_mcp(
+        mcp, GMS_SERVER, async_flag=True, search_sync_flag=True
+    )
+
+    assert request is not None
+    assert "async=true" in request.url
+    # Header should NOT be present when async_flag is True
+    assert request.payload[0]["chartInfo"]["headers"] == {}
+
+    # Test with async_flag=True and search_sync_flag=False - should NOT add header
+    request = OpenApiRequest.from_mcp(
+        mcp, GMS_SERVER, async_flag=True, search_sync_flag=False
+    )
+
+    assert request is not None
+    assert "async=true" in request.url
+    assert request.payload[0]["chartInfo"]["headers"] == {}
+
+    # Test with patch operation - header should be added when not async
+    patch_mcp = next(
+        iter(
+            ChartPatchBuilder("urn:li:chart:(test,test)")
+            .set_title("Updated Title")
+            .build()
+        )
+    )
+
+    request = OpenApiRequest.from_mcp(
+        patch_mcp, GMS_SERVER, async_flag=False, search_sync_flag=True
+    )
+
+    assert request is not None
+    assert request.method == "patch"
+    assert "async=false" in request.url
+    assert request.payload[0]["chartInfo"]["headers"] == {
+        "X-DataHub-Sync-Index-Update": "true"
+    }
+
+    # Test with patch operation - header should NOT be added when async
+    request = OpenApiRequest.from_mcp(
+        patch_mcp, GMS_SERVER, async_flag=True, search_sync_flag=True
+    )
+
+    assert request is not None
+    assert request.method == "patch"
+    assert "async=true" in request.url
+    assert request.payload[0]["chartInfo"]["headers"] == {}
+
+    # Test with delete operation (headers don't apply)
+    delete_mcp = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:chart:(test,test)",
+        aspectName="chartInfo",
+        changeType=ChangeTypeClass.DELETE,
+        aspect=None,
+    )
+
+    request = OpenApiRequest.from_mcp(
+        delete_mcp, GMS_SERVER, async_flag=False, search_sync_flag=True
+    )
+
+    assert request is not None
+    assert request.method == "delete"
+    # For DELETE, there's no payload so no headers
+    assert len(request.payload) == 0

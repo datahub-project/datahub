@@ -14,8 +14,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.testing import mce_helpers
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
-from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2024-08-19 07:00:00"
@@ -107,4 +107,6 @@ def test_source_close_cleans_tmp(projects_client, client, tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         # This closes QueriesExtractor which in turn closes SqlParsingAggregator
         source.close()
-        assert len(os.listdir(tmp_path)) == 0
+        assert len(os.listdir(tmp_path)) == 0, (
+            f"Files left in {tmp_path}: {os.listdir(tmp_path)}"
+        )

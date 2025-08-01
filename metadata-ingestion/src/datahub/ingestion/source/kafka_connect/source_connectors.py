@@ -20,6 +20,8 @@ from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ConfluentJDBCSourceConnector(BaseConnector):
@@ -392,7 +394,7 @@ class MongoSourceConnector(BaseConnector):
             db_connection_url=connector_manifest.config.get("connection.uri"),
             source_platform="mongodb",
             database_name=connector_manifest.config.get("database"),
-            topic_prefix=connector_manifest.config.get("topic_prefix"),
+            topic_prefix=connector_manifest.config.get("topic.prefix"),
             transforms=(
                 connector_manifest.config["transforms"].split(",")
                 if "transforms" in connector_manifest.config
@@ -406,7 +408,11 @@ class MongoSourceConnector(BaseConnector):
         lineages: List[KafkaConnectLineage] = list()
         parser = self.get_parser(self.connector_manifest)
         source_platform = parser.source_platform
-        topic_naming_pattern = r"mongodb\.(\w+)\.(\w+)"
+        topic_prefix = parser.topic_prefix or ""
+
+        # Escape topic_prefix to handle cases where it contains dots
+        # Some users configure topic.prefix like "my.mongodb" which breaks the regex
+        topic_naming_pattern = rf"{re.escape(topic_prefix)}\.(\w+)\.(\w+)"
 
         if not self.connector_manifest.topic_names:
             return lineages
@@ -429,6 +435,26 @@ class MongoSourceConnector(BaseConnector):
 
 @dataclass
 class DebeziumSourceConnector(BaseConnector):
+    # Debezium topic naming patterns by connector type
+    # - MySQL: {topic.prefix}.{database}.{table}
+    # - PostgreSQL: {topic.prefix}.{schema}.{table}
+    # - SQL Server: {topic.prefix}.{database}.{schema}.{table}
+    # - Oracle: {topic.prefix}.{schema}.{table}
+    # - DB2: {topic.prefix}.{schema}.{table}
+    # - MongoDB: {topic.prefix}.{database}.{collection}
+    # - Vitess: {topic.prefix}.{keyspace}.{table}
+
+    # Note SQL Server allows for "database.names" (multiple databases) config,
+    # and so database is in the topic naming pattern.
+    # However, others have "database.dbname" which is a single database name. For these connectors,
+    # additional databases would require a different connector instance
+
+    # Connectors with 2-level container in pattern (database + schema)
+    # Others have either database XOR schema, but not both
+    DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN = {
+        "io.debezium.connector.sqlserver.SqlServerConnector",
+    }
+
     @dataclass
     class DebeziumParser:
         source_platform: str
@@ -514,16 +540,45 @@ class DebeziumSourceConnector(BaseConnector):
             source_platform = parser.source_platform
             server_name = parser.server_name
             database_name = parser.database_name
-            topic_naming_pattern = rf"({server_name})\.(\w+\.\w+)"
+            # Escape server_name to handle cases where topic.prefix contains dots
+            # Some users configure topic.prefix like "my.server" which breaks the regex
+            server_name = server_name or ""
+            # Regex pattern (\w+\.\w+(?:\.\w+)?) supports BOTH 2-part and 3-part table names
+            topic_naming_pattern = rf"({re.escape(server_name)})\.(\w+\.\w+(?:\.\w+)?)"
 
             if not self.connector_manifest.topic_names:
                 return lineages
 
+            # Handle connectors with 2-level container (database + schema) in topic pattern
+            connector_class = self.connector_manifest.config.get(CONNECTOR_CLASS, "")
+            maybe_duplicated_database_name = (
+                connector_class
+                in self.DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER_IN_PATTERN
+            )
+
             for topic in self.connector_manifest.topic_names:
                 found = re.search(re.compile(topic_naming_pattern), topic)
+                logger.debug(
+                    f"Processing topic: '{topic}' with regex pattern '{topic_naming_pattern}', found: {found}"
+                )
 
                 if found:
-                    table_name = get_dataset_name(database_name, found.group(2))
+                    # Extract the table part after server_name
+                    table_part = found.group(2)
+
+                    if (
+                        maybe_duplicated_database_name
+                        and database_name
+                        and table_part.startswith(f"{database_name}.")
+                    ):
+                        table_part = table_part[len(database_name) + 1 :]
+
+                    logger.debug(
+                        f"Extracted table part: '{table_part}' from topic '{topic}'"
+                    )
+                    # Apply database name to create final dataset name
+                    table_name = get_dataset_name(database_name, table_part)
+                    logger.debug(f"Final table name: '{table_name}'")
 
                     lineage = KafkaConnectLineage(
                         source_dataset=table_name,

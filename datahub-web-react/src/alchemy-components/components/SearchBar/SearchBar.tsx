@@ -22,6 +22,7 @@ export const SearchBar = forwardRef<InputRef, SearchBarProps & Omit<InputProps, 
             width = searchBarDefaults.width,
             height = searchBarDefaults.height,
             allowClear = searchBarDefaults.allowClear,
+            clearIcon,
             onChange,
             ...props
         },
@@ -33,7 +34,7 @@ export const SearchBar = forwardRef<InputRef, SearchBarProps & Omit<InputProps, 
                 onChange={(e) => onChange?.(e.target.value, e)}
                 value={value}
                 prefix={<Icon icon="MagnifyingGlass" source="phosphor" />}
-                allowClear={allowClear}
+                allowClear={clearIcon ? allowClear && { clearIcon } : allowClear}
                 $width={width}
                 $height={height}
                 data-testid="search-bar-input"

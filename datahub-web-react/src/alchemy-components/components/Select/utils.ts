@@ -24,7 +24,7 @@ export const getOptionLabelStyle = (
         alignItems: 'center',
         width: applyHoverWidth ? '100%' : 'auto',
         '&:hover': {
-            backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
+            backgroundColor: isSelected ? colors.violet[0] : colors.gray[1500],
         },
     };
 };
@@ -59,10 +59,10 @@ export const getSelectFontStyles = (size) => {
 export const getSelectPadding = (size) => {
     const paddingStyles = {
         sm: {
-            padding: `${spacing.xxsm} ${spacing.xxsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         md: {
-            padding: `${spacing.xsm} ${spacing.xsm}`,
+            padding: `${spacing.xxsm} ${spacing.xsm}`,
         },
         lg: {
             padding: `${spacing.sm} ${spacing.sm}`,
@@ -109,11 +109,11 @@ export const getSelectStyle = (props: SelectStyleProps) => {
 
     const baseStyle = {
         borderRadius: radius.md,
-        border: `1px solid ${isDisabled ? colors.gray[1800] : colors.gray[100]}`,
+        border: `1px solid ${colors.gray[100]}`,
         fontFamily: typography.fonts.body,
+        backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
         color: isDisabled ? colors.gray[300] : colors.gray[600],
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
-        backgroundColor: isDisabled ? colors.gray[1500] : 'initial',
         boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
         textWrap: 'nowrap',
 
@@ -125,7 +125,7 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...(isOpen
             ? {
                   borderColor: colors.gray[1800],
-                  outline: `2px solid ${colors.violet[300]}`,
+                  outline: `1px solid ${colors.violet[200]}`,
               }
             : {}),
 
@@ -149,4 +149,12 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...paddingStyles,
         ...minHeightStyles,
     };
+};
+
+export const getDropdownStyle = () => {
+    const baseStyle = {
+        fontFamily: typography.fonts.body,
+    };
+
+    return { ...baseStyle };
 };

@@ -1,4 +1,4 @@
-import { Button, Pill, Switch, Tooltip2 } from '@components';
+import { Button, Pill, StructuredPopover, Switch } from '@components';
 import { Card, Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -147,7 +147,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                             </div>
                         </span>
                         {option.disabledMessage ? (
-                            <Tooltip2
+                            <StructuredPopover
                                 title={option.disabledMessage}
                                 placement="top"
                                 showArrow
@@ -162,7 +162,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                                         disabled={!option.isAvailable || option.isDisabled}
                                     />
                                 </span>
-                            </Tooltip2>
+                            </StructuredPopover>
                         ) : (
                             <Switch
                                 label=""
@@ -185,7 +185,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                             <Pill color="violet" size="sm" label="DataHub Cloud" />
                         </OptionTitle>
                     </span>
-                    <Tooltip2
+                    <StructuredPopover
                         title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}
                         placement="left"
                         showArrow
@@ -197,7 +197,7 @@ export const Feature = ({ key, title, description, settings, options, isNew, lea
                                 {option.buttonText}
                             </Button>
                         </span>
-                    </Tooltip2>
+                    </StructuredPopover>
                 </SettingsOptionRow>
             </>
         ))}

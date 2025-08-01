@@ -34,8 +34,6 @@ model_properties = models.MLModelPropertiesClass(mlFeatures=feature_urns)
 
 # MCP creation
 metadata_change_proposal = MetadataChangeProposalWrapper(
-    entityType="mlModel",
-    changeType=models.ChangeTypeClass.UPSERT,
     entityUrn=model_urn,
     aspect=model_properties,
 )

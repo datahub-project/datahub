@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     MetadataChangeLogClass,
     MetadataChangeProposalClass,
 )
@@ -47,7 +48,7 @@ class MetadataChangeSyncAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = MetadataChangeEmitterConfig.parse_obj(config_dict or {})
+        action_config = MetadataChangeEmitterConfig.model_validate(config_dict or {})
         return cls(action_config, ctx)
 
     def __init__(self, config: MetadataChangeEmitterConfig, ctx: PipelineContext):
@@ -127,9 +128,12 @@ class MetadataChangeSyncAction(Action):
         self, orig_event: MetadataChangeLogClass
     ) -> Union[MetadataChangeProposalClass, None]:
         try:
+            changeType = orig_event.get("changeType")
+            if changeType == ChangeTypeClass.RESTATE or changeType == "RESTATE":
+                changeType = ChangeTypeClass.UPSERT
             mcp = MetadataChangeProposalClass(
                 entityType=orig_event.get("entityType"),
-                changeType=orig_event.get("changeType"),
+                changeType=changeType,
                 entityUrn=orig_event.get("entityUrn"),
                 entityKeyAspect=orig_event.get("entityKeyAspect"),
                 aspectName=orig_event.get("aspectName"),

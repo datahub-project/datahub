@@ -6,7 +6,7 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class MetadataChangeProposalConfig {
-
+  ConsumerBatchConfig consumer;
   ThrottlesConfig throttle;
   MCPValidationConfig validation;
   SideEffectsConfig sideEffects;
@@ -60,5 +60,18 @@ public class MetadataChangeProposalConfig {
   @Accessors(chain = true)
   public static class SideEffectConfig {
     boolean enabled;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class BatchConfig {
+    boolean enabled;
+    Integer size;
+  }
+
+  @Data
+  @Accessors(chain = true)
+  public static class ConsumerBatchConfig {
+    BatchConfig batch;
   }
 }

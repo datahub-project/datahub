@@ -128,7 +128,7 @@ function getDataPlatformInstanceIconAndLabel(
 ) {
     let icon: React.ReactNode = null;
     let label: string | null = null;
-    const logoUrl = (filterEntity as DataPlatformInstance)?.platform.properties?.logoUrl;
+    const logoUrl = (filterEntity as DataPlatformInstance)?.platform?.properties?.logoUrl;
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
@@ -614,6 +614,9 @@ interface FilterEntityIconProps {
 export const FilterEntityIcon: React.FC<FilterEntityIconProps> = ({ field, entity, icon }) => {
     switch (true) {
         case field === PLATFORM_FILTER_NAME && entity !== null:
+            return <>{icon}</>;
+
+        case field === DATA_PLATFORM_INSTANCE_FILTER_NAME && entity?.type === EntityType.DataPlatformInstance:
             return <>{icon}</>;
 
         case field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag:

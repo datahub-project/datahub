@@ -6,7 +6,7 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
+FROM golang:1-alpine3.22 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
@@ -55,7 +55,7 @@ COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-COPY war.war /datahub/datahub-gms/bin/war.war
+COPY metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

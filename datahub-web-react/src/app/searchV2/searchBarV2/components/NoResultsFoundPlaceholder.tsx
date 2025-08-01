@@ -24,9 +24,16 @@ interface Props {
     hasAppliedFilters?: boolean;
     hasSelectedView?: boolean;
     onClearFilters?: () => void;
+    message?: string;
 }
 
-export default function NoResultsFoundPlaceholder({ hasAppliedFilters, hasSelectedView, onClearFilters }: Props) {
+const DEFAULT_MESSAGE = "Try adjusting your search to find what you're looking for";
+export default function NoResultsFoundPlaceholder({
+    hasAppliedFilters,
+    hasSelectedView,
+    onClearFilters,
+    message = DEFAULT_MESSAGE,
+}: Props) {
     const clearText = useMemo(() => {
         if (hasAppliedFilters && hasSelectedView) {
             return 'clear filters and selected view';
@@ -49,7 +56,7 @@ export default function NoResultsFoundPlaceholder({ hasAppliedFilters, hasSelect
                 No results found
             </Text>
             <Text color="gray" size="sm">
-                Try adjusting your search to display data
+                {message}
                 {clearText && (
                     <>
                         , or&nbsp;

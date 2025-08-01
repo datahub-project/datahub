@@ -54,8 +54,8 @@ base_dev_requirements = {
     "dagster-snowflake >= 0.11.0",
     "dagster-snowflake-pandas >= 0.11.0",
     "coverage>=5.1",
-    "ruff==0.11.6",
-    "mypy==1.12.1",
+    "ruff==0.11.7",
+    "mypy==1.14.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.10.0,!=1.10.3",
@@ -96,7 +96,7 @@ setuptools.setup(
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
-    license="Apache License 2.0",
+    license="Apache-2.0",
     description="Datahub Dagster plugin to capture executions and send to Datahub",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
@@ -108,8 +108,6 @@ setuptools.setup(
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
         "Operating System :: POSIX :: Linux",
         "Environment :: Console",

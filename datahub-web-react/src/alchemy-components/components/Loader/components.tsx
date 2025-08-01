@@ -9,6 +9,7 @@ export const LoaderWrapper = styled.div<{
     $marginTop?: number;
     $justifyContent: JustifyContentOptions;
     $alignItems: AlignItemsOptions;
+    $padding?: number;
 }>`
     display: flex;
     justify-content: ${(props) => props.$justifyContent};
@@ -16,6 +17,8 @@ export const LoaderWrapper = styled.div<{
     margin: auto;
     width: 100%;
     position: relative;
+
+    ${(props) => props.$padding !== undefined && `padding: ${props.$padding}px;`}
 `;
 
 export const StyledLoadingOutlined = styled(LoadingOutlined)<{ $height: number }>`

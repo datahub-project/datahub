@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import { Select, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 
-import { EntitySearchInputResult } from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResult';
+import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetEntitiesLazyQuery } from '@graphql/entity.generated';
@@ -173,7 +173,7 @@ export const EntitySearchInput = ({
                     style={optionStyle}
                     data-testid={`${result.entity.urn}-entity-search-input-result`}
                 >
-                    <EntitySearchInputResult entity={result.entity} />
+                    <EntitySearchInputResultV2 entity={result.entity} />
                 </Select.Option>
             ))}
         </Select>

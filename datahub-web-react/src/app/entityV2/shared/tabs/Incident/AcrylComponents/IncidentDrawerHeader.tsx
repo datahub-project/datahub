@@ -11,7 +11,7 @@ import { IncidentAction, noPermissionsMessage } from '@app/entityV2/shared/tabs/
 import { useIncidentURNCopyLink } from '@app/entityV2/shared/tabs/Incident/hooks';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button } from '@src/alchemy-components';
-import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { DataPlatform, EntityPrivileges } from '@src/types.generated';
@@ -55,7 +55,7 @@ export const IncidentDrawerHeader = ({
             <StyledHeaderActions>
                 {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
-                        <Tooltip2 title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
+                        <StructuredPopover title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
                             <span>
                                 <Button
                                     icon={{ icon: 'PencilSimpleLine', color: 'gray', source: 'phosphor' }}
@@ -66,15 +66,15 @@ export const IncidentDrawerHeader = ({
                                     size="xl"
                                 />
                             </span>
-                        </Tooltip2>
-                        <Tooltip2 title="Copy Link">
+                        </StructuredPopover>
+                        <StructuredPopover title="Copy Link">
                             <Button
                                 icon={{ icon: 'Link', color: 'gray', source: 'phosphor' }}
                                 variant="text"
                                 onClick={handleIncidentLinkCopy}
                                 size="xl"
                             />
-                        </Tooltip2>
+                        </StructuredPopover>
                     </>
                 )}
                 <Button

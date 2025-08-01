@@ -45,7 +45,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
         },
         outline: {
             backgroundColor: 'transparent',
-            border: `1px solid ${colorStyles.primaryColor}`,
+            border: `1px solid ${colorStyles.bgColor}`,
             color: colorStyles.primaryColor,
             '&:hover': {
                 backgroundColor: colorStyles.hoverColor,

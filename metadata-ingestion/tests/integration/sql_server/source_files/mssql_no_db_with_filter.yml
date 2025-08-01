@@ -12,6 +12,7 @@ source:
     procedure_pattern:
       deny:
         - DemoData.Foo.NewProc
+    convert_urns_to_lowercase: true
 
 sink:
   type: file

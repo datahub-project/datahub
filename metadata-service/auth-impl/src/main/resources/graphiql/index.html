@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <!-- Modern CSS with proper viewport settings -->
-    <meta charset="utf-8" />
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Use specific version and SRI hash (from error message) -->
-    <link href="https://unpkg.com/graphiql@3.0.10/graphiql.min.css"
+    <link href="https://unpkg.com/graphiql@4.0.3/graphiql.min.css"
           rel="stylesheet"
-          integrity="sha384-yz3/sqpuplkA7msMo0FE4ekg0xdwdvZ8JX9MVZREsxipqjU4h8IRfmAMRcb1QpUy"
-          crossorigin="anonymous" />
+          crossorigin="anonymous"
+          integrity="sha384-6ZaxvqvxdqMCDsD9wNOq+NxheDM6rTYy4eeE/fZmPonsSKffQ7nV+IQNzLemeuSH" />
 
     <style>
         body {
@@ -27,24 +26,23 @@
 <body>
 <div id="graphiql">Loading GraphiQL...</div>
 
-<!-- Using production versions of React 18 with specific versions and corrected SRI hashes -->
+<!-- Using production versions of React 18 -->
 <script crossorigin="anonymous"
-        src="https://unpkg.com/react@18.2.0/umd/react.production.min.js"
-        integrity="sha384-tMH8h3BGESGckSAVGZ82T9n90ztNXxvdwvdM6UoR56cYcf+0iGXBliJ29D+wZ/x8"></script>
+        src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"
+        integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z"></script>
 <script crossorigin="anonymous"
-        src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js"
-        integrity="sha384-bm7MnzvK++ykSwVJ2tynSE5TRdN+xL418osEVF2DE/L/gfWHj91J2Sphe582B1Bh"></script>
+        src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"
+        integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"></script>
 <script crossorigin="anonymous"
-        src="https://unpkg.com/graphiql@3.0.10/graphiql.min.js"
-        integrity="sha384-jb9Y1zUAgo9UcDX5ARV+Kx2co+aFmdXtrK0gyXa+feypHHR4zaMKfO3nC1aJd63F"></script>
+        src="https://unpkg.com/graphiql@4.0.3/graphiql.min.js"
+        crossorigin="anonymous"
+        integrity="sha384-naAA3pYPARITlxC7GwToGuWsRdWfcCBgwIRLMDY6t7YKpjASnzW27h0gm4PIW06W"></script>
 
 <script>
-    // Modern approach using the createFetcher utility
     const fetcher = GraphiQL.createFetcher({
       url: `${location.protocol}//${location.host}/api/graphql`,
     });
 
-    // Modern React 18 rendering approach
     const root = ReactDOM.createRoot(document.getElementById('graphiql'));
     root.render(
       React.createElement(GraphiQL, {

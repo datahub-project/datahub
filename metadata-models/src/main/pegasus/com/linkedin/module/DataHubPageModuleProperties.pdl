@@ -1,0 +1,60 @@
+namespace com.linkedin.module
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * The main properties of a DataHub page module
+ */
+@Aspect = {
+  "name": "dataHubPageModuleProperties"
+}
+record DataHubPageModuleProperties  {
+  /**
+   * The display name of this module
+   */
+  name: string
+
+  /**
+   * The type of this module - the purpose it serves
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  type: DataHubPageModuleType
+  
+  /**
+   * Info about the visibility of this module
+   */
+  visibility: DataHubPageModuleVisibility
+
+  /**
+   * The specific parameters stored for this module
+   */
+  params: DataHubPageModuleParams
+
+  /**
+   * Audit stamp for when and by whom this template was created
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "createdAt"
+    },
+    "/actor": {
+      "fieldType": "URN",
+      "fieldName": "createdBy"
+    }
+  }
+  created: AuditStamp
+  
+  /**
+   * Audit stamp for when and by whom this template was last updated
+   */
+  @Searchable = {
+    "/time": {
+       "fieldType": "DATETIME",
+       "fieldName": "lastModifiedAt"
+    }
+  }
+  lastModified: AuditStamp
+}

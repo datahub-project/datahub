@@ -139,7 +139,7 @@ class StoragePathParser:
                 path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
 
             elif platform == StoragePlatform.AZURE:
-                if scheme in ("abfs", "abfss"):
+                if scheme in ("abfs", "abfss", "wasbs"):
                     # Format: abfss://container@account.dfs.core.windows.net/path
                     container = parsed.netloc.split("@")[0]
                     path = f"{container}/{parsed.path.lstrip('/')}"
@@ -153,7 +153,7 @@ class StoragePathParser:
 
             elif platform == StoragePlatform.DBFS:
                 # For DBFS, use path as-is
-                path = parsed.path.lstrip("/")
+                path = "/" + parsed.path.lstrip("/")
 
             elif platform == StoragePlatform.LOCAL:
                 # For local files, use full path
@@ -169,7 +169,6 @@ class StoragePathParser:
             # Clean up the path
             path = path.rstrip("/")  # Remove trailing slashes
             path = re.sub(r"/+", "/", path)  # Normalize multiple slashes
-            path = f"/{path}"
 
             return platform, path
 
@@ -867,3 +866,18 @@ class HiveSource(TwoTierSQLAlchemySource):
                 return partition_column.get("column_names")
 
         return []
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        (description, properties, location) = super().get_table_properties(
+            inspector, schema, table
+        )
+
+        new_properties = {}
+        for key, value in properties.items():
+            if key and key[-1] == ":":
+                new_properties[key[:-1]] = value
+            else:
+                new_properties[key] = value
+        return (description, new_properties, location)

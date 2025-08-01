@@ -3,7 +3,7 @@ import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2025-03-25 12:00:00"
@@ -32,7 +32,7 @@ def hex_mock_api_runner(docker_compose_runner, test_resources_dir):
 
     # Start Docker Compose
     with docker_compose_runner(
-        docker_dir / "docker-compose.yml", "hex-mock"
+        docker_dir / "docker-compose.yml", "hex-mock", parallel=1
     ) as docker_services:
         wait_for_port(
             docker_services,

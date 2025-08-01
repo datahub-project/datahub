@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.s3.source import S3Source
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
@@ -88,6 +88,13 @@ def s3_client(s3):
         yield conn
 
 
+def get_descriptive_id(source_tuple):
+    source_dir, source_file = source_tuple
+    dir_name = os.path.basename(source_dir)
+    base_name = source_file.replace(".json", "")
+    return f"{dir_name}_{base_name}"
+
+
 @pytest.fixture(scope="module", autouse=True)
 def s3_populate(pytestconfig, s3_resource, s3_client, bucket_names):
     for bucket_name in bucket_names:
@@ -159,7 +166,9 @@ s3_source_files = [(S3_SOURCE_FILES_PATH, p) for p in os.listdir(S3_SOURCE_FILES
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file_tuple", shared_source_files + s3_source_files)
+@pytest.mark.parametrize(
+    "source_file_tuple", shared_source_files + s3_source_files, ids=get_descriptive_id
+)
 def test_data_lake_s3_ingest(
     pytestconfig, s3_populate, source_file_tuple, tmp_path, mock_time
 ):
@@ -196,7 +205,9 @@ def test_data_lake_s3_ingest(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("source_file_tuple", shared_source_files)
+@pytest.mark.parametrize(
+    "source_file_tuple", shared_source_files, ids=get_descriptive_id
+)
 def test_data_lake_local_ingest(
     pytestconfig, touch_local_files, source_file_tuple, tmp_path, mock_time
 ):
