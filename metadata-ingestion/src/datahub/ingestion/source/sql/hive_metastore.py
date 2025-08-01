@@ -27,6 +27,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -167,6 +168,13 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+    ],
 )
 class HiveMetastoreSource(SQLAlchemySource):
     """
