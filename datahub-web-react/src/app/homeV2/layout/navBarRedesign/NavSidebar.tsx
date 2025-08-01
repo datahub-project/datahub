@@ -91,7 +91,6 @@ export const NavSidebar = () => {
     const userContext = useUserContext();
     const me = useUserContext();
     const isHomePage = useIsHomePage();
-    const showHomepageRedesign = useShowHomePageRedesign();
     const location = useLocation();
 
     const { isUserInitializing } = useContext(OnboardingContext);

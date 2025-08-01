@@ -2,7 +2,6 @@ import { Button, Carousel, Heading, LoadedImage, Modal } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
-import { useIsDocumentationInferenceEnabled } from '@app/entityV2/shared/components/inferredDocs/utils';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import {
     LoadingContainer,
@@ -40,7 +39,7 @@ export const WelcomeToDataHubModal = () => {
     const carouselRef = useRef<any>(null);
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
     const shouldSkipWelcomeModal = checkShouldSkipWelcomeModal();
-    const isDocumentationSlideEnabled = useIsDocumentationInferenceEnabled();
+    const isDocumentationSlideEnabled = false;
     const TOTAL_CAROUSEL_SLIDES = isDocumentationSlideEnabled ? 5 : 4;
     const MODAL_IMAGE_WIDTH_RAW = 620;
     const MODAL_IMAGE_WIDTH = `${MODAL_IMAGE_WIDTH_RAW}px`;
@@ -186,7 +185,12 @@ export const WelcomeToDataHubModal = () => {
     }
 
     return (
-        <Modal title={WELCOME_TO_DATAHUB_MODAL_TITLE} width={MODAL_WIDTH} onCancel={() => closeTour('close_button')}>
+        <Modal
+            title={WELCOME_TO_DATAHUB_MODAL_TITLE}
+            width={MODAL_WIDTH}
+            onCancel={() => closeTour('close_button')}
+            buttons={[]}
+        >
             <Carousel
                 ref={carouselRef}
                 autoplay
