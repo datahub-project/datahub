@@ -247,6 +247,7 @@ Once a workflow is created, users will be able to submit a Workflow Request form
 To create an approval workflow request, users must simply provide responses for all required fields.
 
 Once completed, it can be submitted by clicking "Submit".
+
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/blob/main/imgs/workflows/create-action-workflow-entity-profile.png"/>
 </p>
