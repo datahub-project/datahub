@@ -1466,7 +1466,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self,
         inspector: Inspector,
         schema: str,
-        config: SQLCommonConfig,
+        config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data for get stored procedures as dataJob-s.

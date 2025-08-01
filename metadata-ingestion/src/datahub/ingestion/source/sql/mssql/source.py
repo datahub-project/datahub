@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 import sqlalchemy.dialects.mssql
@@ -41,7 +41,6 @@ from datahub.ingestion.source.sql.mssql.job_models import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -343,28 +342,6 @@ class SQLServerSource(SQLAlchemySource):
                     message="Failed to list jobs",
                     title="SQL Server Jobs Extraction",
                     context="Error occurred during database-level job extraction",
-                    exc=e,
-                )
-
-    def get_schema_level_workunits(
-        self,
-        inspector: Inspector,
-        schema: str,
-        database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_schema_level_workunits(
-            inspector=inspector,
-            schema=schema,
-            database=database,
-        )
-        if self.config.include_stored_procedures:
-            try:
-                yield from self.loop_stored_procedures(inspector, schema, self.config)
-            except Exception as e:
-                self.report.failure(
-                    message="Failed to list stored procedures",
-                    title="SQL Server Stored Procedures Extraction",
-                    context="Error occurred during schema-level stored procedure extraction",
                     exc=e,
                 )
 
