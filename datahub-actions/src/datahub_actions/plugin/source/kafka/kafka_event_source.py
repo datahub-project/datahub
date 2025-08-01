@@ -91,7 +91,7 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-    topic_routes: Optional[Dict[str, str]] = None
+    topic_routes: Optional[Dict[str, str]]
     async_commit_enabled: bool = False
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
