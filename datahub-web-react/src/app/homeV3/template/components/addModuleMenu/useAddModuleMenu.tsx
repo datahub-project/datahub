@@ -4,7 +4,7 @@ import React, { useCallback, useMemo } from 'react';
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { LARGE_MODULE_TYPES, SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
+import { SMALL_MODULE_TYPES } from '@app/homeV3/modules/constants';
 import { convertModuleToModuleInfo } from '@app/homeV3/modules/utils';
 import GroupItem from '@app/homeV3/template/components/addModuleMenu/components/GroupItem';
 import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/MenuItem';
@@ -41,20 +41,8 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
     const {
         addModule,
         moduleModalState: { open: openModal },
-        template,
         globalTemplate,
     } = usePageTemplateContext();
-
-    const isLargeModuleRow =
-        position.rowIndex !== undefined &&
-        template?.properties.rows[position.rowIndex]?.modules?.some((module) =>
-            LARGE_MODULE_TYPES.includes(module.properties.type),
-        );
-    const isSmallModuleRow =
-        position.rowIndex !== undefined &&
-        template?.properties.rows[position.rowIndex]?.modules?.some((module) =>
-            SMALL_MODULE_TYPES.includes(module.properties.type),
-        );
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -86,7 +74,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     description="Choose links that are important"
                     title="Quick Link"
                     icon="LinkSimple"
-                    isDisabled={isLargeModuleRow}
                     isSmallModule
                 />
             ),
@@ -94,7 +81,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
-            disabled: isLargeModuleRow,
         };
 
         const documentation = {
@@ -105,7 +91,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     description="Pin docs for your DataHub users"
                     title="Documentation"
                     icon="TextT"
-                    isDisabled={isSmallModuleRow}
                     isSmallModule={false}
                 />
             ),
@@ -113,7 +98,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
-            disabled: isSmallModuleRow,
         };
 
         const assetCollection = {
@@ -124,14 +108,12 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     description="A curated list of assets of your choosing"
                     title="Collection"
                     icon="Stack"
-                    isDisabled={isSmallModuleRow}
                     isSmallModule={false}
                 />
             ),
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
             },
-            disabled: isSmallModuleRow,
         };
 
         const hierarchyView = {
@@ -158,7 +140,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     description="Assets the current user owns"
                     title="Your Assets"
                     icon="Database"
-                    isDisabled={isSmallModuleRow}
                     isSmallModule={false}
                 />
             ),
@@ -166,7 +147,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleAddExistingModule(YOUR_ASSETS_MODULE);
             },
-            disabled: isSmallModuleRow,
         };
 
         const domains = {
@@ -177,7 +157,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     description="Most used domains in your organization"
                     title="Domains"
                     icon="Globe"
-                    isDisabled={isSmallModuleRow}
                     isSmallModule={false}
                 />
             ),
@@ -185,7 +164,6 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleAddExistingModule(DOMAINS_MODULE);
             },
-            disabled: isSmallModuleRow,
         };
 
         items.push({
@@ -204,17 +182,10 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 label: (
                     <ModuleMenuItem
                         module={convertModuleToModuleInfo(module)}
-                        isDisabled={
-                            (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
-                            (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow)
-                        }
                         isSmallModule={SMALL_MODULE_TYPES.includes(module.properties.type)}
                     />
                 ),
                 onClick: () => handleAddExistingModule(module),
-                disabled:
-                    (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
-                    (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow),
             }));
 
             const homeDefaults = {
@@ -242,7 +213,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         }
 
         return { items };
-    }, [isLargeModuleRow, isSmallModuleRow, globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule]);
+    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule]);
 
     return menu;
 }

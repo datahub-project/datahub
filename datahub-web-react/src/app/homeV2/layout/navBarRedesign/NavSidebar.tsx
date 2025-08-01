@@ -27,7 +27,9 @@ import {
     NavBarMenuItems,
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
@@ -82,10 +84,12 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
+    const { toggle, isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
+    const isHomePage = useIsHomePage();
+    const showHomepageRedesign = useShowHomePageRedesign();
 
     const { isUserInitializing } = useContext(OnboardingContext);
     const { showOnboardingTour } = useHandleOnboardingTour();
@@ -123,6 +127,12 @@ export const NavSidebar = () => {
         key: `helpMenu${value.label}`,
     })) as NavBarMenuDropdownItemElement[];
 
+    function handleHomeclick() {
+        if (isHomePage && showHomepageRedesign) {
+            toggle();
+        }
+    }
+
     const mainMenu: NavBarMenuItems = {
         items: [
             {
@@ -133,6 +143,7 @@ export const NavSidebar = () => {
                 key: 'home',
                 link: PageRoutes.ROOT,
                 onlyExactPathMapping: true,
+                onClick: () => handleHomeclick(),
             },
             {
                 type: NavBarMenuItemTypes.Group,

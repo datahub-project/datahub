@@ -21,13 +21,10 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         display: flex;
         align-items: center;
         ${(props) => props.isCollapsed && 'width: 36px;'}
-        @media (max-height: 935px) {
-            margin: 4px 0;
-        }
-        @media (max-height: 890px) {
+        @media (max-height: 970px) {
             margin: 2px 0;
         }
-        @media (max-height: 835px) {
+        @media (max-height: 890px) {
             margin: 0;
         }
     }
@@ -131,8 +128,8 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
     const history = useHistory();
 
     const onClick = () => {
+        if (item.onClick) item.onClick();
         if (item.link) return history.push(item.link);
-        if (item.onClick) return item.onClick();
         return null;
     };
 
