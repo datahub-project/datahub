@@ -120,6 +120,12 @@ class SnowflakeV2Report(
     num_secure_views_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
 
+    marketplace_listings_scanned: int = 0
+    marketplace_purchases_scanned: int = 0
+    marketplace_usage_events_processed: int = 0
+    marketplace_data_products_created: int = 0
+    marketplace_enhanced_datasets: int = 0
+
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
     queries_extractor: Optional["SnowflakeQueriesExtractorReport"] = None
@@ -177,3 +183,15 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
+
+    def report_marketplace_listing_scanned(self) -> None:
+        self.marketplace_listings_scanned += 1
+
+    def report_marketplace_purchase_scanned(self) -> None:
+        self.marketplace_purchases_scanned += 1
+
+    def report_marketplace_data_product_created(self) -> None:
+        self.marketplace_data_products_created += 1
+
+    def report_marketplace_dataset_enhanced(self) -> None:
+        self.marketplace_enhanced_datasets += 1

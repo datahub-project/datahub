@@ -33,6 +33,7 @@ from datahub.metadata.schema_classes import (
     ChartKeyClass,
     ContainerKeyClass,
     DashboardKeyClass,
+    DataProductKeyClass,
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
@@ -403,6 +404,29 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
     return (
         f"urn:li:mlModelGroup:({make_data_platform_urn(platform)},{group_name},{env})"
     )
+
+
+def make_data_product_urn(
+    platform: str, name: str, env: str, platform_instance: Optional[str] = None
+) -> str:
+    # Import here to avoid circular imports
+    from datahub.emitter.mcp_builder import DataProductKey
+
+    key = DataProductKey(
+        platform=platform,
+        name=name,
+        env=env,
+        instance=platform_instance,
+    )
+    return key.as_urn()
+
+
+def data_product_urn_to_key(guid: str) -> Optional[DataProductKeyClass]:
+    pattern = r"urn:li:dataProduct:(.*)"
+    results = re.search(pattern, guid)
+    if results is not None:
+        return DataProductKeyClass(id=results[1])
+    return None
 
 
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:

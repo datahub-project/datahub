@@ -65,3 +65,12 @@ LINEAGE_PERMISSION_ERROR = "lineage-permission-error"
 # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
 CLIENT_PREFETCH_THREADS = "client_prefetch_threads"
 CLIENT_SESSION_KEEP_ALIVE = "client_session_keep_alive"
+
+MARKETPLACE_LISTINGS_PERMISSION_ERROR = "marketplace-listings-permission-error"
+MARKETPLACE_PURCHASES_PERMISSION_ERROR = "marketplace-purchases-permission-error"
+MARKETPLACE_USAGE_PERMISSION_ERROR = "marketplace-usage-permission-error"
+
+
+class SnowflakeMarketplaceObjectDomain(StrEnum):
+    LISTING = "listing"
+    PURCHASE = "purchase"

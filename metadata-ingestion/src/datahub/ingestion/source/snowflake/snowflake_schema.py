@@ -163,6 +163,44 @@ class SnowflakeStream:
         return DatasetSubTypes.SNOWFLAKE_STREAM
 
 
+@dataclass
+class SnowflakeMarketplaceListing:
+    listing_global_name: str
+    listing_display_name: str
+    provider_name: str
+    category: Optional[str]
+    description: Optional[str]
+    listing_created_on: Optional[datetime]
+    listing_updated_on: Optional[datetime]
+    is_personal_data: bool
+    is_free: bool
+
+
+@dataclass
+class SnowflakeMarketplacePurchase:
+    listing_global_name: str
+    listing_display_name: str
+    provider_name: str
+    purchase_date: datetime
+    database_name: str
+    is_auto_fulfill: bool
+    purchase_status: str
+
+
+@dataclass
+class SnowflakeMarketplaceAccessEvent:
+    event_timestamp: datetime
+    listing_global_name: str
+    listing_display_name: str
+    user_name: str
+    database_name: str
+    schema_name: Optional[str]
+    table_name: Optional[str]
+    query_id: Optional[str]
+    bytes_accessed: Optional[int]
+    rows_accessed: Optional[int]
+
+
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database

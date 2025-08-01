@@ -197,9 +197,32 @@ class SnowflakeConfig(
     upstream_lineage_in_report: bool = False
 
 
+class SnowflakeMarketplaceConfig(ConfigModel):
+    include_marketplace_listings: bool = Field(
+        default=False,
+        description="Whether to ingest marketplace listings available to the account as Data Products",
+    )
+
+    include_marketplace_purchases: bool = Field(
+        default=False,
+        description="Whether to ingest purchased marketplace datasets and enhance them with marketplace metadata",
+    )
+
+    include_marketplace_usage: bool = Field(
+        default=False,
+        description="Whether to ingest marketplace dataset usage statistics",
+    )
+
+    marketplace_listing_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for marketplace listings to include in ingestion",
+    )
+
+
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
+    SnowflakeMarketplaceConfig,
     StatefulLineageConfigMixin,
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -305,6 +328,11 @@ class SnowflakeV2Config(
     include_procedures: bool = Field(
         default=True,
         description="If enabled, procedures will be ingested as pipelines/tasks.",
+    )
+
+    marketplace: SnowflakeMarketplaceConfig = Field(
+        default_factory=SnowflakeMarketplaceConfig,
+        description="Marketplace-specific configuration options",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
