@@ -85,6 +85,9 @@ public class ScimGroupRepository
       return corpGroup.asScimResource();
     }
 
+    if (scimGroup.getMembers() == null) {
+      scimGroup.setMembers(Collections.emptyList());
+    }
     List<org.apache.directory.scim.spec.resources.GroupMembership> expected =
         scimGroup.getMembers().stream()
             .filter(

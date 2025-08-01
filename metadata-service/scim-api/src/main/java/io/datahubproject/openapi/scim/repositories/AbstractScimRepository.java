@@ -5,6 +5,7 @@ import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SSO_SCIM
 import static org.apache.directory.scim.core.repository.DefaultPatchHandler.*;
 
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -90,6 +91,8 @@ abstract class AbstractScimRepository<
   @Autowired PatchHandler _patchHandler;
 
   @Autowired SchemaRegistry _schemaRegistry;
+
+  ObjectMapper objectMapper = new ObjectMapper();
 
   /*
   Identifier mapping functions
@@ -382,18 +385,34 @@ abstract class AbstractScimRepository<
       throws ResourceException {
 
     log.info("PATCH " + id + " " + patchOperations);
+    try {
 
-    ScimReadableCorpEntity corpEntity = new ScimReadableCorpEntity(id);
-    T existingResource = corpEntity.asScimResource();
+      ScimReadableCorpEntity corpEntity = new ScimReadableCorpEntity(id);
+      T existingResource = corpEntity.asScimResource();
 
-    tweakBooleanPathExpressions(patchOperations, existingResource);
+      T newResource;
+      if (patchOperations.size() == 1
+          && patchOperations.get(0).getOperation() == PatchOperation.Type.REPLACE
+          && patchOperations.get(0).getPath() == null) {
+        // this is a 'replace'  operation where the value needs to be treated as an update
+        newResource =
+            objectMapper.convertValue(patchOperations.get(0).getValue(), getResourceClass());
+        checkKeyMutation(newResource, corpEntity);
 
-    T newResource = _patchHandler.apply(existingResource, patchOperations);
+      } else {
+        tweakBooleanPathExpressions(patchOperations, existingResource);
 
-    T result = update(newResource, corpEntity);
+        newResource = _patchHandler.apply(existingResource, patchOperations);
+      }
 
-    log.debug(String.format("Patched entity %s with scim-id %s", corpEntity.urn, id));
-    return result;
+      T result = update(newResource, corpEntity);
+
+      log.debug(String.format("Patched entity %s with scim-id %s", corpEntity.urn, id));
+      return result;
+    } catch (ResourceException e) {
+      log.error(e.getMessage(), e);
+      throw e;
+    }
   }
 
   /*
