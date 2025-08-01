@@ -49,6 +49,27 @@ class BigqueryProfiler(GenericProfiler):
         self.config = config
         self.report = report
 
+    def _sanitize_bigquery_identifiers(
+        self, project: str, schema: str, table_name: str
+    ) -> Tuple[str, str, str]:
+        """
+        Sanitize BigQuery identifiers to prevent SQL injection.
+
+        BigQuery identifiers can only contain letters, numbers, underscores, and hyphens.
+
+        Args:
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+            table_name: BigQuery table name
+
+        Returns:
+            Tuple of (safe_project, safe_schema, safe_table_name)
+        """
+        safe_project = re.sub(r"[^a-zA-Z0-9_-]", "", project)
+        safe_schema = re.sub(r"[^a-zA-Z0-9_-]", "", schema)
+        safe_table_name = re.sub(r"[^a-zA-Z0-9_-]", "", table_name)
+        return safe_project, safe_schema, safe_table_name
+
     @staticmethod
     def get_partition_range_from_partition_id(
         partition_id: str, partition_datetime: Optional[datetime]
@@ -173,17 +194,32 @@ class BigqueryProfiler(GenericProfiler):
                 logger.warning(f"No valid column names provided for table {table.name}")
                 return {}
 
-            columns_filter = "', '".join(safe_columns)
-            query = f"""SELECT column_name, data_type
-FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-WHERE table_name = @table_name 
-AND column_name IN ('{columns_filter}')"""
-
-            job_config = QueryJobConfig(
-                query_parameters=[
-                    ScalarQueryParameter("table_name", "STRING", escaped_table_name)
-                ]
+            # Sanitize identifiers to prevent SQL injection
+            safe_project, safe_schema, _ = self._sanitize_bigquery_identifiers(
+                project, schema, ""
             )
+
+            # Build parameterized query for column names - since BigQuery doesn't support
+            # parameterizing column names in IN clauses, we'll use individual OR conditions
+            # with parameters for better security
+            column_conditions = []
+            parameters = [
+                ScalarQueryParameter("table_name", "STRING", escaped_table_name)
+            ]
+
+            for i, col_name in enumerate(safe_columns):
+                param_name = f"col_{i}"
+                column_conditions.append(f"column_name = @{param_name}")
+                parameters.append(ScalarQueryParameter(param_name, "STRING", col_name))
+
+            column_filter_clause = " OR ".join(column_conditions)
+
+            query = f"""SELECT column_name, data_type
+FROM `{safe_project}.{safe_schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = @table_name 
+AND ({column_filter_clause})"""
+
+            job_config = QueryJobConfig(query_parameters=parameters)
 
             query_results = self.execute_query_with_config(query, job_config)
             return {row.column_name: row.data_type for row in query_results}
@@ -427,9 +463,14 @@ LIMIT {safe_max_results}"""
                 safe_max_results = max(1, min(int(max_results), 100))
                 safe_order_by = order_by.replace(col_name, f"`{safe_col_name}`")
 
+                # Sanitize identifiers to prevent SQL injection
+                safe_project, safe_schema, safe_table_name = (
+                    self._sanitize_bigquery_identifiers(project, schema, table.name)
+                )
+
                 query = f"""WITH PartitionStats AS (
     SELECT `{safe_col_name}` as val, COUNT(*) as record_count
-    FROM `{project}.{schema}.{table.name}`
+    FROM `{safe_project}.{safe_schema}.{safe_table_name}`
     WHERE `{safe_col_name}` IS NOT NULL
     GROUP BY `{safe_col_name}`
     HAVING record_count > 0
@@ -1082,8 +1123,14 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                 logger.debug(
                     f"Quick checks failed, querying for most recent date in {safe_col_name}"
                 )
+
+                # Sanitize identifiers to prevent SQL injection
+                safe_project, safe_schema, safe_table_name = (
+                    self._sanitize_bigquery_identifiers(project, schema, table.name)
+                )
+
                 recent_date_query = f"""SELECT MAX(`{safe_col_name}`) as max_date
-FROM `{project}.{schema}.{table.name}`
+FROM `{safe_project}.{safe_schema}.{safe_table_name}`
 WHERE `{safe_col_name}` IS NOT NULL"""
 
                 try:
@@ -1360,8 +1407,13 @@ LIMIT 1"""
                     logger.warning(f"Invalid column name detected: {col_name}")
                     continue
 
+                # Sanitize identifiers to prevent SQL injection
+                safe_project, safe_schema, safe_table_name = (
+                    self._sanitize_bigquery_identifiers(project, schema, table.name)
+                )
+
                 query = f"""SELECT `{safe_col_name}` as val, COUNT(*) as cnt
-FROM `{project}.{schema}.{table.name}`
+FROM `{safe_project}.{safe_schema}.{safe_table_name}`
 WHERE `{safe_col_name}` IS NOT NULL
 GROUP BY `{safe_col_name}`
 ORDER BY cnt DESC
@@ -1700,8 +1752,13 @@ LIMIT 100"""
         # If we still don't have partition columns, try to trigger a partition error to detect them
         if not required_partition_columns:
             try:
+                # Sanitize identifiers to prevent SQL injection
+                safe_project, safe_schema, safe_table_name = (
+                    self._sanitize_bigquery_identifiers(project, schema, table.name)
+                )
+
                 # Run a simple query to trigger partition error
-                test_query = f"""SELECT COUNT(*) FROM `{project}.{schema}.{table.name}` LIMIT 1"""
+                test_query = f"""SELECT COUNT(*) FROM `{safe_project}.{safe_schema}.{safe_table_name}` LIMIT 1"""
                 self.execute_query(test_query)
 
                 # If the query succeeds, table is not partitioned
@@ -1921,7 +1978,12 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
             logger.warning(f"Error querying partition columns: {e}")
             # If we can't determine the partition columns due to timeout, try to extract from an error
             try:
-                test_query = f"""SELECT COUNT(*) FROM `{project}.{schema}.{table.name}` LIMIT 1"""
+                # Sanitize identifiers to prevent SQL injection
+                safe_project, safe_schema, safe_table_name = (
+                    self._sanitize_bigquery_identifiers(project, schema, table.name)
+                )
+
+                test_query = f"""SELECT COUNT(*) FROM `{safe_project}.{safe_schema}.{safe_table_name}` LIMIT 1"""
                 self.config.get_bigquery_client().query(test_query).result(
                     timeout=self.config.profiling.partition_fetch_timeout
                 )
@@ -2862,7 +2924,11 @@ LIMIT 1"""
         # If we couldn't get columns from table info, try to extract from error
         if not required_columns:
             try:
-                test_query = f"""SELECT COUNT(*) FROM `{project}.{schema}.{table.name}` LIMIT 1"""
+                # Sanitize identifiers to prevent SQL injection
+                safe_project, safe_schema, safe_table_name = (
+                    self._sanitize_bigquery_identifiers(project, schema, table.name)
+                )
+                test_query = f"""SELECT COUNT(*) FROM `{safe_project}.{safe_schema}.{safe_table_name}` LIMIT 1"""
                 self.execute_query(test_query)
             except Exception as e:
                 error_info = self._extract_partition_info_from_error(str(e))
@@ -3196,8 +3262,12 @@ LIMIT 1"""
             else:
                 # Approach 2: If date filters don't work, try error-based filters
                 try:
+                    # Sanitize identifiers to prevent SQL injection
+                    safe_project, safe_schema, safe_table_name = (
+                        self._sanitize_bigquery_identifiers(project, schema, table.name)
+                    )
                     # Run a simple query to trigger partition error
-                    test_query = f"""SELECT COUNT(*) FROM `{project}.{schema}.{table.name}` LIMIT 1"""
+                    test_query = f"""SELECT COUNT(*) FROM `{safe_project}.{safe_schema}.{safe_table_name}` LIMIT 1"""
                     self.execute_query(test_query)
                 except Exception as e:
                     error_filters, error_values, error_has_data = (
@@ -3458,7 +3528,11 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                 return
 
             # Try to find ANY data in the table
-            sample_query = f"""SELECT * FROM `{project}.{schema}.{table.name}`
+            # Sanitize identifiers to prevent SQL injection
+            safe_project, safe_schema, safe_table_name = (
+                self._sanitize_bigquery_identifiers(project, schema, table.name)
+            )
+            sample_query = f"""SELECT * FROM `{safe_project}.{safe_schema}.{safe_table_name}`
 LIMIT 10"""
 
             try:
@@ -3474,7 +3548,7 @@ LIMIT 10"""
 
             # Last resort - use the LIMIT approach which bypasses partition elimination
             logger.warning(f"Using LIMIT approach to profile {table.name}")
-            custom_sql = f"""SELECT * FROM `{project}.{schema}.{table.name}`
+            custom_sql = f"""SELECT * FROM `{safe_project}.{safe_schema}.{safe_table_name}`
 LIMIT 1000000"""
 
             batch_kwargs.update(
