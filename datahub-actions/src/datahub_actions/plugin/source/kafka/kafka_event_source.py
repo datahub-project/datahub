@@ -136,24 +136,22 @@ class KafkaEventSource(EventSource):
                 self.source_config.async_commit_interval
             )
 
-        consumer_config: Dict[str, Any] = {
-            # Provide a custom group id to subcribe to multiple partitions via separate actions pods.
-            "group.id": ctx.pipeline_name,
-            "bootstrap.servers": self.source_config.connection.bootstrap,
-            "enable.auto.commit": False,  # We manually commit offsets.
-            "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
-            "value.deserializer": AvroDeserializer(
-                schema_registry_client=self.schema_registry_client,
-                return_record_name=True,
-            ),
-            "session.timeout.ms": "10000",  # 10s timeout.
-            "max.poll.interval.ms": "10000",  # 10s poll max.
-            **self.source_config.connection.consumer_config,
-            **async_commit_config,
-        }
-
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
-            consumer_config
+            {
+                # Provide a custom group id to subcribe to multiple partitions via separate actions pods.
+                "group.id": ctx.pipeline_name,
+                "bootstrap.servers": self.source_config.connection.bootstrap,
+                "enable.auto.commit": False,  # We manually commit offsets.
+                "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
+                "value.deserializer": AvroDeserializer(
+                    schema_registry_client=self.schema_registry_client,
+                    return_record_name=True,
+                ),
+                "session.timeout.ms": "10000",  # 10s timeout.
+                "max.poll.interval.ms": "10000",  # 10s poll max.
+                **self.source_config.connection.consumer_config,
+                **async_commit_config,
+            }
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
 
