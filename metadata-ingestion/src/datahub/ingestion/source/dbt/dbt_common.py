@@ -120,6 +120,7 @@ logger = logging.getLogger(__name__)
 DBT_PLATFORM = "dbt"
 
 _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
+_DBT_MAX_COMPILED_CODE_LENGTH = 1 * 1024 * 1024  # 1MB
 
 
 @dataclass
@@ -1684,6 +1685,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def get_external_url(self, node: DBTNode) -> Optional[str]:
         pass
 
+    @staticmethod
+    def _truncate_code(code: str, max_length: int) -> str:
+        if len(code) > max_length:
+            return code[:max_length] + "..."
+        return code
+
     def _create_view_properties_aspect(
         self, node: DBTNode
     ) -> Optional[ViewPropertiesClass]:
@@ -1694,6 +1701,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if self.config.include_compiled_code and node.compiled_code:
             compiled_code = try_format_query(
                 node.compiled_code, platform=self.config.target_platform
+            )
+            compiled_code = self._truncate_code(
+                compiled_code, _DBT_MAX_COMPILED_CODE_LENGTH
             )
 
         materialized = node.materialization in {"table", "incremental", "snapshot"}

@@ -534,8 +534,8 @@
     "datahub-mock-data": {
       "capabilities": [],
       "classname": "datahub.ingestion.source.mock_data.datahub_mock_data.DataHubMockDataSource",
-      "platform_id": "datahubmockdata",
-      "platform_name": "DataHubMockData",
+      "platform_id": "fake",
+      "platform_name": "fake",
       "support_status": "TESTING"
     },
     "dbt": {
