@@ -613,7 +613,7 @@ class SQLServerSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLServerConfig,
+        sql_config: SQLServerConfig,  # type: ignore
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data for get stored procedures as dataJob-s.
