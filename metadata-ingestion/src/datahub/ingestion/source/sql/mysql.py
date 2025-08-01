@@ -4,7 +4,7 @@ from typing import Iterable, List, Union
 
 import pymysql  # noqa: F401
 from pydantic.fields import Field
-from sqlalchemy import util
+from sqlalchemy import text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
@@ -203,7 +203,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                f"""
+                text("""
                 SELECT
                     ROUTINE_NAME as name,
                     ROUTINE_DEFINITION as definition,
@@ -215,8 +215,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
                     DEFINER
                 FROM information_schema.ROUTINES
                 WHERE ROUTINE_TYPE = 'PROCEDURE'
-                AND ROUTINE_SCHEMA = '{schema}'
-                """
+                AND ROUTINE_SCHEMA = :schema
+                """),
+                {"schema": schema},
             )
 
             procedure_rows = list(procedures)

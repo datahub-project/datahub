@@ -92,7 +92,7 @@ def test_get_stored_procedures():
         "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
     )
 
-    def mock_execute(query):
+    def mock_execute(query, params=None):
         if "SHOW CREATE PROCEDURE" in str(query):
             return show_create_result
         return routines_result
@@ -221,7 +221,7 @@ def test_mariadb_error_handling():
     ].__iter__()
 
     # Mock execution behavior
-    def mock_execute(query):
+    def mock_execute(query, params=None):
         if "SHOW CREATE PROCEDURE" in str(query):
             raise Exception("Failed to get procedure")
         if "FROM information_schema.ROUTINES" in str(query):

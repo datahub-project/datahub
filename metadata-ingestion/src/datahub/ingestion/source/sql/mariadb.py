@@ -52,7 +52,7 @@ class MariaDBSource(MySQLSource):
         db_name: str,
         schema: str,
     ) -> List[BaseProcedure]:
-        query = text(f"""
+        query = text("""
 SELECT
     ROUTINE_SCHEMA,
     ROUTINE_NAME,
@@ -65,12 +65,12 @@ SELECT
     DEFINER
 FROM information_schema.ROUTINES
 WHERE ROUTINE_TYPE = 'PROCEDURE'
-AND ROUTINE_SCHEMA = '{schema}'
+AND ROUTINE_SCHEMA = :schema
         """)
 
         procedures_list = []
 
-        for row in conn.execute(query):  # type: ignore
+        for row in conn.execute(query, {"schema": schema}):  # type: ignore
             try:
                 routine_name = row["ROUTINE_NAME"]
                 if not routine_name:
@@ -119,14 +119,37 @@ AND ROUTINE_SCHEMA = '{schema}'
 
         return procedures_list
 
+    def _escape_identifier(self, identifier: str) -> str:
+        """
+        Escape SQL identifiers to prevent injection.
+
+        For MySQL/MariaDB identifiers:
+        - Replace backticks with double backticks
+        - Remove any null bytes
+        - Limit length to prevent buffer overflow attacks
+        """
+        if not identifier:
+            raise ValueError("Identifier cannot be empty")
+
+        # Remove null bytes and other control characters
+        cleaned = identifier.replace("\x00", "").replace("\r", "").replace("\n", "")
+
+        # Escape backticks
+        escaped = cleaned.replace("`", "``")
+
+        # Limit length (MySQL identifier limit is 64 characters)
+        if len(escaped) > 64:
+            raise ValueError(f"Identifier too long: {len(escaped)} > 64 characters")
+
+        return escaped
+
     def _extract_procedure_definition(
         self, conn: Connection, schema: str, routine_name: str, row: Any
     ) -> str:
         """Extract a stored procedure definition with SHOW CREATE PROCEDURE fallback."""
         try:
-            # Escape identifiers for SQL safety
-            escaped_schema = schema.replace("`", "``")
-            escaped_routine = routine_name.replace("`", "``")
+            escaped_schema = self._escape_identifier(schema)
+            escaped_routine = self._escape_identifier(routine_name)
             show_query = text(
                 f"SHOW CREATE PROCEDURE `{escaped_schema}`.`{escaped_routine}`"
             )
