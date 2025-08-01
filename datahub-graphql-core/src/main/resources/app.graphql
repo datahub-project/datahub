@@ -192,6 +192,11 @@ type PlatformPrivileges {
   Whether the user can manage platform features.
   """
   manageFeatures: Boolean!
+
+  """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
 }
 
 """
