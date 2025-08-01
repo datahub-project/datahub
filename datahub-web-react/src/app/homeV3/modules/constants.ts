@@ -52,7 +52,6 @@ export const DEFAULT_GLOBAL_MODULE_TYPES: DataHubPageModuleType[] = [
 
 export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.OwnedAssets,
-    DataHubPageModuleType.SubscribedAssets,
     DataHubPageModuleType.Domains,
     DataHubPageModuleType.AssetCollection,
     DataHubPageModuleType.Hierarchy,
