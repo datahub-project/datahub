@@ -1130,6 +1130,22 @@ export type Event =
     | HomePageClickEvent
     | SearchBarFilterEvent
     | ClickProductUpdateEvent
+    | HomePageTemplateModuleCreateEvent
+    | HomePageTemplateModuleAddEvent
+    | HomePageTemplateModuleUpdateEvent
+    | HomePageTemplateModuleDeleteEvent
+    | HomePageTemplateModuleMoveEvent
+    | HomePageTemplateModuleModalCreateOpenEvent
+    | HomePageTemplateModuleModalEditOpenEvent
+    | HomePageTemplateModuleModalCancelEvent
+    | HomePageTemplateGlobalTemplateEditingStartEvent
+    | HomePageTemplateGlobalTemplateEditingDoneEvent
+    | HomePageTemplateResetToGlobalTemplateEvent
+    | HomePageTemplateModuleAssetClickEvent
+    | HomePageTemplateModuleExpandClickEvent
+    | HomePageTemplateModuleViewAllClickEvent
+    | HomePageTemplateModuleLinkClickEvent
+    | HomePageTemplateModuleAnnouncementDismissEvent
     | WelcomeToDataHubModalViewEvent
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
