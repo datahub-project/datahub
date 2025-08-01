@@ -330,10 +330,9 @@ class PostgresSource(SQLAlchemySource):
                         pg_language l ON l.oid = p.prolang
                     WHERE
                         p.prokind = 'p'
-                        AND n.nspname = '"""
-                + schema
-                + """';
-                    """
+                        AND n.nspname = %s;
+                """,
+                (schema,),
             )
 
             procedure_rows = list(procedures)

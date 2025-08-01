@@ -123,15 +123,14 @@ class MySQLSource(TwoTierSQLAlchemySource):
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
                 """
-                    SELECT ROUTINE_NAME AS name, 
+                SELECT ROUTINE_NAME AS name, 
                     ROUTINE_DEFINITION AS definition, 
                     EXTERNAL_LANGUAGE AS language
-                    FROM information_schema.ROUTINES
-                    WHERE ROUTINE_TYPE = 'PROCEDURE'
-                    AND ROUTINE_SCHEMA = '"""
-                + schema
-                + """'
-                    """
+                FROM information_schema.ROUTINES
+                WHERE ROUTINE_TYPE = 'PROCEDURE'
+                AND ROUTINE_SCHEMA = %s
+                """,
+                (schema,),
             )
 
             procedure_rows = list(procedures)
