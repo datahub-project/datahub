@@ -10,12 +10,12 @@ source:
     password: example
 
     # Stored Procedures (optional)
-    include_stored_procedures: true  # Default: true
+    include_stored_procedures: true # Default: true
     procedure_pattern:
       allow:
-        - "mydb.*"  # Include all procedures from mydb database
+        - "mydb.*" # Include all procedures from mydb database
       deny:
-        - ".*_temp"  # Exclude procedures ending with _temp
+        - ".*_temp" # Exclude procedures ending with _temp
 
     # If you need to use SSL with MySQL:
     # options:
