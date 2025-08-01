@@ -67,7 +67,7 @@ class PatternCleanUpOwnership(OwnershipTransformer):
             current_owner_urns = current_owner_urns.union({owner.owner for owner in aspect.owners})
         
         # clean all the owners based on the parameters received from config
-        cleaned_owner_urns: List[str] = []
+        cleaned_owner_urns = set()
         for owner_urn in current_owner_urns:
             username = ""
             try:
@@ -82,7 +82,7 @@ class PatternCleanUpOwnership(OwnershipTransformer):
             except InvalidUrnError:
                 logger.warning(f"Could not parse {owner_urn} from {entity_urn}")
                 username = owner_urn
-            cleaned_owner_urns.append(username)
+            cleaned_owner_urns.add(username)
 
         ownership_type, ownership_type_urn = builder.validate_ownership_type(
             OwnershipTypeClass.TECHNICAL_OWNER
