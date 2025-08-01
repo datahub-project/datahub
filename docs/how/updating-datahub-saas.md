@@ -34,6 +34,10 @@ This is over and above updating-datahub.md file
 ### Environment variables
 
 - [datahub-gms] `SLACK_AT_MENTION_DEFAULT_ENABLED`: Controls the default value for @DataHub bot mentions when not explicitly configured via the UI. This replaces the removed `DATAHUB_SLACK_AT_MENTION_ENABLED` environment variable.
+- [datahub-gms] `SHOW_HOME_PAGE_REDESIGN`: Enables the new customizable home page with templates and modules.
+- [datahub-gms] `ACTON_WORKFLOWS_ENABLED`: Enables the action workflows feature enabling users to create and review action workflow (access) requests.
+- [datahub-gms] `TAG_PROPAGATION_V2_ENABLED`: When creating a new tag propagation automation, creates one using the generic propagation action, which supports propagating upstream.
+- [datahub-gms] `TERM_PROPAGATION_V2_ENABLED`: When creating a new term propagation automation, creates one using the generic propagation action, which supports propagating upstream.
 
 ## v0.3.12
 

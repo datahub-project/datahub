@@ -134,6 +134,13 @@ The AI-powered Slack bot, which replies to the @datahub mentions, is covered in 
 | `ENTITY_CLIENT_JAVA_GET_BATCH_SIZE`             | `375`   | integer   | [`GMS`]    | Batch size for Java entity client calls.                                                                              |
 | `ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE`           | `100`   | integer   | [`GMS`]    | Batch size for Rest.li entity client calls. Decrease if extremely long URNs cause 414 error codes.                    |
 
+## Automations
+
+| Variable                      | Default | Unit/Type | Components | Description                                                                                                                |
+| ----------------------------- | ------- | --------- | ---------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `TAG_PROPAGATION_V2_ENABLED`  | `false` | boolean   | [`GMS`]    | Controls whether new tag propagation automations use the generic propagation action, which supports propagating upstream.  |
+| `TERM_PROPAGATION_V2_ENABLED` | `false` | boolean   | [`GMS`]    | Controls whether new term propagation automations use the generic propagation action, which supports propagating upstream. |
+
 ## Search and Ranking
 
 | Variable                                            | Default | Unit/Type    | Components        | Description                                                     |
@@ -152,12 +159,11 @@ The AI-powered Slack bot, which replies to the @datahub mentions, is covered in 
 
 ## Entities and Versions
 
-| Variable                                   | Default | Unit/Type | Components                              | Description                                                                                                        |
-| ------------------------------------------ | ------- | --------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `ENTITY_VERSIONING_ENABLED`                | `false` | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`] | Enables entity versioning related resolvers, validators, side effects, etc. to support versioned entities.         |
-| `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_ENABLE` | `true`  | boolean   | [`GMS`]                                 | Whether to run a bootstrap step for post entities to allow filtering posts by type.                                |
-| `ALTERNATE_MCP_VALIDATION`                 | `false` | boolean   | [`GMS`]                                 | Enables an alternate MCP validation pathway for MCPs that should be validated only after applying a mutation hook. |
-| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`      | `true`  | boolean   | [`GMS`]                                 | Whether to enable introspection queries in the GraphQL API.                                                        |
+| Variable                                   | Default | Unit/Type | Components | Description                                                                                                        |
+| ------------------------------------------ | ------- | --------- | ---------- | ------------------------------------------------------------------------------------------------------------------ |
+| `BOOTSTRAP_SYSTEM_UPDATE_POST_INFO_ENABLE` | `true`  | boolean   | [`GMS`]    | Whether to run a bootstrap step for post entities to allow filtering posts by type.                                |
+| `ALTERNATE_MCP_VALIDATION`                 | `false` | boolean   | [`GMS`]    | Enables an alternate MCP validation pathway for MCPs that should be validated only after applying a mutation hook. |
+| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`      | `true`  | boolean   | [`GMS`]    | Whether to enable introspection queries in the GraphQL API.                                                        |
 
 ## OIDC Implicit
 

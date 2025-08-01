@@ -22,6 +22,8 @@ DataHub works.
 | `HIDE_DBT_SOURCE_IN_LINEAGE`                     | `false` | boolean   | [`GMS`]                                 | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                               |
 | `SHOW_NAV_BAR_REDESIGN`                          | `false` | boolean   | [`GMS`]                                 | Enables the new navigation bar redesign.                                                                                    |
 | `SHOW_MANAGE_TAGS`                               | `true`  | boolean   | [`GMS`]                                 | Enables the manage tags page.                                                                                               |
+| `SHOW_HOME_PAGE_REDESIGN`                        | `false` | boolean   | [`GMS`]                                 | Enables the new customizable home page with templates and modules.                                                          |
+| `ACTON_WORKFLOWS_ENABLED`                        | `false` | boolean   | [`GMS`]                                 | Enables the action workflows feature to enabled, allowing users to create and review requests.                              |
 
 ## Ingestion
 
