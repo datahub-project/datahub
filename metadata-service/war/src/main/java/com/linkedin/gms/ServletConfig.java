@@ -65,8 +65,7 @@ public class ServletConfig implements WebMvcConfigurer {
     FilterRegistrationBean<AuthenticationExtractionFilter> registration =
         new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(
-        Ordered.HIGHEST_PRECEDENCE - 1); // Run before existing AuthenticationFilter
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // Run FIRST to extract authentication info
     registration.setAsyncSupported(true);
 
     // Register for all paths - this filter ALWAYS runs to extract auth info
@@ -79,7 +78,8 @@ public class ServletConfig implements WebMvcConfigurer {
   public FilterRegistrationBean<AuthenticationFilter> authFilter(AuthenticationFilter filter) {
     FilterRegistrationBean<AuthenticationFilter> registration = new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    registration.setOrder(
+        Ordered.HIGHEST_PRECEDENCE + 1); // Run SECOND after AuthenticationExtractionFilter
     registration.setAsyncSupported(true);
 
     // Register filter for all paths - exclusions are handled by shouldNotFilter()

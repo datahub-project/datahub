@@ -11,7 +11,6 @@ import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
 import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
-import com.datahub.authentication.authenticator.HealthStatusAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.google.common.collect.ImmutableMap;
@@ -118,14 +117,15 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
           authenticatorContext);
       authenticatorChain.register(tokenAuthenticator);
 
+      // TODO: Temporarily removed HealthStatusAuthenticator for debugging
       // Add health status authenticator for system health endpoints
-      HealthStatusAuthenticator healthAuthenticator = new HealthStatusAuthenticator();
-      healthAuthenticator.init(
-          ImmutableMap.of(
-              SYSTEM_CLIENT_ID_CONFIG,
-              this.configurationProvider.getAuthentication().getSystemClientId()),
-          authenticatorContext);
-      authenticatorChain.register(healthAuthenticator);
+      // HealthStatusAuthenticator healthAuthenticator = new HealthStatusAuthenticator();
+      // healthAuthenticator.init(
+      //     ImmutableMap.of(
+      //         SYSTEM_CLIENT_ID_CONFIG,
+      //         this.configurationProvider.getAuthentication().getSystemClientId()),
+      //     authenticatorContext);
+      // authenticatorChain.register(healthAuthenticator);
 
     } else {
       // Authentication is not enabled. Use no-op authenticator.
@@ -144,6 +144,14 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
+
+    // Debug logging for request correlation
+    String requestId = Thread.currentThread().getId() + "-" + request.hashCode();
+    log.warn(
+        "[{}] AuthExtractionFilter: Processing {} - Authorization: {}",
+        requestId,
+        request.getServletPath(),
+        request.getHeader("Authorization") != null ? "present" : "missing");
 
     // Build authentication context from request
     AuthenticationRequest authRequest = buildAuthContext(request);

@@ -50,6 +50,15 @@ public class AuthenticatorChain {
       @Nonnull final AuthenticationRequest context, boolean logExceptions)
       throws AuthenticationException {
     Objects.requireNonNull(context);
+
+    // Debug logging for request correlation
+    String requestId = Thread.currentThread().getId() + "-" + context.hashCode();
+    log.warn(
+        "[{}] AuthenticatorChain: Starting with {} authenticators - Authorization: {}",
+        requestId,
+        authenticators.size(),
+        context.getRequestHeaders().get("Authorization") != null ? "present" : "missing");
+
     ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
     List<Pair<String, Exception>> authenticationFailures = new ArrayList<>();
     for (final Authenticator authenticator : this.authenticators) {
