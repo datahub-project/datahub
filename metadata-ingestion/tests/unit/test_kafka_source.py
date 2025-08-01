@@ -1,4 +1,5 @@
 import json
+import sys
 from itertools import chain
 from typing import Dict, Optional, Tuple
 from unittest.mock import MagicMock, patch
@@ -11,6 +12,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 from freezegun import freeze_time
 
 from datahub.configuration.common import ConfigurationError
+from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.emitter.mce_builder import (
     OwnerType,
     make_dataplatform_instance_urn,
@@ -807,3 +809,124 @@ def test_kafka_source_oauth_cb_configuration():
                 }
             }
         )
+
+
+# MSK IAM Authentication Configuration Tests
+
+
+def test_kafka_consumer_connection_config_basic():
+    """Test basic KafkaConsumerConnectionConfig without SASL."""
+    config = KafkaConsumerConnectionConfig()
+    assert config.sasl_mechanism is None
+    assert config.aws_region is None
+    assert config.consumer_config == {}
+
+
+def test_kafka_consumer_connection_config_aws_msk_iam():
+    """Test KafkaConsumerConnectionConfig with AWS_MSK_IAM SASL mechanism."""
+    config = KafkaConsumerConnectionConfig(sasl_mechanism="AWS_MSK_IAM")
+
+    assert config.sasl_mechanism == "AWS_MSK_IAM"
+    assert "security.protocol" in config.consumer_config
+    assert config.consumer_config["security.protocol"] == "SASL_SSL"
+    assert config.consumer_config["sasl.mechanism"] == "AWS_MSK_IAM"
+    # AWS_MSK_IAM doesn't require oauth_cb
+    assert "oauth_cb" not in config.consumer_config
+
+
+def test_kafka_consumer_connection_config_oauthbearer_missing_region():
+    """Test that OAUTHBEARER without aws_region raises validation error."""
+    with pytest.raises(
+        ValueError, match="aws_region must be set when using OAUTHBEARER"
+    ):
+        KafkaConsumerConnectionConfig(sasl_mechanism="OAUTHBEARER")
+
+
+def test_kafka_consumer_connection_config_oauthbearer_with_region():
+    """Test KafkaConsumerConnectionConfig with OAUTHBEARER and aws_region."""
+    # Mock the module import before creating the config
+    mock_msk_module = MagicMock()
+    mock_msk_module.MSKAuthTokenProvider = MagicMock()
+    sys.modules["aws_msk_iam_sasl_signer"] = mock_msk_module
+
+    try:
+        config = KafkaConsumerConnectionConfig(
+            sasl_mechanism="OAUTHBEARER", aws_region="us-east-1"
+        )
+
+        assert config.sasl_mechanism == "OAUTHBEARER"
+        assert config.aws_region == "us-east-1"
+        assert "security.protocol" in config.consumer_config
+        assert config.consumer_config["security.protocol"] == "SASL_SSL"
+        assert config.consumer_config["sasl.mechanism"] == "OAUTHBEARER"
+        assert "oauth_cb" in config.consumer_config
+        assert callable(config.consumer_config["oauth_cb"])
+    finally:
+        # Clean up the mock module
+        if "aws_msk_iam_sasl_signer" in sys.modules:
+            del sys.modules["aws_msk_iam_sasl_signer"]
+
+
+def test_kafka_consumer_connection_config_oauthbearer_missing_library():
+    """Test that OAUTHBEARER without aws_msk_iam_sasl_signer raises ImportError."""
+    with pytest.raises(
+        ImportError, match="aws_msk_iam_sasl_signer.*library is required"
+    ):
+        KafkaConsumerConnectionConfig(
+            sasl_mechanism="OAUTHBEARER", aws_region="us-east-1"
+        )
+
+
+def test_kafka_consumer_connection_config_unsupported_sasl():
+    """Test warning for unsupported SASL mechanism."""
+    with patch("datahub.configuration.kafka.logger") as mock_logger:
+        config = KafkaConsumerConnectionConfig(sasl_mechanism="UNSUPPORTED_MECHANISM")
+
+        assert config.consumer_config["sasl.mechanism"] == "UNSUPPORTED_MECHANISM"
+        mock_logger.warning.assert_called_once()
+        assert "UNSUPPORTED_MECHANISM" in mock_logger.warning.call_args[0][0]
+
+
+def test_kafka_consumer_connection_config_preserves_existing_config():
+    """Test that existing consumer_config is preserved when adding SASL."""
+    existing_config = {"enable.auto.commit": False, "group.id": "test-group"}
+    config = KafkaConsumerConnectionConfig(
+        consumer_config=existing_config, sasl_mechanism="AWS_MSK_IAM"
+    )
+
+    # Existing config should be preserved
+    assert config.consumer_config["enable.auto.commit"] is False
+    assert config.consumer_config["group.id"] == "test-group"
+
+    # SASL config should be added
+    assert config.consumer_config["security.protocol"] == "SASL_SSL"
+    assert config.consumer_config["sasl.mechanism"] == "AWS_MSK_IAM"
+
+
+def test_oauth_callback_function():
+    """Test the oauth callback function works correctly."""
+    # Mock the module import before creating the config
+    mock_msk_module = MagicMock()
+    mock_msk_provider = MagicMock()
+    mock_msk_provider.generate_auth_token.return_value = (
+        "test-token",
+        3600000,
+    )  # 1 hour in ms
+    mock_msk_module.MSKAuthTokenProvider = mock_msk_provider
+    sys.modules["aws_msk_iam_sasl_signer"] = mock_msk_module
+
+    try:
+        config = KafkaConsumerConnectionConfig(
+            sasl_mechanism="OAUTHBEARER", aws_region="us-east-1"
+        )
+
+        oauth_cb = config.consumer_config["oauth_cb"]
+        token, expiry = oauth_cb("dummy_config_str")
+
+        assert token == "test-token"
+        assert expiry == 3600.0  # Should be converted from ms to seconds
+        mock_msk_provider.generate_auth_token.assert_called_once_with("us-east-1")
+    finally:
+        # Clean up the mock module
+        if "aws_msk_iam_sasl_signer" in sys.modules:
+            del sys.modules["aws_msk_iam_sasl_signer"]
