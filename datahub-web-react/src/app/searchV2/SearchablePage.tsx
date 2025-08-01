@@ -40,10 +40,11 @@ const Navigation = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     z-index: ${(props) => (props.$isShowNavBarRedesign ? 0 : 200)};
 `;
 
-const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+const Content = styled.div<{ $isShowNavBarRedesign?: boolean; $hideSearchBar?: boolean }>`
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-top: ${(props) => (props.$isShowNavBarRedesign ? '56px' : '72px')};
+    ${(props) => props.$hideSearchBar && 'margin-top: 6px;'}
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
@@ -53,6 +54,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
     max-height: ${(props) => (props.$isShowNavBarRedesign ? 'calc(100vh - 56px)' : 'calc(100vh - 72px)')};
+    max-height: ${(props) => props.$hideSearchBar && 'calc(100vh - 6px)'};
     width: 100%;
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
@@ -140,7 +142,9 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
-                <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
+                <Content $isShowNavBarRedesign={isShowNavBarRedesign} $hideSearchBar={hideSearchBar}>
+                    {children}
+                </Content>
             </Body>
             <ProductUpdates />
         </>

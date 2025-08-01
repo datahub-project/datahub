@@ -23,7 +23,7 @@ export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
 
     // Template operations
     const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
-        useTemplateOperations(setPersonalTemplate);
+        useTemplateOperations(setPersonalTemplate, personalTemplate);
 
     // Modal state
     const moduleModalState = useModuleModalState();
