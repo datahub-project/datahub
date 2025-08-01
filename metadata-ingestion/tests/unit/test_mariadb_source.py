@@ -5,11 +5,7 @@ from sqlalchemy.engine import Connection, Inspector
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mariadb import MariaDBConfig, MariaDBSource
-from datahub.ingestion.source.sql.mysql.job_models import (
-    MySQLDataJob,
-    MySQLProcedureContainer,
-    MySQLStoredProcedure,
-)
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 
 
 def test_platform_correctly_set_mariadb():
@@ -21,46 +17,51 @@ def test_platform_correctly_set_mariadb():
 
 
 def test_mariadb_stored_procedure_parsing():
-    """Test parsing of a MariaDB stored procedure definition"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
+    """Test parsing of a MariaDB stored procedure using BaseProcedure"""
+    procedure = BaseProcedure(
         name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-            source="mariadb",
-        ),
-        code="""
+        language="sql",
+        argument_signature=None,
+        return_type=None,
+        procedure_definition="""
         CREATE PROCEDURE test_proc()
         BEGIN
             INSERT INTO target_table
             SELECT * FROM source_table;
         END
         """,
+        created=None,
+        last_altered=None,
+        comment=None,
+        extra_properties={
+            "sql_data_access": "MODIFIES",
+            "security_type": "DEFINER",
+            "definer": "root@localhost",
+        },
     )
 
     assert procedure.name == "test_proc"
-    assert procedure.routine_schema == "test_db"
-    assert procedure.full_name == "test_db.test_proc"
-    assert procedure.full_type == "MARIADB_STORED_PROCEDURE"
+    assert procedure.language == "sql"
+    assert procedure.procedure_definition is not None
+    assert "CREATE PROCEDURE test_proc()" in procedure.procedure_definition
+    assert procedure.extra_properties is not None
+    assert procedure.extra_properties["sql_data_access"] == "MODIFIES"
 
 
-def test_mariadb_procedure_container_properties():
-    """Test MariaDB procedure container property handling"""
-    container = MySQLProcedureContainer(
-        name="test_db.stored_procedures",
-        env="PROD",
-        db="test_db",
-        platform_instance="local",
-        source="mariadb",
+def test_mariadb_config():
+    """Test MariaDB configuration options"""
+    config = MariaDBConfig(
+        host_port="localhost:3306",
+        database="test_db",
+        include_stored_procedures=True,
+        procedure_pattern=AllowDenyPattern(allow=["test_db.*"], deny=[".*_temp"]),
     )
 
-    assert container.formatted_name == "test_db.stored_procedures"
-    assert container.orchestrator == "mariadb"
-    assert container.cluster == "PROD"
-    assert container.full_type == "(mariadb,test_db.stored_procedures,PROD)"
+    assert config.include_stored_procedures
+    assert config.procedure_pattern.allowed("test_db.my_proc")
+    assert not config.procedure_pattern.allowed("test_db.my_proc_temp")
+    assert not config.procedure_pattern.allowed("other_db.proc")
+    assert config.host_port == "localhost:3306"
 
 
 def test_get_stored_procedures():
@@ -105,19 +106,19 @@ def test_get_stored_procedures():
     )
 
     assert len(procedures) == 1
-    assert procedures[0]["routine_schema"] == "test_db"
-    assert procedures[0]["routine_name"] == "test_proc"
-    assert "CREATE PROCEDURE" in procedures[0]["code"]
+    assert isinstance(procedures[0], BaseProcedure)
+    assert procedures[0].name == "test_proc"
+    assert procedures[0].procedure_definition is not None
+    assert "CREATE PROCEDURE" in procedures[0].procedure_definition
+    assert procedures[0].comment == "Test procedure"
+    assert procedures[0].extra_properties is not None
+    assert procedures[0].extra_properties["sql_data_access"] == "MODIFIES"
 
 
 def test_loop_stored_procedures():
     """Test the loop_stored_procedures method"""
     mock_inspector = MagicMock(spec=Inspector)
     mock_engine = MagicMock()
-    mock_conn = MagicMock(spec=Connection)
-    mock_cm = MagicMock()
-    mock_cm.__enter__.return_value = mock_conn
-    mock_engine.connect.return_value = mock_cm
     mock_inspector.engine = mock_engine
 
     # Mock get_db_name
@@ -132,14 +133,20 @@ def test_loop_stored_procedures():
 
     source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=config)
 
-    # Mock _get_stored_procedures to return test data
-    with patch.object(source, "_get_stored_procedures") as mock_get_procs:
-        mock_get_procs.return_value = [
-            {
-                "routine_schema": "test_db",
-                "routine_name": "test_proc",
-                "code": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-            }
+    # Mock fetch_procedures_for_schema to return test data
+    with patch.object(source, "fetch_procedures_for_schema") as mock_fetch_procs:
+        mock_fetch_procs.return_value = [
+            BaseProcedure(
+                name="test_proc",
+                language="sql",
+                argument_signature=None,
+                return_type=None,
+                procedure_definition="CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+                created=None,
+                last_altered=None,
+                comment="Test procedure",
+                extra_properties={},
+            )
         ]
 
         # Convert generator to list to execute it
@@ -151,56 +158,46 @@ def test_loop_stored_procedures():
 
         # Verify work units were generated
         assert len(workunits) > 0
-        # Verify the container was created with mariadb source
-        mock_get_procs.assert_called_once()
+        # Verify procedures were fetched
+        mock_fetch_procs.assert_called_once()
 
 
-def test_mariadb_stored_procedure_metadata():
-    """Test handling of MariaDB stored procedure metadata"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
-        name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-            source="mariadb",
-        ),
-        code="CREATE PROCEDURE test_proc() BEGIN /* Test proc */ SELECT 1; END",
-    )
+def test_mariadb_procedure_pattern_filtering():
+    """Test procedure pattern filtering in MariaDB source"""
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
+    mock_inspector.engine = mock_engine
+    mock_inspector.engine.url.database = "test_db"
 
-    data_job = MySQLDataJob(entity=procedure)
-    assert data_job.entity.full_name == "test_db.test_proc"
-
-    # Test adding properties
-    data_job.add_property("description", "Test procedure")
-    data_job.add_property("created_by", "test_user")
-
-    assert data_job.valued_properties == {
-        "description": "Test procedure",
-        "created_by": "test_user",
-    }
-
-
-def test_mariadb_config():
-    """Test MariaDB configuration options"""
     config = MariaDBConfig(
         host_port="localhost:3306",
-        database="test_db",
         include_stored_procedures=True,
-        include_stored_procedures_code=True,
-        include_lineage=True,
         procedure_pattern=AllowDenyPattern(allow=["test_db.*"], deny=[".*_temp"]),
     )
 
-    assert config.include_stored_procedures
-    assert config.include_stored_procedures_code
-    assert config.include_lineage
-    assert config.procedure_pattern.allowed("test_db.my_proc")
-    assert not config.procedure_pattern.allowed("test_db.my_proc_temp")
-    assert not config.procedure_pattern.allowed("other_db.proc")
-    assert config.host_port == "localhost:3306"
+    source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    with patch.object(source, "_get_stored_procedures") as mock_get_procs:
+        mock_get_procs.return_value = [
+            BaseProcedure(
+                name="test_proc_temp",
+                language="sql",
+                argument_signature=None,
+                return_type=None,
+                procedure_definition="CREATE PROCEDURE test_proc_temp() BEGIN SELECT 1; END",
+                created=None,
+                last_altered=None,
+                comment=None,
+                extra_properties={},
+            )
+        ]
+
+        procedures = source.fetch_procedures_for_schema(
+            inspector=mock_inspector, schema="test_db", db_name="test_db"
+        )
+
+        # Should be filtered out by pattern
+        assert len(procedures) == 0
 
 
 def test_mariadb_error_handling():
@@ -240,47 +237,10 @@ def test_mariadb_error_handling():
 
     # Verify the results
     assert len(procedures) == 1
-    assert procedures[0]["routine_schema"] == "test_db"
-    assert procedures[0]["routine_name"] == "test_proc"
+    assert isinstance(procedures[0], BaseProcedure)
+    assert procedures[0].name == "test_proc"
     # Should fall back to ROUTINE_DEFINITION when SHOW CREATE PROCEDURE fails
-    assert procedures[0]["code"] == "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END"
-    assert "code" in procedures[0]
-
-
-def test_mariadb_procedure_pattern_filtering():
-    """Test procedure pattern filtering in MariaDB source"""
-    mock_inspector = MagicMock(spec=Inspector)
-    mock_engine = MagicMock()
-    mock_conn = MagicMock(spec=Connection)
-    mock_cm = MagicMock()
-    mock_cm.__enter__.return_value = mock_conn
-    mock_engine.connect.return_value = mock_cm
-    mock_inspector.engine = mock_engine
-    mock_inspector.engine.url.database = "test_db"
-
-    config = MariaDBConfig(
-        host_port="localhost:3306",
-        include_stored_procedures=True,
-        procedure_pattern=AllowDenyPattern(allow=["test_db.*"], deny=[".*_temp"]),
+    assert (
+        procedures[0].procedure_definition
+        == "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END"
     )
-
-    source = MariaDBSource(ctx=PipelineContext(run_id="test"), config=config)
-
-    with patch.object(source, "_get_stored_procedures") as mock_get_procs:
-        mock_get_procs.return_value = [
-            {
-                "routine_schema": "test_db",
-                "routine_name": "test_proc_temp",
-                "code": "CREATE PROCEDURE test_proc_temp() BEGIN SELECT 1; END",
-            }
-        ]
-
-        # Convert generator to list to execute it
-        workunits = list(
-            source.loop_stored_procedures(
-                inspector=mock_inspector, schema="test_db", sql_config=config
-            )
-        )
-
-        # Should be filtered out by pattern
-        assert len(workunits) == 0

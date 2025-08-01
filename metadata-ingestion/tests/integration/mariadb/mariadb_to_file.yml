@@ -8,8 +8,6 @@ source:
     host_port: localhost:53300
     database: test_db
     include_stored_procedures: true
-    include_stored_procedures_code: true
-    include_lineage: true
     procedure_pattern:
       allow:
         - "test_db.*"

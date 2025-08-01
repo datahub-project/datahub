@@ -1,56 +1,64 @@
 import re
+from unittest.mock import MagicMock, patch
 
 from pydantic import SecretStr
+from sqlalchemy.engine import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-from datahub.ingestion.source.sql.mysql.job_models import (
-    MySQLDataJob,
-    MySQLProcedureContainer,
-    MySQLStoredProcedure,
-)
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 
 
 def test_stored_procedure_parsing():
-    """Test parsing of a stored procedure definition"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
+    """Test parsing of a stored procedure using BaseProcedure"""
+    procedure = BaseProcedure(
         name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-        ),
-        code="""
+        language="sql",
+        argument_signature=None,
+        return_type=None,
+        procedure_definition="""
         CREATE PROCEDURE test_proc()
         BEGIN
             INSERT INTO target_table
             SELECT * FROM source_table;
         END
         """,
+        created=None,
+        last_altered=None,
+        comment=None,
+        extra_properties={
+            "sql_data_access": "MODIFIES",
+            "security_type": "DEFINER",
+            "definer": "root@localhost",
+        },
     )
 
     assert procedure.name == "test_proc"
-    assert procedure.routine_schema == "test_db"
-    assert procedure.full_name == "test_db.test_proc"
-    assert procedure.full_type == "MYSQL_STORED_PROCEDURE"
+    assert procedure.language == "sql"
+    assert procedure.procedure_definition is not None
+    assert "CREATE PROCEDURE test_proc()" in procedure.procedure_definition
+    assert procedure.extra_properties is not None
+    assert procedure.extra_properties["sql_data_access"] == "MODIFIES"
 
 
-def test_procedure_container_properties():
-    """Test MySQL procedure container property handling"""
-    container = MySQLProcedureContainer(
-        name="test_db.stored_procedures",
-        env="PROD",
-        db="test_db",
-        platform_instance="local",
+def test_mysql_source_has_stored_procedure_support():
+    """Test that MySQL source has stored procedure support"""
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        include_stored_procedures=True,
+        procedure_pattern=AllowDenyPattern(allow=["test_db.*"]),
     )
+    source = MySQLSource(ctx=PipelineContext(run_id="test"), config=config)
 
-    assert container.formatted_name == "test_db.stored_procedures"
-    assert container.orchestrator == "mysql"
-    assert container.cluster == "PROD"
-    assert container.full_type == "(mysql,test_db.stored_procedures,PROD)"
+    # Test configuration is properly set
+    assert config.include_stored_procedures
+    assert config.procedure_pattern.allowed("test_db.my_proc")
+    assert not config.procedure_pattern.allowed("other_db.proc")
+
+    # Test source has the required methods
+    assert hasattr(source, "loop_stored_procedures")
+    assert hasattr(source, "get_schema_level_workunits")
 
 
 def test_stored_procedure_config():
@@ -61,14 +69,10 @@ def test_stored_procedure_config():
         password=SecretStr("pass"),
         database="test_db",
         include_stored_procedures=True,
-        include_stored_procedures_code=True,
-        include_lineage=True,
         procedure_pattern=AllowDenyPattern(allow=["test_db.*"], deny=[".*_temp"]),
     )
 
     assert config.include_stored_procedures
-    assert config.include_stored_procedures_code
-    assert config.include_lineage
     assert config.procedure_pattern.allowed("test_db.my_proc")
     assert not config.procedure_pattern.allowed("test_db.my_proc_temp")
     assert not config.procedure_pattern.allowed("other_db.proc")
@@ -102,179 +106,86 @@ def test_temp_table_identification():
     assert not is_temp_table("temporary")
 
 
-def test_procedure_metadata_handling():
-    """Test handling of stored procedure metadata"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
-        name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-        ),
-        code="CREATE PROCEDURE test_proc() BEGIN /* Test proc */ SELECT 1; END",
-    )
+def test_mysql_procedure_pattern_filtering():
+    """Test procedure pattern filtering in MySQL source"""
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
+    mock_inspector.engine = mock_engine
+    mock_inspector.engine.url.database = "test_db"
 
-    data_job = MySQLDataJob(entity=procedure)
-    assert data_job.entity.full_name == "test_db.test_proc"
-
-    # Test adding properties
-    data_job.add_property("description", "Test procedure")
-    data_job.add_property("created_by", "test_user")
-
-    assert data_job.valued_properties == {
-        "description": "Test procedure",
-        "created_by": "test_user",
-    }
-
-
-def test_mysql_data_job_empty_properties():
-    """Test MySQL data job with empty properties"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
-        name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-        ),
-    )
-
-    data_job = MySQLDataJob(entity=procedure)
-
-    # Test initial empty properties
-    assert data_job.valued_properties == {}
-    assert len(data_job.job_properties) == 0
-
-    # Test empty string property - should be included since it's not None
-    data_job.add_property("test", "")
-    assert "test" in data_job.valued_properties
-    assert data_job.valued_properties["test"] == ""
-
-    # Test string "None" property - should be included since it's not None
-    data_job.add_property("test2", "None")
-    assert "test2" in data_job.valued_properties
-    assert data_job.valued_properties["test2"] == "None"
-
-
-def test_mysql_procedure_platform_instance():
-    """Test MySQL procedure with platform instance"""
-    container = MySQLProcedureContainer(
-        name="test_db.stored_procedures",
-        env="PROD",
-        db="test_db",
-        platform_instance="custom-instance",
-    )
-
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db", name="test_proc", flow=container
-    )
-
-    data_job = MySQLDataJob(entity=procedure)
-    platform_instance = data_job.as_maybe_platform_instance_aspect
-
-    assert platform_instance is not None
-    # Check both platform and instance URNs
-    assert platform_instance.platform == "urn:li:dataPlatform:mysql"
-    assert (
-        platform_instance.instance
-        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,custom-instance)"
-    )
-
-
-def test_mysql_data_job_aspects():
-    """Test MySQL data job input/output aspects"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
-        name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-        ),
-    )
-
-    data_job = MySQLDataJob(entity=procedure)
-
-    # Add some test data
-    data_job.incoming = ["dataset1", "dataset2"]
-    data_job.outgoing = ["dataset3"]
-    data_job.input_jobs = ["job1"]
-
-    io_aspect = data_job.as_datajob_input_output_aspect
-    assert sorted(io_aspect.inputDatasets) == ["dataset1", "dataset2"]
-    assert io_aspect.outputDatasets == ["dataset3"]
-    assert io_aspect.inputDatajobs == ["job1"]
-
-
-def test_mysql_flow_container_formatting():
-    """Test MySQL flow container name formatting"""
-    container = MySQLProcedureContainer(
-        name="test,db.stored,procedures",  # Contains commas
-        env="PROD",
-        db="test_db",
-        platform_instance=None,
-    )
-
-    assert container.formatted_name == "test-db.stored-procedures"
-
-
-def test_stored_procedure_properties():
-    """Test stored procedure additional properties"""
-    procedure = MySQLStoredProcedure(
-        routine_schema="test_db",
-        name="test_proc",
-        flow=MySQLProcedureContainer(
-            name="test_db.stored_procedures",
-            env="PROD",
-            db="test_db",
-            platform_instance=None,
-        ),
-        code="CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-    )
-
-    data_job = MySQLDataJob(entity=procedure)
-
-    # Test adding various properties
-    data_job.add_property("CREATED", "2024-01-01")
-    data_job.add_property("LAST_ALTERED", "2024-01-02")
-    data_job.add_property("SQL_DATA_ACCESS", "MODIFIES")
-    data_job.add_property("SECURITY_TYPE", "DEFINER")
-    data_job.add_property("parameters", "IN param1 INT, OUT param2 VARCHAR")
-
-    assert len(data_job.valued_properties) == 5
-    assert all(value is not None for value in data_job.valued_properties.values())
-
-
-def test_temp_table_patterns():
-    """Test comprehensive temp table pattern matching"""
     config = MySQLConfig(
-        schema_pattern=AllowDenyPattern(allow=["test_schema"]),
-        table_pattern=AllowDenyPattern(allow=["test_schema.*"]),
+        host_port="localhost:3306",
+        include_stored_procedures=True,
+        procedure_pattern=AllowDenyPattern(allow=["test_db.*"], deny=[".*_temp"]),
     )
+
     source = MySQLSource(ctx=PipelineContext(run_id="test"), config=config)
 
-    # Mock the discovered_datasets property to include all our "permanent" tables
-    source.discovered_datasets = {
-        "test_schema.permanent_table",
-        "test_schema.regular_table",
-        "test_schema.table",
-    }
+    with patch.object(source, "get_procedures_for_schema") as mock_get_procs:
+        mock_get_procs.return_value = [
+            BaseProcedure(
+                name="test_proc_temp",
+                language="sql",
+                argument_signature=None,
+                return_type=None,
+                procedure_definition="CREATE PROCEDURE test_proc_temp() BEGIN SELECT 1; END",
+                created=None,
+                last_altered=None,
+                comment=None,
+                extra_properties={},
+            )
+        ]
 
-    test_cases = [
-        ("test_schema.#temp", True),  # Starts with #
-        ("test_schema._tmp", True),  # Starts with _tmp
-        ("test_schema.regular_table", False),  # In discovered_datasets
-        ("test_schema.table", False),  # In discovered_datasets
-        ("test_schema.temp_123", True),  # Not in discovered_datasets
-        ("other_schema.temp", False),  # Schema not allowed
-    ]
-
-    for table_name, expected in test_cases:
-        actual = source.is_temp_table(table_name)
-        assert actual == expected, (
-            f"Failed for {table_name}. Expected {expected}, got {actual}"
+        procedures = source.fetch_procedures_for_schema(
+            inspector=mock_inspector, schema="test_db", db_name="test_db"
         )
+
+        # Should be filtered out by pattern
+        assert len(procedures) == 0
+
+
+def test_mysql_loop_stored_procedures():
+    """Test the loop_stored_procedures method"""
+    mock_inspector = MagicMock(spec=Inspector)
+    mock_engine = MagicMock()
+    mock_inspector.engine = mock_engine
+
+    # Mock get_db_name
+    mock_inspector.engine.url.database = "test_db"
+
+    # Configure the source
+    config = MySQLConfig(
+        host_port="localhost:3306",
+        include_stored_procedures=True,
+        procedure_pattern=AllowDenyPattern(allow=["test_db.*"]),
+    )
+
+    source = MySQLSource(ctx=PipelineContext(run_id="test"), config=config)
+
+    # Mock fetch_procedures_for_schema to return test data
+    with patch.object(source, "fetch_procedures_for_schema") as mock_fetch_procs:
+        mock_fetch_procs.return_value = [
+            BaseProcedure(
+                name="test_proc",
+                language="sql",
+                argument_signature=None,
+                return_type=None,
+                procedure_definition="CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+                created=None,
+                last_altered=None,
+                comment="Test procedure",
+                extra_properties={},
+            )
+        ]
+
+        # Convert generator to list to execute it
+        workunits = list(
+            source.loop_stored_procedures(
+                inspector=mock_inspector, schema="test_db", config=config
+            )
+        )
+
+        # Verify work units were generated
+        assert len(workunits) > 0
+        # Verify procedures were fetched
+        mock_fetch_procs.assert_called_once()

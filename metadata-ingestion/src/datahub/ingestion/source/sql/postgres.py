@@ -45,6 +45,9 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_container_workunits,
     generate_procedure_workunits,
 )
+from datahub.ingestion.source.sql.stored_procedures.config import (
+    StoredProcedureConfigMixin,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
@@ -113,7 +116,7 @@ class BasePostgresConfig(BasicSQLAlchemyConfig):
     )
 
 
-class PostgresConfig(BasePostgresConfig):
+class PostgresConfig(BasePostgresConfig, StoredProcedureConfigMixin):
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -131,15 +134,6 @@ class PostgresConfig(BasePostgresConfig):
             "Initial database used to query for the list of databases, when ingesting multiple databases. "
             "Note: this is not used if `database` or `sqlalchemy_uri` are provided."
         ),
-    )
-    include_stored_procedures: bool = Field(
-        default=True,
-        description="Include ingest of stored procedures.",
-    )
-    procedure_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for stored procedures to filter in ingestion."
-        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
 
 

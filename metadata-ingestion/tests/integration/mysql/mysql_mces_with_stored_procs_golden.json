@@ -633,7 +633,7 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:28f59a8ed3158e3de8e6fbae912a8335"
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
         }
     },
     "systemMetadata": {
@@ -651,8 +651,8 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:28f59a8ed3158e3de8e6fbae912a8335",
-                    "urn": "urn:li:container:28f59a8ed3158e3de8e6fbae912a8335"
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
                 }
             ]
         }
@@ -670,12 +670,50 @@
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "externalUrl": "",
-            "name": "northwind.analyze_customer_priority",
+            "customProperties": {
+                "sql_data_access": "CONTAINS SQL",
+                "security_type": "DEFINER",
+                "definer": "root@localhost"
+            },
+            "name": "analyze_customer_priority",
+            "description": "",
             "type": {
-                "string": "MYSQL_STORED_PROCEDURE"
+                "string": "Stored Procedure"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
         }
     },
     "systemMetadata": {
@@ -709,17 +747,125 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD),company)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
+                    ],
+                    "transformOperation": "COPY: `t`.`company` AS `company`",
+                    "confidenceScore": 0.425
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
+                    ],
+                    "transformOperation": "SQL: COUNT(`o`.`id`) AS `total_orders`",
+                    "confidenceScore": 0.425
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {},
-            "externalUrl": "",
-            "name": "northwind.calculate_customer_stats",
+            "customProperties": {
+                "sql_data_access": "CONTAINS SQL",
+                "security_type": "DEFINER",
+                "definer": "root@localhost"
+            },
+            "name": "calculate_customer_stats",
+            "description": "",
             "type": {
-                "string": "MYSQL_STORED_PROCEDURE"
+                "string": "Stored Procedure"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
         }
     },
     "systemMetadata": {
@@ -741,6 +887,87 @@
                         "value": "BEGIN\n    TRUNCATE TABLE customer_stats;\n\n    INSERT INTO customer_stats (company, total_orders, last_order_date)\n    SELECT\n        c.company,\n        COUNT(o.id) as total_orders,\n        MAX(o.order_date) as last_order_date\n    FROM customers c\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY c.company;\nEND",
                         "language": "SQL"
                     }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),company)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
+                    ],
+                    "transformOperation": "COPY: `c`.`company` AS `company`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
+                    ],
+                    "transformOperation": "SQL: COUNT(`o`.`id`) AS `total_orders`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),order_date)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),last_order_date)"
+                    ],
+                    "transformOperation": "SQL: MAX(`o`.`order_date`) AS `last_order_date`",
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
                 }
             ]
         }
@@ -970,115 +1197,6 @@
                 }
             ],
             "sizeInBytes": 16384
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "mysql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.temp_priority_customers,PROD),company)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
-                    ],
-                    "transformOperation": "COPY: `t`.`company` AS `company`",
-                    "confidenceScore": 0.425
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
-                    ],
-                    "transformOperation": "SQL: COUNT(`o`.`id`) AS `total_orders`",
-                    "confidenceScore": 0.425
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "mysql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)"
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD),company)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
-                    ],
-                    "transformOperation": "COPY: `c`.`company` AS `company`",
-                    "confidenceScore": 0.9
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
-                    ],
-                    "transformOperation": "SQL: COUNT(`o`.`id`) AS `total_orders`",
-                    "confidenceScore": 0.9
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.orders,PROD),order_date)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),last_order_date)"
-                    ],
-                    "transformOperation": "SQL: MAX(`o`.`order_date`) AS `last_order_date`",
-                    "confidenceScore": 0.9
-                }
-            ]
         }
     },
     "systemMetadata": {

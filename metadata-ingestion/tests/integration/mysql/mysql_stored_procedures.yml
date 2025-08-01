@@ -8,8 +8,7 @@ source:
     host_port: localhost:53307
     database: northwind
     include_stored_procedures: true
-    include_stored_procedures_code: true
-    include_lineage: true
+    include_view_lineage: true  # Enable schema resolver population for stored procedure lineage
     procedure_pattern:
       allow:
         - "northwind.*"

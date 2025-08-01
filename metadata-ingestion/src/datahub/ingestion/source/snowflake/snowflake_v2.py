@@ -526,6 +526,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            is_temp_table=self._is_temp_table,
         )
 
         with self.report.new_stage(f"*: {METADATA_EXTRACTION}"):

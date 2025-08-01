@@ -1,5 +1,7 @@
 # This import verifies that the dependencies are available.
 
+from typing import Iterable, List, Union
+
 import pymysql  # noqa: F401
 from pydantic.fields import Field
 from sqlalchemy import util
@@ -15,11 +17,24 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import (
+    SqlWorkUnit,
     make_sqlalchemy_type,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_key,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    generate_procedure_container_workunits,
+    generate_procedure_workunits,
+)
+from datahub.ingestion.source.sql.stored_procedures.config import (
+    StoredProcedureConfigMixin,
+)
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -54,7 +69,13 @@ class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     scheme: str = "mysql+pymysql"
 
 
-class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
+class MySQLConfig(
+    MySQLConnectionConfig, TwoTierSQLAlchemyConfig, StoredProcedureConfigMixin
+):
+    # MySQLConfig now inherits stored procedure configuration from StoredProcedureConfigMixin
+    # This includes: include_stored_procedures, procedure_pattern
+    pass
+
     def get_identifier(self, *, schema: str, table: str) -> str:
         return f"{schema}.{table}"
 
@@ -69,10 +90,12 @@ class MySQLSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:
 
-    Metadata for databases, schemas, and tables
-    Column types and schema associated with each table
-    Table, row, and column statistics via optional SQL profiling
+    - Metadata for databases, schemas, views, tables, and stored procedures
+    - Column types associated with each table
+    - Table, row, and column statistics via optional SQL profiling
     """
+
+    config: MySQLConfig
 
     def __init__(self, config, ctx):
         super().__init__(config, ctx, self.get_platform())
@@ -84,6 +107,193 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def create(cls, config_dict, ctx):
         config = MySQLConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def is_temp_table(self, name: str) -> bool:
+        """
+        Check if a table name represents a temporary table in MySQL.
+        MySQL temporary tables typically start with # or _tmp patterns.
+        """
+        # MySQL temporary table patterns
+        temp_patterns = [
+            r"^#.*",  # Tables starting with #
+            r"^tmp_.*",  # Tables starting with tmp_
+            r"^temp_.*",  # Tables starting with temp_
+            r".*_tmp$",  # Tables ending with _tmp
+            r".*_temp$",  # Tables ending with _temp
+            r".*_tmp_.*",  # Tables containing _tmp_
+            r".*_temp_.*",  # Tables containing _temp_
+        ]
+
+        import re
+
+        table_name = name.split(".")[
+            -1
+        ].lower()  # Get just the table name, case insensitive
+
+        return any(re.match(pattern, table_name) for pattern in temp_patterns)
+
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from super().get_schema_level_workunits(
+            inspector=inspector,
+            schema=schema,
+            database=database,
+        )
+
+        if self.config.include_stored_procedures:
+            try:
+                yield from self.loop_stored_procedures(inspector, schema, self.config)
+            except Exception as e:
+                self.report.failure(
+                    title="Failed to list stored procedures for schema",
+                    message="An error occurred while listing procedures for the schema.",
+                    context=f"{database}.{schema}",
+                    exc=e,
+                )
+
+    def loop_stored_procedures(
+        self,
+        inspector: Inspector,
+        schema: str,
+        config: MySQLConfig,
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Loop schema data for get stored procedures as dataJob-s.
+        """
+        db_name = self.get_db_name(inspector)
+        procedures = self.fetch_procedures_for_schema(inspector, schema, db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, db_name, schema)
+
+    def fetch_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        try:
+            raw_procedures: List[BaseProcedure] = self.get_procedures_for_schema(
+                inspector, schema, db_name
+            )
+            procedures: List[BaseProcedure] = []
+            for procedure in raw_procedures:
+                procedure_qualified_name = f"{db_name}.{procedure.name}"
+
+                if not self.config.procedure_pattern.allowed(procedure_qualified_name):
+                    self.report.report_dropped(procedure_qualified_name)
+                else:
+                    procedures.append(procedure)
+            return procedures
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get procedures for schema",
+                message="An error occurred while fetching procedures for the schema.",
+                context=f"{db_name}.{schema}",
+                exc=e,
+            )
+            return []
+
+    def get_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        """
+        Get stored procedures for a specific schema.
+        """
+        base_procedures = []
+        with inspector.engine.connect() as conn:
+            procedures = conn.execute(
+                f"""
+                SELECT
+                    ROUTINE_NAME as name,
+                    ROUTINE_DEFINITION as definition,
+                    ROUTINE_COMMENT as comment,
+                    CREATED,
+                    LAST_ALTERED,
+                    SQL_DATA_ACCESS,
+                    SECURITY_TYPE,
+                    DEFINER
+                FROM information_schema.ROUTINES
+                WHERE ROUTINE_TYPE = 'PROCEDURE'
+                AND ROUTINE_SCHEMA = '{schema}'
+                """
+            )
+
+            procedure_rows = list(procedures)
+            for row in procedure_rows:
+                base_procedures.append(
+                    BaseProcedure(
+                        name=row.name,
+                        language="SQL",
+                        argument_signature=None,
+                        return_type=None,
+                        procedure_definition=row.definition,
+                        created=row.CREATED,
+                        last_altered=row.LAST_ALTERED,
+                        comment=row.comment,
+                        extra_properties={
+                            k: v
+                            for k, v in {
+                                "sql_data_access": getattr(
+                                    row, "SQL_DATA_ACCESS", None
+                                ),
+                                "security_type": getattr(row, "SECURITY_TYPE", None),
+                                "definer": getattr(row, "DEFINER", None),
+                            }.items()
+                            if v is not None
+                        },
+                    )
+                )
+            return base_procedures
+
+    def _process_procedures(
+        self,
+        procedures: List[BaseProcedure],
+        db_name: str,
+        schema: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if procedures:
+            yield from generate_procedure_container_workunits(
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=None,  # MySQL is two-tier
+            )
+
+        for procedure in procedures:
+            # Generate procedure metadata and lineage immediately (PostgreSQL approach)
+            yield from self._process_procedure(procedure, schema, db_name)
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        schema: str,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate procedure metadata and lineage"""
+        try:
+            yield from generate_procedure_workunits(
+                procedure=procedure,
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=None,  # MySQL is two-tier
+                schema_resolver=self.get_schema_resolver(),
+                is_temp_table=self.is_temp_table,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit stored procedure",
+                message="An error occurred while emitting stored procedure",
+                context=procedure.name,
+                exc=e,
+            )
 
     def add_profile_metadata(self, inspector: Inspector) -> None:
         if not self.config.is_profiling_enabled():

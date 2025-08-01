@@ -1,13 +1,12 @@
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Iterable, List, Optional
 
 from pydantic.fields import Field
 from sqlalchemy.engine import Inspector
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.sql import text
 
-from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -16,25 +15,25 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import StructuredLogLevel
-from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
-from datahub.ingestion.source.sql.mysql.job_models import (
-    MySQLDataJob,
-    MySQLProcedureContainer,
-    MySQLStoredProcedure,
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_key,
 )
 from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
     generate_procedure_container_workunits,
-    generate_procedure_lineage,
 )
+
+# MariaDB inherits shared stored procedure config from MySQL via StoredProcedureConfigMixin
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 class MariaDBConfig(MySQLConfig):
     host_port: str = Field(default="localhost:3306", description="MariaDB host URL.")
+    # MariaDB inherits stored procedure configuration from MySQLConfig
+    # This includes include_stored_procedures and procedure_pattern
 
 
 @platform_name("MariaDB")
@@ -52,7 +51,7 @@ class MariaDBSource(MySQLSource):
         conn: Connection,
         db_name: str,
         schema: str,
-    ) -> List[Dict[str, str]]:
+    ) -> List[BaseProcedure]:
         query = text(f"""
 SELECT
     ROUTINE_SCHEMA,
@@ -78,6 +77,7 @@ AND ROUTINE_SCHEMA = '{schema}'
                     logger.warning(f"Skipping procedure with empty name in {schema}")
                     continue
 
+                # Always extract procedure code (needed for lineage)
                 code = self._extract_procedure_definition(
                     conn, schema, routine_name, row
                 )
@@ -90,17 +90,27 @@ AND ROUTINE_SCHEMA = '{schema}'
                         return None
 
                 procedures_list.append(
-                    {
-                        "routine_schema": schema,
-                        "routine_name": routine_name,
-                        "code": code,
-                        "comment": safe_get(row, "ROUTINE_COMMENT"),
-                        "created": safe_get(row, "CREATED"),
-                        "last_altered": safe_get(row, "LAST_ALTERED"),
-                        "sql_data_access": safe_get(row, "SQL_DATA_ACCESS"),
-                        "security_type": safe_get(row, "SECURITY_TYPE"),
-                        "definer": safe_get(row, "DEFINER"),
-                    }
+                    BaseProcedure(
+                        name=routine_name,
+                        language="SQL",
+                        argument_signature=None,
+                        return_type=None,
+                        procedure_definition=code,
+                        created=self._parse_datetime(safe_get(row, "CREATED")),
+                        last_altered=self._parse_datetime(
+                            safe_get(row, "LAST_ALTERED")
+                        ),
+                        comment=safe_get(row, "ROUTINE_COMMENT"),
+                        extra_properties={
+                            k: v
+                            for k, v in {
+                                "sql_data_access": safe_get(row, "SQL_DATA_ACCESS"),
+                                "security_type": safe_get(row, "SECURITY_TYPE"),
+                                "definer": safe_get(row, "DEFINER"),
+                            }.items()
+                            if v is not None
+                        },
+                    )
                 )
             except Exception as e:
                 logger.warning(
@@ -142,85 +152,62 @@ AND ROUTINE_SCHEMA = '{schema}'
         sql_config: MySQLConfig,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Override to ensure MariaDB source is set correctly while maintaining two-tier structure.
+        Loop schema data for get stored procedures as dataJob-s.
         """
         db_name = self.get_db_name(inspector)
-        procedure_flow_name = f"{db_name}.stored_procedures"
 
-        mariadb_procedure_container = MySQLProcedureContainer(
-            name=procedure_flow_name,
-            env=sql_config.env,
-            db=db_name,
-            platform_instance=sql_config.platform_instance,
-            source="mariadb",
-        )
+        procedures = self.fetch_procedures_for_schema(inspector, schema, db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, db_name, schema)
 
-        database_key = DatabaseKey(
-            database=db_name,
-            platform=self.get_platform(),
-            instance=sql_config.platform_instance,
-            env=sql_config.env,
-        )
-
-        schema_key = None  # MariaDB is two-tier
-
-        with inspector.engine.connect() as conn:
-            procedures_data = self._get_stored_procedures(conn, db_name, schema)
-            procedures: List[MySQLStoredProcedure] = []
-
-            for procedure_data in procedures_data:
-                procedure_full_name = f"{db_name}.{procedure_data['routine_name']}"
-                if not self.config.procedure_pattern.allowed(procedure_full_name):
-                    self.report.report_dropped(procedure_full_name)
-                    continue
-
-                procedure = MySQLStoredProcedure(
-                    name=procedure_data["routine_name"],
-                    code=procedure_data.get("code"),
-                    routine_schema=schema,
-                    comment=procedure_data.get("comment"),
-                    created=self._parse_datetime(procedure_data.get("created")),
-                    last_altered=self._parse_datetime(
-                        procedure_data.get("last_altered")
-                    ),
-                    flow=mariadb_procedure_container,
+    def fetch_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        try:
+            with inspector.engine.connect() as conn:
+                raw_procedures: List[BaseProcedure] = self._get_stored_procedures(
+                    conn, db_name, schema
                 )
-                procedures.append(procedure)
+            procedures: List[BaseProcedure] = []
+            for procedure in raw_procedures:
+                procedure_qualified_name = f"{db_name}.{procedure.name}"
 
-                if self.config.include_lineage:
-                    self.stored_procedures.append(procedure)
+                if not self.config.procedure_pattern.allowed(procedure_qualified_name):
+                    self.report.report_dropped(procedure_qualified_name)
+                else:
+                    procedures.append(procedure)
+            return procedures
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get procedures for schema",
+                message="An error occurred while fetching procedures for the schema.",
+                context=f"{db_name}.{schema}",
+                exc=e,
+            )
+            return []
 
-            if procedures:
-                yield from generate_procedure_container_workunits(
-                    database_key=database_key,
-                    schema_key=schema_key,
-                )
+    def _process_procedures(
+        self,
+        procedures: List[BaseProcedure],
+        db_name: str,
+        schema: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if procedures:
+            yield from generate_procedure_container_workunits(
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=None,  # MariaDB is two-tier
+            )
 
-            for procedure in procedures:
-                yield from self.construct_job_workunits(
-                    data_job=MySQLDataJob(entity=procedure)
-                )
+        for procedure in procedures:
+            # Generate procedure metadata and lineage immediately (inherited from MySQL)
+            yield from self._process_procedure(procedure, schema, db_name)
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from super().get_workunits_internal()
-
-        # Process stored procedure lineage after all other metadata has been collected
-        for procedure in self.stored_procedures:
-            with self.report.report_exc(
-                message="Failed to parse stored procedure lineage",
-                context=procedure.full_name,
-                level=StructuredLogLevel.WARN,
-            ):
-                yield from auto_workunit(
-                    generate_procedure_lineage(
-                        schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure.to_base_procedure(),
-                        procedure_job_urn=MySQLDataJob(entity=procedure).urn,
-                        default_db=None,
-                        default_schema=procedure.routine_schema,
-                        is_temp_table=self.is_temp_table,
-                    )
-                )
+    # _process_procedure method removed - MariaDB now inherits immediate lineage processing from MySQL
 
     @staticmethod
     def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
