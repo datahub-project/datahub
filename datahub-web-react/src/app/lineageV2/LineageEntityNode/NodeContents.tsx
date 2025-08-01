@@ -482,7 +482,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             </TitleLine>
                         </TitleWrapper>
                         {!!numColumnsTotal && !isGhost && (
-                            <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>
+                            <ExpandColumnsWrapper
+                                onClick={showHideColumns}
+                                defaultHeight={10}
+                                data-testid="expand-contract-columns"
+                            >
                                 {numColumnsTotal} columns
                                 {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}

@@ -73,6 +73,7 @@ const ManageApplications = () => {
             start: (currentPage - 1) * PAGE_SIZE,
             count: PAGE_SIZE,
             filters: [],
+            searchFlags: { skipCache: true },
         }),
         [currentPage, debouncedSearchQuery],
     );
@@ -159,7 +160,7 @@ const ManageApplications = () => {
                     <Pagination
                         currentPage={currentPage}
                         itemsPerPage={PAGE_SIZE}
-                        totalPages={totalApplications}
+                        total={totalApplications}
                         loading={searchLoading}
                         onPageChange={(page) => setCurrentPage(page)}
                     />

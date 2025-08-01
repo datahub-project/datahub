@@ -27,12 +27,14 @@ base_requirements = {
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
     "sqlalchemy>=1.4.39, <2",
     # GE added handling for higher version of jinja2 in version 0.15.12
-    # https://github.com/great-expectations/great_expectations/pull/5382/files
-    # TODO: support GX 0.18.0
-    "great-expectations>=0.15.12, <1.0.0",
+    # https://github.com/great-expectations/great_expectations/pull/5382
+    # GX v0.17.15 is the earliest version that supports Pydantic v2.
+    # See https://github.com/great-expectations/great_expectations/pull/8604
+    "great-expectations>=0.17.15, <1.0.0",
+    "pydantic>=2.1.0",
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
-    "traitlets<5.2.2",
+    "traitlets!=5.2.2",
     *rest_common,
     f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
@@ -61,9 +63,6 @@ base_dev_requirements = {
     "coverage>=5.1",
     "ruff==0.11.7",
     "mypy==1.14.1",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10.0,!=1.10.3",
     "pytest>=6.2.2",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",

@@ -192,6 +192,11 @@ type PlatformPrivileges {
   Whether the user can manage platform features.
   """
   manageFeatures: Boolean!
+
+  """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
 }
 
 """
@@ -747,6 +752,26 @@ type FeatureFlagsConfig {
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
+
+  """
+  Whether product updates on the sidebar is enabled. Will go to oss.
+  """
+  showProductUpdates: Boolean!
+
+  """
+  Enables the redesign of the lineage v2 graph
+  """
+  lineageGraphV3: Boolean!
+
+  """
+  Enables logical models feature
+  """
+  logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
 }
 
 """

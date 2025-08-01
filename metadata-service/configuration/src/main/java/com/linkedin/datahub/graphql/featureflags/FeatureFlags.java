@@ -43,4 +43,8 @@ public class FeatureFlags {
   private boolean showIngestionPageRedesign = false;
   private boolean showLineageExpandMore = true;
   private boolean showHomePageRedesign = false;
+  private boolean lineageGraphV3 = true;
+  private boolean showProductUpdates = false;
+  private boolean logicalModelsEnabled = false;
+  private boolean showHomepageUserRole = false;
 }

@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Set, Union, cast, runtime_checkabl
 import humanfriendly
 import pydantic
 from pydantic import BaseModel
+from tabulate import tabulate
 from typing_extensions import Literal, Protocol
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -95,7 +96,58 @@ class Report(SupportsAsObj):
         }
 
     def as_string(self) -> str:
-        return pprint.pformat(self.as_obj(), width=150, sort_dicts=False)
+        self_obj = self.as_obj()
+        _aspects_by_subtypes = self_obj.pop("aspects_by_subtypes", None)
+
+        # Format the main report data
+        result = pprint.pformat(self_obj, width=150, sort_dicts=False)
+
+        # Add aspects_by_subtypes table if it exists
+        if _aspects_by_subtypes:
+            result += "\n\nAspects by Subtypes:\n"
+            result += self._format_aspects_by_subtypes_table(_aspects_by_subtypes)
+
+        return result
+
+    def _format_aspects_by_subtypes_table(
+        self, aspects_by_subtypes: Dict[str, Dict[str, Dict[str, int]]]
+    ) -> str:
+        """Format aspects_by_subtypes data as a table with aspects as rows and entity/subtype as columns."""
+        if not aspects_by_subtypes:
+            return "No aspects by subtypes data available."
+
+        all_aspects: set[str] = {
+            aspect
+            for subtypes in aspects_by_subtypes.values()
+            for aspects in subtypes.values()
+            for aspect in aspects
+        }
+
+        aspect_rows = sorted(all_aspects)
+
+        entity_subtype_columns = []
+        for entity_type, subtypes in aspects_by_subtypes.items():
+            for subtype in subtypes:
+                entity_subtype_columns.append(f"{entity_type} ({subtype})")
+
+        entity_subtype_columns.sort()
+
+        headers = ["Aspect"] + entity_subtype_columns
+
+        table_data = [
+            [aspect]
+            + [
+                aspects.get(aspect, 0)
+                for subtypes in aspects_by_subtypes.values()
+                for aspects in subtypes.values()
+            ]
+            for aspect in aspect_rows
+        ]
+
+        if table_data:
+            return tabulate(table_data, headers=headers, tablefmt="grid")
+        else:
+            return "No aspects by subtypes data available."
 
     def as_json(self) -> str:
         return json.dumps(self.as_obj())
@@ -108,7 +160,7 @@ class SourceReportSubtypes:
     urn: str
     entity_type: str
     subType: str = field(default="unknown")
-    aspects: Set[str] = field(default_factory=set)
+    aspects: Dict[str, int] = field(default_factory=dict)
 
 
 class ReportAttribute(BaseModel):
@@ -156,7 +208,7 @@ class ExamplesReport(Report, Closeable):
                 "urn": lambda val: val.urn,
                 "entityType": lambda val: val.entity_type,
                 "subTypes": lambda val: val.subType,
-                "aspects": lambda val: json.dumps(sorted(list(val.aspects))),
+                "aspects": lambda val: json.dumps(val.aspects),
             },
         )
 
@@ -295,20 +347,26 @@ class ExamplesReport(Report, Closeable):
         if urn in self._file_based_dict:
             if sub_type != "unknown":
                 self._file_based_dict[urn].subType = sub_type
-            self._file_based_dict[urn].aspects.add(aspectName)
+            aspects_dict = self._file_based_dict[urn].aspects
+            if aspectName in aspects_dict:
+                aspects_dict[aspectName] += 1
+            else:
+                aspects_dict[aspectName] = 1
             if has_fine_grained_lineage:
-                self._file_based_dict[urn].aspects.add(
-                    self._fine_grained_lineage_special_case_name
-                )
+                if self._fine_grained_lineage_special_case_name in aspects_dict:
+                    aspects_dict[self._fine_grained_lineage_special_case_name] += 1
+                else:
+                    aspects_dict[self._fine_grained_lineage_special_case_name] = 1
             self._file_based_dict.mark_dirty(urn)
         else:
+            aspects_dict = {aspectName: 1}
+            if has_fine_grained_lineage:
+                aspects_dict[self._fine_grained_lineage_special_case_name] = 1
             self._file_based_dict[urn] = SourceReportSubtypes(
                 urn=urn,
                 entity_type=entityType,
                 subType=sub_type,
-                aspects={aspectName}
-                if not has_fine_grained_lineage
-                else {aspectName, self._fine_grained_lineage_special_case_name},
+                aspects=aspects_dict,
             )
 
     def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
@@ -348,8 +406,10 @@ class ExamplesReport(Report, Closeable):
             aspects_raw = row["aspects"] or "[]"
 
             aspects = json.loads(aspects_raw)
-            for aspect in aspects:
-                entity_subtype_aspect_counts[entity_type][sub_type][aspect] += count
+            for aspect, aspect_count in aspects.items():
+                entity_subtype_aspect_counts[entity_type][sub_type][aspect] += (
+                    aspect_count * count
+                )
 
         self.aspects.clear()
         self.aspects_by_subtypes.clear()

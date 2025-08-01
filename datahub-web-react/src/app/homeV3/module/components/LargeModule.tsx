@@ -1,11 +1,15 @@
 import { Button, Loader, borders, colors, radius, spacing } from '@components';
-import React from 'react';
+import { useDraggable } from '@dnd-kit/core';
+import React, { memo, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import ModuleContainer from '@app/homeV3/module/components/ModuleContainer';
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import ModuleName from '@app/homeV3/module/components/ModuleName';
+import { DragIcon } from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { FloatingRightHeaderSection } from '@app/homeV3/styledComponents';
 
 const ModuleHeader = styled.div`
     position: relative;
@@ -13,31 +17,35 @@ const ModuleHeader = styled.div`
     flex-direction: column;
     gap: 2px;
     border-radius: ${radius.lg} ${radius.lg} 0 0;
-    padding: ${spacing.md} ${spacing.md} ${spacing.xsm} ${spacing.md};
+    padding: ${spacing.sm} ${spacing.lg} ${spacing.sm} ${spacing.md};
     border-bottom: ${borders['1px']} ${colors.white};
+    user-select: none;
+
+    /* Optimize for smooth dragging */
+    transform: translateZ(0);
+    will-change: transform;
 
     :hover {
         background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
         border-bottom: 1px solid ${colors.gray[100]};
     }
+
+    :hover ${DragIcon} {
+        display: block;
+    }
 `;
 
-const FloatingRightHeaderSection = styled.div`
-    position: absolute;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    padding-right: 16px;
-    right: 0px;
-    top: 0px;
-    height: 100%;
+const DragHandle = styled.div<{ $isDragging?: boolean }>`
+    cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
+    flex: 1;
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`
-    margin: 16px;
+    margin: 0 0 8px 8px;
     overflow-y: auto;
-    height: ${({ $hasViewAll }) => ($hasViewAll ? '210px' : '222px')};
+    padding-right: 5px;
+    scrollbar-gutter: stable;
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '226px' : '238px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -56,19 +64,49 @@ interface Props extends ModuleProps {
     onClickViewAll?: () => void;
 }
 
-export default function LargeModule({ children, module, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
+function LargeModule({ children, module, position, loading, onClickViewAll }: React.PropsWithChildren<Props>) {
     const { name } = module.properties;
+
+    const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+        id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
+        data: {
+            module,
+            position,
+            isSmall: false,
+        },
+    });
+
+    const hasViewAll = useMemo(() => !!onClickViewAll, [onClickViewAll]);
+
+    const onClickViewAllHandler = useCallback(() => {
+        onClickViewAll?.();
+        analytics.event({
+            type: EventType.HomePageTemplateModuleViewAllClick,
+            moduleType: module.properties.type,
+        });
+    }, [onClickViewAll, module.properties.type]);
+
     return (
-        <ModuleContainer $height="316px">
+        <ModuleContainer $height="316px" ref={setNodeRef}>
             <ModuleHeader>
-                <ModuleName text={name} />
-                {/* TODO: implement description for modules CH-548 */}
-                {/* <ModuleDescription text={description} /> */}
+                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                    <DragIcon
+                        {...listeners}
+                        size="lg"
+                        color="gray"
+                        icon="DotsSixVertical"
+                        source="phosphor"
+                        isDragging={isDragging}
+                    />
+                    <ModuleName text={name} />
+                    {/* TODO: implement description for modules CH-548 */}
+                    {/* <ModuleDescription text={description} /> */}
+                </DragHandle>
                 <FloatingRightHeaderSection>
-                    <ModuleMenu />
+                    <ModuleMenu module={module} position={position} />
                 </FloatingRightHeaderSection>
             </ModuleHeader>
-            <Content $hasViewAll={!!onClickViewAll}>
+            <Content $hasViewAll={hasViewAll}>
                 {loading ? (
                     <LoaderContainer>
                         <Loader />
@@ -77,11 +115,20 @@ export default function LargeModule({ children, module, loading, onClickViewAll 
                     children
                 )}
             </Content>
-            {onClickViewAll && (
-                <ViewAllButton variant="link" color="gray" size="sm" onClick={onClickViewAll} data-testid="view-all">
+            {hasViewAll && (
+                <ViewAllButton
+                    variant="link"
+                    color="gray"
+                    size="sm"
+                    onClick={onClickViewAllHandler}
+                    data-testid="view-all"
+                >
                     View all
                 </ViewAllButton>
             )}
         </ModuleContainer>
     );
 }
+
+// Export memoized component to prevent unnecessary re-renders
+export default memo(LargeModule);

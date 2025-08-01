@@ -6,8 +6,8 @@ interface Props {
     icon: string;
     title: string;
     description: string;
-    linkText: string;
-    onLinkClick: () => void;
+    linkText?: string;
+    onLinkClick?: () => void;
 }
 
 const Container = styled.div`
@@ -16,6 +16,11 @@ const Container = styled.div`
     flex-direction: column;
     justify-content: center;
     align-items: center;
+
+    p {
+        text-align: justify;
+        text-align-last: center;
+    }
 `;
 
 const IconWrapper = styled.div`
@@ -41,9 +46,11 @@ export default function EmptyContent({ icon, title, description, linkText, onLin
                 {title}
             </Text>
             <Text color="gray">{description}</Text>
-            <Button variant="text" onClick={onLinkClick}>
-                {linkText} <Icon icon="ArrowRight" color="primary" source="phosphor" size="md" />
-            </Button>
+            {linkText && onLinkClick && (
+                <Button variant="text" onClick={onLinkClick}>
+                    {linkText} <Icon icon="ArrowRight" color="primary" source="phosphor" size="md" />
+                </Button>
+            )}
         </Container>
     );
 }

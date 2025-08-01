@@ -59,6 +59,8 @@ class BIContainerSubTypes(StrEnum):
     LOOKER_FOLDER = "Folder"
     LOOKML_PROJECT = "LookML Project"
     LOOKML_MODEL = "LookML Model"
+    TABLEAU_SITE = "Site"
+    TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
@@ -67,6 +69,8 @@ class BIContainerSubTypes(StrEnum):
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
     MODE_COLLECTION = "Collection"
+    GRAFANA_FOLDER = "Folder"
+    GRAFANA_DASHBOARD = "Dashboard"
 
 
 class FlowContainerSubTypes(StrEnum):

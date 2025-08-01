@@ -49,6 +49,11 @@ module.exports = {
           link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
           items: [
             {
+              label: "Overview",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertions",
+            },
+            {
               label: "Column Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/column-assertions",
@@ -91,6 +96,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Assertion Notes (Troubleshooting & Documentation)",
+              type: "doc",
+              id: "docs/managed-datahub/observe/assertion-notes",
+              className: "saasOnly",
+            },
+            {
               label: "Open Assertions Specification",
               type: "category",
               link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
@@ -105,9 +116,14 @@ module.exports = {
           ],
         },
         {
-          label: "Access Management",
+          label: "Data Access Workflows",
           type: "doc",
-          id: "docs/features/feature-guides/access-management",
+          id: "docs/managed-datahub/workflows/access-workflows",
+        },
+        {
+          label: "Data Access Roles",
+          type: "doc",
+          id: "docs/features/feature-guides/access-roles",
         },
         {
           label: "Automations",
@@ -191,6 +207,11 @@ module.exports = {
           ],
         },
         {
+          label: "Custom Home Page",
+          type: "doc",
+          id: "docs/features/feature-guides/custom-home-page",
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
@@ -225,11 +246,16 @@ module.exports = {
           type: "category",
           link: {
             type: "doc",
-            id: "docs/generated/lineage/lineage-feature-guide",
+            id: "docs/features/feature-guides/lineage",
           },
           items: [
             {
-              label: "Lineage Impact analysis",
+              label: "Automatic Lineage Extraction",
+              type: "doc",
+              id: "docs/generated/lineage/automatic-lineage-extraction",
+            },
+            {
+              label: "Lineage Impact Analysis",
               type: "doc",
               id: "docs/act-on-metadata/impact-analysis",
             },
@@ -319,6 +345,11 @@ module.exports = {
       id: "docs/managed-datahub/welcome-acryl",
     },
     {
+      label: "Upgrading from DataHub Core to Cloud",
+      type: "doc",
+      id: "docs/managed-datahub/upgrade_core_to_cloud",
+    },
+    {
       "Configure Single Sign-On": [
         {
           type: "doc",
@@ -400,7 +431,7 @@ module.exports = {
     },
     {
       type: "doc",
-      id: "docs/managed-datahub/approval-workflows",
+      id: "docs/managed-datahub/change-proposals",
       className: "saasOnly",
     },
     {

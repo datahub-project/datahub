@@ -585,6 +585,7 @@ class SnowflakeV2Source(
 
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
+                    # TODO: this should be its own section in main recipe
                     config=SnowflakeQueriesExtractorConfig(
                         window=BaseTimeWindowConfig(
                             start_time=self.config.start_time,
@@ -599,6 +600,9 @@ class SnowflakeV2Source(
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         user_email_pattern=self.config.user_email_pattern,
                         pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                        query_dedup_strategy=self.config.query_dedup_strategy,
+                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
                     ),
                     structured_report=self.report,
                     filters=self.filters,

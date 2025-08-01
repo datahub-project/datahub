@@ -5,6 +5,7 @@ import { FilterMode } from '@app/search/utils/constants';
 
 import {
     AllowedValue,
+    DataHubPageModuleType,
     DataHubViewType,
     EntityType,
     LineageDirection,
@@ -119,6 +120,23 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    ClickProductUpdate,
+    HomePageTemplateModuleCreate,
+    HomePageTemplateModuleAdd,
+    HomePageTemplateModuleUpdate,
+    HomePageTemplateModuleDelete,
+    HomePageTemplateModuleMove,
+    HomePageTemplateModuleModalCreateOpen,
+    HomePageTemplateModuleModalEditOpen,
+    HomePageTemplateModuleModalCancel,
+    HomePageTemplateGlobalTemplateEditingStart,
+    HomePageTemplateGlobalTemplateEditingDone,
+    HomePageTemplateResetToGlobalTemplate,
+    HomePageTemplateModuleAssetClick,
+    HomePageTemplateModuleViewAllClick,
+    HomePageTemplateModuleExpandClick,
+    HomePageTemplateModuleLinkClick,
+    HomePageTemplateModuleAnnouncementDismiss,
 }
 
 /**
@@ -882,6 +900,99 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
+export interface ClickProductUpdateEvent extends BaseEvent {
+    type: EventType.ClickProductUpdate;
+    id: string;
+    url: string;
+}
+
+export interface HomePageTemplateModuleCreateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleCreate;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleAddEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAdd;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleUpdateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleUpdate;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleDeleteEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleDelete;
+    templateUrn: string;
+    isPersonal: boolean;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleMoveEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleMove;
+    templateUrn: string;
+    isPersonal: boolean;
+}
+
+export interface HomePageTemplateModuleModalCreateOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCreateOpen;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleModalEditOpenEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalEditOpen;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleModalCancelEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleModalCancel;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateGlobalTemplateEditingStartEvent extends BaseEvent {
+    type: EventType.HomePageTemplateGlobalTemplateEditingStart;
+}
+
+export interface HomePageTemplateGlobalTemplateEditingDoneEvent extends BaseEvent {
+    type: EventType.HomePageTemplateGlobalTemplateEditingDone;
+}
+
+export interface HomePageTemplateResetToGlobalTemplateEvent extends BaseEvent {
+    type: EventType.HomePageTemplateResetToGlobalTemplate;
+}
+
+export interface HomePageTemplateModuleAssetClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAssetClick;
+    moduleType: DataHubPageModuleType;
+    assetUrn: string;
+}
+
+export interface HomePageTemplateModuleExpandClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleExpandClick;
+    moduleType: DataHubPageModuleType;
+    assetUrn: string;
+}
+
+export interface HomePageTemplateModuleViewAllClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleViewAllClick;
+    moduleType: DataHubPageModuleType;
+}
+
+export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleLinkClick;
+    link: string;
+}
+
+export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEvent {
+    type: EventType.HomePageTemplateModuleAnnouncementDismiss;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -985,4 +1096,21 @@ export type Event =
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
     | HomePageClickEvent
-    | SearchBarFilterEvent;
+    | SearchBarFilterEvent
+    | ClickProductUpdateEvent
+    | HomePageTemplateModuleCreateEvent
+    | HomePageTemplateModuleAddEvent
+    | HomePageTemplateModuleUpdateEvent
+    | HomePageTemplateModuleDeleteEvent
+    | HomePageTemplateModuleMoveEvent
+    | HomePageTemplateModuleModalCreateOpenEvent
+    | HomePageTemplateModuleModalEditOpenEvent
+    | HomePageTemplateModuleModalCancelEvent
+    | HomePageTemplateGlobalTemplateEditingStartEvent
+    | HomePageTemplateGlobalTemplateEditingDoneEvent
+    | HomePageTemplateResetToGlobalTemplateEvent
+    | HomePageTemplateModuleAssetClickEvent
+    | HomePageTemplateModuleExpandClickEvent
+    | HomePageTemplateModuleViewAllClickEvent
+    | HomePageTemplateModuleLinkClickEvent
+    | HomePageTemplateModuleAnnouncementDismissEvent;

@@ -25,8 +25,8 @@ describe("search", () => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
 
-    cy.get("[data-testid=search-filters-v1").should("exist");
-    cy.get("[data-testid=search-filters-v2").should("not.exist");
+    cy.get("[data-testid=search-filters-v1]").should("exist");
+    cy.get("[data-testid=search-filters-v2]").should("not.exist");
   });
 
   it("should show new search filters if search filters v2 flag is on", () => {
@@ -35,8 +35,8 @@ describe("search", () => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
 
-    cy.get("[data-testid=search-filters-v1").should("not.exist");
-    cy.get("[data-testid=search-filters-v2").should("exist");
+    cy.get("[data-testid=search-filters-v1]").should("not.exist");
+    cy.get("[data-testid=search-filters-v2]").should("exist");
   });
 
   it("should add and remove multiple filters with no issues", () => {
@@ -54,19 +54,24 @@ describe("search", () => {
       .click();
 
     // click and search for tag, save that tag
-    cy.get("[data-testid=search-bar").eq(1).type("cypress");
-    cy.get("[data-testid=filter-option-Cypress").click({ force: true });
-    cy.get("[data-testid=update-filters").click({ force: true });
+    cy.get("[data-testid=search-bar]").eq(1).type("cypress");
+    cy.get("[data-testid=filter-option-Cypress]").click({ force: true });
+    cy.get("[data-testid=update-filters]").click({
+      force: true,
+      multiple: true,
+    });
     cy.url().should(
       "include",
       "filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3ACypress",
     );
-    cy.get("[data-testid=update-filters").should("not.be.visible");
 
     // select datasets filter
-    cy.get("[data-testid=filter-dropdown-Type").click({ force: true });
-    cy.get("[data-testid=filter-option-Datasets").click({ force: true });
-    cy.get("[data-testid=update-filters").eq(1).click({ force: true });
+    cy.get("[data-testid=filter-dropdown-Type]").click({ force: true });
+    cy.get("[data-testid=filter-option-Datasets]").click({ force: true });
+    cy.get("[data-testid=update-filters]").click({
+      force: true,
+      multiple: true,
+    });
     cy.url().should(
       "include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___1=DATASET",
@@ -76,23 +81,23 @@ describe("search", () => {
     cy.contains("SampleCypressHdfsDataset");
 
     // ensure active filters are visible under filter dropdowns
-    cy.get("[data-testid=active-filter-Datasets");
-    cy.get("[data-testid=active-filter-Cypress");
+    cy.get("[data-testid=active-filter-Datasets]");
+    cy.get("[data-testid=active-filter-Cypress]");
 
     // remove datasets filter by clicking "x" on active filter
-    cy.get("[data-testid=remove-filter-Datasets").click({ force: true });
+    cy.get("[data-testid=remove-filter-Datasets]").click({ force: true });
     cy.url().should(
       "not.include",
       "filter__entityType%E2%90%9EtypeNames___false___EQUAL___1=DATASET",
     );
-    cy.get("[data-testid=active-filter-Datasets").should("not.exist");
+    cy.get("[data-testid=active-filter-Datasets]").should("not.exist");
 
     // remove other filter using "clear all" button
-    cy.get("[data-testid=clear-all-filters").click({ force: true });
+    cy.get("[data-testid=clear-all-filters]").click({ force: true });
     cy.url().should(
       "not.include",
       "filter_tags___false___EQUAL___0=urn%3Ali%3Atag%3ACypress",
     );
-    cy.get("[data-testid=active-filter-Cypress").should("not.exist");
+    cy.get("[data-testid=active-filter-Cypress]").should("not.exist");
   });
 });

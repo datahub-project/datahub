@@ -21,6 +21,10 @@ public class MetricUtils {
   public static final String DROPWIZARD_METRIC = "dwizMetric";
   public static final String DROPWIZARD_NAME = "dwizName";
 
+  /* Micrometer */
+  public static final String KAFKA_MESSAGE_QUEUE_TIME = "kafka.message.queue.time";
+  public static final String DATAHUB_REQUEST_HOOK_QUEUE_TIME = "datahub.request.hook.queue.time";
+
   /* OpenTelemetry */
   public static final String CACHE_HIT_ATTR = "cache.hit";
   public static final String BATCH_SIZE_ATTR = "batch.size";
@@ -38,12 +42,13 @@ public class MetricUtils {
   @Deprecated public static final String DELIMITER = "_";
 
   private final MeterRegistry registry;
-  private final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
-  private final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
-  private final Map<String, DistributionSummary> legacyHistogramCache = new ConcurrentHashMap<>();
-  private final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
+  private static final Map<String, Timer> legacyTimeCache = new ConcurrentHashMap<>();
+  private static final Map<String, Counter> legacyCounterCache = new ConcurrentHashMap<>();
+  private static final Map<String, DistributionSummary> legacyHistogramCache =
+      new ConcurrentHashMap<>();
+  private static final Map<String, Gauge> legacyGaugeCache = new ConcurrentHashMap<>();
   // For state-based gauges (like throttled state)
-  private final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
+  private static final Map<String, AtomicDouble> gaugeStates = new ConcurrentHashMap<>();
 
   public Optional<MeterRegistry> getRegistry() {
     return Optional.ofNullable(registry);
@@ -60,7 +65,6 @@ public class MetricUtils {
                       name ->
                           Timer.builder(name)
                               .tags(DROPWIZARD_METRIC, "true")
-                              .publishPercentiles(0.5, 0.75, 0.95, 0.98, 0.99, 0.999)
                               .register(meterRegistry));
               timer.record(durationNanos, TimeUnit.NANOSECONDS);
             });
@@ -154,5 +158,32 @@ public class MetricUtils {
   @Deprecated
   public static String name(Class<?> clazz, String... names) {
     return MetricRegistry.name(clazz.getName(), names);
+  }
+
+  public static double[] parsePercentiles(String percentilesConfig) {
+    if (percentilesConfig == null || percentilesConfig.trim().isEmpty()) {
+      // Default percentiles
+      return new double[] {0.5, 0.95, 0.99};
+    }
+
+    return commaDelimitedDoubles(percentilesConfig);
+  }
+
+  public static double[] parseSLOSeconds(String sloConfig) {
+    if (sloConfig == null || sloConfig.trim().isEmpty()) {
+      // Default SLO seconds
+      return new double[] {60, 300, 900, 1800, 3600};
+    }
+
+    return commaDelimitedDoubles(sloConfig);
+  }
+
+  private static double[] commaDelimitedDoubles(String value) {
+    String[] parts = value.split(",");
+    double[] result = new double[parts.length];
+    for (int i = 0; i < parts.length; i++) {
+      result[i] = Double.parseDouble(parts[i].trim());
+    }
+    return result;
   }
 }

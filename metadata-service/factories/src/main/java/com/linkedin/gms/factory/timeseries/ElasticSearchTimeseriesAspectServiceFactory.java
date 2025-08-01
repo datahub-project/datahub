@@ -34,7 +34,7 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
     return new ElasticSearchTimeseriesAspectService(
         components.getSearchClient(),
         components.getBulkProcessor(),
-        components.getNumRetries(),
+        components.getConfig().getBulkProcessor().getNumRetries(),
         queryFilterRewriteChain,
         configurationProvider.getTimeseriesAspectService(),
         entityRegistry,

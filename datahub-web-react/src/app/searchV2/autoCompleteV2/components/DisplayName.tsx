@@ -25,15 +25,29 @@ interface Props {
     weight?: FontWeightOptions;
     fontSize?: FontSizeOptions;
     className?: string;
+    showNameTooltipIfTruncated?: boolean;
 }
 
-export default function DisplayName({ displayName, highlight, color, colorLevel, weight, fontSize, className }: Props) {
+export default function DisplayName({
+    displayName,
+    highlight,
+    color,
+    colorLevel,
+    weight,
+    fontSize,
+    className,
+    showNameTooltipIfTruncated,
+}: Props) {
     const { measuredRef, isHorizontallyTruncated } = useMeasureIfTrancated();
 
     return (
         <Popover
             zIndex={zIndices.popover}
-            content={isHorizontallyTruncated ? <PopoverWrapper>{displayName}</PopoverWrapper> : undefined}
+            content={
+                showNameTooltipIfTruncated && isHorizontallyTruncated ? (
+                    <PopoverWrapper>{displayName}</PopoverWrapper>
+                ) : undefined
+            }
         >
             <EntityTitleContainer ref={measuredRef} className={className}>
                 <MatchText

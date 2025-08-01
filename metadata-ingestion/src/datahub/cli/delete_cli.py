@@ -18,7 +18,6 @@ from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.graph.filters import RemovedStatusFilter
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.urns.urn import guess_entity_type
@@ -116,7 +115,7 @@ class DeletionResult:
     help="specifies soft/hard deletion",
 )
 @click.option("-n", "--dry-run", required=False, is_flag=True)
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def by_registry(
     registry_id: str,
     soft: bool,
@@ -171,7 +170,7 @@ def by_registry(
 @click.option(
     "-f", "--force", required=False, is_flag=True, help="force the delete if set"
 )
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def references(urn: str, dry_run: bool, force: bool) -> None:
     """
     Delete all references to an entity (but not the entity itself).
@@ -234,6 +233,7 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     help="Batch size when querying for entities to un-soft delete."
     "Maximum 5000. Large batch sizes may cause timeouts.",
 )
+@upgrade.check_upgrade
 def undo_by_filter(
     urn: Optional[str], platform: Optional[str], batch_size: int
 ) -> None:
@@ -370,7 +370,6 @@ def undo_by_filter(
     "--workers", type=int, default=1, help="Num of workers to use for deletion."
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def by_filter(
     urn: Optional[str],
     urn_file: Optional[str],

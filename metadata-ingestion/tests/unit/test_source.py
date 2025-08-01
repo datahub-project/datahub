@@ -351,3 +351,23 @@ def test_discretize_dict_values():
             "ownership": 1,
         },
     }
+
+
+def test_multiple_same_aspects_count_correctly():
+    source = FakeSource(PipelineContext(run_id="test_multiple_same_aspects"))
+    urn = _get_urn()
+
+    for _ in range(5):
+        source.source_report.report_workunit(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
+        )
+
+    source.source_report.compute_stats()
+
+    assert source.source_report.aspects == {"dataset": {"status": 5}}
+    assert source.source_report.aspects_by_subtypes == {
+        "dataset": {"unknown": {"status": 5}}
+    }

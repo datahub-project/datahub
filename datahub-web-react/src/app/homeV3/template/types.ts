@@ -1,10 +1,9 @@
-import { ModuleInfo } from '@app/homeV3/modules/types';
-
 export type RowSide = 'left' | 'right';
 
-export interface AddModuleHandlerInput {
-    module: ModuleInfo;
+export interface ModulePositionInput {
     // When these fields are empty it means adding a module to the new row
-    rowIndex?: number;
+    originRowIndex?: number; // Row index before wrapping
+    rowIndex?: number; // Row index after wrapping
     rowSide?: RowSide;
+    moduleIndex?: number; // Index of the module within the row (for precise removal)
 }
