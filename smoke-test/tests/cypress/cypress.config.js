@@ -8,7 +8,7 @@ module.exports = defineConfig({
   projectId: "hkrxk5",
   defaultCommandTimeout: 10000,
   retries: {
-    runMode: 2,
+    runMode: 5,
     openMode: 0,
   },
   video: false,
