@@ -52,13 +52,6 @@ class BigQueryProfilingConfig(GEProfilingConfig):
         "Example: {'batch': 'default', 'region': 'us-east-1'}",
     )
 
-    date_partition_offset: int = Field(
-        default=1,
-        description="For date-type partition columns (date, timestamp, datetime), specifies how many days "
-        "to go back from today. 1 means yesterday, 2 means two days ago, etc. This applies to all "
-        "date-related partition columns (year, month, day, date, etc.) when fallback is needed.",
-    )
-
     partition_fetch_timeout: int = Field(
         default=30,
         description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
