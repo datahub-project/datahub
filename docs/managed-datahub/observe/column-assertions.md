@@ -237,7 +237,11 @@ You can create smart assertions by simply selecting the column and the metric yo
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/column-smart-assertion.png"/>
 </p>
 
-_Coming soon: we're making it easier to create Smart Assertions for multiple fields on a table, across multiple metrics, all in one go. If you're interested in this today, please let your DataHub representative know._
+**Bulk Creating for Multiple Columns**
+
+To select several columns on a table to monitor at once, you can use the **Bulk-Create Smart Assertions** button below the column selector in the Column Metric Assertion authoring UI.
+
+<iframe width="560" height="343" src="https://www.loom.com/embed/e71598c4394c4d8dba0770b8fc67ff06?sid=25326338-8a72-4382-98b5-026486233ef9" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
 
 ## Stopping a Column Assertion
 

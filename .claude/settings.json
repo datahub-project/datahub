@@ -17,14 +17,9 @@
       "Bash(python -m mypy:*)",
       "Bash(python -m ruff:*)",
       "Bash(python -m pytest:*)",
-      "Bash(yarn format:*)",
-      "Bash(yarn lint:*)",
-      "Bash(yarn type-check:*)",
-      "Bash(yarn test:*)",
-      "Bash(yarn generate:*)",
-      "Bash(./gradlew :datahub-web-react:yarnLintFix)",
-      "Bash(./gradlew :datahub-web-react:yarnLint)",
-      "Bash(./gradlew :metadata-ingestion:capabilitySummary)"
+      "Bash(yarn:*)",
+      "Bash(./gradlew:*)",
+      "Bash(gw:*)"
     ],
     "deny": []
   }
