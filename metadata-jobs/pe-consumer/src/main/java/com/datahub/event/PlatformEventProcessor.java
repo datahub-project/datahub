@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -17,6 +18,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -27,10 +29,15 @@ import org.springframework.stereotype.Component;
 @Conditional(PlatformEventProcessorCondition.class)
 @EnableKafka
 public class PlatformEventProcessor {
+  public static final String DATAHUB_PLATFORM_EVENT_CONSUMER_GROUP_VALUE =
+      "${PLATFORM_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-platform-event-job-client}";
 
   private final OperationContext systemOperationContext;
 
   @Getter private final List<PlatformEventHook> hooks;
+
+  @Value(DATAHUB_PLATFORM_EVENT_CONSUMER_GROUP_VALUE)
+  private String datahubPlatformEventConsumerGroupId;
 
   @Autowired
   public PlatformEventProcessor(
@@ -51,7 +58,7 @@ public class PlatformEventProcessor {
   }
 
   @KafkaListener(
-      id = "${PLATFORM_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-platform-event-job-client}",
+      id = DATAHUB_PLATFORM_EVENT_CONSUMER_GROUP_VALUE,
       topics = {"${PLATFORM_EVENT_TOPIC_NAME:" + Topics.PLATFORM_EVENT + "}"},
       containerFactory = PE_EVENT_CONSUMER_NAME,
       autoStartup = "false")
@@ -65,11 +72,28 @@ public class PlatformEventProcessor {
           systemOperationContext
               .getMetricUtils()
               .ifPresent(
-                  metricUtils ->
-                      metricUtils.histogram(
-                          this.getClass(),
-                          "kafkaLag",
-                          System.currentTimeMillis() - consumerRecord.timestamp()));
+                  metricUtils -> {
+                    long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+
+                    // Dropwizard legacy
+                    metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
+
+                    // Micrometer with tags
+                    // TODO: include priority level when available
+                    metricUtils
+                        .getRegistry()
+                        .ifPresent(
+                            meterRegistry -> {
+                              meterRegistry
+                                  .timer(
+                                      MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                                      "topic",
+                                      consumerRecord.topic(),
+                                      "consumer.group",
+                                      datahubPlatformEventConsumerGroupId)
+                                  .record(Duration.ofMillis(queueTimeMs));
+                            });
+                  });
           final GenericRecord record = consumerRecord.value();
           log.info(
               "Got PE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",

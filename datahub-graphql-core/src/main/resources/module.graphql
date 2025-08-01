@@ -28,6 +28,11 @@ extend type Mutation {
   Create or update a DataHub page module
   """
   upsertPageModule(input: UpsertPageModuleInput!): DataHubPageModule!
+
+  """
+  Delete a DataHub page module
+  """
+  deletePageModule(input: DeletePageModuleInput!): Boolean!
 }
 
 """
@@ -73,6 +78,16 @@ input PageModuleParamsInput {
   The params required if the module is type RICH_TEXT
   """
   richTextParams: RichTextModuleParamsInput
+
+  """
+  The params required if the module is type ASSET_COLLECTION
+  """
+  assetCollectionParams: AssetCollectionModuleParamsInput
+
+  """
+  The params required if the module is type HIERARCHY_VIEW
+  """
+  hierarchyViewParams: HierarchyViewModuleParamsInput
 }
 
 """
@@ -80,9 +95,19 @@ Input for the params required if the module is type LINK
 """
 input LinkModuleParamsInput {
   """
-  The URN of the Post entity containing the link
+  The URL of the link
   """
-  linkUrn: String!
+  linkUrl: String!
+
+  """
+  The image URL of the link
+  """
+  imageUrl: String
+
+  """
+  The description of the link
+  """
+  description: String
 }
 
 """
@@ -93,6 +118,40 @@ input RichTextModuleParamsInput {
   The content of the rich text module
   """
   content: String!
+}
+
+"""
+Input for the params required if the module is type ASSET_COLLECTION
+"""
+input AssetCollectionModuleParamsInput {
+  """
+  The list of asset urns for the asset collection module
+  """
+  assetUrns: [String!]!
+}
+
+"""
+Input for the params required if the module is type HIERARCHY_VIEW
+"""
+input HierarchyViewModuleParamsInput {
+  """
+  The list of assets to show in the module
+  """
+  assetUrns: [String!]!
+
+  """
+  Whether to show related entities in the module
+  """
+  showRelatedEntities: Boolean!
+
+  """
+  Optional filters to filter relatedEntities (assetUrns) out
+
+  The stringified json representing the logical predicate built in the UI to select assets.
+  This predicate is turned into orFilters to send through graphql since graphql doesn't support
+  arbitrary nesting. This string is used to restore the UI for this logical predicate.
+  """
+  relatedEntitiesFilterJson: String
 }
 
 """
@@ -197,6 +256,16 @@ type DataHubPageModuleParams {
   The params required if the module is type RICH_TEXT
   """
   richTextParams: RichTextModuleParams
+
+  """
+  The params required if the module is type ASSET_COLLECTION
+  """
+  assetCollectionParams: AssetCollectionModuleParams
+
+  """
+  The params required if the module is type HIERARCHY_VIEW
+  """
+  hierarchyViewParams: HierarchyViewModuleParams
 }
 
 """
@@ -204,9 +273,19 @@ The params required if the module is type LINK
 """
 type LinkModuleParams {
   """
-  The Post entity containing the link
+  The URL of the link
   """
-  link: Post!
+  linkUrl: String!
+
+  """
+  The image URL of the link
+  """
+  imageUrl: String
+
+  """
+  The description of the link
+  """
+  description: String
 }
 
 """
@@ -217,4 +296,48 @@ type RichTextModuleParams {
   The content of the rich text module
   """
   content: String!
+}
+
+"""
+The params required if the module is type ASSET_COLLECTION
+"""
+type AssetCollectionModuleParams {
+  """
+  The list of asset urns for the asset collection module
+  """
+  assetUrns: [String!]!
+}
+
+"""
+The params required if the module is type HIERARCHY_VIEW
+"""
+type HierarchyViewModuleParams {
+  """
+  The list of assets to show in the module
+  """
+  assetUrns: [String!]!
+
+  """
+  Whether to show related entities in the module
+  """
+  showRelatedEntities: Boolean!
+
+  """
+  Optional filters to filter relatedEntities (assetUrns) out
+
+  The stringified json representing the logical predicate built in the UI to select assets.
+  This predicate is turned into orFilters to send through graphql since graphql doesn't support
+  arbitrary nesting. This string is used to restore the UI for this logical predicate.
+  """
+  relatedEntitiesFilterJson: String
+}
+
+"""
+Input for deleting a DataHub page module
+"""
+input DeletePageModuleInput {
+  """
+  The URN of the page module to delete
+  """
+  urn: String!
 }

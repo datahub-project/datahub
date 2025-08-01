@@ -532,6 +532,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     subTypes {
         typeNames
     }
+    platform {
+        ...platformFields
+    }
 }
 
 fragment dataJobFields on DataJob {
@@ -603,6 +606,9 @@ fragment dataJobFields on DataJob {
     }
     dataTransformLogic {
         ...dataTransformLogicFields
+    }
+    platform {
+        ...platformFields
     }
 }
 
@@ -1511,6 +1517,7 @@ fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     createdActor {
         urn
     }
+    cardinality
 }
 
 fragment relationshipFieldMapping on RelationshipFieldMapping {
@@ -1531,6 +1538,7 @@ fragment datasetERModelRelationshipFields on Dataset {
         description
     }
     editableProperties {
+        name
         description
     }
     schemaMetadata {

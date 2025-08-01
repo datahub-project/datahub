@@ -61,13 +61,13 @@ class AzureConnectionConfig(ConfigModel):
     def get_blob_service_client(self):
         return BlobServiceClient(
             account_url=f"https://{self.account_name}.blob.core.windows.net",
-            credential=f"{self.get_credentials()}",
+            credential=self.get_credentials(),
         )
 
     def get_data_lake_service_client(self) -> DataLakeServiceClient:
         return DataLakeServiceClient(
             account_url=f"https://{self.account_name}.dfs.core.windows.net",
-            credential=f"{self.get_credentials()}",
+            credential=self.get_credentials(),
         )
 
     def get_credentials(

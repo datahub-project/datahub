@@ -216,7 +216,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(TEST_ES_SEARCH_CONFIG, searchClientSpy, getBulkProcessor());
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),

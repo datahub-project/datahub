@@ -145,7 +145,7 @@ public class SearchLineageFixtureConfiguration {
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
+    ESWriteDAO writeDAO = new ESWriteDAO(TEST_ES_SEARCH_CONFIG, searchClient, bulkProcessor);
 
     return new ElasticSearchService(
         indexBuilder,

@@ -372,7 +372,7 @@ class BigQueryV2Config(
     )
 
     use_queries_v2: bool = Field(
-        default=False,
+        default=True,
         description="If enabled, uses the new queries extractor to extract queries from bigquery.",
     )
     include_queries: bool = Field(

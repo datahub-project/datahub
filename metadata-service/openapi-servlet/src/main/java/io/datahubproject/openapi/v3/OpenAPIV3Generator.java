@@ -1108,7 +1108,7 @@ public class OpenAPIV3Generator {
                   // Set enums to "string".
                   if (s.getEnum() != null && !s.getEnum().isEmpty()) {
                     if (s.getNullable() != null && s.getNullable()) {
-                      nullableSchema(s, TYPE_STRING_NULLABLE);
+                      s = toNullablePrimitive(s, TYPE_STRING);
                     } else {
                       s.setType(TYPE_STRING);
                     }
@@ -1119,52 +1119,58 @@ public class OpenAPIV3Generator {
                             .orElse(new HashSet());
 
                     Map<String, Schema> properties =
-                        Optional.ofNullable(s.getProperties()).orElse(new HashMap<>());
-                    properties.forEach(
-                        (name, schema) -> {
-                          schema.specVersion(SpecVersion.V31);
-                          String $ref = schema.get$ref();
+                        Optional.ofNullable(s.getProperties()).orElseGet(HashMap::new);
+                    for (Map.Entry<String, Schema> entry : properties.entrySet()) {
+                      String name = entry.getKey();
+                      Schema<?> prop = entry.getValue();
+                      prop.specVersion(SpecVersion.V31);
 
-                          boolean isNameRequired = requiredNames.contains(name);
+                      String $ref = prop.get$ref();
+                      boolean isRequired = requiredNames.contains(name);
 
-                          if (definitions.has(n)) {
-                            JsonNode field = definitions.get(n);
-                            boolean hasDefault =
-                                field.get("properties").get(name).has("default")
-                                    && !field.get("properties").get(name).get("default").isNull();
-                            if (hasDefault) {
-                              // A default value means it is not required, regardless of nullability
-                              s.getRequired().remove(name);
-                              if (s.getRequired().isEmpty()) {
-                                s.setRequired(null);
-                              }
-                            }
+                      // ---- default means "not required" -----------------------------------
+                      if (definitions.has(n)) {
+                        JsonNode field = definitions.get(n);
+                        boolean hasDefault =
+                            field.get("properties").get(name).has("default")
+                                && !field.get("properties").get(name).get("default").isNull();
+                        if (hasDefault) {
+                          s.getRequired().remove(name);
+                          if (s.getRequired().isEmpty()) {
+                            s.setRequired(null);
                           }
+                        }
+                      }
 
-                          if ($ref != null && !isNameRequired) {
-                            // A non-required $ref property must be wrapped in a { anyOf: [ $ref ] }
-                            // object to allow the
-                            // property to be marked as nullable
-                            schema.setType(null);
-                            schema.set$ref(null);
-                            schema.setAnyOf(
-                                List.of(newSchema().$ref($ref), newSchema().type(TYPE_NULL)));
-                          }
+                      // ---- optional $ref  → oneOf($ref, null) -----------------------------
+                      if ($ref != null && !isRequired) {
+                        prop.setType(null);
+                        prop.set$ref(null);
+                        prop.setOneOf(List.of(newSchema().$ref($ref), newSchema().type(TYPE_NULL)));
+                        continue;
+                      }
 
-                          if ($ref == null) {
-                            if (schema.getEnum() != null && !schema.getEnum().isEmpty()) {
-                              if ((schema.getNullable() != null && schema.getNullable())
-                                  || !isNameRequired) {
-                                nullableSchema(schema, TYPE_STRING_NULLABLE);
-                              } else {
-                                schema.setType(TYPE_STRING);
-                              }
-                            } else if (schema.getEnum() == null && !isNameRequired) {
-                              nullableSchema(schema, Set.of(schema.getType(), TYPE_NULL));
-                            }
-                          }
-                        });
+                      // --------------------------------------------------------------------
+                      // optional ENUM / primitive ‑->  ["string","null"]
+                      // required ENUM / primitive  ‑->  "type": "string"
+                      // --------------------------------------------------------------------
+                      if ($ref == null) {
+                        boolean isEnum = prop.getEnum() != null && !prop.getEnum().isEmpty();
+                        if (!isRequired) {
+                          // OPTIONAL  --> allow explicit null
+                          String scalar = isEnum ? TYPE_STRING : prop.getType();
+                          Schema<?> nullable = toNullablePrimitive(prop, scalar);
+                          entry.setValue(nullable);
+                        } else {
+                          // REQUIRED  --> keep scalar type, ensure it's present
+                          prop.setType(isEnum ? TYPE_STRING : prop.getType());
+                          prop.setTypes(null);
+                        }
+                      }
+                    }
                   }
+                  // Clear out the previous state
+                  s.setJsonSchema(null);
                   components.addSchemas(n, s);
                 } catch (Exception e) {
                   throw new RuntimeException(e);
@@ -1186,13 +1192,18 @@ public class OpenAPIV3Generator {
         NAME_SYSTEM_METADATA,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "SystemMetadata"),
+                    newSchema().type(TYPE_NULL)))
             .description("System metadata for the aspect."));
     result.addProperty(
         NAME_AUDIT_STAMP,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "AuditStamp")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "AuditStamp"), newSchema().type(TYPE_NULL)))
             .description("Audit stamp for the aspect."));
     return result;
   }
@@ -1209,7 +1220,10 @@ public class OpenAPIV3Generator {
         NAME_SYSTEM_METADATA,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "SystemMetadata"),
+                    newSchema().type(TYPE_NULL)))
             .description("System metadata for the aspect."));
 
     Schema stringTypeSchema = newSchema();
@@ -1358,8 +1372,8 @@ public class OpenAPIV3Generator {
                         .toList()))
         .properties(
             Map.of(
-                "entities", entitiesSchema,
-                "aspects", aspectsSchema));
+                "entities", newSchema().oneOf(List.of(entitiesSchema, newSchema().type(TYPE_NULL))),
+                "aspects", newSchema().oneOf(List.of(aspectsSchema, newSchema().type(TYPE_NULL)))));
   }
 
   private static Schema buildEntitiesPatchRequestSchema(List<EntitySpec> entitySpecs) {
@@ -1433,19 +1447,26 @@ public class OpenAPIV3Generator {
   private static Schema buildEntityBatchGetRequestSchema(
       final EntitySpec entity, Set<String> aspectNames) {
 
-    final Map<String, Schema> properties =
-        entity.getAspectSpecMap().entrySet().stream()
-            .filter(a -> aspectNames.contains(a.getValue().getName()))
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    a -> newSchema().$ref("#/components/schemas/BatchGetRequestBody")));
+    Map<String, Schema> properties = new LinkedHashMap<>();
     properties.put(
         PROPERTY_URN,
         newSchema().type(TYPE_STRING).description("Unique id for " + entity.getName()));
 
-    properties.put(
-        entity.getKeyAspectName(), newSchema().$ref("#/components/schemas/BatchGetRequestBody"));
+    entity.getAspectSpecMap().entrySet().stream()
+        .filter(
+            e ->
+                aspectNames.contains(e.getValue().getName())
+                    || e.getKey().equals(entity.getKeyAspectName()))
+        .forEach(
+            e ->
+                properties.put(
+                    e.getKey(),
+                    newSchema()
+                        .types(TYPE_OBJECT_NULLABLE)
+                        .oneOf(
+                            List.of(
+                                newSchema().$ref("#/components/schemas/BatchGetRequestBody"),
+                                newSchema().type(TYPE_NULL)))));
 
     return newSchema()
         .type(TYPE_OBJECT)
@@ -1455,19 +1476,24 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildCrossEntityUpsertSchema(List<EntitySpec> entitySpecs) {
+
     Map<String, Schema> props = new LinkedHashMap<>();
+
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)));
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(arraySchema, newSchema().type(TYPE_NULL))));
+        });
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity upsert request body.")
@@ -1476,19 +1502,25 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildCrossEntityPatchSchema(List<EntitySpec> entitySpecs) {
+
     Map<String, Schema> props = new LinkedHashMap<>();
+
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    toUpperFirst(e.getName()), ENTITY_REQUEST_PATCH_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  toUpperFirst(e.getName()), ENTITY_REQUEST_PATCH_SUFFIX)));
+
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(newSchema().type(TYPE_NULL), arraySchema)));
+        });
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity patch request body.")
@@ -1498,18 +1530,23 @@ public class OpenAPIV3Generator {
 
   private static Schema buildCrossEntityResponseSchema(List<EntitySpec> entitySpecs) {
     Map<String, Schema> props = new LinkedHashMap<>();
+
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    toUpperFirst(e.getName()), ENTITY_RESPONSE_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  toUpperFirst(e.getName()), ENTITY_RESPONSE_SUFFIX)));
+
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(arraySchema, newSchema().type(TYPE_NULL))));
+        });
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity upsert / patch response.")
@@ -1518,50 +1555,30 @@ public class OpenAPIV3Generator {
   }
 
   private static Schema buildCrossEntityBatchGetRequestSchema(List<EntitySpec> entitySpecs) {
+
     Map<String, Schema> props = new LinkedHashMap<>();
 
     entitySpecs.forEach(
-        e ->
-            props.put(
-                e.getName(),
-                newSchema()
-                    .type(TYPE_ARRAY)
-                    .items(
-                        newSchema()
-                            .$ref(
-                                String.format(
-                                    "#/components/schemas/%s%s",
-                                    "BatchGet" + toUpperFirst(e.getName()), // BatchGet<Ent>
-                                    ENTITY_REQUEST_SUFFIX)))));
+        e -> {
+          Schema arraySchema =
+              newSchema()
+                  .type(TYPE_ARRAY)
+                  .items(
+                      newSchema()
+                          .$ref(
+                              String.format(
+                                  "#/components/schemas/%s%s",
+                                  "BatchGet" + toUpperFirst(e.getName()), ENTITY_REQUEST_SUFFIX)));
+
+          props.put(
+              e.getName(), newSchema().oneOf(List.of(arraySchema, newSchema().type(TYPE_NULL))));
+        });
 
     return newSchema()
         .type(TYPE_OBJECT)
         .description("Mixed-entity batch-get request body.")
         .additionalProperties(false)
         .properties(props);
-  }
-
-  /** Same structure as buildEntityBatchGetRequestSchema but covers the union of all aspects. */
-  private static Schema buildEntitiesBatchGetRequestSchema(
-      Map<String, AspectSpec> aspectSpecs, Set<String> aspectNames) {
-
-    Map<String, Schema> properties =
-        aspectSpecs.entrySet().stream()
-            .filter(e -> aspectNames.contains(e.getKey()))
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> newSchema().$ref("#/components/schemas/BatchGetRequestBody"),
-                    (a, b) -> a, // merge func (won’t actually happen)
-                    LinkedHashMap::new));
-
-    properties.put(PROPERTY_URN, newSchema().type(TYPE_STRING).description("Unique id for entity"));
-
-    return newSchema()
-        .type(TYPE_OBJECT)
-        .description(ENTITIES + " object.")
-        .required(List.of(PROPERTY_URN))
-        .properties(properties);
   }
 
   private static Schema buildAspectRef(final String aspect, final boolean withSystemMetadata) {
@@ -1578,7 +1595,7 @@ public class OpenAPIV3Generator {
       internalRef =
           String.format(FORMAT_PATH_DEFINITIONS, toUpperFirst(aspect), ASPECT_REQUEST_SUFFIX);
     }
-    result.setAnyOf(List.of(newSchema().$ref(internalRef)));
+    result.setOneOf(List.of(newSchema().$ref(internalRef), newSchema().type(TYPE_NULL)));
     return result;
   }
 
@@ -1967,7 +1984,10 @@ public class OpenAPIV3Generator {
         NAME_SYSTEM_METADATA,
         newSchema()
             .types(TYPE_OBJECT_NULLABLE)
-            .$ref(PATH_DEFINITIONS + "SystemMetadata")
+            .oneOf(
+                List.of(
+                    newSchema().$ref(PATH_DEFINITIONS + "SystemMetadata"),
+                    newSchema().type(TYPE_NULL)))
             .description("System metadata for the aspect."));
     schema.addProperty(
         "headers",
@@ -2007,16 +2027,143 @@ public class OpenAPIV3Generator {
     return new Schema().specVersion(SPEC_VERSION);
   }
 
-  private static Schema nullableSchema(Schema origin, Set<String> types) {
-    if (origin == null) {
-      return newSchema().types(types);
+  /**
+   * Replace a StringSchema / IntegerSchema / … with a base Schema that has oneOf: [<scalar>, null]
+   * while preserving all other attributes (format, description, examples, …). This is because
+   * StringSchema / IntegerSchema / etc will hard-code the type attributes which breaks OAS 3.1.0
+   * nullability for primitives.
+   *
+   * @param original the original typed schema (StringSchema, IntegerSchema, etc.)
+   * @param scalarType the scalar type string (e.g., "string", "integer", "number", "boolean",
+   *     "object")
+   * @return a new Schema with proper OAS 3.1.0 nullable oneOf structure
+   * @throws IllegalArgumentException if original schema or scalarType is null/empty
+   */
+  private static <T> Schema<T> toNullablePrimitive(Schema<T> original, String scalarType) {
+    if (original == null) {
+      throw new IllegalArgumentException("Original schema cannot be null");
+    }
+    if (scalarType == null || scalarType.trim().isEmpty()) {
+      throw new IllegalArgumentException("Scalar type cannot be null or empty");
     }
 
-    String nonNullType = types.stream().filter(t -> !"null".equals(t)).findFirst().orElse(null);
+    try {
+      // Create a deep clone without modifying the original
+      Schema<T> clone = Json.mapper().convertValue(original, Schema.class);
 
-    origin.setType(nonNullType);
-    origin.setTypes(types);
+      // Create scalar schema and transfer ALL type-specific properties
+      Schema<T> scalarSchema = new Schema<>();
+      scalarSchema.setType(scalarType.trim());
+      scalarSchema.setSpecVersion(SPEC_VERSION);
 
-    return origin;
+      // Transfer type-specific properties to scalar schema
+      // String-specific properties
+      if (clone.getFormat() != null) {
+        scalarSchema.setFormat(clone.getFormat());
+        clone.setFormat(null);
+      }
+      if (clone.getMinLength() != null) {
+        scalarSchema.setMinLength(clone.getMinLength());
+        clone.setMinLength(null);
+      }
+      if (clone.getMaxLength() != null) {
+        scalarSchema.setMaxLength(clone.getMaxLength());
+        clone.setMaxLength(null);
+      }
+      if (clone.getPattern() != null) {
+        scalarSchema.setPattern(clone.getPattern());
+        clone.setPattern(null);
+      }
+
+      // Number-specific properties
+      if (clone.getMinimum() != null) {
+        scalarSchema.setMinimum(clone.getMinimum());
+        clone.setMinimum(null);
+      }
+      if (clone.getMaximum() != null) {
+        scalarSchema.setMaximum(clone.getMaximum());
+        clone.setMaximum(null);
+      }
+      if (clone.getExclusiveMinimum() != null) {
+        scalarSchema.setExclusiveMinimum(clone.getExclusiveMinimum());
+        clone.setExclusiveMinimum(null);
+      }
+      if (clone.getExclusiveMaximum() != null) {
+        scalarSchema.setExclusiveMaximum(clone.getExclusiveMaximum());
+        clone.setExclusiveMaximum(null);
+      }
+      if (clone.getMultipleOf() != null) {
+        scalarSchema.setMultipleOf(clone.getMultipleOf());
+        clone.setMultipleOf(null);
+      }
+
+      // Object-specific properties
+      if (clone.getProperties() != null) {
+        scalarSchema.setProperties(clone.getProperties());
+        clone.setProperties(null);
+      }
+      if (clone.getAdditionalProperties() != null) {
+        scalarSchema.setAdditionalProperties(clone.getAdditionalProperties());
+        clone.setAdditionalProperties(null);
+      }
+      if (clone.getRequired() != null) {
+        scalarSchema.setRequired(clone.getRequired());
+        clone.setRequired(null);
+      }
+      if (clone.getMinProperties() != null) {
+        scalarSchema.setMinProperties(clone.getMinProperties());
+        clone.setMinProperties(null);
+      }
+      if (clone.getMaxProperties() != null) {
+        scalarSchema.setMaxProperties(clone.getMaxProperties());
+        clone.setMaxProperties(null);
+      }
+
+      // Array-specific properties
+      if (clone.getItems() != null) {
+        scalarSchema.setItems(clone.getItems());
+        clone.setItems(null);
+      }
+      if (clone.getMinItems() != null) {
+        scalarSchema.setMinItems(clone.getMinItems());
+        clone.setMinItems(null);
+      }
+      if (clone.getMaxItems() != null) {
+        scalarSchema.setMaxItems(clone.getMaxItems());
+        clone.setMaxItems(null);
+      }
+      if (clone.getUniqueItems() != null) {
+        scalarSchema.setUniqueItems(clone.getUniqueItems());
+        clone.setUniqueItems(null);
+      }
+
+      // Enum (applies to any type)
+      if (clone.getEnum() != null) {
+        scalarSchema.setEnum(clone.getEnum());
+        clone.setEnum(null);
+      }
+
+      // Clear conflicting type information from parent
+      clone.setType(null);
+      clone.setNullable(null);
+      clone.setTypes(null);
+
+      // Create null schema
+      Schema<?> nullSchema = new Schema<>();
+      nullSchema.setType(TYPE_NULL);
+      nullSchema.setSpecVersion(SPEC_VERSION);
+
+      // Set oneOf on parent schema
+      clone.setOneOf(List.of(scalarSchema, nullSchema));
+      clone.setSpecVersion(SPEC_VERSION);
+
+      return clone;
+
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to convert schema to nullable primitive with type '%s'", scalarType),
+          e);
+    }
   }
 }

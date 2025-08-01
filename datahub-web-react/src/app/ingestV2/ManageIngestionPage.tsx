@@ -1,5 +1,5 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -102,25 +102,32 @@ export const ManageIngestionPage = () => {
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            if (showIngestionTab) {
+            const currentPath = window.location.pathname;
+
+            // Check if current URL matches any tab URL
+            const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
+
+            if (currentTab) {
+                // We're on a valid tab URL, set that tab
+                setSelectedTab(currentTab);
+            } else if (showIngestionTab) {
+                // We're not on a tab URL, default to Sources tab
                 setSelectedTab(TabType.Sources);
             } else if (showSecretsTab) {
+                // We're not on a tab URL, default to Secrets tab
                 setSelectedTab(TabType.Secrets);
             } else {
                 setSelectedTab(null);
+                return;
+            }
+
+            // If we're on the base /ingestion path, redirect to the appropriate default tab
+            if (currentPath === '/ingestion') {
+                const defaultTabType = showIngestionTab ? TabType.Sources : TabType.Secrets;
+                history.replace(tabUrlMap[defaultTabType]);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
-
-    const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
-        const preserveParams = shouldPreserveParams.current;
-        const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
-        if (!preserveParams && options?.clearQueryParams) {
-            history.push({ search: '' });
-        }
-        setSelectedTab(matchingTab || selectedTab);
-        shouldPreserveParams.current = false;
-    };
+    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab, history]);
 
     const tabs: Tab[] = [
         showIngestionTab && {
@@ -160,9 +167,14 @@ export const ManageIngestionPage = () => {
         },
     ].filter((tab): tab is Tab => Boolean(tab));
 
-    const onUrlChange = (tabPath: string) => {
-        history.push(tabPath);
-    };
+    const onUrlChange = useCallback(
+        (tabPath: string) => {
+            history.push({ pathname: tabPath, search: '' });
+        },
+        [history],
+    );
+
+    const getCurrentUrl = useCallback(() => window.location.pathname, []);
 
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);
@@ -228,11 +240,11 @@ export const ManageIngestionPage = () => {
                 <Tabs
                     tabs={tabs}
                     selectedTab={selectedTab}
-                    onChange={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+                    onChange={(tab) => setSelectedTab(tab as TabType)}
                     urlMap={tabUrlMap}
                     onUrlChange={onUrlChange}
                     defaultTab={TabType.Sources}
-                    getCurrentUrl={() => window.location.pathname}
+                    getCurrentUrl={getCurrentUrl}
                 />
             </PageContentContainer>
         </PageContainer>

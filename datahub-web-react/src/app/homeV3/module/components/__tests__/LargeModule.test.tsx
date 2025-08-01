@@ -14,6 +14,7 @@ vi.mock('styled-components', () => {
     };
     styledFactory.div = styledFactory('div');
     styledFactory.button = styledFactory('button');
+    styledFactory.Icon = styledFactory(() => null);
     return {
         __esModule: true,
         default: styledFactory,
@@ -45,6 +46,7 @@ vi.mock('@components', () => ({
     ),
     Loader: () => <div data-testid="loader">Loading...</div>,
     Text: ({ children }: any) => <span>{children}</span>,
+    Icon: () => <svg />,
     borders: {
         '1px': '1px solid',
     },
@@ -63,8 +65,6 @@ vi.mock('@components', () => ({
     },
 }));
 
-const MOCKED_TIMESTAMP = 1752056099724;
-
 describe('LargeModule', () => {
     const mockModule: ModuleProps['module'] = {
         urn: 'urn:li:dataHubPageModule:test',
@@ -75,12 +75,6 @@ describe('LargeModule', () => {
             visibility: {
                 scope: PageModuleScope.Global,
             },
-            created: {
-                time: MOCKED_TIMESTAMP,
-            },
-            lastModified: {
-                time: MOCKED_TIMESTAMP,
-            },
             params: {},
         },
     };
@@ -88,6 +82,7 @@ describe('LargeModule', () => {
     const defaultProps = {
         module: mockModule,
         children: <div data-testid="module-content">Module Content</div>,
+        position: { rowIndex: 0, moduleIndex: 0 },
     };
 
     it('should render the module with correct name', () => {

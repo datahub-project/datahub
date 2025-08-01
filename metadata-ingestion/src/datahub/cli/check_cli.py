@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 import click
+from tabulate import tabulate
 
 from datahub._version import __package_name__
 from datahub.cli.json_file import check_mce_file
@@ -519,4 +520,42 @@ def get_kafka_consumer_offsets() -> None:
     """Get Kafka consumer offsets from the DataHub API."""
     graph = get_default_graph(ClientMode.CLI)
     result = graph.get_kafka_consumer_offsets()
-    pprint.pprint(result)
+
+    table_data = []
+    headers = [
+        "Topic",
+        "Consumer Group",
+        "Schema",
+        "Partition",
+        "Offset",
+        "Lag",
+        "Avg Lag",
+        "Max Lag",
+        "Total Lag",
+    ]
+
+    for topic, consumers in result.items():
+        for consumer_group, schemas in consumers.items():
+            for schema, data in schemas.items():
+                metrics = data.get("metrics", {})
+                partitions = data.get("partitions", {})
+
+                for partition, partition_data in partitions.items():
+                    table_data.append(
+                        [
+                            topic,
+                            consumer_group,
+                            schema,
+                            partition,
+                            partition_data.get("offset", "N/A"),
+                            partition_data.get("lag", "N/A"),
+                            metrics.get("avgLag", "N/A"),
+                            metrics.get("maxLag", "N/A"),
+                            metrics.get("totalLag", "N/A"),
+                        ]
+                    )
+
+    if table_data:
+        click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+    else:
+        click.echo("No Kafka consumer offset data found.")
