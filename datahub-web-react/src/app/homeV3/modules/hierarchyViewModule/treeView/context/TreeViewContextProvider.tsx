@@ -20,6 +20,7 @@ export default function TreeViewContextProvider({
     onExpand,
     selectable,
     updateSelectedValues,
+    expandParentNodesOfInitialSelectedValues,
     loadChildren: loadAsyncChildren,
     renderNodeLabel,
     explicitlySelectChildren,
@@ -30,6 +31,8 @@ export default function TreeViewContextProvider({
     numberOfChildrenToLoad = DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD,
 }: React.PropsWithChildren<TreeViewContextProviderProps>) {
     const [internalExpandedValues, setInternalExpandedValues] = useState<string[]>(expandedValues ?? []);
+    const [isExpandedValuesInitialized, setIsExpandedValuesInitialized] = useState<boolean>(false);
+
     const [loadedValues, setLoadedValues] = useState<string[]>([]);
 
     const preprocessedNodes = useMemo(() => {
@@ -47,6 +50,17 @@ export default function TreeViewContextProvider({
         },
         [loadAsyncChildren],
     );
+
+    // Initialize expanded values by initial selected values when `expandParentNodesOfInitialSelectedValues` is enabled
+    useEffect(() => {
+        if (!isExpandedValuesInitialized && expandParentNodesOfInitialSelectedValues) {
+            const parentValues = (selectedValues ?? [])
+                .map((value) => valueToTreeNodeMap[value]?.parentValue)
+                .filter((parentValue): parentValue is string => !!parentValue);
+            setInternalExpandedValues(parentValues);
+            setIsExpandedValuesInitialized(true);
+        }
+    }, [selectedValues, isExpandedValuesInitialized, valueToTreeNodeMap, expandParentNodesOfInitialSelectedValues]);
 
     const initialChildrenLoad = useCallback(
         (node: TreeNode) => {
@@ -139,10 +153,6 @@ export default function TreeViewContextProvider({
         if (expandedValues !== undefined) setInternalExpandedValues(expandedValues);
     }, [expandedValues]);
 
-    useEffect(() => {
-        if (expandedValues) setInternalExpandedValues(expandedValues);
-    }, [expandedValues]);
-
     // SELECTING
     const getIsSelectable = useCallback(
         (node: TreeNode) => {
@@ -203,11 +213,12 @@ export default function TreeViewContextProvider({
             const parentValues = explicitlyUnselectParent
                 ? []
                 : getAllParentValues(valueToTreeNodeMap[node.value], valueToTreeNodeMap);
-            updateSelectedValues?.(
+
+            const newSelectedValues =
                 selectedValues?.filter(
                     (value) => !parentValues.includes(value) && !valuesToToggleSelect.includes(value),
-                ) ?? [],
-            );
+                ) ?? [];
+            updateSelectedValues?.(newSelectedValues);
         },
         [
             valueToTreeNodeMap,
