@@ -12,7 +12,9 @@ import logging
 import pytest
 import requests
 from http import HTTPStatus
-from typing import Optional
+from typing import Optional, Tuple
+
+from tests.utils import TestSessionWrapper
 
 from tests.utils import (
     get_gms_url, 
@@ -33,10 +35,16 @@ restli_default_headers = {
 }
 
 
-def extract_api_token_from_session(session):
+def extract_api_token_from_session(session: TestSessionWrapper) -> Tuple[str, str]:
     """Extract API token from frontend session cookies for OpenAPI authentication.
     
     Based on TestSessionWrapper pattern from tests/utils.py and test_system_info.py
+    
+    Args:
+        session: Authenticated test session wrapper
+        
+    Returns:
+        Tuple of (access_token, token_id)
     """
     # Extract actor URN from session cookies
     actor_urn = session.cookies["actor"] 
@@ -69,8 +77,13 @@ def extract_api_token_from_session(session):
     return token_data["accessToken"], token_data["metadata"]["id"]
 
 
-def revoke_api_token(session, token_id: str):
-    """Revoke an API token for cleanup."""
+def revoke_api_token(session: TestSessionWrapper, token_id: str) -> None:
+    """Revoke an API token for cleanup.
+    
+    Args:
+        session: Authenticated test session wrapper
+        token_id: ID of the token to revoke
+    """
     revoke_json = {
         "query": """mutation revokeAccessToken($tokenId: String!) {
             revokeAccessToken(tokenId: $tokenId)
@@ -85,14 +98,14 @@ def revoke_api_token(session, token_id: str):
 # PUBLIC ENDPOINTS TESTS (Excluded Paths)
 # ===========================================
 
-def test_health_endpoint_no_auth():
+def test_health_endpoint_no_auth() -> None:
     """Health endpoint should work without authentication (excluded path)."""
     response = requests.get(f"{get_gms_url()}/health")
     assert response.status_code == 200
     logger.info(f"✅ /health without auth: {response.status_code}")
 
 
-def test_health_endpoint_with_invalid_token():
+def test_health_endpoint_with_invalid_token() -> None:
     """Health endpoint should work even with invalid token (excluded path)."""
     headers = {"Authorization": "Bearer invalid.jwt.token"}
     response = requests.get(f"{get_gms_url()}/health", headers=headers)
@@ -100,7 +113,7 @@ def test_health_endpoint_with_invalid_token():
     logger.info(f"✅ /health with invalid token: {response.status_code}")
 
 
-def test_actuator_prometheus_no_auth():
+def test_actuator_prometheus_no_auth() -> None:
     """Prometheus metrics should work without authentication (excluded path)."""
     response = requests.get(f"{get_gms_url()}/actuator/prometheus")
     # Might be 200 or 404 depending on setup, but should NOT be 401
@@ -117,8 +130,12 @@ def test_actuator_prometheus_no_auth():
         "/schema-registry/subjects"
     ]
 )
-def test_excluded_paths_no_auth(endpoint):
-    """Test that excluded paths work without authentication."""
+def test_excluded_paths_no_auth(endpoint: str) -> None:
+    """Test that excluded paths work without authentication.
+    
+    Args:
+        endpoint: The endpoint path to test
+    """
     response = requests.get(f"{get_gms_url()}{endpoint}")
     # Should not return 401 (might be 404 if endpoint doesn't exist)
     assert response.status_code != 401, f"Expected non-401 for excluded path {endpoint}, got {response.status_code}"
@@ -129,7 +146,7 @@ def test_excluded_paths_no_auth(endpoint):
 # PROTECTED ENDPOINTS TESTS
 # ===========================================
 
-def test_graphql_endpoint_no_auth():
+def test_graphql_endpoint_no_auth() -> None:
     """GraphQL endpoint should return 401 without authentication."""
     query = {"query": "{ me { corpUser { username } } }"}
     response = requests.post(f"{get_frontend_url()}/api/v2/graphql", json=query)
@@ -137,7 +154,7 @@ def test_graphql_endpoint_no_auth():
     logger.info(f"✅ GraphQL without auth: {response.status_code}")
 
 
-def test_graphql_endpoint_invalid_token():
+def test_graphql_endpoint_invalid_token() -> None:
     """GraphQL endpoint should return 401 with invalid token."""
     query = {"query": "{ me { corpUser { username } } }"}
     headers = {"Authorization": "Bearer invalid.jwt.token"}
@@ -164,13 +181,20 @@ def test_graphql_endpoint_valid_token(auth_session):
         ("/openapi/v1/system-info", "GET"),
     ]
 )
-def test_protected_endpoints_no_auth(endpoint, method):
-    """Test that protected endpoints return 401 without authentication."""
+def test_protected_endpoints_no_auth(endpoint: str, method: str) -> None:
+    """Test that protected endpoints return 401 without authentication.
+    
+    Args:
+        endpoint: The endpoint path to test
+        method: HTTP method (GET or POST)
+    """
     if method == "GET":
         response = requests.get(f"{get_gms_url()}{endpoint}")
     else:
+        # Use proper request body for entities search endpoint
+        json_body = {"input": "*", "entity": "dataset", "start": 0, "count": 1}
         response = requests.post(f"{get_gms_url()}{endpoint}", 
-                               headers=restli_default_headers, json={})
+                               headers=restli_default_headers, json=json_body)
     
     assert response.status_code == 401, f"Expected 401 for {endpoint}, got {response.status_code}"
     logger.info(f"✅ {method} {endpoint} without auth: {response.status_code}")
@@ -184,22 +208,33 @@ def test_protected_endpoints_no_auth(endpoint, method):
         ("/aspects?action=getAspect", "GET")
     ]
 )
-def test_protected_endpoints_invalid_token(endpoint, method):
-    """Test that protected endpoints return 401 with invalid token."""
+def test_protected_endpoints_invalid_token(endpoint: str, method: str) -> None:
+    """Test that protected endpoints return 401 with invalid token.
+    
+    Args:
+        endpoint: The endpoint path to test
+        method: HTTP method (GET or POST)
+    """
     headers = {"Authorization": "Bearer invalid.jwt.token"}
     if method == "GET":
         response = requests.get(f"{get_gms_url()}{endpoint}", headers=headers)
     else:
         headers.update(restli_default_headers)
+        # Use proper request body for entities search endpoint
+        json_body = {"input": "*", "entity": "dataset", "start": 0, "count": 1}
         response = requests.post(f"{get_gms_url()}{endpoint}", 
-                               headers=headers, json={})
+                               headers=headers, json=json_body)
     
     assert response.status_code == 401, f"Expected 401 for {endpoint}, got {response.status_code}"
     logger.info(f"✅ {method} {endpoint} with invalid token: {response.status_code}")
 
 
-def test_restli_endpoints_with_valid_auth(auth_session):
-    """Test that Rest.li endpoints work with valid authentication."""
+def test_restli_endpoints_with_valid_auth(auth_session: TestSessionWrapper) -> None:
+    """Test that Rest.li endpoints work with valid authentication.
+    
+    Args:
+        auth_session: Authenticated test session wrapper
+    """
     # Test search endpoint
     search_json = {"input": "test", "entity": "dataset", "start": 0, "count": 10}
     response = auth_session.post(
@@ -215,7 +250,7 @@ def test_restli_endpoints_with_valid_auth(auth_session):
 # AUTHORIZATION TESTS (403 scenarios)
 # ===========================================
 
-def test_admin_endpoints_require_privileges():
+def test_admin_endpoints_require_privileges() -> None:
     """Test that admin endpoints return 401/403 for users without admin privileges."""
     # Create a limited-privilege user for testing
     (admin_user, admin_pass) = get_admin_credentials()
@@ -273,8 +308,12 @@ def test_admin_endpoints_require_privileges():
         "Bearer ",  # Empty token
     ]
 )
-def test_malformed_auth_headers(auth_header):
-    """Test various malformed Authorization headers return 401."""
+def test_malformed_auth_headers(auth_header: str) -> None:
+    """Test various malformed Authorization headers return 401.
+    
+    Args:
+        auth_header: The malformed authorization header to test
+    """
     query = {"query": "{ me { corpUser { username } } }"}
     headers = {"Authorization": auth_header}
     response = requests.post(f"{get_frontend_url()}/api/v2/graphql", 
@@ -283,13 +322,16 @@ def test_malformed_auth_headers(auth_header):
     logger.info(f"✅ GraphQL with malformed header '{auth_header}': {response.status_code}")
 
 
-def test_api_token_authentication(auth_session):
+def test_api_token_authentication(auth_session: TestSessionWrapper) -> None:
     """Test API token-based authentication behavior.
     
     Note: The frontend (port 9002) is intentionally not configured to handle Bearer tokens.
     It only supports session cookie authentication. Bearer tokens work directly with GMS (port 8080).
     This is an architectural design decision where the frontend handles UI authentication
     and GMS handles API authentication.
+    
+    Args:
+        auth_session: Authenticated test session wrapper
     """
     token_id = None
     try:
@@ -318,12 +360,15 @@ def test_api_token_authentication(auth_session):
             revoke_api_token(auth_session, token_id)
 
 
-def test_session_vs_token_authentication(auth_session):
+def test_session_vs_token_authentication(auth_session: TestSessionWrapper) -> None:
     """Test the different authentication methods work as designed.
     
     This test validates the intentional architectural separation:
     - Frontend (port 9002): Session cookie authentication only
     - GMS (port 8080): Bearer token authentication for API access
+    
+    Args:
+        auth_session: Authenticated test session wrapper
     """
     token_id = None
     try:
@@ -358,7 +403,7 @@ def test_session_vs_token_authentication(auth_session):
 # COMPREHENSIVE BEHAVIOR TESTS
 # ===========================================
 
-def test_authentication_priority_and_fallback():
+def test_authentication_priority_and_fallback() -> None:
     """Test authentication priority when multiple auth methods are present."""
     # This test documents current behavior for future reference
     
@@ -376,8 +421,12 @@ def test_authentication_priority_and_fallback():
     logger.info("✅ Invalid bearer token returns 401 as expected")
 
 
-def test_cross_service_authentication_consistency(auth_session):
-    """Test that authentication works consistently across different services."""
+def test_cross_service_authentication_consistency(auth_session: TestSessionWrapper) -> None:
+    """Test that authentication works consistently across different services.
+    
+    Args:
+        auth_session: Authenticated test session wrapper
+    """
     # Test frontend GraphQL
     query = {"query": "{ me { corpUser { username } } }"}
     response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=query)
@@ -399,8 +448,12 @@ def test_cross_service_authentication_consistency(auth_session):
 # COMPREHENSIVE TEST SUMMARY
 # ===========================================
 
-def test_authentication_behavior_summary(auth_session):
-    """Summary test that validates overall authentication behavior."""
+def test_authentication_behavior_summary(auth_session: TestSessionWrapper) -> None:
+    """Summary test that validates overall authentication behavior.
+    
+    Args:
+        auth_session: Authenticated test session wrapper
+    """
     
     logger.info("🧪 DataHub Authentication Behavior Summary")
     logger.info("=" * 60)
