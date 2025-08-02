@@ -10,8 +10,10 @@
 # Tag search using the workspace search UI is supported only for tables, views, and table columns.
 # Tag search requires exact term matching.
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
-from typing import Any, Dict, Optional, Set, Union
+from typing import Any, Dict, Optional, Set
 
+# Import validator for Pydantic v1 (always needed since we removed conditional logic)
+from pydantic import validator
 from typing_extensions import ClassVar
 
 from datahub.api.entities.external.external_tag import ExternalTag
@@ -60,46 +62,96 @@ class UnityCatalogTag(ExternalTag):
     key: UnityCatalogTagKeyText
     value: Optional[UnityCatalogTagValueText] = None
 
-    def __init__(
-        self,
-        key: Optional[Union[str, UnityCatalogTagKeyText]] = None,
-        value: Optional[Union[str, UnityCatalogTagValueText]] = None,
-        **data: Any,
-    ) -> None:
-        """
-        Initialize UnityCatalogTag from either a DataHub Tag URN or explicit key/value.
+    def __init__(self, **data: Any) -> None:
+        """Initialize UnityCatalogTag with proper field processing."""
+        # For Pydantic v2, we need to handle RestrictedText creation manually
+        # because the validation system isn't working properly
+        processed_data = self._process_tag_data(data)
 
-        Args:
-            key: Explicit key value (optional for Pydantic initialization)
-            value: Explicit value (optional)
-            **data: Additional Pydantic data
-        """
-        if key is not None:
-            # Direct initialization with key/value
-            processed_key = (
-                UnityCatalogTagKeyText(key)
-                if not isinstance(key, UnityCatalogTagKeyText)
-                else key
-            )
-            processed_value = None
-            if value is not None:
-                processed_value = (
-                    UnityCatalogTagValueText(value)
-                    if not isinstance(value, UnityCatalogTagValueText)
-                    else value
-                )
-            # If value is an empty string, set it to None to not generater empty value in DataHub tag which results in key: tags
-            if not str(value):
-                processed_value = None
+        # Skip ExternalTag.__init__ and call BaseModel.__init__ directly
+        from pydantic import BaseModel
 
-            super().__init__(
-                key=processed_key,
-                value=processed_value,
-                **data,
-            )
-        else:
-            # Standard pydantic initialization
-            super().__init__(**data)
+        BaseModel.__init__(self, **processed_data)
+
+        # WORKAROUND: Manually set the fields after initialization
+        # This is necessary because RestrictedText doesn't work properly with Pydantic v2
+        if "key" in processed_data:
+            object.__setattr__(self, "key", processed_data["key"])
+        if "value" in processed_data:
+            object.__setattr__(self, "value", processed_data["value"])
+
+    @staticmethod
+    def _process_tag_data(data: Any) -> Any:
+        """Common processing logic for both Pydantic v1 and v2."""
+        if isinstance(data, dict):
+            # Handle key field
+            if "key" in data and data["key"] is not None:
+                key_value = data["key"]
+                if not isinstance(key_value, UnityCatalogTagKeyText):
+                    # If we get a RestrictedText object, use its original value
+                    if hasattr(key_value, "original"):
+                        data["key"] = UnityCatalogTagKeyText(key_value.original)
+                    else:
+                        data["key"] = UnityCatalogTagKeyText(key_value)
+
+            # Handle value field
+            if "value" in data and data["value"] is not None:
+                value_data = data["value"]
+                if not isinstance(value_data, UnityCatalogTagValueText):
+                    # If we get a RestrictedText object, use its original value
+                    if hasattr(value_data, "original"):
+                        original_value = value_data.original
+                        # If value is an empty string, set it to None
+                        if not str(original_value):
+                            data["value"] = None
+                        else:
+                            data["value"] = UnityCatalogTagValueText(original_value)
+                    else:
+                        # If value is an empty string, set it to None
+                        if not str(value_data):
+                            data["value"] = None
+                        else:
+                            data["value"] = UnityCatalogTagValueText(value_data)
+
+        return data
+
+    # Pydantic v1 validators
+    @validator("key", pre=True)
+    @classmethod
+    def _validate_key(cls, v: Any) -> UnityCatalogTagKeyText:
+        """Validate and convert key field for Pydantic v1."""
+        if isinstance(v, UnityCatalogTagKeyText):
+            return v
+
+        # If we get a RestrictedText object from parent class validation, use its original value
+        if hasattr(v, "original"):
+            return UnityCatalogTagKeyText(v.original)
+
+        return UnityCatalogTagKeyText(v)
+
+    @validator("value", pre=True)
+    @classmethod
+    def _validate_value(cls, v: Any) -> Optional[UnityCatalogTagValueText]:
+        """Validate and convert value field for Pydantic v1."""
+        if v is None:
+            return None
+
+        if isinstance(v, UnityCatalogTagValueText):
+            return v
+
+        # If we get a RestrictedText object from parent class validation, use its original value
+        if hasattr(v, "original"):
+            original_value = v.original
+            # If value is an empty string, set it to None to not generate empty value in DataHub tag
+            if not str(original_value):
+                return None
+            return UnityCatalogTagValueText(original_value)
+
+        # If value is an empty string, set it to None to not generate empty value in DataHub tag
+        if not str(v):
+            return None
+
+        return UnityCatalogTagValueText(v)
 
     def __eq__(self, other: object) -> bool:
         """Check equality based on key and value."""
@@ -124,7 +176,7 @@ class UnityCatalogTag(ExternalTag):
         Returns:
             UnityCatalogTag instance
         """
-        return cls(key=tag_dict["key"], value=tag_dict.get("value"))
+        return cls(**tag_dict)
 
     @classmethod
     def from_key_value(cls, key: str, value: Optional[str] = None) -> "UnityCatalogTag":
@@ -171,3 +223,7 @@ class UnityCatalogTag(ExternalTag):
             return f"UnityCatalogTag(key={self.key!r}, value={self.value!r})"
         else:
             return f"UnityCatalogTag(key={self.key!r})"
+
+
+# Note: Pydantic v2 validation is handled in the __init__ method due to
+# issues with RestrictedText compatibility with Pydantic v2's validation system

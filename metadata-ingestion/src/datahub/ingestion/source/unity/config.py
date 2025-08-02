@@ -243,6 +243,11 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
+    ignore_start_time_lineage: bool = pydantic.Field(
+        default=False,
+        description="Option to ignore the start_time and retrieve all available lineage. When enabled, the start_time filter will be set to zero to extract all lineage events regardless of the configured time window.",
+    )
+
     column_lineage_column_limit: int = pydantic.Field(
         default=300,
         description="Limit the number of columns to get column level lineage. ",
