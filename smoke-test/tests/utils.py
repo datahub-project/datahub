@@ -263,6 +263,11 @@ class TestSessionWrapper:
                 if name in ("get", "head", "post", "put", "delete", "option", "patch"):
                     if "headers" not in kwargs:
                         kwargs["headers"] = CaseInsensitiveDict()
+                    else:
+                        # Clone the headers dict to prevent mutation of caller's data
+                        # This fixes test pollution where shared header dicts get contaminated
+                        kwargs["headers"] = dict(kwargs["headers"])
+
                     kwargs["headers"].update(
                         {"Authorization": f"Bearer {self._gms_token}"}
                     )
