@@ -8,10 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorContext;
-import com.datahub.authentication.authenticator.AuthenticatorChain;
-import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
-import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
-import com.datahub.authentication.authenticator.NoOpAuthenticator;
+import com.datahub.authentication.authenticator.*;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -54,7 +51,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class AuthenticationExtractionFilter extends OncePerRequestFilter {
 
   // Constants for anonymous authentication
-  private static final String ANONYMOUS_ACTOR_ID = "anonymous";
+  public static final String ANONYMOUS_ACTOR_ID = "anonymous";
   private static final String ANONYMOUS_CREDENTIALS = "";
 
   @Autowired private ConfigurationProvider configurationProvider;
@@ -118,15 +115,14 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
           authenticatorContext);
       authenticatorChain.register(tokenAuthenticator);
 
-      // TODO: Temporarily removed HealthStatusAuthenticator for debugging
       // Add health status authenticator for system health endpoints
-      // HealthStatusAuthenticator healthAuthenticator = new HealthStatusAuthenticator();
-      // healthAuthenticator.init(
-      //     ImmutableMap.of(
-      //         SYSTEM_CLIENT_ID_CONFIG,
-      //         this.configurationProvider.getAuthentication().getSystemClientId()),
-      //     authenticatorContext);
-      // authenticatorChain.register(healthAuthenticator);
+      HealthStatusAuthenticator healthAuthenticator = new HealthStatusAuthenticator();
+      healthAuthenticator.init(
+          ImmutableMap.of(
+              SYSTEM_CLIENT_ID_CONFIG,
+              this.configurationProvider.getAuthentication().getSystemClientId()),
+          authenticatorContext);
+      authenticatorChain.register(healthAuthenticator);
 
     } else {
       // Authentication is not enabled. Use no-op authenticator.

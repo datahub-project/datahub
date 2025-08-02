@@ -35,11 +35,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 @Slf4j
 public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
-
-  public AuthenticationEnforcementFilter() {
-    System.out.println("AuthenticationEnforcementFilter");
-  }
-
   @Autowired private ConfigurationProvider configurationProvider;
 
   private Set<String> excludedPathPatterns;
@@ -116,7 +111,8 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
     }
 
     // Check if this is the anonymous user set by AuthenticationExtractionFilter
-    return "anonymous".equals(authentication.getActor().getId());
+    return AuthenticationExtractionFilter.ANONYMOUS_ACTOR_ID.equals(
+        authentication.getActor().getId());
   }
 
   @VisibleForTesting
