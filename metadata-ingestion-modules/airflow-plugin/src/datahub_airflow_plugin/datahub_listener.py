@@ -11,9 +11,32 @@ import airflow
 from airflow.models import Variable
 from airflow.models.operator import Operator
 from airflow.models.serialized_dag import SerializedDagModel
-from openlineage.airflow.listener import TaskHolder
-from openlineage.airflow.utils import redact_with_exclusions
-from openlineage.client.serde import Serde
+# TODO: to change to Airflow plugin
+# from openlineage.airflow.listener import TaskHolder
+# Ref: https://github.com/apache/airflow/blob/main/providers/openlineage/src/airflow/providers/openlineage/plugins/listener.py
+from airflow.providers.openlineage.plugins.listener import get_openlineage_listener
+# TODO: to change to Airflow plugin
+# from openlineage.airflow.utils import redact_with_exclusions
+from airflow.providers.openlineage.utils.utils import (
+    AIRFLOW_V_3_0_PLUS,
+    get_airflow_dag_run_facet,
+    get_airflow_debug_facet,
+    get_airflow_job_facet,
+    get_airflow_mapped_task_facet,
+    get_airflow_run_facet,
+    get_job_name,
+    get_task_parent_run_facet,
+    get_user_provided_run_facets,
+    is_operator_disabled,
+    is_selective_lineage_enabled,
+    print_warning,
+)
+from airflow.providers.openlineage import conf
+# from airflow.providers.openlineage.extractors import ExtractorManager, OperatorLineage
+from airflow.providers.openlineage.plugins.adapter import OpenLineageAdapter, RunState
+# TODO: to change to Airflow plugin
+# from openlineage.client.serde import Serde
+from airflow.providers.openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
@@ -87,7 +110,7 @@ _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
 KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
 
-
+# verified - airflow openlineage dependencies
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
     # Using globals instead of functools.lru_cache to make testing easier.
     global _airflow_listener_initialized
@@ -121,13 +144,13 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
 
         if plugin_config.disable_openlineage_plugin:
             # Deactivate the OpenLineagePlugin listener to avoid conflicts/errors.
-            from openlineage.airflow.plugin import OpenLineagePlugin
+            from airflow.providers.openlineage.plugins.openlineage import OpenLineageProviderPlugin
 
-            OpenLineagePlugin.listeners = []
+            OpenLineageProviderPlugin.listeners = []
 
     return _airflow_listener
 
-
+# verified - airflow openlineage dependencies
 def run_in_thread(f: _F) -> _F:
     # This is also responsible for catching exceptions and logging them.
 
@@ -147,7 +170,7 @@ def run_in_thread(f: _F) -> _F:
                 if _RUN_IN_THREAD_TIMEOUT > 0:
                     # If _RUN_IN_THREAD_TIMEOUT is 0, we just kick off the thread and move on.
                     # Because it's a daemon thread, it'll be automatically killed when the main
-                    # thread exists.
+                    # thread exits.
 
                     start_time = time.time()
                     thread.join(timeout=_RUN_IN_THREAD_TIMEOUT)
@@ -167,7 +190,7 @@ def run_in_thread(f: _F) -> _F:
 
     return cast(_F, wrapper)
 
-
+# verified - airflow openlineage dependencies
 def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
     # Render templates in a copy of the task instance.
     # This is necessary to get the correct operator args in the extractors.
@@ -185,6 +208,7 @@ def _render_templates(task_instance: "TaskInstance") -> "TaskInstance":
 class DataHubListener:
     __name__ = "DataHubListener"
 
+    # verified - airflow openlineage dependencies
     def __init__(self, config: DatahubLineageConfig):
         self.config = config
         self._set_log_level()
@@ -195,7 +219,7 @@ class DataHubListener:
 
         # See discussion here https://github.com/OpenLineage/OpenLineage/pull/508 for
         # why we need to keep track of tasks ourselves.
-        self._task_holder = TaskHolder()
+        self._open_lineage_listener = get_openlineage_listener()
 
         # In our case, we also want to cache the initial datajob object
         # so that we can add to it when the task completes.
@@ -208,10 +232,12 @@ class DataHubListener:
         # https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
         # self.__class__ = types.ModuleType
 
+    # verified - airflow openlineage dependencies
     @property
     def emitter(self):
         return self._emitter
 
+    # verified - airflow openlineage dependencies
     @property
     def graph(self) -> Optional[DataHubGraph]:
         if self._graph:
@@ -226,6 +252,7 @@ class DataHubListener:
 
         return self._graph
 
+    # verified - airflow openlineage dependencies
     def _set_log_level(self) -> None:
         """Set the log level for the plugin and its dependencies.
 
@@ -240,6 +267,7 @@ class DataHubListener:
         if self.config.debug_emitter:
             logging.getLogger("datahub.emitter").setLevel(logging.DEBUG)
 
+    # verified - airflow openlineage dependencies
     def _make_emit_callback(self) -> Callable[[Optional[Exception], str], None]:
         def emit_callback(err: Optional[Exception], msg: str) -> None:
             if err:
