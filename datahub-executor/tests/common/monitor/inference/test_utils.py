@@ -174,18 +174,48 @@ def test_is_metric_anomaly() -> None:
 
     assert is_metric_anomaly(metric, anomalies) is False
 
-    # Case 2: Metric is not an anomaly, does not match timestamp.
+    # Case 3: Metric is not an anomaly, does not match timestamp.
     anomalies = [Anomaly(timestamp_ms=0, metric=Metric(value=123, timestamp_ms=1))]
 
     metric = Metric(value=123, timestamp_ms=2)
 
     assert is_metric_anomaly(metric, anomalies) is False
 
-    # Case 3: Empty anomalies.
+    # Case 4: Empty anomalies.
     anomalies = []
     metric = Metric(value=123, timestamp_ms=1)
 
     assert is_metric_anomaly(metric, anomalies) is False
+
+    # Case 5: Test rounding to 3 decimals - values that round to same value should be considered anomalies
+    anomalies = [Anomaly(timestamp_ms=0, metric=Metric(value=123.1234, timestamp_ms=1))]
+
+    # This should be considered an anomaly because 123.1234 and 123.1230 both round to 123.123
+    metric = Metric(value=123.1230, timestamp_ms=1)
+    assert is_metric_anomaly(metric, anomalies) is True
+
+    # Case 6: Test rounding to 3 decimals - values that round to different values should not be anomalies
+    anomalies = [Anomaly(timestamp_ms=0, metric=Metric(value=123.123, timestamp_ms=1))]
+
+    # This should not be considered an anomaly because 123.123 and 123.127 round to different values
+    metric = Metric(value=123.127, timestamp_ms=1)
+    assert is_metric_anomaly(metric, anomalies) is False
+
+    # Case 7: Test rounding edge case - values that are exactly at rounding boundary
+    anomalies = [Anomaly(timestamp_ms=0, metric=Metric(value=123.1235, timestamp_ms=1))]
+
+    # 123.1235 rounds to 123.124, 123.1244 also rounds to 123.124
+    metric = Metric(value=123.1244, timestamp_ms=1)
+    assert is_metric_anomaly(metric, anomalies) is True
+
+    # Case 8: Test with negative values and rounding
+    anomalies = [
+        Anomaly(timestamp_ms=0, metric=Metric(value=-123.1234, timestamp_ms=1))
+    ]
+
+    # -123.1234 and -123.1230 both round to -123.123
+    metric = Metric(value=-123.1230, timestamp_ms=1)
+    assert is_metric_anomaly(metric, anomalies) is True
 
 
 def test_annotate_operations_with_anomalies() -> None:

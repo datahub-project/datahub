@@ -59,7 +59,7 @@ def default_volume_monitor_urn(dataset_urn: str) -> str:
     return MonitorUrn(dataset_urn, "__system__volume").urn()
 
 
-def make_volume_metric_cube_urn(dataset_urn: str) -> str:
-    assert DatasetUrn.from_string(dataset_urn)
-    monitor_urn = default_volume_monitor_urn(dataset_urn)
+# Internally used by streamlit UI.
+def make_volume_metric_cube_urn(monitor_urn: str) -> str:
+    assert MonitorUrn.from_string(monitor_urn)
     return DataHubMetricCubeUrn(encode_monitor_urn(monitor_urn)).urn()

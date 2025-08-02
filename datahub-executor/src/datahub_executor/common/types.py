@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
@@ -1560,3 +1560,10 @@ class Anomaly(PermissiveBaseModel):
 
     timestamp_ms: int
     metric: Optional[Metric]
+
+    def timestamp(self) -> datetime:
+        """Convert timestamp_ms to a datetime object."""
+        return datetime.fromtimestamp(self.timestamp_ms / 1000, timezone.utc)
+
+    def __repr__(self) -> str:
+        return f"Anomaly(timestamp_ms={self.timestamp_ms}, metric={self.metric})"

@@ -97,7 +97,11 @@ def is_metric_anomaly(metric: Metric, anomalies: List[Anomaly]) -> bool:
             # If the anomaly is the same as the metric, filter it out!
             if (
                 anomaly_metric.timestamp_ms == metric.timestamp_ms
-                and anomaly_metric.value == metric.value
+                # We've found that the assertion evaluation pipeline rounds to 3 decimal places, when copying the metric value into the anomaly.
+                # This is either happening in the assertion evaluator when the run event is produced, or in the AssertionActions MCL hook which produces the anomaly.
+                # Based on reading the code, it is not clear which one is responsible.
+                # Will need to investigate further.
+                and round(anomaly_metric.value, 3) == round(metric.value, 3)
             ):
                 return True
     return False

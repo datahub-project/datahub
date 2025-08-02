@@ -41,6 +41,7 @@ from datahub_executor.common.metric.client.client import (
 from datahub_executor.common.metric.types import (
     Metric,
 )
+from datahub_executor.common.monitor.client.client import MonitorClient
 from datahub_executor.common.monitor.inference.base_assertion_trainer import (
     BaseAssertionTrainer,
 )
@@ -48,6 +49,7 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
     MetricBoundary,
     MetricPredictor,
 )
+from datahub_executor.common.monitor.inference.utils import is_metric_anomaly
 from datahub_executor.common.types import (
     AssertionAdjustmentSettings,
     AssertionExclusionWindow,
@@ -61,6 +63,7 @@ _SELECTED_MONITOR_KEY = "selected_monitor"
 # Initialize connection to DataHub
 graph = get_default_graph()
 metrics_client = MetricClient(graph)
+monitor_client = MonitorClient(graph)
 
 graph.execute_graphql = st.cache_data(graph.execute_graphql)  # type: ignore
 metrics_client.fetch_row_count_metric_values = st.cache_data(  # type: ignore
@@ -313,7 +316,8 @@ Example exclusion windows:
     multiple = math.ceil(timedelta(days=14) / unit)
 
     # Simulation logic.
-    metric_urn = make_volume_metric_cube_urn(dataset_urn)
+    metric_urn = make_volume_metric_cube_urn(monitor.urn)
+    st.write(f"Fetching all metrics for metric_urn {metric_urn}")
     all_metrics = metrics_client.fetch_row_count_metric_values(
         metric_urn=metric_urn,
         dataset_urn=dataset_urn,
@@ -343,11 +347,39 @@ Example exclusion windows:
         start_time=last_day_cutoff - timedelta(days=lookback),
         end_time=last_day_cutoff,
     )
+
+    # Fetch anomalies
+    anomalies = monitor_client.fetch_monitor_anomalies(
+        urn=monitor.urn,
+        lookback=timedelta(days=lookback),
+        limit=2000,
+    )
+    st.write(f"Fetched {len(anomalies)} anomalies")
+    st.json(
+        {
+            "anomalies": {
+                a.metric.timestamp().isoformat(): a.metric.value for a in anomalies
+            }
+        },
+        expanded=False,
+    )
+
+    # Filter out anomalies to avoid using in training
+    metrics_without_anomalies = [
+        metric
+        for metric in historical_metrics
+        if not is_metric_anomaly(metric, anomalies)
+    ]
+
+    st.write(
+        f"Fetched {len(metrics_without_anomalies)} after filtering out anomalies (vs {len(historical_metrics)} prior to filtering)."
+    )
+
     training_metrics = BaseAssertionTrainer.filter_training_timeseries(
-        historical_metrics, adjustment_settings
+        metrics_without_anomalies, adjustment_settings
     )
     st.write(
-        f"Fetched {len(training_metrics)} training samples after applying exclusions (vs {len(historical_metrics)} prior to exclusion)."
+        f"Fetched {len(training_metrics)} training samples after applying exclusions (vs {len(metrics_without_anomalies)} prior to exclusion)."
     )
     st.json(
         {
