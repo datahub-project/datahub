@@ -3542,6 +3542,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
   deprecation status of the schema field
   """
   deprecation: Deprecation
+
+  """
+  Glossary terms associated with the schema field
+  """
+  glossaryTerms: GlossaryTerms
 }
 
 """
@@ -4976,6 +4981,11 @@ type GlossaryTermAssociation {
   Reference back to the associated urn for tracking purposes e.g. when sibling nodes are merged together
   """
   associatedUrn: String!
+
+  """
+  Information about who, why, and how this metadata was applied
+  """
+  attribution: MetadataAttribution
 }
 
 """
