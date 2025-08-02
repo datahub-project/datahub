@@ -36,6 +36,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Slf4j
 public class AuthenticationFilter extends OncePerRequestFilter {
 
+  public AuthenticationFilter() {
+    System.out.println("AuthenticationFilter");
+  }
+
   @Autowired private ConfigurationProvider configurationProvider;
 
   private Set<String> excludedPathPatterns;

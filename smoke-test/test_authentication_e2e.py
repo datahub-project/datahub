@@ -1,11 +1,29 @@
 """
 DataHub Authentication E2E Test Suite
 
-Tests authentication behavior before implementing the two-filter approach.
-Ensures backward compatibility by testing current authentication patterns.
+Core regression tests for DataHub's authentication system.
+Validates authentication behavior across key endpoints and scenarios.
 
-This test suite captures the current authentication behavior and will serve 
-as a comprehensive regression test when implementing the two-filter authentication approach.
+This test suite ensures authentication works correctly and provides protection
+against regressions when making authentication-related changes.
+
+Test Categories:
+- 🔓 Public Endpoints: Tests excluded paths that should work without authentication
+  (/health, /config, /actuator/prometheus, etc.) - Should never return 401
+- 🔒 Protected Endpoints: Tests endpoints that require authentication 
+  (GraphQL API, Rest.li API, OpenAPI endpoints) - Should return 401 without valid auth
+- 🎫 Token Authentication: Tests API token generation and usage, session cookie vs 
+  Bearer token authentication, token validation and cleanup
+- 👑 Authorization: Tests privilege-based access control, admin endpoints requiring 
+  special permissions (creates/cleans up test users with limited privileges)
+- 🧪 Edge Cases: Malformed authentication headers, authentication priority and 
+  fallback behavior, cross-service authentication consistency
+
+Running: These tests are part of the standard smoke-test suite.
+Use: pytest test_authentication_e2e.py -v (or run specific test functions)
+
+Originally created during the two-filter authentication refactoring,
+now serves as permanent regression testing.
 """
 
 import logging
@@ -179,6 +197,10 @@ def test_graphql_endpoint_valid_token(auth_session):
         ("/entities?action=search", "POST"),
         ("/aspects?action=getAspect", "GET"),
         ("/openapi/v1/system-info", "GET"),
+        # Admin endpoints that use AuthenticationContext.getAuthentication() 
+        # These test the same logic that fails with NPE in MCE consumer when auth.enabled=false
+        # Using throttle endpoint as it uses same auth pattern but responds quickly
+        ("/openapi/operations/throttle/requests", "GET"),
     ]
 )
 def test_protected_endpoints_no_auth(endpoint: str, method: str) -> None:
@@ -191,10 +213,14 @@ def test_protected_endpoints_no_auth(endpoint: str, method: str) -> None:
     if method == "GET":
         response = requests.get(f"{get_gms_url()}{endpoint}")
     else:
-        # Use proper request body for entities search endpoint
-        json_body = {"input": "*", "entity": "dataset", "start": 0, "count": 1}
-        response = requests.post(f"{get_gms_url()}{endpoint}", 
-                               headers=restli_default_headers, json=json_body)
+        # Use proper request body based on endpoint
+        if "entities?action=search" in endpoint:
+            json_body = {"input": "*", "entity": "dataset", "start": 0, "count": 1}
+            response = requests.post(f"{get_gms_url()}{endpoint}", 
+                                   headers=restli_default_headers, json=json_body)
+        else:
+            # GET request for other endpoints (like throttle)
+            response = requests.get(f"{get_gms_url()}{endpoint}")
     
     assert response.status_code == 401, f"Expected 401 for {endpoint}, got {response.status_code}"
     logger.info(f"✅ {method} {endpoint} without auth: {response.status_code}")
@@ -205,7 +231,10 @@ def test_protected_endpoints_no_auth(endpoint: str, method: str) -> None:
     [
         ("/openapi/v2/entity/dataset", "GET"),
         ("/entities?action=search", "POST"),
-        ("/aspects?action=getAspect", "GET")
+        ("/aspects?action=getAspect", "GET"),
+        # Admin endpoints that use AuthenticationContext.getAuthentication()
+        # Using throttle endpoint as it uses same auth pattern but responds quickly
+        ("/openapi/operations/throttle/requests", "GET"),
     ]
 )
 def test_protected_endpoints_invalid_token(endpoint: str, method: str) -> None:
@@ -220,10 +249,14 @@ def test_protected_endpoints_invalid_token(endpoint: str, method: str) -> None:
         response = requests.get(f"{get_gms_url()}{endpoint}", headers=headers)
     else:
         headers.update(restli_default_headers)
-        # Use proper request body for entities search endpoint
-        json_body = {"input": "*", "entity": "dataset", "start": 0, "count": 1}
-        response = requests.post(f"{get_gms_url()}{endpoint}", 
-                               headers=headers, json=json_body)
+        # Use proper request body based on endpoint
+        if "entities?action=search" in endpoint:
+            json_body = {"input": "*", "entity": "dataset", "start": 0, "count": 1}
+            response = requests.post(f"{get_gms_url()}{endpoint}", 
+                                   headers=headers, json=json_body)
+        else:
+            # GET request for other endpoints (like throttle)
+            response = requests.get(f"{get_gms_url()}{endpoint}", headers=headers)
     
     assert response.status_code == 401, f"Expected 401 for {endpoint}, got {response.status_code}"
     logger.info(f"✅ {method} {endpoint} with invalid token: {response.status_code}")
@@ -244,6 +277,30 @@ def test_restli_endpoints_with_valid_auth(auth_session: TestSessionWrapper) -> N
     )
     assert response.status_code == 200
     logger.info(f"✅ Rest.li search with valid auth: {response.status_code}")
+    
+    # Test admin endpoints that require authentication extraction
+    # These test the same authentication logic that fails in MCE consumer when auth.enabled=false
+    # Using throttle endpoint as it uses same auth pattern but responds quickly
+    admin_endpoints = [
+        ("/openapi/operations/throttle/requests", None),  # GET request, no body
+    ]
+    
+    for endpoint, body in admin_endpoints:
+        if body is None:
+            # GET request for throttle endpoint
+            response = auth_session.get(f"{auth_session.gms_url()}{endpoint}")
+        else:
+            # POST request with body for other endpoints
+            response = auth_session.post(
+                f"{auth_session.gms_url()}{endpoint}", 
+                headers=restli_default_headers, 
+                json=body
+            )
+        # With valid authentication, these should work (200 OK)
+        # The key is they should NOT return 500 Internal Server Error (NPE from authentication.getActor())
+        # or 403 Forbidden (which would indicate a permissions issue)
+        assert response.status_code == 200, f"Admin endpoint {endpoint} returned {response.status_code}: {response.text}"
+        logger.info(f"✅ Admin endpoint {endpoint} with valid auth: {response.status_code}")
 
 
 # ===========================================
@@ -400,7 +457,7 @@ def test_session_vs_token_authentication(auth_session: TestSessionWrapper) -> No
 
 
 # ===========================================
-# COMPREHENSIVE BEHAVIOR TESTS
+# BEHAVIOR VALIDATION TESTS
 # ===========================================
 
 def test_authentication_priority_and_fallback() -> None:
@@ -445,7 +502,7 @@ def test_cross_service_authentication_consistency(auth_session: TestSessionWrapp
 
 
 # ===========================================
-# COMPREHENSIVE TEST SUMMARY
+# AUTHENTICATION TEST SUMMARY
 # ===========================================
 
 def test_authentication_behavior_summary(auth_session: TestSessionWrapper) -> None:
@@ -505,4 +562,4 @@ def test_authentication_behavior_summary(auth_session: TestSessionWrapper) -> No
     assert test_results["protected_endpoints"] >= 1, "Should have protected endpoints"
     assert test_results["auth_methods"] >= 1, "Should have working authentication"
     
-    logger.info("✅ Authentication behavior validation complete - ready for two-filter refactoring")
+    logger.info("✅ Authentication system validation complete - all regression tests passed")

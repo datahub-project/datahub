@@ -145,13 +145,15 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
 
-    // Debug logging for request correlation
-    String requestId = Thread.currentThread().getId() + "-" + request.hashCode();
-    log.warn(
-        "[{}] AuthExtractionFilter: Processing {} - Authorization: {}",
-        requestId,
-        request.getServletPath(),
-        request.getHeader("Authorization") != null ? "present" : "missing");
+    if (!(request).getServletPath().startsWith("/health")) {
+      // Debug logging for request correlation
+      String requestId = Thread.currentThread().getId() + "-" + request.hashCode();
+      log.warn(
+          "[{}] AuthExtractionFilter: Processing {} - Authorization: {}",
+          requestId,
+          request.getServletPath(),
+          request.getHeader("Authorization") != null ? "present" : "missing");
+    }
 
     // Build authentication context from request
     AuthenticationRequest authRequest = buildAuthContext(request);

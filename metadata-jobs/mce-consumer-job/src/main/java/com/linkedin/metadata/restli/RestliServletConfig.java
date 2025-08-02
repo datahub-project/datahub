@@ -1,5 +1,6 @@
 package com.linkedin.metadata.restli;
 
+import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -60,6 +61,27 @@ public class RestliServletConfig {
   @Bean
   public AuthenticationFilter authenticationFilter() {
     return new AuthenticationFilter();
+  }
+
+  @Bean
+  public AuthenticationExtractionFilter authenticationExtractionFilter() {
+    return new AuthenticationExtractionFilter();
+  }
+
+  @Bean
+  public FilterRegistrationBean<AuthenticationExtractionFilter>
+      authenticationExtractionFilterRegistrationBean(
+          @Qualifier("restliServletRegistration")
+              ServletRegistrationBean<RestliHandlerServlet> servlet,
+          AuthenticationExtractionFilter authenticationExtractionFilter) {
+    FilterRegistrationBean<AuthenticationExtractionFilter> registrationBean =
+        new FilterRegistrationBean<>();
+    registrationBean.setServletRegistrationBeans(Collections.singletonList(servlet));
+    registrationBean.setUrlPatterns(Collections.singletonList("/gms/*"));
+    registrationBean.setServletNames(Collections.singletonList(servlet.getServletName()));
+    registrationBean.setOrder(0); // Run before AuthenticationFilter (order 1)
+    registrationBean.setFilter(authenticationExtractionFilter);
+    return registrationBean;
   }
 
   @Bean
