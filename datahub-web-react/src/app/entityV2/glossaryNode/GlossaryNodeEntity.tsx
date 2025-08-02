@@ -56,10 +56,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         return (
             <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
-                style={{
-                    fontSize,
-                    color: color || '#BFBFBF',
-                }}
+                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
             />
         );
     };
