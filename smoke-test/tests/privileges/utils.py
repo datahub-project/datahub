@@ -140,6 +140,31 @@ def create_user(session, email, password):
     )
     get_invite_token_response.raise_for_status()
     get_invite_token_res_data = get_invite_token_response.json()
+
+    # Log the response for debugging CI failures
+    import sys
+
+    print(
+        f"DEBUG: getInviteToken response status: {get_invite_token_response.status_code}",
+        file=sys.stderr,
+    )
+    print(
+        f"DEBUG: getInviteToken response data: {get_invite_token_res_data}",
+        file=sys.stderr,
+    )
+
+    # Check if the response structure is as expected before accessing
+    if not get_invite_token_res_data.get("data") or not get_invite_token_res_data[
+        "data"
+    ].get("getInviteToken"):
+        print(
+            f"ERROR: getInviteToken returned unexpected structure. Full response: {get_invite_token_res_data}",
+            file=sys.stderr,
+        )
+        raise RuntimeError(
+            f"getInviteToken query failed or returned null. Response: {get_invite_token_res_data}"
+        )
+
     invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "error" not in invite_token

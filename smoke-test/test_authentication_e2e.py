@@ -501,6 +501,41 @@ def test_cross_service_authentication_consistency(auth_session: TestSessionWrapp
     logger.info("✅ GMS Rest.li authentication works")
 
 
+def test_config_progressive_disclosure():
+    """
+    Test that the /config endpoint provides progressive disclosure based on authentication status.
+    """
+    logger.info("🧪 Testing /config progressive disclosure...")
+    
+    # Test anonymous access
+    response = requests.get(f"{get_gms_url()}/config")
+    assert response.status_code == 200, f"Anonymous /config access failed: {response.status_code}"
+    
+    anonymous_config = response.json()
+    assert "userType" in anonymous_config, "Config response should include userType"
+    assert anonymous_config["userType"] == "anonymous", f"Expected 'anonymous', got {anonymous_config.get('userType')}"
+    logger.info("✅ Anonymous user correctly identified")
+    
+    # Test authenticated access
+    from tests.utils import get_frontend_session
+    auth_session = TestSessionWrapper(get_frontend_session())
+    
+    response = auth_session.get(f"{auth_session.gms_url()}/config")
+    assert response.status_code == 200, f"Authenticated /config access failed: {response.status_code}"
+    
+    authenticated_config = response.json()
+    assert "userType" in authenticated_config, "Config response should include userType"
+    assert authenticated_config["userType"] in ["user", "admin"], f"Expected 'user' or 'admin', got {authenticated_config.get('userType')}"
+    logger.info(f"✅ Authenticated user correctly identified as: {authenticated_config['userType']}")
+    
+    # Verify both responses have the same base configuration
+    base_fields = ["noCode", "retention", "statefulIngestionCapable", "patchCapable"]
+    for field in base_fields:
+        assert anonymous_config.get(field) == authenticated_config.get(field), f"Base config field {field} should be the same"
+    
+    logger.info("✅ Progressive disclosure working: same base config, different userType")
+
+
 # ===========================================
 # AUTHENTICATION TEST SUMMARY
 # ===========================================
