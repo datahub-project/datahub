@@ -132,6 +132,7 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default",
     subtype_modifier=[
         SourceCapabilityModifier.DATABASE,
+        SourceCapabilityModifier.SCHEMA,
     ],
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
