@@ -34,10 +34,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 @Component
 @Slf4j
-public class AuthenticationFilter extends OncePerRequestFilter {
+public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
 
-  public AuthenticationFilter() {
-    System.out.println("AuthenticationFilter");
+  public AuthenticationEnforcementFilter() {
+    System.out.println("AuthenticationEnforcementFilter");
   }
 
   @Autowired private ConfigurationProvider configurationProvider;
@@ -47,7 +47,7 @@ public class AuthenticationFilter extends OncePerRequestFilter {
   @PostConstruct
   public void init() {
     initializeExcludedPaths();
-    log.info("AuthenticationFilter initialized - enforcement only mode.");
+    log.info("AuthenticationEnforcementFilter initialized - enforcement only mode.");
   }
 
   private void initializeExcludedPaths() {
@@ -66,15 +66,6 @@ public class AuthenticationFilter extends OncePerRequestFilter {
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
-
-    // Debug logging for request correlation
-    String requestId = Thread.currentThread().getId() + "-" + request.hashCode();
-    Authentication auth = AuthenticationContext.getAuthentication();
-    log.warn(
-        "[{}] AuthFilter: Processing {} - AuthContext: {}",
-        requestId,
-        request.getServletPath(),
-        auth != null ? auth.getActor().getId() : "null");
 
     try {
       // Get authentication context set by AuthenticationExtractionFilter

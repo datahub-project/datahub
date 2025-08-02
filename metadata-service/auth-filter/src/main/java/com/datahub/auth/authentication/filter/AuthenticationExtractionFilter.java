@@ -13,6 +13,7 @@ import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
 import com.datahub.authentication.authenticator.DataHubTokenAuthenticator;
 import com.datahub.authentication.authenticator.NoOpAuthenticator;
 import com.datahub.authentication.token.StatefulTokenService;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
@@ -145,16 +146,6 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain chain)
       throws ServletException, IOException {
 
-    if (!(request).getServletPath().startsWith("/health")) {
-      // Debug logging for request correlation
-      String requestId = Thread.currentThread().getId() + "-" + request.hashCode();
-      log.warn(
-          "[{}] AuthExtractionFilter: Processing {} - Authorization: {}",
-          requestId,
-          request.getServletPath(),
-          request.getHeader("Authorization") != null ? "present" : "missing");
-    }
-
     // Build authentication context from request
     AuthenticationRequest authRequest = buildAuthContext(request);
     Authentication authentication = null;
@@ -227,6 +218,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
    * @param request HTTP servlet request
    * @return false - never skip this filter
    */
+  @VisibleForTesting
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
     return false; // Always run this filter

@@ -3,8 +3,8 @@ package com.linkedin.gms;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
+import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
-import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
 import com.datahub.gms.servlet.HealthCheck;
@@ -75,8 +75,10 @@ public class ServletConfig implements WebMvcConfigurer {
   }
 
   @Bean
-  public FilterRegistrationBean<AuthenticationFilter> authFilter(AuthenticationFilter filter) {
-    FilterRegistrationBean<AuthenticationFilter> registration = new FilterRegistrationBean<>();
+  public FilterRegistrationBean<AuthenticationEnforcementFilter> authFilter(
+      AuthenticationEnforcementFilter filter) {
+    FilterRegistrationBean<AuthenticationEnforcementFilter> registration =
+        new FilterRegistrationBean<>();
     registration.setFilter(filter);
     registration.setOrder(
         Ordered.HIGHEST_PRECEDENCE + 1); // Run SECOND after AuthenticationExtractionFilter
