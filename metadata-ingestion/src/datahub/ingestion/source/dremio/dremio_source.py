@@ -22,6 +22,7 @@ from datahub.ingestion.api.source import (
     SourceReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.dremio.dremio_api import (
     DremioAPIOperations,
     DremioEdition,
@@ -86,11 +87,27 @@ class DremioSourceMapEntry:
 @platform_name("Dremio")
 @config_class(DremioSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
-@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Extract column-level lineage",
+    subtype_modifier=[
+        SourceCapabilityModifier.TABLE,
+    ],
+)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
