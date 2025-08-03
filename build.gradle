@@ -135,7 +135,7 @@ project.ext.externalDependency = [
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
     'commonsLang': 'commons-lang:commons-lang:2.6',
-    'commonsText': 'org.apache.commons:commons-text:1.12.0',
+    'commonsText': 'org.apache.commons:commons-text:1.14.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
     'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
@@ -408,7 +408,6 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.apache.mina:mina-core:2.2.4'
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
-    resolutionStrategy.force 'org.apache.commons:commons-lang3:3.18.0'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
