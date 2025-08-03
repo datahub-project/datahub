@@ -137,6 +137,11 @@ export enum EventType {
     HomePageTemplateModuleExpandClick,
     HomePageTemplateModuleLinkClick,
     HomePageTemplateModuleAnnouncementDismiss,
+    WelcomeToDataHubModalViewEvent,
+    WelcomeToDataHubModalInteractEvent,
+    WelcomeToDataHubModalExitEvent,
+    WelcomeToDataHubModalClickViewDocumentationEvent,
+    ProductTourButtonClickEvent,
 }
 
 /**
@@ -900,6 +905,33 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
+export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalViewEvent;
+}
+
+export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalInteractEvent;
+    currentSlide: number;
+    totalSlides: number;
+}
+
+export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalExitEvent;
+    currentSlide: number;
+    totalSlides: number;
+    exitMethod: 'close_button' | 'get_started_button' | 'outside_click' | 'escape_key';
+}
+
+export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
+    type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
+    url: string;
+}
+
+export interface ProductTourButtonClickEvent extends BaseEvent {
+    type: EventType.ProductTourButtonClickEvent;
+    originPage: string; // Page where the button was clicked
+}
+
 export interface ClickProductUpdateEvent extends BaseEvent {
     type: EventType.ClickProductUpdate;
     id: string;
@@ -1113,4 +1145,9 @@ export type Event =
     | HomePageTemplateModuleExpandClickEvent
     | HomePageTemplateModuleViewAllClickEvent
     | HomePageTemplateModuleLinkClickEvent
-    | HomePageTemplateModuleAnnouncementDismissEvent;
+    | HomePageTemplateModuleAnnouncementDismissEvent
+    | WelcomeToDataHubModalViewEvent
+    | WelcomeToDataHubModalInteractEvent
+    | WelcomeToDataHubModalExitEvent
+    | WelcomeToDataHubModalClickViewDocumentationEvent
+    | ProductTourButtonClickEvent;
