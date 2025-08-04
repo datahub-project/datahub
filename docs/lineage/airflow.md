@@ -59,7 +59,7 @@ enabled = True  # default
 ```
 
 | Name                       | Default value        | Description                                                                                     |
-| -------------------------- |----------------------|-------------------------------------------------------------------------------------------------|
+| -------------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
 | enabled                    | true                 | If the plugin should be enabled.                                                                |
 | conn_id                    | datahub_rest_default | The name of the datahub rest connection.                                                        |
 | cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance                    |
