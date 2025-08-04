@@ -174,8 +174,8 @@ describe("incidents", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false&separate_siblings=false",
     );
-    cy.get('[data-testid="create-incident-btn-main"]').trigger("mouseover");
-    cy.get(".ant-dropdown-menu-item").first().click();
+    cy.findByTestId("create-incident-btn-main").as("btn");
+    cy.get("@btn").click();
     cy.get('[data-testid="drawer-header-title"]').should(
       "contain.text",
       "Create New Incident",
