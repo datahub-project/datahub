@@ -7,6 +7,7 @@ if [ $(arch) = "x86_64" ]; then
     wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/2115000/instantclient-basic-linux.x64-21.15.0.0.0dbru.zip
     unzip instantclient-basic-linux.x64-21.15.0.0.0dbru.zip
     rm instantclient-basic-linux.x64-21.15.0.0.0dbru.zip
+    (cd /usr/lib/*-linux-gnu/; ln -s ./libaio.so.1t64 ./libaio.so.1)
     sh -c "echo /opt/oracle/instantclient_21_15 > /etc/ld.so.conf.d/oracle-instantclient.conf"
     ldconfig
 else
@@ -15,6 +16,7 @@ else
     wget --no-verbose -c https://download.oracle.com/otn_software/linux/instantclient/1923000/instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip
     unzip instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip
     rm instantclient-basic-linux.arm64-19.23.0.0.0dbru.zip
+    (cd /usr/lib/*-linux-gnu/; ln -s ./libaio.so.1t64 ./libaio.so.1)
     sh -c "echo /opt/oracle/instantclient_19_23 > /etc/ld.so.conf.d/oracle-instantclient.conf"
     ldconfig
 fi
