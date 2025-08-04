@@ -939,7 +939,7 @@ def test_get_batch_kwargs(mock_get_filters):
 
     # Call get_batch_kwargs
     batch_kwargs = profiler.get_batch_kwargs(
-        table=test_table, schema_name="test-dataset", db_name="test-project"
+        table=test_table, schema_name="test_dataset", db_name="test-project"
     )
 
     # Check the result

@@ -28,17 +28,13 @@ def validate_bigquery_identifier(
     identifier: str, identifier_type: str = "general"
 ) -> str:
     """
-    Securely validate and escape BigQuery identifiers.
+    Securely validate and escape BigQuery identifiers per official BigQuery rules.
 
-    Args:
-        identifier: The identifier to validate
-        identifier_type: Type of identifier (project, dataset, table, column)
-
-    Returns:
-        Safely escaped identifier
-
-    Raises:
-        ValueError: If identifier is invalid
+    BigQuery Rules:
+    - Project IDs: letters, numbers, hyphens (but not at start/end)
+    - Datasets: letters, numbers, underscores (NO hyphens)
+    - Tables: letters, numbers, underscores (NO hyphens)
+    - Columns: letters, numbers, underscores (NO hyphens)
     """
     if not identifier or not isinstance(identifier, str):
         raise ValueError(
@@ -48,25 +44,23 @@ def validate_bigquery_identifier(
     # Remove any existing backticks to prevent escape sequence injection
     clean_identifier = identifier.replace("`", "")
 
-    # BigQuery identifier rules:
-    # - Must start with letter or underscore
-    # - Can contain letters, numbers, underscores
-    # - Some special cases allow hyphens in project IDs
+    # BigQuery identifier rules - CORRECTED
     if identifier_type == "project":
-        # Project IDs can contain hyphens
-        pattern = r"^[a-zA-Z_][a-zA-Z0-9_-]*$"
+        # Project IDs: letters, numbers, hyphens (6-30 chars, start with letter)
+        if not re.match(r"^[a-z][a-z0-9-]*[a-z0-9]$", clean_identifier):
+            raise ValueError(f"Invalid project ID: {clean_identifier}")
+        if len(clean_identifier) < 6 or len(clean_identifier) > 30:
+            raise ValueError(f"Project ID must be 6-30 characters: {clean_identifier}")
     else:
-        # Standard identifier rules for datasets, tables, columns
-        pattern = r"^[a-zA-Z_][a-zA-Z0-9_]*$"
-
-    if not re.match(pattern, clean_identifier):
-        raise ValueError(f"Invalid {identifier_type} identifier: {clean_identifier}")
-
-    # Length limits
-    if len(clean_identifier) > 1024:
-        raise ValueError(
-            f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
-        )
+        # Datasets, tables, columns: letters, numbers, underscores only
+        if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", clean_identifier):
+            raise ValueError(
+                f"Invalid {identifier_type} identifier: {clean_identifier}"
+            )
+        if len(clean_identifier) > 1024:
+            raise ValueError(
+                f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
+            )
 
     # Return with backticks for safe SQL usage
     return f"`{clean_identifier}`"
@@ -74,12 +68,12 @@ def validate_bigquery_identifier(
 
 def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
     """
-    Build a safe fully-qualified table reference.
+    Build a safe fully-qualified BigQuery table reference.
 
     Args:
-        project: Project ID
-        dataset: Dataset name
-        table: Table name
+        project: Project ID (can contain hyphens)
+        dataset: Dataset name (letters, numbers, underscores only)
+        table: Table name (letters, numbers, underscores only)
 
     Returns:
         Safe table reference like `project`.`dataset`.`table`
@@ -551,29 +545,25 @@ SELECT val, record_count FROM PartitionStats"""
     def _create_filter_for_data_type(
         self, escaped_col: str, val: Any, data_type_upper: str
     ) -> Optional[str]:
-        """
-        Create filter for a specific data type.
+        """Create filter for BigQuery-specific data types."""
 
-        Args:
-            escaped_col: Already escaped column name like `col_name`
-            val: Value for the filter
-            data_type_upper: Uppercase data type string
-
-        Returns:
-            Filter string or None if invalid
-        """
-        if data_type_upper in ("STRING", "VARCHAR"):
+        # BigQuery standard types
+        if data_type_upper in ("STRING",):  # BigQuery uses STRING, not VARCHAR
             return self._create_string_filter(escaped_col, val)
         elif data_type_upper == "DATE":
             return self._create_date_filter(escaped_col, val)
         elif data_type_upper in ("TIMESTAMP", "DATETIME"):
             return self._create_timestamp_filter(escaped_col, val)
-        elif data_type_upper in ("INT64", "INTEGER", "BIGINT"):
+        elif data_type_upper in ("INT64", "INTEGER"):  # BigQuery uses INT64
             return self._create_integer_filter(escaped_col, val, data_type_upper)
-        elif data_type_upper in ("FLOAT64", "FLOAT", "NUMERIC", "DECIMAL"):
+        elif data_type_upper in ("FLOAT64", "NUMERIC", "BIGNUMERIC"):  # BigQuery types
             return self._create_float_filter(escaped_col, val, data_type_upper)
         elif data_type_upper in ("BOOL", "BOOLEAN"):
             return self._create_boolean_filter(escaped_col, val)
+        elif data_type_upper in ("BYTES",):  # BigQuery binary type
+            return self._create_bytes_filter(escaped_col, val)
+        elif data_type_upper in ("GEOGRAPHY", "JSON"):  # BigQuery special types
+            return self._create_special_type_filter(escaped_col, val, data_type_upper)
         else:
             return self._create_default_filter(escaped_col, val)
 
@@ -593,30 +583,47 @@ SELECT val, record_count FROM PartitionStats"""
         return f"{escaped_col} = '{escaped_val}'"
 
     def _create_date_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for DATE data type."""
+        """Create filter for DATE data type - BigQuery specific."""
         if isinstance(val, datetime):
             date_str = val.strftime("%Y-%m-%d")
+        elif isinstance(val, str):
+            # Validate BigQuery date format YYYY-MM-DD
+            if not re.match(r"^\d{4}-\d{2}-\d{2}$", val):
+                # Try to parse common date formats for BigQuery
+                try:
+                    parsed_date = datetime.strptime(val, "%Y%m%d")  # YYYYMMDD format
+                    date_str = parsed_date.strftime("%Y-%m-%d")
+                except ValueError:
+                    logger.warning(f"Invalid date format for BigQuery: {val}")
+                    return None
+            else:
+                date_str = val
         else:
-            # Validate date string format
-            date_str = str(val)
-            if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
-                logger.warning(f"Invalid date format: {date_str}")
-                return None
+            logger.warning(f"Invalid date type for BigQuery: {type(val)}")
+            return None
 
         return f"{escaped_col} = DATE '{date_str}'"
 
     def _create_timestamp_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for TIMESTAMP/DATETIME data types."""
+        """Create filter for TIMESTAMP data type - BigQuery specific."""
         if isinstance(val, datetime):
-            timestamp_str = val.strftime("%Y-%m-%d %H:%M:%S")
-        else:
-            # Validate timestamp string format
-            timestamp_str = str(val)
-            if not re.match(
-                r"^\d{4}-\d{2}-\d{2}(\s+\d{2}:\d{2}:\d{2})?$", timestamp_str
-            ):
-                logger.warning(f"Invalid timestamp format: {timestamp_str}")
+            # BigQuery TIMESTAMP format
+            timestamp_str = val.strftime("%Y-%m-%d %H:%M:%S UTC")
+        elif isinstance(val, str):
+            # Validate BigQuery timestamp formats
+            timestamp_patterns = [
+                r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$",  # YYYY-MM-DD HH:MM:SS
+                r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z?$",  # ISO format
+                r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} UTC$",  # With UTC
+            ]
+
+            if not any(re.match(pattern, val) for pattern in timestamp_patterns):
+                logger.warning(f"Invalid timestamp format for BigQuery: {val}")
                 return None
+            timestamp_str = val
+        else:
+            logger.warning(f"Invalid timestamp type for BigQuery: {type(val)}")
+            return None
 
         return f"{escaped_col} = TIMESTAMP '{timestamp_str}'"
 
@@ -652,6 +659,43 @@ SELECT val, record_count FROM PartitionStats"""
             bool_val = bool(val)
 
         return f"{escaped_col} = {str(bool_val).upper()}"
+
+    def _create_bytes_filter(self, escaped_col: str, val: Any) -> Optional[str]:
+        """Create filter for BYTES data type."""
+        # BigQuery BYTES literals use base64 encoding
+        if isinstance(val, bytes):
+            import base64
+
+            bytes_str = base64.b64encode(val).decode("utf-8")
+            return f"{escaped_col} = FROM_BASE64('{bytes_str}')"
+        elif isinstance(val, str):
+            # Assume it's already base64 encoded
+            return f"{escaped_col} = FROM_BASE64('{val}')"
+        else:
+            logger.warning(f"Invalid bytes value for BigQuery: {val}")
+            return None
+
+    def _create_special_type_filter(
+        self, escaped_col: str, val: Any, data_type: str
+    ) -> Optional[str]:
+        """Create filters for special BigQuery types like GEOGRAPHY, JSON."""
+        if data_type == "GEOGRAPHY":
+            # BigQuery GEOGRAPHY typically uses WKT format
+            if isinstance(val, str):
+                return f"{escaped_col} = ST_GEOGFROMTEXT('{val}')"
+        elif data_type == "JSON":
+            # BigQuery JSON type
+            if isinstance(val, (dict, list)):
+                import json
+
+                json_str = json.dumps(val).replace("'", "''")
+                return f"{escaped_col} = PARSE_JSON('{json_str}')"
+            elif isinstance(val, str):
+                escaped_val = val.replace("'", "''")
+                return f"{escaped_col} = PARSE_JSON('{escaped_val}')"
+
+        logger.warning(f"Unsupported special type filter for {data_type}: {val}")
+        return None
 
     def _create_default_filter(self, escaped_col: str, val: Any) -> Optional[str]:
         """Create filter for unknown data types (treat as string with validation)."""
@@ -2014,7 +2058,7 @@ LIMIT 1000"""
             # Use utility for fallback attempt
             try:
                 simpler_query = (
-                    f"""SELECT 1 FROM {safe_table_ref} WHERE {where_clause} LIMIT 1"""
+                    "SELECT 1 FROM " + safe_table_ref + f" WHERE {where_clause} LIMIT 1"
                 )
                 sample_verification_results = self._execute_query_safely(
                     simpler_query, "partition verification fallback"
@@ -2280,7 +2324,7 @@ LIMIT 100"""
                 )
 
                 # Run a simple query to trigger partition error
-                test_query = f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT 1"""
+                test_query = "SELECT COUNT(*) FROM " + safe_table_ref + "LIMIT 1"
                 self.execute_query(test_query)
 
                 # If the query succeeds, table is not partitioned
@@ -4221,8 +4265,7 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             safe_table_ref = self._build_safe_table_reference(
                 project, schema, table.name
             )
-            sample_query = f"""SELECT * FROM {safe_table_ref}
-LIMIT 10"""
+            sample_query = "SELECT * FROM " + safe_table_ref + " LIMIT 10"
 
             try:
                 # This might fail if partition elimination is required
@@ -4237,8 +4280,7 @@ LIMIT 10"""
 
             # Last resort - use the LIMIT approach which bypasses partition elimination
             logger.warning(f"Using LIMIT approach to profile {table.name}")
-            custom_sql = f"""SELECT * FROM {safe_table_ref}
-LIMIT 1000000"""
+            custom_sql = "SELECT * FROM" + safe_table_ref + " LIMIT 1000000"
 
             batch_kwargs.update(
                 {
