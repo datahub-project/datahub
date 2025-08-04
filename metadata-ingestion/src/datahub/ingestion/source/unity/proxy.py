@@ -34,6 +34,11 @@ from databricks.sql.types import Row
 from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.unity.config import (
+    LINEAGE_DATA_SOURCE_API,
+    LINEAGE_DATA_SOURCE_AUTO,
+    LINEAGE_DATA_SOURCE_SYSTEM_TABLES,
+)
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
@@ -131,6 +136,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
+        lineage_data_source: str = LINEAGE_DATA_SOURCE_AUTO,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url,
@@ -141,6 +147,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.warehouse_id = warehouse_id or ""
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
+        self.lineage_data_source = lineage_data_source
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
                 "https://", ""
@@ -541,9 +548,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return None
 
         try:
-            # Use the newer system tables if we have a SQL warehouse, otherwise fall back
-            # to the older (and slower) HTTP API.
-            if self.warehouse_id:
+            # Determine lineage data source based on config
+            use_system_tables = False
+            if self.lineage_data_source == LINEAGE_DATA_SOURCE_SYSTEM_TABLES:
+                use_system_tables = True
+            elif self.lineage_data_source == LINEAGE_DATA_SOURCE_API:
+                use_system_tables = False
+            else:  # "auto"
+                # Use the newer system tables if we have a SQL warehouse, otherwise fall back
+                # to the older (and slower) HTTP API.
+                use_system_tables = bool(self.warehouse_id)
+
+            if use_system_tables:
                 self._process_system_table_lineage(table, start_time, end_time)
             else:
                 self._process_http_api_lineage(table, include_entity_lineage)
@@ -603,11 +619,23 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         # Process upstream notebook lineage
         for notebook_ref in lineage_info.upstream_notebooks:
-            table.upstream_notebooks.add(notebook_ref)
+            existing_ref = table.upstream_notebooks.get(notebook_ref.id)
+            if existing_ref is None or (
+                notebook_ref.last_updated
+                and existing_ref.last_updated
+                and notebook_ref.last_updated > existing_ref.last_updated
+            ):
+                table.upstream_notebooks[notebook_ref.id] = notebook_ref
 
         # Process downstream notebook lineage
         for notebook_ref in lineage_info.downstream_notebooks:
-            table.downstream_notebooks.add(notebook_ref)
+            existing_ref = table.downstream_notebooks.get(notebook_ref.id)
+            if existing_ref is None or (
+                notebook_ref.last_updated
+                and existing_ref.last_updated
+                and notebook_ref.last_updated > existing_ref.last_updated
+            ):
+                table.downstream_notebooks[notebook_ref.id] = notebook_ref
 
     def _process_http_api_lineage(
         self, table: Table, include_entity_lineage: bool
@@ -636,14 +664,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 notebook_ref = NotebookReference(
                     id=notebook["notebook_id"],
                 )
-                table.upstream_notebooks.add(notebook_ref)
+                table.upstream_notebooks[notebook_ref.id] = notebook_ref
 
         for item in response.get("downstreams") or []:
             for notebook in item.get("notebookInfos") or []:
                 notebook_ref = NotebookReference(
                     id=notebook["notebook_id"],
                 )
-                table.downstream_notebooks.add(notebook_ref)
+                table.downstream_notebooks[notebook_ref.id] = notebook_ref
 
     def get_column_lineage(
         self,
@@ -655,9 +683,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         end_time: Optional[datetime] = None,
     ) -> None:
         try:
-            # use the newer system tables if we have a SQL warehouse, otherwise fall back
-            # and use the older (and much slower) HTTP API.
-            if self.warehouse_id:
+            # Determine lineage data source based on config
+            use_system_tables = False
+            if self.lineage_data_source == LINEAGE_DATA_SOURCE_SYSTEM_TABLES:
+                use_system_tables = True
+            elif self.lineage_data_source == LINEAGE_DATA_SOURCE_API:
+                use_system_tables = False
+            else:  # "auto"
+                # Use the newer system tables if we have a SQL warehouse, otherwise fall back
+                # to the older (and slower) HTTP API.
+                use_system_tables = bool(self.warehouse_id)
+
+            if use_system_tables:
                 lineage = (
                     self.get_catalog_column_lineage(
                         table.ref.catalog, start_time, end_time

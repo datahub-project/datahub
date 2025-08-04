@@ -23,9 +23,9 @@ from datahub.api.entities.external.restricted_text import RestrictedText
 class UnityCatalogTagKeyText(RestrictedText):
     """RestrictedText configured for Unity Catalog tag keys."""
 
-    _default_max_length: ClassVar[int] = 255
-    # Unity Catalog tag keys: alphanumeric, hyphens, underscores, periods only
-    _default_forbidden_chars: ClassVar[Set[str]] = {
+    DEFAULT_MAX_LENGTH: ClassVar[int] = 255
+    # Unity Catalog tag keys: forbidden characters based on constraints
+    DEFAULT_FORBIDDEN_CHARS: ClassVar[Set[str]] = {
         "\t",
         "\n",
         "\r",
@@ -36,18 +36,18 @@ class UnityCatalogTagKeyText(RestrictedText):
         "/",
         ":",
     }
-    _default_replacement_char: ClassVar[str] = "_"
-    _default_truncation_suffix: ClassVar[str] = ""  # No suffix for clean identifiers
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = "_"
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = ""  # No suffix for clean identifiers
 
 
 class UnityCatalogTagValueText(RestrictedText):
     """RestrictedText configured for Unity Catalog tag values."""
 
-    _default_max_length: ClassVar[int] = 1000
+    DEFAULT_MAX_LENGTH: ClassVar[int] = 1000
     # Unity Catalog tag values are more permissive but still have some restrictions
-    _default_forbidden_chars: ClassVar[Set[str]] = {"\t", "\n", "\r"}
-    _default_replacement_char: ClassVar[str] = " "
-    _default_truncation_suffix: ClassVar[str] = "..."
+    DEFAULT_FORBIDDEN_CHARS: ClassVar[Set[str]] = {"\t", "\n", "\r"}
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = " "
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = "..."
 
 
 class UnityCatalogTag(ExternalTag):
@@ -62,59 +62,6 @@ class UnityCatalogTag(ExternalTag):
     key: UnityCatalogTagKeyText
     value: Optional[UnityCatalogTagValueText] = None
 
-    def __init__(self, **data: Any) -> None:
-        """Initialize UnityCatalogTag with proper field processing."""
-        # For Pydantic v2, we need to handle RestrictedText creation manually
-        # because the validation system isn't working properly
-        processed_data = self._process_tag_data(data)
-
-        # Skip ExternalTag.__init__ and call BaseModel.__init__ directly
-        from pydantic import BaseModel
-
-        BaseModel.__init__(self, **processed_data)
-
-        # WORKAROUND: Manually set the fields after initialization
-        # This is necessary because RestrictedText doesn't work properly with Pydantic v2
-        if "key" in processed_data:
-            object.__setattr__(self, "key", processed_data["key"])
-        if "value" in processed_data:
-            object.__setattr__(self, "value", processed_data["value"])
-
-    @staticmethod
-    def _process_tag_data(data: Any) -> Any:
-        """Common processing logic for both Pydantic v1 and v2."""
-        if isinstance(data, dict):
-            # Handle key field
-            if "key" in data and data["key"] is not None:
-                key_value = data["key"]
-                if not isinstance(key_value, UnityCatalogTagKeyText):
-                    # If we get a RestrictedText object, use its original value
-                    if hasattr(key_value, "original"):
-                        data["key"] = UnityCatalogTagKeyText(key_value.original)
-                    else:
-                        data["key"] = UnityCatalogTagKeyText(key_value)
-
-            # Handle value field
-            if "value" in data and data["value"] is not None:
-                value_data = data["value"]
-                if not isinstance(value_data, UnityCatalogTagValueText):
-                    # If we get a RestrictedText object, use its original value
-                    if hasattr(value_data, "original"):
-                        original_value = value_data.original
-                        # If value is an empty string, set it to None
-                        if not str(original_value):
-                            data["value"] = None
-                        else:
-                            data["value"] = UnityCatalogTagValueText(original_value)
-                    else:
-                        # If value is an empty string, set it to None
-                        if not str(value_data):
-                            data["value"] = None
-                        else:
-                            data["value"] = UnityCatalogTagValueText(value_data)
-
-        return data
-
     # Pydantic v1 validators
     @validator("key", pre=True)
     @classmethod
@@ -123,11 +70,11 @@ class UnityCatalogTag(ExternalTag):
         if isinstance(v, UnityCatalogTagKeyText):
             return v
 
-        # If we get a RestrictedText object from parent class validation, use its original value
-        if hasattr(v, "original"):
-            return UnityCatalogTagKeyText(v.original)
+        # If we get a RestrictedText object from parent class validation, use its text value
+        if hasattr(v, "text"):
+            return UnityCatalogTagKeyText(text=v.text)
 
-        return UnityCatalogTagKeyText(v)
+        return UnityCatalogTagKeyText(text=v)
 
     @validator("value", pre=True)
     @classmethod
@@ -139,19 +86,19 @@ class UnityCatalogTag(ExternalTag):
         if isinstance(v, UnityCatalogTagValueText):
             return v
 
-        # If we get a RestrictedText object from parent class validation, use its original value
-        if hasattr(v, "original"):
-            original_value = v.original
+        # If we get a RestrictedText object from parent class validation, use its text value
+        if hasattr(v, "text"):
+            text_value = v.text
             # If value is an empty string, set it to None to not generate empty value in DataHub tag
-            if not str(original_value):
+            if not str(text_value):
                 return None
-            return UnityCatalogTagValueText(original_value)
+            return UnityCatalogTagValueText(text=text_value)
 
         # If value is an empty string, set it to None to not generate empty value in DataHub tag
         if not str(v):
             return None
 
-        return UnityCatalogTagValueText(v)
+        return UnityCatalogTagValueText(text=v)
 
     def __eq__(self, other: object) -> bool:
         """Check equality based on key and value."""
@@ -201,9 +148,9 @@ class UnityCatalogTag(ExternalTag):
         Returns:
             Dictionary with 'key' and optionally 'value'
         """
-        result: Dict[str, str] = {"key": self.key.original}
+        result: Dict[str, str] = {"key": self.key.text}
         if self.value is not None:
-            result["value"] = self.value.original
+            result["value"] = self.value.text
         return result
 
     def to_display_dict(self) -> Dict[str, str]:
@@ -223,7 +170,3 @@ class UnityCatalogTag(ExternalTag):
             return f"UnityCatalogTag(key={self.key!r}, value={self.value!r})"
         else:
             return f"UnityCatalogTag(key={self.key!r})"
-
-
-# Note: Pydantic v2 validation is handled in the __init__ method due to
-# issues with RestrictedText compatibility with Pydantic v2's validation system

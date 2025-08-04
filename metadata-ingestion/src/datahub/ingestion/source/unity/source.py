@@ -204,6 +204,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             config.warehouse_id,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
+            lineage_data_source=config.lineage_data_source,
         )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
@@ -727,7 +728,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
-        for notebook in table.upstream_notebooks:
+        for notebook in table.upstream_notebooks.values():
             upstreams.append(
                 UpstreamClass(
                     dataset=self.gen_notebook_urn(notebook.id),

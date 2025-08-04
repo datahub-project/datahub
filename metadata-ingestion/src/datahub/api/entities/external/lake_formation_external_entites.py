@@ -10,8 +10,9 @@
 # Tag search using the workspace search UI is supported only for tables, views, and table columns.
 # Tag search requires exact term matching.
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
+from pydantic import validator
 from typing_extensions import ClassVar
 
 from datahub.api.entities.external.external_tag import ExternalTag
@@ -19,21 +20,21 @@ from datahub.api.entities.external.restricted_text import RestrictedText
 
 
 class LakeFormationTagKeyText(RestrictedText):
-    """RestrictedText configured for Unity Catalog tag keys."""
+    """RestrictedText configured for Lake Formation tag keys."""
 
-    _default_max_length: ClassVar[int] = 50
-    # Unity Catalog tag keys: alphanumeric, hyphens, underscores, periods only
-    _default_replacement_char: ClassVar[str] = "_"
-    _default_truncation_suffix: ClassVar[str] = ""  # No suffix for clean identifiers
+    DEFAULT_MAX_LENGTH: ClassVar[int] = 50
+    # Lake Formation tag keys restrictions
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = "_"
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = ""  # No suffix for clean identifiers
 
 
 class LakeFormationTagValueText(RestrictedText):
-    """RestrictedText configured for Unity Catalog tag values."""
+    """RestrictedText configured for Lake Formation tag values."""
 
-    _default_max_length: ClassVar[int] = 50
-    # Unity Catalog tag values are more permissive but still have some restrictions
-    _default_replacement_char: ClassVar[str] = " "
-    _default_truncation_suffix: ClassVar[str] = "..."
+    DEFAULT_MAX_LENGTH: ClassVar[int] = 50
+    # Lake Formation tag values restrictions
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = " "
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = "..."
 
 
 class LakeFormationTag(ExternalTag):
@@ -49,43 +50,43 @@ class LakeFormationTag(ExternalTag):
     value: Optional[LakeFormationTagValueText] = None
     catalog: Optional[str] = None
 
-    def __init__(
-        self,
-        key: Optional[Union[str, LakeFormationTagKeyText]] = None,
-        value: Optional[Union[str, LakeFormationTagValueText]] = None,
-        **data: Any,
-    ) -> None:
-        """
-        Initialize LakeFormation Tag from either a DataHub Tag URN or explicit key/value.
+    # Pydantic v1 validators
+    @validator("key", pre=True)
+    @classmethod
+    def _validate_key(cls, v: Any) -> LakeFormationTagKeyText:
+        """Validate and convert key field for Pydantic v1."""
+        if isinstance(v, LakeFormationTagKeyText):
+            return v
 
-        Args:
-            key: Explicit key value (optional for Pydantic initialization)
-            value: Explicit value (optional)
-            **data: Additional Pydantic data
-        """
-        if key is not None:
-            # Direct initialization with key/value
-            processed_key = (
-                LakeFormationTagKeyText(key)
-                if not isinstance(key, LakeFormationTagKeyText)
-                else key
-            )
-            processed_value = None
-            if value is not None:
-                processed_value = (
-                    LakeFormationTagValueText(value)
-                    if not isinstance(value, LakeFormationTagValueText)
-                    else value
-                )
+        # If we get a RestrictedText object from parent class validation, use its text value
+        if hasattr(v, "text"):
+            return LakeFormationTagKeyText(text=v.text)
 
-            super().__init__(
-                key=processed_key,
-                value=processed_value,
-                **data,
-            )
-        else:
-            # Standard pydantic initialization
-            super().__init__(**data)
+        return LakeFormationTagKeyText(text=v)
+
+    @validator("value", pre=True)
+    @classmethod
+    def _validate_value(cls, v: Any) -> Optional[LakeFormationTagValueText]:
+        """Validate and convert value field for Pydantic v1."""
+        if v is None:
+            return None
+
+        if isinstance(v, LakeFormationTagValueText):
+            return v
+
+        # If we get a RestrictedText object from parent class validation, use its text value
+        if hasattr(v, "text"):
+            text_value = v.text
+            # If value is an empty string, set it to None to not generate empty value in DataHub tag
+            if not str(text_value):
+                return None
+            return LakeFormationTagValueText(text=text_value)
+
+        # If value is an empty string, set it to None to not generate empty value in DataHub tag
+        if not str(v):
+            return None
+
+        return LakeFormationTagValueText(text=v)
 
     def __eq__(self, other: object) -> bool:
         """Check equality based on key and value."""
@@ -137,9 +138,9 @@ class LakeFormationTag(ExternalTag):
         Returns:
             Dictionary with 'key' and optionally 'value'
         """
-        result: Dict[str, str] = {"key": self.key.original}
+        result: Dict[str, str] = {"key": self.key.text}
         if self.value is not None:
-            result["value"] = self.value.original
+            result["value"] = self.value.text
         return result
 
     def to_display_dict(self) -> Dict[str, str]:

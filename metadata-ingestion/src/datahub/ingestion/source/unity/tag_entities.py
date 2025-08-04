@@ -77,13 +77,13 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
         if existing_platform_resource:
             logger.info(
-                f"Found existing UnityCatalogTagPlatformResourceId for tag {tag.key.original}: {existing_platform_resource}"
+                f"Found existing UnityCatalogTagPlatformResourceId for tag {tag.key.text}: {existing_platform_resource}"
             )
             return existing_platform_resource
 
         return UnityCatalogTagPlatformResourceId(
-            tag_key=tag.key.original,
-            tag_value=tag.value.original if tag.value is not None else None,
+            tag_key=tag.key.text,
+            tag_value=tag.value.text if tag.value is not None else None,
             platform_instance=platform_instance,
             exists_in_unity_catalog=exists_in_unity_catalog,
             persisted=False,

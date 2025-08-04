@@ -162,12 +162,14 @@ class TestUnityCatalogProxy:
         # Check notebook upstream (notebook writes to table)
         downstream_lineage = result["test_catalog.schema.downstream_table"]
         assert len(downstream_lineage.upstream_notebooks) == 1
-        assert downstream_lineage.upstream_notebooks[0].id == "notebook_123"
+        notebook_ref = downstream_lineage.upstream_notebooks[0]
+        assert notebook_ref.id == "notebook_123"
 
         # Check notebook downstream (table read by notebook)
         upstream_lineage = result["test_catalog.schema.upstream_table"]
         assert len(upstream_lineage.downstream_notebooks) == 1
-        assert upstream_lineage.downstream_notebooks[0].id == "notebook_456"
+        notebook_ref = upstream_lineage.downstream_notebooks[0]
+        assert notebook_ref.id == "notebook_456"
 
     @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
@@ -404,12 +406,14 @@ class TestUnityCatalogProxy:
 
         # Verify notebook lineage was processed
         assert len(table.upstream_notebooks) == 1
-        upstream_notebook = list(table.upstream_notebooks)[0]
+        assert 123 in table.upstream_notebooks
+        upstream_notebook = table.upstream_notebooks[123]
         assert upstream_notebook.id == 123
         assert upstream_notebook.last_updated == datetime(2023, 1, 4)
 
         assert len(table.downstream_notebooks) == 1
-        downstream_notebook = list(table.downstream_notebooks)[0]
+        assert 456 in table.downstream_notebooks
+        downstream_notebook = table.downstream_notebooks[456]
         assert downstream_notebook.id == 456
         assert downstream_notebook.last_updated == datetime(2023, 1, 5)
 

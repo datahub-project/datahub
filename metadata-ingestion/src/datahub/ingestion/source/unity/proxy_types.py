@@ -249,8 +249,8 @@ class Table(CommonProperty):
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
     external_upstreams: Set[ExternalTableReference] = field(default_factory=set)
-    upstream_notebooks: Set[NotebookReference] = field(default_factory=set)
-    downstream_notebooks: Set[NotebookReference] = field(default_factory=set)
+    upstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
+    downstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
 
     ref: TableReference = field(init=False)
 
