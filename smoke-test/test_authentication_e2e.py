@@ -313,6 +313,14 @@ def test_admin_endpoints_require_privileges() -> None:
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
     
+    # Debug: Check who is currently authenticated before creating user
+    from tests.privileges.utils import get_current_user_info
+    user_info = get_current_user_info(admin_session)
+    if user_info:
+        logger.info(f"🔍 Admin user info: {user_info['username']} ({user_info['email']}) - managePolicies: {user_info['privileges'].get('managePolicies', 'UNKNOWN')}")
+    else:
+        logger.warning("⚠️ Could not retrieve current user info")
+    
     test_user_urn = "urn:li:corpuser:limited_auth_test_user"
     token_id = None
     

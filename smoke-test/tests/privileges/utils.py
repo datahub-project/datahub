@@ -2,6 +2,83 @@ from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import get_admin_credentials, get_frontend_url, login_as
 
 
+def get_current_user_info(session):
+    """
+    Get information about the currently authenticated user (whoami equivalent).
+
+    Returns a dict with user info and platform privileges, or None if the query fails.
+    """
+    import sys
+
+    me_query = {
+        "query": """query me {
+            me {
+                corpUser {
+                    urn
+                    username
+                    info {
+                        fullName
+                        email
+                    }
+                }
+                platformPrivileges {
+                    managePolicies
+                    manageIdentities
+                    manageUserCredentials
+                    generatePersonalAccessTokens
+                    viewAnalytics
+                }
+            }
+        }"""
+    }
+
+    me_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=me_query)
+    print(
+        f"DEBUG: whoami (me query) status: {me_response.status_code}", file=sys.stderr
+    )
+
+    if me_response.status_code == 200:
+        me_data = me_response.json()
+        if me_data.get("data") and me_data["data"].get("me"):
+            me_info = me_data["data"]["me"]
+            corp_user = me_info.get("corpUser", {})
+            privileges = me_info.get("platformPrivileges", {})
+
+            user_info = {
+                "username": corp_user.get("username", "UNKNOWN"),
+                "urn": corp_user.get("urn", "UNKNOWN"),
+                "email": corp_user.get("info", {}).get("email", "UNKNOWN"),
+                "fullName": corp_user.get("info", {}).get("fullName", "UNKNOWN"),
+                "privileges": privileges,
+            }
+
+            print(
+                f"DEBUG: Authenticated as user: {user_info['username']}",
+                file=sys.stderr,
+            )
+            print(f"DEBUG: User URN: {user_info['urn']}", file=sys.stderr)
+            print(f"DEBUG: User email: {user_info['email']}", file=sys.stderr)
+            print(
+                f"DEBUG: managePolicies privilege: {privileges.get('managePolicies', 'UNKNOWN')}",
+                file=sys.stderr,
+            )
+            print(
+                f"DEBUG: manageIdentities privilege: {privileges.get('manageIdentities', 'UNKNOWN')}",
+                file=sys.stderr,
+            )
+
+            return user_info
+        else:
+            print(
+                f"DEBUG: me query returned unexpected structure: {me_data}",
+                file=sys.stderr,
+            )
+            return None
+    else:
+        print(f"DEBUG: me query failed: {me_response.text}", file=sys.stderr)
+        return None
+
+
 def set_base_platform_privileges_policy_status(status, session):
     base_platform_privileges = {
         "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
@@ -126,6 +203,7 @@ def create_user(session, email, password):
     res_data = remove_user(session, f"urn:li:corpuser:{email}")
     assert res_data
     assert "error" not in res_data
+
     # Get the invite token
     get_invite_token_json = {
         "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
