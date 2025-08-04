@@ -186,11 +186,12 @@ public class LineageServiceTest {
                 opContext, datasetUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
-  // Adds upstream for chart1 to dataset3 and removes edge to dataset1 while keeping edge to
-  // dataset2
+  // Adds upstream for chart1 to dataset3 and chart2 and removes edge to dataset1 while keeping edge
+  // to dataset2
   @Test
   public void testUpdateChartLineage() throws Exception {
     Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn1))).thenReturn(true);
+    Mockito.when(_mockClient.exists(any(OperationContext.class), eq(chartUrn2))).thenReturn(true);
     Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn1))).thenReturn(true);
     Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn2))).thenReturn(true);
     Mockito.when(_mockClient.exists(any(OperationContext.class), eq(datasetUrn3))).thenReturn(true);
@@ -215,17 +216,17 @@ public class LineageServiceTest {
                             Constants.CHART_INFO_ASPECT_NAME,
                             new EnvelopedAspect().setValue(new Aspect(chartInfo.data()))))));
 
-    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datasetUrn3);
+    final List<Urn> upstreamUrnsToAdd = Arrays.asList(datasetUrn3, chartUrn2);
     final List<Urn> upstreamUrnsToRemove = Collections.singletonList(datasetUrn2);
     _lineageService.updateChartLineage(
         opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn);
 
-    // chartInfo with dataset1 in inputs and dataset3 in inputEdges
+    // chartInfo with dataset1 in inputs, dataset3 and chart2 in inputEdges
     ChartInfo updatedChartInfo =
         createChartInfo(
             chartUrn1,
             Collections.singletonList(datasetUrn1),
-            Collections.singletonList(datasetUrn3));
+            Arrays.asList(datasetUrn3, chartUrn2));
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(chartUrn1);
@@ -246,20 +247,6 @@ public class LineageServiceTest {
     final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
     assertThrows(
         IllegalArgumentException.class,
-        () ->
-            _lineageService.updateChartLineage(
-                opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
-  }
-
-  @Test
-  public void testFailUpdateChartWithInvalidEdge() throws Exception {
-    Mockito.when(_mockClient.exists(opContext, chartUrn2)).thenReturn(true);
-
-    // charts can't have charts upstream of them
-    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(chartUrn2);
-    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
-    assertThrows(
-        RuntimeException.class,
         () ->
             _lineageService.updateChartLineage(
                 opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
