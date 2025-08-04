@@ -1,0 +1,34 @@
+# Instructions to add additional entry or update on the target system
+# 1. Edit this file
+# 2. Increment version in bootstrap_mcps.yaml for the entry referring to this file
+- entityType: dataHubIngestionSource
+  entityUrn: urn:li:dataHubIngestionSource:datahub-lineage-features
+  aspectName: dataHubIngestionSourceInfo
+  changeType: UPSERT
+  aspect:
+    type: 'datahub-lineage-features'
+    name: '{{ingestion.name}}{{^ingestion.name}}datahub-lineage-features{{/ingestion.name}}'
+    schedule:
+      timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
+      interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
+    config:
+      version: '{{&ingestion.version}}{{^ingestion.version}}{{/ingestion.version}}'
+      recipe:
+        source:
+          type: datahub-lineage-features
+          config:
+            enabled: {{enabled}}{{^enabled}}false{{/enabled}}
+            materialize_entities: {{materialize_entities}}{{^materialize_entities}}false{{/materialize_entities}}
+            query_timeout: {{query_timeout}}{{^query_timeout}}30{{/query_timeout}}
+            extract_batch_size: {{extract_batch_size}}{{^extract_batch_size}}3000{{/extract_batch_size}}
+            max_retries: {{max_retries}}{{^max_retries}}3{{/max_retries}}
+            retry_delay_seconds: {{retry_delay_seconds}}{{^retry_delay_seconds}}5{{/retry_delay_seconds}}
+            retry_backoff_multiplier: {{retry_backoff_multiplier}}{{^retry_backoff_multiplier}}2.0{{/retry_backoff_multiplier}}
+      debugMode: false
+      extraArgs:
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-lineage-features]@/acryl-cloud{{/ingestion.acryl-cloud-package}}"]{{/ingestion.extra_pip_requirements}}'
+      executorId: default
+    source:
+      type: {{source}}{{^source}}SYSTEM{{/source}}
+  headers: {}
+  

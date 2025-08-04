@@ -117,3 +117,11 @@ bootstrap:
       mcps_location: "bootstrap_mcps/ingestion-datahub-forms-notifications.yaml"
       values_env: "DATAHUB_FORMS_NOTIFICATIONS_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_FORMS_NOTIFICATIONS_REVISION"
+
+
+    - name: ingestion-datahub-lineage-features
+      version: v1
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-lineage-features.yaml"
+      values_env: "DATAHUB_LINEAGE_FEATURES_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_LINEAGE_FEATURES_REVISION"
