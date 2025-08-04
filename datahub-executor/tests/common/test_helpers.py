@@ -6,6 +6,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub_executor.common.helpers import (
     create_assertion_engine,
     create_datahub_graph,
+    fetch_cloud_logging_config,
     paginate_datahub_query_results,
 )
 
@@ -377,3 +378,135 @@ class TestHelpers:
         assert len(kwargs["transformers"]) == 2
         assert "embedded-transformer" in kwargs["transformers"]
         assert "adjustment-transformer" in kwargs["transformers"]
+
+    @patch("datahub_executor.common.helpers.METRIC")
+    def test_fetch_cloud_logging_config_success(self, mock_metric: MagicMock) -> None:
+        """Test successful fetch of cloud logging config."""
+        # Setup
+        mock_graph = MagicMock(spec=DataHubGraph)
+        expected_config = {
+            "s3_bucket": "test-bucket",
+            "s3_prefix": "logs/",
+            "remote_executor_logging_enabled": True,
+        }
+        mock_graph.execute_graphql.return_value = {
+            "cloudLoggingConfigsResolver": expected_config
+        }
+
+        # Execute
+        result = fetch_cloud_logging_config(mock_graph)
+
+        # Verify
+        assert result.s3_bucket == "test-bucket"
+        assert result.s3_prefix == "logs/"
+        assert result.remote_executor_logging_enabled is True
+        mock_graph.execute_graphql.assert_called_once()
+        mock_metric.assert_not_called()
+
+    @patch("datahub_executor.common.helpers.METRIC")
+    def test_fetch_cloud_logging_config_graphql_error(
+        self, mock_metric: MagicMock
+    ) -> None:
+        """Test fetch_cloud_logging_config with GraphQL error."""
+        # Setup
+        mock_graph = MagicMock(spec=DataHubGraph)
+        mock_graph.execute_graphql.return_value = {"error": "GraphQL execution failed"}
+
+        # Execute and Verify
+        with pytest.raises(Exception) as excinfo:
+            fetch_cloud_logging_config(mock_graph)
+
+        assert "Received error while fetching cloud_logging_configs from GMS!" in str(
+            excinfo.value
+        )
+        assert "GraphQL execution failed" in str(excinfo.value)
+        mock_metric.assert_called_once_with(
+            "WORKER_CLOUD_LOGGING_FETCHER_ERRORS", exception="GmsError"
+        )
+        mock_metric.return_value.inc.assert_called_once()
+
+    @patch("datahub_executor.common.helpers.METRIC")
+    def test_fetch_cloud_logging_config_missing_resolver(
+        self, mock_metric: MagicMock
+    ) -> None:
+        """Test fetch_cloud_logging_config with missing cloudLoggingConfigsResolver key."""
+        # Setup
+        mock_graph = MagicMock(spec=DataHubGraph)
+        mock_graph.execute_graphql.return_value = {"someOtherKey": "value"}
+
+        # Execute and Verify
+        with pytest.raises(Exception) as excinfo:
+            fetch_cloud_logging_config(mock_graph)
+
+        assert (
+            "Found incomplete search results when fetching cloud_logging_configs from GMS!"
+            in str(excinfo.value)
+        )
+        mock_metric.assert_called_once_with(
+            "WORKER_CLOUD_LOGGING_FETCHER_ERRORS", exception="IncompleteResults"
+        )
+        mock_metric.return_value.inc.assert_called_once()
+
+    @patch("datahub_executor.common.helpers.METRIC")
+    def test_fetch_cloud_logging_config_parse_error(
+        self, mock_metric: MagicMock
+    ) -> None:
+        """Test fetch_cloud_logging_config with parsing error."""
+        # Setup
+        mock_graph = MagicMock(spec=DataHubGraph)
+        invalid_config = {
+            "s3_bucket": 123,  # Invalid type - should be string
+            "s3_prefix": "logs/",
+            "remote_executor_logging_enabled": "not_a_boolean",  # Invalid type
+        }
+        mock_graph.execute_graphql.return_value = {
+            "cloudLoggingConfigsResolver": invalid_config
+        }
+
+        # Execute and Verify
+        with pytest.raises(Exception) as excinfo:
+            fetch_cloud_logging_config(mock_graph)
+
+        assert "Failed to convert CloudLoggingConfig object to Python object." in str(
+            excinfo.value
+        )
+        mock_metric.assert_called_once_with(
+            "WORKER_CLOUD_LOGGING_FETCHER_ERRORS", exception="ParseError"
+        )
+        mock_metric.return_value.inc.assert_called_once()
+
+    @patch("datahub_executor.common.helpers.METRIC")
+    def test_fetch_cloud_logging_config_caching(self, mock_metric: MagicMock) -> None:
+        """Test that fetch_cloud_logging_config results are cached."""
+        # Setup
+        mock_graph = MagicMock(spec=DataHubGraph)
+        expected_config = {
+            "s3_bucket": "test-bucket",
+            "s3_prefix": "logs/",
+            "remote_executor_logging_enabled": True,
+        }
+        mock_graph.execute_graphql.return_value = {
+            "cloudLoggingConfigsResolver": expected_config
+        }
+
+        # Clear any existing cache
+        fetch_cloud_logging_config.cache_clear()  # type: ignore[attr-defined]
+
+        # Execute twice
+        result1 = fetch_cloud_logging_config(mock_graph)
+        result2 = fetch_cloud_logging_config(mock_graph)
+
+        # Verify results are identical
+        assert result1.s3_bucket == result2.s3_bucket == "test-bucket"
+        assert result1.s3_prefix == result2.s3_prefix == "logs/"
+        assert (
+            result1.remote_executor_logging_enabled
+            == result2.remote_executor_logging_enabled
+        )
+
+        # Verify GraphQL was only called once due to caching
+        assert mock_graph.execute_graphql.call_count == 1
+        mock_metric.assert_not_called()
+
+        # Clear cache for other tests
+        fetch_cloud_logging_config.cache_clear()  # type: ignore[attr-defined]

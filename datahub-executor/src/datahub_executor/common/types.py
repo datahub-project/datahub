@@ -1489,6 +1489,14 @@ class EntityEvent:
         self.event_time = event_time
 
 
+class CloudLoggingConfig(PermissiveBaseModel):
+    """Config for cloud logging"""
+
+    s3_bucket: str
+    s3_prefix: str
+    remote_executor_logging_enabled: bool
+
+
 class ExecutorConfig(PermissiveBaseModel):
     region: str
     executor_id: str = Field(alias="executorId")

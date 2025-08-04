@@ -10,6 +10,8 @@ extend type Query {
   listExecutorConfigs(
     input: ListExecutorConfigsInput
   ): ListExecutorConfigsResult
+
+  cloudLoggingConfigsResolver: CloudLoggingConfigsResolverResult
 }
 
 """
@@ -77,6 +79,26 @@ type ListExecutorConfigsResult {
   The configs for each executor
   """
   executorConfigs: [ExecutorConfigs!]!
+}
+
+"""
+Results for ingestion cloud logging config
+"""
+type CloudLoggingConfigsResolverResult {
+  """
+  S3 bucket name
+  """
+  s3_bucket: String!
+
+  """
+  S3 prefix
+  """
+  s3_prefix: String!
+
+  """
+  Whether remote executor logging is enabled or not
+  """
+  remote_executor_logging_enabled: Boolean!
 }
 
 """

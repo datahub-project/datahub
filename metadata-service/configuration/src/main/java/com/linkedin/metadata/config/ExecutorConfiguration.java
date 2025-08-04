@@ -20,4 +20,13 @@ public class ExecutorConfiguration {
 
   /** Executor pool SQS provisioning hook config */
   public ExecutorPoolHookConfiguration executorPoolHook;
+
+  /** S3 bucket name for cloud logging */
+  public String cloudLoggingS3Bucket;
+
+  /** S3 prefix for cloud logging */
+  public String cloudLoggingS3Prefix;
+
+  /** Whether remote executor logging is enabled or not */
+  public boolean remoteExecutorLoggingEnabled;
 }

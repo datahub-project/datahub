@@ -1,0 +1,7 @@
+query cloudLoggingConfigsResolver {
+  cloudLoggingConfigsResolver {
+    s3_bucket
+    s3_prefix
+    remote_executor_logging_enabled
+  }
+}

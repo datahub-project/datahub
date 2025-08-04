@@ -150,7 +150,9 @@ class IngestionAction(Action):
             METRIC(
                 "INGESTION_HANDLER_REQUESTS", pool_name=executor_id, embedded="false"
             ).inc()
-            task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
+            task = apply_remote_ingestion_request(
+                orig_event, aspect_dict["executorId"], self.graph
+            )
             logger.info(f"started task ingestion_request for exec_id = {task}")
 
     def _execute_wrapper(self, request: ExecutionRequest) -> None:

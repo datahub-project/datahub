@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.credentials.ListExecutorConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.logging.CloudLoggingConfigsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
 import com.linkedin.datahub.graphql.resolvers.load.*;
@@ -1068,7 +1069,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     .dataFetcher(
                         "listExecutorConfigs",
                         new ListExecutorConfigsResolver(
-                            this.entityClient, this.stsClient, this.executorConfiguration)))
+                            this.entityClient, this.stsClient, this.executorConfiguration))
+                    .dataFetcher(
+                        "cloudLoggingConfigsResolver",
+                        new CloudLoggingConfigsResolver(this.executorConfiguration)))
         .type(
             "ListRemoteExecutorPoolsResult",
             typeWiring ->

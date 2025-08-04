@@ -1119,6 +1119,9 @@ executors:
   backendRevision: 2
   executorRoleArn: ${DATAHUB_EXECUTOR_ROLE_ARN:#{null}}
   executorCustomerId: ${DATAHUB_EXECUTOR_CUSTOMER_ID:#{null}}
+  cloudLoggingS3Bucket: ${DATAHUB_CLOUD_LOG_BUCKET:#{null}}
+  cloudLoggingS3Prefix: ${DATAHUB_CLOUD_LOG_PATH:#{null}}
+  remoteExecutorLoggingEnabled: ${DATAHUB_REMOTE_EXECUTOR_LOGGING_ENABLED:true}
   executorPoolHook:
     enabled: ${EXECUTOR_POOL_HOOK_ENABLED:true}
     messageRetentionPeriod: "86400"

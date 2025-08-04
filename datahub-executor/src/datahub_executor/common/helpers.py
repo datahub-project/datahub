@@ -1,5 +1,6 @@
 from typing import Any, Dict, List, Optional
 
+from cachetools import TTLCache, cached
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.secret.datahub_secret_store import DataHubSecretStore
 from datahub.secret.environment_secret_store import EnvironmentSecretStore
@@ -33,6 +34,9 @@ from datahub_executor.common.assertion.result.assertion_dry_run_event_handler im
 from datahub_executor.common.assertion.result.assertion_run_event_handler import (
     AssertionRunEventResultHandler,
 )
+from datahub_executor.common.client.config.graphql.query import (
+    GRAPHQL_FETCH_CLOUD_LOGGING_CONFIGS,
+)
 from datahub_executor.common.connection.datahub_ingestion_source_connection_provider import (
     DataHubIngestionSourceConnectionProvider,
 )
@@ -51,10 +55,12 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
 from datahub_executor.common.monitor.inference.monitor_training_engine import (
     MonitorTrainingEngine,
 )
+from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.source.provider import SourceProvider
 from datahub_executor.common.state.datahub_monitor_state_provider import (
     DataHubMonitorStateProvider,
 )
+from datahub_executor.common.types import CloudLoggingConfig
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_FILE_SECRET_BASEDIR,
     DATAHUB_EXECUTOR_FILE_SECRET_MAXLEN,
@@ -73,6 +79,38 @@ def create_datahub_graph() -> DataHubGraph:
             token=DATAHUB_GMS_TOKEN,
         )
     )
+
+
+@cached(
+    cache=TTLCache(maxsize=1, ttl=300)
+)  # 5 minutes TTL, maxsize=1 since we only cache one config
+def fetch_cloud_logging_config(graph: DataHubGraph) -> CloudLoggingConfig:
+    result = graph.execute_graphql(GRAPHQL_FETCH_CLOUD_LOGGING_CONFIGS)
+
+    if "error" in result and result["error"] is not None:
+        METRIC("WORKER_CLOUD_LOGGING_FETCHER_ERRORS", exception="GmsError").inc()
+        raise Exception(
+            f"Received error while fetching cloud_logging_configs from GMS! {result.get('error')}"
+        )
+    if "cloudLoggingConfigsResolver" not in result:
+        METRIC(
+            "WORKER_CLOUD_LOGGING_FETCHER_ERRORS", exception="IncompleteResults"
+        ).inc()
+        raise Exception(
+            "Found incomplete search results when fetching cloud_logging_configs from GMS!"
+        )
+
+    try:
+        cloud_logging_config = CloudLoggingConfig.parse_obj(
+            result["cloudLoggingConfigsResolver"]
+        )
+    except Exception:
+        METRIC("WORKER_CLOUD_LOGGING_FETCHER_ERRORS", exception="ParseError").inc()
+        raise Exception(
+            f"Failed to convert CloudLoggingConfig object to Python object. {result['cloudLoggingConfigsResolver']}"
+        )
+
+    return cloud_logging_config
 
 
 def paginate_datahub_query_results(

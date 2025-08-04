@@ -1,15 +1,21 @@
+import json
 import logging
 from typing import Any
 
 from acryl.executor.request.execution_request import ExecutionRequest
-from datahub.metadata.schema_classes import MetadataChangeLogClass
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import GenericAspectClass, MetadataChangeLogClass
 
 from datahub_executor.common.constants import (
     CLI_EXECUTOR_ID,
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
     DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME,
 )
+from datahub_executor.common.helpers import (
+    fetch_cloud_logging_config,
+)
 from datahub_executor.common.monitoring.base import METRIC
+from datahub_executor.common.types import CloudLoggingConfig
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH,
     DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION,
@@ -60,6 +66,38 @@ def apply_remote_assertion_request(
         logger.error(
             f"Worker implementation {DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION} is not available."
         )
+
+
+def add_cloud_logging_configs(
+    aspect: GenericAspectClass | None, cloud_logging_config: CloudLoggingConfig | None
+) -> None:
+    if aspect is None:
+        return
+
+    if (
+        cloud_logging_config is None
+        or "null" in cloud_logging_config.s3_bucket
+        or "null" in cloud_logging_config.s3_prefix
+        or not cloud_logging_config.s3_bucket
+        or not cloud_logging_config.s3_prefix
+    ):
+        return
+
+    aspect_value = json.loads(aspect.value)
+    aspect_value_args = aspect_value["args"]
+    if aspect_value_args is None:
+        aspect_value_args = {}
+        aspect_value["args"] = aspect_value_args
+    extra_env_vars = aspect_value_args["extra_env_vars"]
+    if extra_env_vars is None:
+        extra_env_vars = "{}"
+        aspect_value_args["extra_env_vars"] = extra_env_vars
+    extra_env_vars_obj = json.loads(extra_env_vars)
+    extra_env_vars_obj["DATAHUB_CLOUD_LOG_BUCKET"] = cloud_logging_config.s3_bucket
+    extra_env_vars_obj["DATAHUB_CLOUD_LOG_PATH"] = cloud_logging_config.s3_prefix
+    extra_env_vars = json.dumps(extra_env_vars_obj)
+    aspect_value_args["extra_env_vars"] = extra_env_vars
+    aspect.value = json.dumps(aspect_value).encode()
 
 
 def apply_remote_monitor_training_request(
@@ -126,11 +164,19 @@ def truncate_remote_ingestion_request(
 
 
 def apply_remote_ingestion_request(
-    event: MetadataChangeLogClass, executor_id: str
+    event: MetadataChangeLogClass, executor_id: str, graph: DataHubGraph
 ) -> Any:
     if executor_id == CLI_EXECUTOR_ID:
         return
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
+        try:
+            # Adding in try catch to handle executor running with older gms for backward compatibility
+            cloud_logging_config = fetch_cloud_logging_config(graph)
+            if cloud_logging_config.remote_executor_logging_enabled:
+                add_cloud_logging_configs(event.aspect, cloud_logging_config)
+        except Exception as e:
+            logger.error(f"Error fetching cloud logging config: {e}")
+
         logger.info(
             f"Going to submit SQS ingestion execution request {event.entityUrn} via {executor_id}"
         )

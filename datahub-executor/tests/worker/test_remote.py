@@ -1,11 +1,38 @@
+import json
 import unittest
+from types import ModuleType
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 from acryl.executor.request.execution_request import ExecutionRequest
+from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.metadata.schema_classes import GenericAspectClass
 
-# Import the module we're testing
-import datahub_executor.worker.remote as remote
+from datahub_executor.common.types import CloudLoggingConfig
+
+# Module-level patch to prevent network calls during import
+_mock_update_credentials = None
+remote: ModuleType
+
+
+def setUpModule() -> None:
+    """Set up module-level mocks before any tests run."""
+    global _mock_update_credentials
+    _mock_update_credentials = patch(
+        "datahub_executor.worker.celery_sqs.config.update_celery_credentials"
+    )
+    _mock_update_credentials.start()
+
+    # Import the module we're testing after patching
+    global remote
+    import datahub_executor.worker.remote as remote
+
+
+def tearDownModule() -> None:
+    """Clean up module-level mocks after all tests are done."""
+    global _mock_update_credentials
+    if _mock_update_credentials:
+        _mock_update_credentials.stop()
 
 
 class TestApplyRemoteMonitorTraining(unittest.TestCase):
@@ -170,6 +197,70 @@ class TestApplyRemoteMonitorTraining(unittest.TestCase):
 
         # Only error log should be called
         mock_logger.error.assert_called_once()
+
+
+class TestAddCloudLoggingConfigs(unittest.TestCase):
+    def test_add_cloud_logging_configs_none_cloud_logging_config(self) -> None:
+        """Test when cloud_logging_config is None."""
+        # Create a mock aspect
+        aspect_value = {"args": {"extra_env_vars": "{}"}}
+        aspect = GenericAspectClass(
+            contentType=JSON_CONTENT_TYPE, value=json.dumps(aspect_value).encode()
+        )
+
+        original_value = aspect.value
+
+        # Call function with None cloud_logging_config
+        remote.add_cloud_logging_configs(aspect, None)
+
+        # Aspect should remain unchanged
+        self.assertEqual(aspect.value, original_value)
+
+    def test_add_cloud_logging_configs_success(self) -> None:
+        """Test successful addition of cloud logging configs."""
+        # Create a valid cloud logging config
+        cloud_config = CloudLoggingConfig(
+            s3_bucket="test-bucket",
+            s3_prefix="logs/prefix",
+            remote_executor_logging_enabled=True,
+        )
+
+        # Create a mock aspect with existing env vars
+        aspect_value = {
+            "args": {"extra_env_vars": '{"EXISTING_VAR": "existing_value"}'}
+        }
+        aspect = GenericAspectClass(
+            contentType=JSON_CONTENT_TYPE, value=json.dumps(aspect_value).encode()
+        )
+
+        # Call the function
+        remote.add_cloud_logging_configs(aspect, cloud_config)
+
+        # Check that env vars were added
+        updated_aspect_value = json.loads(aspect.value.decode())
+        updated_env_vars = json.loads(updated_aspect_value["args"]["extra_env_vars"])
+
+        self.assertEqual(updated_env_vars["DATAHUB_CLOUD_LOG_BUCKET"], "test-bucket")
+        self.assertEqual(updated_env_vars["DATAHUB_CLOUD_LOG_PATH"], "logs/prefix")
+        self.assertEqual(updated_env_vars["EXISTING_VAR"], "existing_value")
+
+    def test_add_cloud_logging_configs_error_case(self) -> None:
+        """Test error case with invalid JSON in aspect."""
+        # Create a valid cloud logging config
+        cloud_config = CloudLoggingConfig(
+            s3_bucket="test-bucket",
+            s3_prefix="logs/prefix",
+            remote_executor_logging_enabled=True,
+        )
+
+        # Create a mock aspect with invalid JSON
+        aspect = GenericAspectClass(
+            contentType=JSON_CONTENT_TYPE, value=b"invalid json"
+        )
+
+        # Call the function and expect it to raise an exception
+        with self.assertRaises(json.JSONDecodeError):
+            remote.add_cloud_logging_configs(aspect, cloud_config)
 
 
 if __name__ == "__main__":
