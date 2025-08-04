@@ -52,6 +52,22 @@ class SlackAppDetails(_FrozenConnectionModel):
 
 
 class SlackConnection(_FrozenConnectionModel):
+    # Custom validator to treat empty dict as None for app_config_tokens
+    @pydantic.field_validator("app_config_tokens", mode="before")
+    @classmethod
+    def app_config_tokens_empty_dict_to_none(cls, v):
+        if v == {}:
+            return None
+        return v
+
+    # Custom validator to treat empty dict as None for app_details
+    @pydantic.field_validator("app_details", mode="before")
+    @classmethod
+    def app_details_empty_dict_to_none(cls, v):
+        if v == {}:
+            return None
+        return v
+
     app_config_tokens: Optional[SlackAppConfigCredentials] = None
 
     app_details: Optional[SlackAppDetails] = None
