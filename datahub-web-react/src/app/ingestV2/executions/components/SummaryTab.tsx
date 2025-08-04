@@ -1,6 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
-import React, { useState } from 'react';
+import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
 
@@ -12,8 +12,7 @@ import { getExecutionRequestSummaryText } from '@app/ingestV2/executions/utils';
 import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
 import { getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
-import { Text } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
+import { Button, Text, Tooltip } from '@src/alchemy-components';
 
 import { GetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
@@ -36,27 +35,20 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-const SubHeaderParagraph = styled(Typography.Paragraph)`
+const SubHeaderParagraph = styled(Text)`
     margin-bottom: 0px;
 `;
 
 const StatusSection = styled.div`
-    border-bottom: 1px solid ${colors.gray[1400]};
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
 `;
 
-const IngestedAssetsSection = styled.div<{ isFirstSection?: boolean }>`
-    border-bottom: 1px solid ${colors.gray[1400]};
-    ${({ isFirstSection }) => !isFirstSection && `border-top: 1px solid ${colors.gray[1400]};`}
+const IngestedAssetsSection = styled.div`
     padding: 16px;
     padding-left: 30px;
     padding-right: 30px;
-`;
-
-const ShowMoreButton = styled(Button)`
-    padding: 0px;
 `;
 
 export const SummaryTab = ({
@@ -72,16 +64,12 @@ export const SummaryTab = ({
     data: GetIngestionExecutionRequestQuery | undefined;
     onTabChange: (tab: TabType) => void;
 }) => {
-    const [showExpandedLogs] = useState(false);
-    const [showExpandedRecipe] = useState(false);
-
-    const output = data?.executionRequest?.result?.report || 'No output found.';
+    const logs = data?.executionRequest?.result?.report || 'No output found.';
 
     const downloadLogs = () => {
-        downloadFile(output, `exec-${urn}.log`);
+        downloadFile(logs, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 14)?.join('\n');
     const structuredReport = result && getStructuredReport(result);
     const resultSummaryText =
         (status && status !== EXECUTION_REQUEST_STATUS_SUCCESS && (
@@ -89,31 +77,28 @@ export const SummaryTab = ({
         )) ||
         undefined;
     const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
-    let recipeYaml: string;
+    let recipe: string;
     try {
-        recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
+        recipe = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
-        recipeYaml = '';
+        recipe = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 14)?.join('\n');
-    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 14;
-    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 14;
 
     const downloadRecipe = () => {
-        downloadFile(recipeYaml, `recipe-${urn}.yaml`);
+        downloadFile(recipe, `recipe-${urn}.yaml`);
     };
 
     return (
         <Section>
             {(resultSummaryText || (structuredReport && hasSomethingToShow(structuredReport))) && (
                 <StatusSection>
-                    <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
-                    {structuredReport && structuredReport ? <StructuredReport report={structuredReport} /> : null}
+                    {!structuredReport && resultSummaryText && (
+                        <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    )}
+                    {structuredReport && <StructuredReport report={structuredReport} />}
                 </StatusSection>
             )}
-            <IngestedAssetsSection
-                isFirstSection={!resultSummaryText && !(structuredReport && hasSomethingToShow(structuredReport))}
-            >
+            <IngestedAssetsSection>
                 {data?.executionRequest?.id && (
                     <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
                 )}
@@ -121,18 +106,18 @@ export const SummaryTab = ({
             <SectionBase>
                 <SectionHeader level={5}>Logs</SectionHeader>
                 <SectionSubHeader>
-                    <SubHeaderParagraph type="secondary">
+                    <SubHeaderParagraph color="gray" colorLevel={600}>
                         View logs that were collected during the sync.
                     </SubHeaderParagraph>
                     <ButtonGroup>
-                        {areLogsExpandable && (
-                            <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Logs)}>
-                                View More
-                            </ShowMoreButton>
-                        )}
-                        <Button type="text" onClick={downloadLogs}>
-                            <DownloadOutlined />
+                        <Button variant="text" onClick={() => onTabChange(TabType.Logs)}>
+                            View All
                         </Button>
+                        <Tooltip title="Download Logs">
+                            <Button variant="text" onClick={downloadLogs}>
+                                <DownloadOutlined />
+                            </Button>
+                        </Tooltip>
                     </ButtonGroup>
                 </SectionSubHeader>
                 <ScrollableDetailsContainer>
@@ -145,18 +130,18 @@ export const SummaryTab = ({
                 <SectionBase>
                     <SectionHeader level={5}>Recipe</SectionHeader>
                     <SectionSubHeader>
-                        <SubHeaderParagraph type="secondary">
+                        <SubHeaderParagraph color="gray" colorLevel={600}>
                             The configurations used for this sync with the data source.
                         </SubHeaderParagraph>
                         <ButtonGroup>
-                            {isRecipeExpandable && (
-                                <ShowMoreButton type="text" onClick={() => onTabChange(TabType.Recipe)}>
-                                    View More
-                                </ShowMoreButton>
-                            )}
-                            <Button type="text" onClick={downloadRecipe}>
-                                <DownloadOutlined />
+                            <Button variant="text" onClick={() => onTabChange(TabType.Recipe)}>
+                                View More
                             </Button>
+                            <Tooltip title="Download Recipe">
+                                <Button variant="text" onClick={downloadRecipe}>
+                                    <DownloadOutlined />
+                                </Button>
+                            </Tooltip>
                         </ButtonGroup>
                     </SectionSubHeader>
                     <ScrollableDetailsContainer>
