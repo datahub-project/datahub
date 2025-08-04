@@ -311,13 +311,19 @@ def test_get_sql_alchemy_url_ignores_config_db_when_override_is_provided():
         username="test",
         password="test",
         use_odbc=True,
-        uri_args={'database': config_defined_db, 'driver': 'some_driver_value'},
+        uri_args={"database": config_defined_db, "driver": "some_driver_value"},
     )
 
     # Mock to avoid DB connections
-    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"), \
-         patch("datahub.ingestion.source.sql.mssql.source.SQLServerSource._database_names_from_engine") as mock_db_names, \
-         patch("datahub.ingestion.source.sql.mssql.source.SQLServerSource._inspector_for_database"):
+    with (
+        patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"),
+        patch(
+            "datahub.ingestion.source.sql.mssql.source.SQLServerSource._database_names_from_engine"
+        ) as mock_db_names,
+        patch(
+            "datahub.ingestion.source.sql.mssql.source.SQLServerSource._inspector_for_database"
+        ),
+    ):
         mock_db_names.return_value = [override_db]
         source = SQLServerSource(config, MagicMock())
 
@@ -329,6 +335,8 @@ def test_get_sql_alchemy_url_ignores_config_db_when_override_is_provided():
         assert override_db not in default_connection
 
         # assert that when overridden, the override database is used
-        override_db_connection = source.config.get_sql_alchemy_url(current_db=override_db)
+        override_db_connection = source.config.get_sql_alchemy_url(
+            current_db=override_db
+        )
         assert override_db in override_db_connection
         assert config_defined_db not in override_db_connection

@@ -160,9 +160,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             uri_opts=uri_opts,
         )
         if self.use_odbc:
-            uri_args = ({k:v for k,v in self.uri_args.items() if k.lower() != 'database'}
-                       if current_db else
-                       self.uri_args)
+            uri_args = (
+                {k: v for k, v in self.uri_args.items() if k.lower() != "database"}
+                if current_db
+                else self.uri_args
+            )
             uri = f"{uri}?{urllib.parse.urlencode(uri_args)}"
         return uri
 
@@ -954,7 +956,7 @@ class SQLServerSource(SQLAlchemySource):
                        'distribution' , 'reportserver', 'reportservertempdb'); "
             ).fetchall()
         return [db["name"] for db in databases]
-    
+
     def _inspector_for_database(self, db_name: str) -> Inspector:
         url = self.config.get_sql_alchemy_url(current_db=db_name)
         engine = create_engine(url, **self.config.options)
