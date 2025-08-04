@@ -594,16 +594,6 @@ export const dataset3 = {
                     type: EntityType.CorpUser,
                     username: '',
                 },
-                attribution: {
-                    __typename: 'MetadataAttribution',
-                    time: 0,
-                    actor: {
-                        urn: 'urn:li:corpuser:__datahub_system',
-                        type: EntityType.EntityType,
-                    },
-                    source: null,
-                    sourceDetail: null,
-                },
             },
         ],
     },
