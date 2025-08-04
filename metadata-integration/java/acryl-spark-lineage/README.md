@@ -154,7 +154,6 @@ information like tokens.
 - Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
 
 - Configuring DataHub authentication token
-
   - Add below config in cluster spark config.
 
     ```text
@@ -162,7 +161,6 @@ information like tokens.
     ```
 
   - Alternatively, Databricks secrets can be used to secure token.
-
     - Create secret using Databricks CLI.
 
       ```sh
@@ -180,7 +178,7 @@ information like tokens.
 ## Configuration Options
 
 | Field                                                            | Required | Default                 | Description                                                                                                                                                                                                  |
-|------------------------------------------------------------------| -------- |-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ---------------------------------------------------------------- | -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | spark.jars.packages                                              | ✅       |                         | Set with latest/required version io.acryl:acryl-spark-lineage_2.12:0.2.18 (or io.acryl:acryl-spark-lineage_2.13:0.2.18 for Scala 2.13)                                                                       |
 | spark.extraListeners                                             | ✅       |                         | datahub.spark.DatahubSparkListener                                                                                                                                                                           |
 | spark.datahub.emitter                                            |          | rest                    | Specify the ways to emit metadata. By default it sends to DataHub using REST emitter. Valid options are rest, kafka or file                                                                                  |
@@ -432,7 +430,6 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.17
 
 - _Major changes_:
-
   - Finegrained lineage is emitted on the DataJob and not on the emitted Datasets. This is the correct behaviour which was not correct earlier. This causes earlier emitted finegrained lineages won't be overwritten by the new ones.
     You can remove the old lineages by setting `spark.datahub.legacyLineageCleanup.enabled=true`. Make sure you have the latest server if you enable with patch support. (this was introduced since 0.2.17-rc5)
 
