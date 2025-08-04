@@ -57,7 +57,7 @@ class RestrictedText(ConfigModel):
     DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = "_"
     DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = "..."
 
-    text: str
+    raw_text: str
     max_length: Optional[int] = None
     forbidden_chars: Optional[Set[str]] = None
     replacement_char: Optional[str] = None
@@ -125,7 +125,11 @@ class RestrictedText(ConfigModel):
 
         # Store processed value
         self._processed_value = self._process_value(
-            self.text, max_length, forbidden_chars, replacement_char, truncation_suffix
+            self.raw_text,
+            max_length,
+            forbidden_chars,
+            replacement_char,
+            truncation_suffix,
         )
         return True
 
@@ -157,12 +161,12 @@ class RestrictedText(ConfigModel):
 
     def __str__(self) -> str:
         """Return the processed (truncated and sanitized) value."""
-        return getattr(self, "_processed_value", self.text)
+        return self._processed_value or ""
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.text!r})"
+        return f"{self.__class__.__name__}({self.raw_text!r})"
 
     @property
     def processed(self) -> str:
         """Get the processed (truncated and sanitized) value."""
-        return getattr(self, "_processed_value", self.text)
+        return self._processed_value or ""

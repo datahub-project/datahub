@@ -70,11 +70,11 @@ class UnityCatalogTag(ExternalTag):
         if isinstance(v, UnityCatalogTagKeyText):
             return v
 
-        # If we get a RestrictedText object from parent class validation, use its text value
-        if hasattr(v, "text"):
-            return UnityCatalogTagKeyText(text=v.text)
+        # If we get a RestrictedText object from parent class validation, use its raw_text value
+        if hasattr(v, "raw_text"):
+            return UnityCatalogTagKeyText(raw_text=v.raw_text)
 
-        return UnityCatalogTagKeyText(text=v)
+        return UnityCatalogTagKeyText(raw_text=v)
 
     @validator("value", pre=True)
     @classmethod
@@ -86,19 +86,19 @@ class UnityCatalogTag(ExternalTag):
         if isinstance(v, UnityCatalogTagValueText):
             return v
 
-        # If we get a RestrictedText object from parent class validation, use its text value
-        if hasattr(v, "text"):
-            text_value = v.text
+        # If we get a RestrictedText object from parent class validation, use its raw_text value
+        if hasattr(v, "raw_text"):
+            text_value = v.raw_text
             # If value is an empty string, set it to None to not generate empty value in DataHub tag
             if not str(text_value):
                 return None
-            return UnityCatalogTagValueText(text=text_value)
+            return UnityCatalogTagValueText(raw_text=text_value)
 
         # If value is an empty string, set it to None to not generate empty value in DataHub tag
         if not str(v):
             return None
 
-        return UnityCatalogTagValueText(text=v)
+        return UnityCatalogTagValueText(raw_text=v)
 
     def __eq__(self, other: object) -> bool:
         """Check equality based on key and value."""
@@ -148,9 +148,9 @@ class UnityCatalogTag(ExternalTag):
         Returns:
             Dictionary with 'key' and optionally 'value'
         """
-        result: Dict[str, str] = {"key": self.key.text}
+        result: Dict[str, str] = {"key": self.key.raw_text}
         if self.value is not None:
-            result["value"] = self.value.text
+            result["value"] = self.value.raw_text
         return result
 
     def to_display_dict(self) -> Dict[str, str]:

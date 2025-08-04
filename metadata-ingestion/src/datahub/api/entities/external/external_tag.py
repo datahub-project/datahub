@@ -47,12 +47,14 @@ class ExternalTag(BaseModel):
         if key is not None:
             # Direct initialization with key/value
             processed_key = (
-                RestrictedText(text=key) if not isinstance(key, RestrictedText) else key
+                RestrictedText(raw_text=key)
+                if not isinstance(key, RestrictedText)
+                else key
             )
             processed_value = None
             if value is not None:
                 processed_value = (
-                    RestrictedText(text=value)
+                    RestrictedText(raw_text=value)
                     if not isinstance(value, RestrictedText)
                     else value
                 )
@@ -95,9 +97,9 @@ class ExternalTag(BaseModel):
             'urn:li:tag:key:value' if value exists, otherwise 'urn:li:tag:key'
         """
         if self.value is not None:
-            tag_name = f"{self.key.text}:{self.value.text}"
+            tag_name = f"{self.key.raw_text}:{self.value.raw_text}"
         else:
-            tag_name = self.key.text
+            tag_name = self.key.raw_text
 
         return TagUrn(name=tag_name)
 

@@ -443,7 +443,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     UpstreamClass(
                         dataset=self.gen_dataset_urn(upstream_ref),
                         type=DatasetLineageTypeClass.COPY,
-                        created=AuditStampClass(
+                        auditStamp=AuditStampClass(
                             time=int(upstream_ref.last_updated.timestamp() * 1000)
                             if upstream_ref.last_updated
                             else int(time.time() * 1000),

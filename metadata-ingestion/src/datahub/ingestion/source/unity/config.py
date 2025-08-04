@@ -8,7 +8,7 @@ import pydantic
 from pydantic import Field
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -35,16 +35,11 @@ from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
 
-# Lineage data source constants
-LINEAGE_DATA_SOURCE_AUTO = "auto"
-LINEAGE_DATA_SOURCE_SYSTEM_TABLES = "system_tables"
-LINEAGE_DATA_SOURCE_API = "api"
 
-VALID_LINEAGE_DATA_SOURCES = [
-    LINEAGE_DATA_SOURCE_AUTO,
-    LINEAGE_DATA_SOURCE_SYSTEM_TABLES,
-    LINEAGE_DATA_SOURCE_API,
-]
+class LineageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -254,13 +249,13 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
     )
 
-    lineage_data_source: str = pydantic.Field(
-        default=LINEAGE_DATA_SOURCE_API,
+    lineage_data_source: LineageDataSource = pydantic.Field(
+        default=LineageDataSource.AUTO,
         description=(
             "Source for lineage data extraction. Options: "
-            f"'{LINEAGE_DATA_SOURCE_AUTO}' - Use system tables when SQL warehouse is available, fallback to API; "
-            f"'{LINEAGE_DATA_SOURCE_SYSTEM_TABLES}' - Force use of system.access.table_lineage and system.access.column_lineage tables (requires SQL warehouse); "
-            f"'{LINEAGE_DATA_SOURCE_API}' - Force use of REST API endpoints for lineage data"
+            f"'{LineageDataSource.AUTO.value}' - Use system tables when SQL warehouse is available, fallback to API; "
+            f"'{LineageDataSource.SYSTEM_TABLES.value}' - Force use of system.access.table_lineage and system.access.column_lineage tables (requires SQL warehouse); "
+            f"'{LineageDataSource.API.value}' - Force use of REST API endpoints for lineage data"
         ),
     )
 
@@ -388,29 +383,16 @@ class UnityCatalogSourceConfig(
 
         return values
 
-    @pydantic.validator("lineage_data_source")
-    def validate_lineage_data_source(cls, v: str) -> str:
-        if v not in VALID_LINEAGE_DATA_SOURCES:
-            raise ValueError(
-                f"lineage_data_source must be one of {VALID_LINEAGE_DATA_SOURCES}, got: {v}"
-            )
-        return v
-
     @pydantic.root_validator(skip_on_failure=True)
     def validate_lineage_data_source_with_warehouse(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:
-        lineage_data_source = values.get(
-            "lineage_data_source", LINEAGE_DATA_SOURCE_AUTO
-        )
+        lineage_data_source = values.get("lineage_data_source", LineageDataSource.AUTO)
         warehouse_id = values.get("warehouse_id")
 
-        if (
-            lineage_data_source == LINEAGE_DATA_SOURCE_SYSTEM_TABLES
-            and not warehouse_id
-        ):
+        if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
             raise ValueError(
-                f"lineage_data_source='{LINEAGE_DATA_SOURCE_SYSTEM_TABLES}' requires warehouse_id to be set"
+                f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
             )
 
         return values

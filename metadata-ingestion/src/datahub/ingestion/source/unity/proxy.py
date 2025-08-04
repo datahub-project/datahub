@@ -35,9 +35,7 @@ from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.config import (
-    LINEAGE_DATA_SOURCE_API,
-    LINEAGE_DATA_SOURCE_AUTO,
-    LINEAGE_DATA_SOURCE_SYSTEM_TABLES,
+    LineageDataSource,
 )
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -136,7 +134,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
-        lineage_data_source: str = LINEAGE_DATA_SOURCE_AUTO,
+        lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url,
@@ -550,9 +548,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         try:
             # Determine lineage data source based on config
             use_system_tables = False
-            if self.lineage_data_source == LINEAGE_DATA_SOURCE_SYSTEM_TABLES:
+            if self.lineage_data_source == LineageDataSource.SYSTEM_TABLES:
                 use_system_tables = True
-            elif self.lineage_data_source == LINEAGE_DATA_SOURCE_API:
+            elif self.lineage_data_source == LineageDataSource.API:
                 use_system_tables = False
             else:  # "auto"
                 # Use the newer system tables if we have a SQL warehouse, otherwise fall back
@@ -685,9 +683,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         try:
             # Determine lineage data source based on config
             use_system_tables = False
-            if self.lineage_data_source == LINEAGE_DATA_SOURCE_SYSTEM_TABLES:
+            if self.lineage_data_source == LineageDataSource.SYSTEM_TABLES:
                 use_system_tables = True
-            elif self.lineage_data_source == LINEAGE_DATA_SOURCE_API:
+            elif self.lineage_data_source == LineageDataSource.API:
                 use_system_tables = False
             else:  # "auto"
                 # Use the newer system tables if we have a SQL warehouse, otherwise fall back
