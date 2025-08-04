@@ -81,6 +81,8 @@ public class SparkConfigParser {
   public static final String DATABRICKS_CLUSTER_KEY = "databricks.cluster";
   public static final String PIPELINE_KEY = "metadata.pipeline";
   public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platformInstance";
+  public static final String ENABLE_ENHANCED_MERGE_INTO_EXTRACTION =
+      "metadata.dataset.enableEnhancedMergeIntoExtraction";
 
   public static final String CAPTURE_COLUMN_LEVEL_LINEAGE = "captureColumnLevelLineage";
 
@@ -181,6 +183,8 @@ public class SparkConfigParser {
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
+    builder.enhancedMergeIntoExtraction(
+        SparkConfigParser.isEnhancedMergeIntoExtractionEnabled(sparkConfig));
     try {
       String parentJob = SparkConfigParser.getParentJobKey(sparkConfig);
       if (parentJob != null) {
@@ -397,6 +401,11 @@ public class SparkConfigParser {
   public static boolean isLowerCaseDatasetUrns(Config datahubConfig) {
     return datahubConfig.hasPath(DATASET_LOWERCASE_URNS)
         && datahubConfig.getBoolean(DATASET_LOWERCASE_URNS);
+  }
+
+  public static boolean isEnhancedMergeIntoExtractionEnabled(Config datahubConfig) {
+    return datahubConfig.hasPath(ENABLE_ENHANCED_MERGE_INTO_EXTRACTION)
+        && datahubConfig.getBoolean(ENABLE_ENHANCED_MERGE_INTO_EXTRACTION);
   }
 
   public static boolean isCaptureColumnLevelLineage(Config datahubConfig) {
