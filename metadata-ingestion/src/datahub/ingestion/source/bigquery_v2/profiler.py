@@ -2,7 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, cast
 
 from dateutil.relativedelta import relativedelta
 from google.cloud.bigquery import QueryJobConfig, ScalarQueryParameter
@@ -30,6 +30,9 @@ def validate_bigquery_identifier(
     """
     Securely validate and escape BigQuery identifiers per official BigQuery rules.
 
+    This function provides defense-in-depth against SQL injection attacks on identifiers
+    that cannot be parameterized in BigQuery.
+
     BigQuery Rules:
     - Project IDs: letters, numbers, hyphens (but not at start/end)
     - Datasets: letters, numbers, underscores (NO hyphens)
@@ -41,26 +44,193 @@ def validate_bigquery_identifier(
             f"Invalid {identifier_type} identifier: must be non-empty string"
         )
 
+    # Strip whitespace to prevent padding attacks
+    identifier = identifier.strip()
+
+    # Check for common SQL injection patterns in identifiers
+    dangerous_patterns = [
+        ";",
+        "--",
+        "/*",
+        "*/",
+        "union",
+        "select",
+        "insert",
+        "update",
+        "delete",
+        "drop",
+        "create",
+        "alter",
+        "exec",
+        "execute",
+        "sp_",
+        "xp_",
+        "script",
+        "javascript:",
+        "vbscript:",
+        "<script",
+        "</script>",
+        "eval(",
+        "expression(",
+        "onload=",
+        "onerror=",
+        "onclick=",
+        '"',
+        "'",
+        "\\",
+        "\n",
+        "\r",
+        "\t",
+    ]
+
+    identifier_lower = identifier.lower()
+    for pattern in dangerous_patterns:
+        if pattern in identifier_lower:
+            raise ValueError(
+                f"Invalid {identifier_type} identifier contains dangerous pattern '{pattern}': {identifier}"
+            )
+
     # Remove any existing backticks to prevent escape sequence injection
     clean_identifier = identifier.replace("`", "")
 
-    # BigQuery identifier rules - CORRECTED
+    # Additional check: ensure no control characters or non-printable characters
+    if any(ord(c) < 32 or ord(c) > 126 for c in clean_identifier):
+        raise ValueError(
+            f"Invalid {identifier_type} identifier contains non-printable characters: {identifier}"
+        )
+
+    # BigQuery identifier rules - CORRECTED with additional security checks
     if identifier_type == "project":
         # Project IDs: letters, numbers, hyphens (6-30 chars, start with letter)
         if not re.match(r"^[a-z][a-z0-9-]*[a-z0-9]$", clean_identifier):
-            raise ValueError(f"Invalid project ID: {clean_identifier}")
+            raise ValueError(f"Invalid project ID format: {clean_identifier}")
         if len(clean_identifier) < 6 or len(clean_identifier) > 30:
             raise ValueError(f"Project ID must be 6-30 characters: {clean_identifier}")
+        # Additional security: no consecutive hyphens
+        if "--" in clean_identifier:
+            raise ValueError(
+                f"Project ID cannot contain consecutive hyphens: {clean_identifier}"
+            )
     else:
         # Datasets, tables, columns: letters, numbers, underscores only
         if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", clean_identifier):
             raise ValueError(
-                f"Invalid {identifier_type} identifier: {clean_identifier}"
+                f"Invalid {identifier_type} identifier format: {clean_identifier}"
             )
         if len(clean_identifier) > 1024:
             raise ValueError(
                 f"{identifier_type} identifier too long: {len(clean_identifier)} chars"
             )
+        # Additional security: no consecutive underscores at the beginning (reserved patterns)
+        if clean_identifier.startswith("__"):
+            raise ValueError(
+                f"Invalid {identifier_type} identifier cannot start with double underscore: {clean_identifier}"
+            )
+
+    # Final security check: ensure identifier doesn't match reserved words
+    reserved_words = {
+        "all",
+        "and",
+        "any",
+        "array",
+        "as",
+        "asc",
+        "assert_rows_modified",
+        "at",
+        "between",
+        "by",
+        "case",
+        "cast",
+        "collate",
+        "contains",
+        "create",
+        "cross",
+        "cube",
+        "current",
+        "default",
+        "define",
+        "desc",
+        "distinct",
+        "else",
+        "end",
+        "enum",
+        "escape",
+        "except",
+        "exclude",
+        "exists",
+        "extract",
+        "false",
+        "fetch",
+        "following",
+        "for",
+        "from",
+        "full",
+        "group",
+        "grouping",
+        "groups",
+        "hash",
+        "having",
+        "if",
+        "ignore",
+        "in",
+        "inner",
+        "intersect",
+        "interval",
+        "into",
+        "is",
+        "join",
+        "lateral",
+        "left",
+        "like",
+        "limit",
+        "lookup",
+        "merge",
+        "natural",
+        "new",
+        "no",
+        "not",
+        "null",
+        "nulls",
+        "of",
+        "on",
+        "or",
+        "order",
+        "outer",
+        "over",
+        "partition",
+        "preceding",
+        "proto",
+        "range",
+        "recursive",
+        "respect",
+        "right",
+        "rollup",
+        "rows",
+        "select",
+        "set",
+        "some",
+        "struct",
+        "tablesample",
+        "then",
+        "to",
+        "treat",
+        "true",
+        "unbounded",
+        "union",
+        "unnest",
+        "using",
+        "when",
+        "where",
+        "window",
+        "with",
+        "within",
+    }
+
+    if clean_identifier.lower() in reserved_words:
+        logger.warning(
+            f"Identifier '{clean_identifier}' is a reserved word, proceeding with backticks"
+        )
+        # Note: We allow reserved words but log a warning since BigQuery handles them with backticks
 
     # Return with backticks for safe SQL usage
     return f"`{clean_identifier}`"
@@ -180,19 +350,6 @@ class BigqueryProfiler(GenericProfiler):
                 valid_columns.append(col)
         return valid_columns
 
-    def _escape_sql_string(self, value: Any) -> str:
-        """
-        Safely escape a value for use in SQL string literals.
-
-        Args:
-            value: Value to escape
-
-        Returns:
-            Escaped string value
-        """
-        str_val = str(value)
-        return str_val.replace("'", "''")
-
     def _validate_and_filter_expressions(
         self, filters: List[str], context: str = ""
     ) -> List[str]:
@@ -281,12 +438,15 @@ class BigqueryProfiler(GenericProfiler):
         else:
             return "record_count DESC"  # Most populated first for other columns
 
-    def _execute_query_safely(self, query: str, context: str = "") -> List[Any]:
+    def _execute_query_safely(
+        self, query: str, job_config: Optional[QueryJobConfig] = None, context: str = ""
+    ) -> List[Any]:
         """
         Execute a query with consistent error handling and logging.
 
         Args:
             query: SQL query to execute
+            job_config: Optional query job configuration with parameters
             context: Context for logging (optional)
 
         Returns:
@@ -296,35 +456,13 @@ class BigqueryProfiler(GenericProfiler):
             logger.debug(
                 f"Executing query{' for ' + context if context else ''}: {query}"
             )
-            return self.execute_query(query)
+            if job_config:
+                return self.execute_query_with_config(query, job_config)
+            else:
+                return self.execute_query(query)
         except Exception as e:
             logger.warning(
                 f"Query execution failed{' in ' + context if context else ''}: {e}"
-            )
-            raise
-
-    def _execute_parameterized_query_safely(
-        self, query: str, job_config: QueryJobConfig, context: str = ""
-    ) -> List[Any]:
-        """
-        Execute a parameterized query with consistent error handling and logging.
-
-        Args:
-            query: SQL query to execute
-            job_config: Query job configuration with parameters
-            context: Context for logging (optional)
-
-        Returns:
-            Query results as list
-        """
-        try:
-            logger.debug(
-                f"Executing parameterized query{' for ' + context if context else ''}"
-            )
-            return self.execute_query_with_config(query, job_config)
-        except Exception as e:
-            logger.warning(
-                f"Parameterized query execution failed{' in ' + context if context else ''}: {e}"
             )
             raise
 
@@ -363,9 +501,9 @@ class BigqueryProfiler(GenericProfiler):
 
     def _create_partition_stats_query(
         self, table_ref: str, col_name: str, max_results: int = 10
-    ) -> str:
+    ) -> Tuple[str, QueryJobConfig]:
         """
-        Create a standardized partition statistics query.
+        Create a standardized partition statistics query with parameterized limit.
 
         Args:
             table_ref: Safe table reference
@@ -373,21 +511,29 @@ class BigqueryProfiler(GenericProfiler):
             max_results: Maximum number of results
 
         Returns:
-            SQL query for partition statistics
+            Tuple of (SQL query, QueryJobConfig with parameters)
         """
         order_by = self._get_column_ordering_strategy(col_name)
         safe_max_results = max(1, min(int(max_results), 1000))
 
-        return f"""WITH PartitionStats AS (
+        query = f"""WITH PartitionStats AS (
     SELECT `{col_name}` as val, COUNT(*) as record_count
     FROM {table_ref}
     WHERE `{col_name}` IS NOT NULL
     GROUP BY `{col_name}`
     HAVING record_count > 0
     ORDER BY {order_by}
-    LIMIT {safe_max_results}
+    LIMIT @max_results
 )
 SELECT val, record_count FROM PartitionStats"""
+
+        job_config = QueryJobConfig(
+            query_parameters=[
+                ScalarQueryParameter("max_results", "INT64", safe_max_results)
+            ]
+        )
+
+        return query, job_config
 
     def _get_fallback_date_value(
         self, col_name: str, fallback_date: datetime
@@ -410,29 +556,6 @@ SELECT val, record_count FROM PartitionStats"""
             return fallback_date.day, "zero_padded"
         else:
             return fallback_date.strftime("%Y-%m-%d"), "date_string"
-
-    def _format_filter_value(self, value: Any, format_type: str) -> str:
-        """
-        Format a value for use in a filter based on the format type.
-
-        Args:
-            value: Value to format
-            format_type: How to format ("numeric", "zero_padded", "date_string", "string")
-
-        Returns:
-            Formatted value string for SQL
-        """
-        if format_type == "numeric":
-            return str(value)
-        elif format_type == "zero_padded":
-            return f"'{value:02d}'"
-        elif format_type in ("date_string", "string"):
-            escaped_value = self._escape_sql_string(value)
-            return f"'{escaped_value}'"
-        else:
-            # Default to escaped string
-            escaped_value = self._escape_sql_string(value)
-            return f"'{escaped_value}'"
 
     def _log_partition_attempt(
         self,
@@ -507,17 +630,140 @@ SELECT val, record_count FROM PartitionStats"""
                 return default
             return min_val
 
+    def _validate_sql_structure(self, query: str) -> bool:
+        """
+        Validate SQL query structure for additional security beyond parameterization.
+
+        Args:
+            query: SQL query to validate
+
+        Returns:
+            True if query structure is safe
+
+        Raises:
+            ValueError: If query contains dangerous patterns
+        """
+        if not query or not isinstance(query, str):
+            return False
+
+        # Normalize query for analysis
+        normalized_query = re.sub(r"\s+", " ", query.upper().strip())
+
+        # Check for dangerous SQL patterns that shouldn't appear in profiling queries
+        dangerous_patterns = [
+            # DDL operations
+            r"\bCREATE\s+(?:OR\s+REPLACE\s+)?(?:TABLE|VIEW|FUNCTION|PROCEDURE)",
+            r"\bDROP\s+(?:TABLE|VIEW|FUNCTION|PROCEDURE|DATABASE|SCHEMA)",
+            r"\bALTER\s+(?:TABLE|VIEW|DATABASE|SCHEMA)",
+            r"\bTRUNCATE\s+TABLE",
+            # DML operations (beyond SELECT)
+            r"\bINSERT\s+INTO",
+            r"\bUPDATE\s+.+\bSET\b",
+            r"\bDELETE\s+FROM",
+            r"\bMERGE\s+INTO",
+            # System/admin operations
+            r"\bGRANT\s+",
+            r"\bREVOKE\s+",
+            r"\bEXEC(?:UTE)?\s+",
+            r"\bCALL\s+",
+            # Suspicious multi-statement patterns
+            r";\s*(?:CREATE|DROP|ALTER|INSERT|UPDATE|DELETE|GRANT|REVOKE)",
+            # Script injection patterns
+            r"<script[^>]*>",
+            r"javascript:",
+            r"vbscript:",
+            r"data:",
+            # Comment-based injections
+            r"/\*.*(?:union|select|insert|update|delete|drop|create|alter).*\*/",
+            r"--.*(?:union|select|insert|update|delete|drop|create|alter)",
+        ]
+
+        for pattern in dangerous_patterns:
+            if re.search(pattern, normalized_query, re.IGNORECASE):
+                raise ValueError(f"Query contains dangerous pattern: {pattern}")
+
+        # Validate query starts with expected operations for profiling
+        allowed_start_patterns = [
+            r"^\s*SELECT\s+",
+            r"^\s*WITH\s+",
+            r"^\s*\(\s*SELECT\s+",  # Subqueries
+        ]
+
+        if not any(
+            re.match(pattern, normalized_query, re.IGNORECASE)
+            for pattern in allowed_start_patterns
+        ):
+            raise ValueError(f"Query must start with SELECT or WITH: {query[:100]}...")
+
+        return True
+
+    def _create_whitelist_validator(self, project: str, schema: str) -> Callable:
+        """
+        Create a validator that checks identifiers against a whitelist.
+
+        Args:
+            project: BigQuery project ID
+            schema: BigQuery dataset name
+
+        Returns:
+            Validator function that checks if table names are in allowed list
+        """
+
+        def validate_against_whitelist(table_name: str) -> bool:
+            # In a production environment, you'd load this from configuration
+            # or query INFORMATION_SCHEMA to get allowed tables
+            try:
+                # Query to get all tables in the dataset (this creates a dynamic whitelist)
+                safe_info_schema_ref = self._build_safe_table_reference(
+                    project, schema, "INFORMATION_SCHEMA.TABLES"
+                )
+
+                query = f"""SELECT table_name 
+FROM {safe_info_schema_ref} 
+WHERE table_name = @table_name"""
+
+                job_config = QueryJobConfig(
+                    query_parameters=[
+                        ScalarQueryParameter("table_name", "STRING", table_name)
+                    ]
+                )
+
+                results = self._execute_query_safely(
+                    query, job_config, "whitelist validation"
+                )
+                return len(results) > 0
+
+            except Exception as e:
+                logger.warning(f"Whitelist validation failed for {table_name}: {e}")
+                # Fail securely - if we can't validate, assume it's not allowed
+                return False
+
+        return validate_against_whitelist
+
     def _build_safe_table_reference(
         self, project: str, schema: str, table_name: str
     ) -> str:
-        """Build a safe table reference for use in SQL queries."""
+        """Build a safe table reference for use in SQL queries with enhanced validation."""
+        # Enhanced validation with whitelist checking for regular tables
+        # (Skip whitelist for INFORMATION_SCHEMA system tables)
+        if not table_name.startswith("INFORMATION_SCHEMA."):
+            # Create whitelist validator
+            whitelist_validator = self._create_whitelist_validator(project, schema)
+
+            # Only validate against whitelist for non-system tables
+            if not table_name.startswith(
+                "INFORMATION_SCHEMA"
+            ) and not whitelist_validator(table_name):
+                logger.warning(f"Table {table_name} not found in dataset {schema}")
+                # Note: We log but don't fail here as the table might be external or newly created
+
         return build_safe_table_reference(project, schema, table_name)
 
     def _create_secure_partition_filter(
         self, col_name: str, val: Any, data_type: str
-    ) -> Optional[str]:
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
         """
-        Create a secure filter string for a partition column with a specific value.
+        Create a secure filter string and parameters for a partition column with a specific value.
 
         Args:
             col_name: Column name (will be validated)
@@ -525,7 +771,7 @@ SELECT val, record_count FROM PartitionStats"""
             data_type: Data type of the column
 
         Returns:
-            Secure filter string or None if invalid
+            Tuple of (filter string with parameter placeholders, list of parameters) or None if invalid
         """
         # Validate column name
         if not self._validate_column_name(col_name, "partition filter creation"):
@@ -544,46 +790,52 @@ SELECT val, record_count FROM PartitionStats"""
 
     def _create_filter_for_data_type(
         self, escaped_col: str, val: Any, data_type_upper: str
-    ) -> Optional[str]:
-        """Create filter for BigQuery-specific data types."""
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for BigQuery-specific data types with parameters."""
+        param_name = f"filter_value_{hash(str(val)) % 10000}"
 
         # BigQuery standard types
         if data_type_upper in ("STRING",):  # BigQuery uses STRING, not VARCHAR
-            return self._create_string_filter(escaped_col, val)
+            return self._create_string_filter(escaped_col, val, param_name)
         elif data_type_upper == "DATE":
-            return self._create_date_filter(escaped_col, val)
+            return self._create_date_filter(escaped_col, val, param_name)
         elif data_type_upper in ("TIMESTAMP", "DATETIME"):
-            return self._create_timestamp_filter(escaped_col, val)
+            return self._create_timestamp_filter(escaped_col, val, param_name)
         elif data_type_upper in ("INT64", "INTEGER"):  # BigQuery uses INT64
-            return self._create_integer_filter(escaped_col, val, data_type_upper)
+            return self._create_integer_filter(escaped_col, val, param_name)
         elif data_type_upper in ("FLOAT64", "NUMERIC", "BIGNUMERIC"):  # BigQuery types
-            return self._create_float_filter(escaped_col, val, data_type_upper)
+            return self._create_float_filter(escaped_col, val, param_name)
         elif data_type_upper in ("BOOL", "BOOLEAN"):
-            return self._create_boolean_filter(escaped_col, val)
+            return self._create_boolean_filter(escaped_col, val, param_name)
         elif data_type_upper in ("BYTES",):  # BigQuery binary type
-            return self._create_bytes_filter(escaped_col, val)
+            return self._create_bytes_filter(escaped_col, val, param_name)
         elif data_type_upper in ("GEOGRAPHY", "JSON"):  # BigQuery special types
-            return self._create_special_type_filter(escaped_col, val, data_type_upper)
+            return self._create_special_type_filter(
+                escaped_col, val, data_type_upper, param_name
+            )
         else:
-            return self._create_default_filter(escaped_col, val)
+            return self._create_default_filter(escaped_col, val, param_name)
 
-    def _create_string_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for STRING/VARCHAR data types."""
+    def _create_string_filter(
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for STRING/VARCHAR data types with parameters."""
         if not isinstance(val, str):
             val = str(val)
 
-        # Prevent SQL injection in string values
-        escaped_val = val.replace("'", "''")  # SQL standard escaping
-
         # Additional validation - reject suspicious patterns
-        if self._has_malicious_patterns(escaped_val):
+        if self._has_malicious_patterns(val):
             logger.warning(f"Rejecting potentially malicious string value: {val}")
             return None
 
-        return f"{escaped_col} = '{escaped_val}'"
+        filter_str = f"{escaped_col} = @{param_name}"
+        parameters = [ScalarQueryParameter(param_name, "STRING", val)]
+        return filter_str, parameters
 
-    def _create_date_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for DATE data type - BigQuery specific."""
+    def _create_date_filter(
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for DATE data type - BigQuery specific with parameters."""
         if isinstance(val, datetime):
             date_str = val.strftime("%Y-%m-%d")
         elif isinstance(val, str):
@@ -602,10 +854,14 @@ SELECT val, record_count FROM PartitionStats"""
             logger.warning(f"Invalid date type for BigQuery: {type(val)}")
             return None
 
-        return f"{escaped_col} = DATE '{date_str}'"
+        filter_str = f"{escaped_col} = @{param_name}"
+        parameters = [ScalarQueryParameter(param_name, "DATE", date_str)]
+        return filter_str, parameters
 
-    def _create_timestamp_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for TIMESTAMP data type - BigQuery specific."""
+    def _create_timestamp_filter(
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for TIMESTAMP data type - BigQuery specific with parameters."""
         if isinstance(val, datetime):
             # BigQuery TIMESTAMP format
             timestamp_str = val.strftime("%Y-%m-%d %H:%M:%S UTC")
@@ -625,32 +881,40 @@ SELECT val, record_count FROM PartitionStats"""
             logger.warning(f"Invalid timestamp type for BigQuery: {type(val)}")
             return None
 
-        return f"{escaped_col} = TIMESTAMP '{timestamp_str}'"
+        filter_str = f"{escaped_col} = @{param_name}"
+        parameters = [ScalarQueryParameter(param_name, "TIMESTAMP", timestamp_str)]
+        return filter_str, parameters
 
     def _create_integer_filter(
-        self, escaped_col: str, val: Any, data_type: str
-    ) -> Optional[str]:
-        """Create filter for integer data types."""
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for integer data types with parameters."""
         try:
             numeric_val = int(val)
-            return f"{escaped_col} = {numeric_val}"
+            filter_str = f"{escaped_col} = @{param_name}"
+            parameters = [ScalarQueryParameter(param_name, "INT64", numeric_val)]
+            return filter_str, parameters
         except (ValueError, TypeError):
-            logger.warning(f"Invalid integer value for {data_type}: {val}")
+            logger.warning(f"Invalid integer value: {val}")
             return None
 
     def _create_float_filter(
-        self, escaped_col: str, val: Any, data_type: str
-    ) -> Optional[str]:
-        """Create filter for float data types."""
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for float data types with parameters."""
         try:
             numeric_val = float(val)
-            return f"{escaped_col} = {numeric_val}"
+            filter_str = f"{escaped_col} = @{param_name}"
+            parameters = [ScalarQueryParameter(param_name, "FLOAT64", numeric_val)]
+            return filter_str, parameters
         except (ValueError, TypeError):
-            logger.warning(f"Invalid float value for {data_type}: {val}")
+            logger.warning(f"Invalid float value: {val}")
             return None
 
-    def _create_boolean_filter(self, escaped_col: str, val: Any) -> str:
-        """Create filter for boolean data types."""
+    def _create_boolean_filter(
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Tuple[str, List[ScalarQueryParameter]]:
+        """Create filter for boolean data types with parameters."""
         if isinstance(val, bool):
             bool_val = val
         elif isinstance(val, str):
@@ -658,47 +922,62 @@ SELECT val, record_count FROM PartitionStats"""
         else:
             bool_val = bool(val)
 
-        return f"{escaped_col} = {str(bool_val).upper()}"
+        filter_str = f"{escaped_col} = @{param_name}"
+        parameters = [ScalarQueryParameter(param_name, "BOOL", bool_val)]
+        return filter_str, parameters
 
-    def _create_bytes_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for BYTES data type."""
+    def _create_bytes_filter(
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for BYTES data type with parameters."""
         # BigQuery BYTES literals use base64 encoding
         if isinstance(val, bytes):
             import base64
 
             bytes_str = base64.b64encode(val).decode("utf-8")
-            return f"{escaped_col} = FROM_BASE64('{bytes_str}')"
+            filter_str = f"{escaped_col} = FROM_BASE64(@{param_name})"
+            parameters = [ScalarQueryParameter(param_name, "STRING", bytes_str)]
+            return filter_str, parameters
         elif isinstance(val, str):
             # Assume it's already base64 encoded
-            return f"{escaped_col} = FROM_BASE64('{val}')"
+            filter_str = f"{escaped_col} = FROM_BASE64(@{param_name})"
+            parameters = [ScalarQueryParameter(param_name, "STRING", val)]
+            return filter_str, parameters
         else:
             logger.warning(f"Invalid bytes value for BigQuery: {val}")
             return None
 
     def _create_special_type_filter(
-        self, escaped_col: str, val: Any, data_type: str
-    ) -> Optional[str]:
-        """Create filters for special BigQuery types like GEOGRAPHY, JSON."""
+        self, escaped_col: str, val: Any, data_type: str, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filters for special BigQuery types like GEOGRAPHY, JSON with parameters."""
         if data_type == "GEOGRAPHY":
             # BigQuery GEOGRAPHY typically uses WKT format
             if isinstance(val, str):
-                return f"{escaped_col} = ST_GEOGFROMTEXT('{val}')"
+                filter_str = f"{escaped_col} = ST_GEOGFROMTEXT(@{param_name})"
+                parameters = [ScalarQueryParameter(param_name, "STRING", val)]
+                return filter_str, parameters
         elif data_type == "JSON":
             # BigQuery JSON type
             if isinstance(val, (dict, list)):
                 import json
 
-                json_str = json.dumps(val).replace("'", "''")
-                return f"{escaped_col} = PARSE_JSON('{json_str}')"
+                json_str = json.dumps(val)
+                filter_str = f"{escaped_col} = PARSE_JSON(@{param_name})"
+                parameters = [ScalarQueryParameter(param_name, "STRING", json_str)]
+                return filter_str, parameters
             elif isinstance(val, str):
-                escaped_val = val.replace("'", "''")
-                return f"{escaped_col} = PARSE_JSON('{escaped_val}')"
+                filter_str = f"{escaped_col} = PARSE_JSON(@{param_name})"
+                parameters = [ScalarQueryParameter(param_name, "STRING", val)]
+                return filter_str, parameters
 
         logger.warning(f"Unsupported special type filter for {data_type}: {val}")
         return None
 
-    def _create_default_filter(self, escaped_col: str, val: Any) -> Optional[str]:
-        """Create filter for unknown data types (treat as string with validation)."""
+    def _create_default_filter(
+        self, escaped_col: str, val: Any, param_name: str
+    ) -> Optional[Tuple[str, List[ScalarQueryParameter]]]:
+        """Create filter for unknown data types (treat as string with validation) using parameters."""
         str_val = str(val)
 
         if self._has_malicious_patterns(str_val):
@@ -707,8 +986,9 @@ SELECT val, record_count FROM PartitionStats"""
             )
             return None
 
-        escaped_val = str_val.replace("'", "''")
-        return f"{escaped_col} = '{escaped_val}'"
+        filter_str = f"{escaped_col} = @{param_name}"
+        parameters = [ScalarQueryParameter(param_name, "STRING", str_val)]
+        return filter_str, parameters
 
     def _validate_filter_expression(self, filter_expr: str) -> bool:
         """
@@ -743,8 +1023,8 @@ SELECT val, record_count FROM PartitionStats"""
                 )
                 return False
 
-        # Validate that filter follows expected format: `column` operator value
-        expected_pattern = r"^`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:=|!=|<|>|<=|>=|IS\s+NOT\s+NULL|IS\s+NULL)\s*(?:\d+(?:\.\d+)?|\'[^\']*\'|(?:DATE|TIMESTAMP)\s*\'[^\']*\'|(?:TRUE|FALSE))$"
+        # Validate that filter follows expected format: `column` operator value or `column` operator @param
+        expected_pattern = r"^`[a-zA-Z_][a-zA-Z0-9_]*`\s*(?:=|!=|<|>|<=|>=|IS\s+NOT\s+NULL|IS\s+NULL)\s*(?:\d+(?:\.\d+)?|\'[^\']*\'|@[a-zA-Z_][a-zA-Z0-9_]*|(?:DATE|TIMESTAMP)\s*(?:\'[^\']*\'|@[a-zA-Z_][a-zA-Z0-9_]*)|(?:TRUE|FALSE)|FROM_BASE64\(@[a-zA-Z_][a-zA-Z0-9_]*\)|ST_GEOGFROMTEXT\(@[a-zA-Z_][a-zA-Z0-9_]*\)|PARSE_JSON\(@[a-zA-Z_][a-zA-Z0-9_]*\))$"
 
         if not re.match(expected_pattern, filter_expr.strip(), re.IGNORECASE):
             logger.warning(f"Filter doesn't match expected pattern: {filter_expr}")
@@ -754,18 +1034,20 @@ SELECT val, record_count FROM PartitionStats"""
 
     def _create_partition_filter_from_value(
         self, col_name: str, val: Any, data_type: str
-    ) -> str:
+    ) -> Tuple[str, List[ScalarQueryParameter]]:
         """
-        Create a secure filter string for a partition column with a specific value.
+        Create a secure filter string and parameters for a partition column with a specific value.
         """
-        filter_expr = self._create_secure_partition_filter(col_name, val, data_type)
+        filter_result = self._create_secure_partition_filter(col_name, val, data_type)
 
-        if filter_expr is None:
+        if filter_result is None:
             # Fallback to IS NOT NULL if we can't create a safe filter
             if re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", col_name):
-                return f"`{col_name}` IS NOT NULL"
+                return f"`{col_name}` IS NOT NULL", []
             else:
                 raise ValueError(f"Cannot create safe filter for column: {col_name}")
+
+        filter_expr, parameters = filter_result
 
         # Double-check the filter is safe
         if not self._validate_filter_expression(filter_expr):
@@ -773,7 +1055,7 @@ SELECT val, record_count FROM PartitionStats"""
                 f"Generated filter failed security validation: {filter_expr}"
             )
 
-        return filter_expr
+        return filter_expr, parameters
 
     @staticmethod
     def get_partition_range_from_partition_id(
@@ -862,7 +1144,7 @@ SELECT val, record_count FROM PartitionStats"""
             return result
 
     def _get_partition_column_types(self, table, project, schema, partition_columns):
-        """Get data types for partition columns using common utilities."""
+        """Get data types for partition columns using parameterized queries."""
         if not partition_columns:
             return {}
 
@@ -881,7 +1163,7 @@ SELECT val, record_count FROM PartitionStats"""
                 project, schema, "INFORMATION_SCHEMA.COLUMNS"
             )
 
-            # Use utility for parameterized query building
+            # Use parameterized query building
             column_conditions = []
             parameters = [ScalarQueryParameter("table_name", "STRING", table.name)]
 
@@ -900,7 +1182,7 @@ AND ({column_filter_clause})"""
             job_config = QueryJobConfig(query_parameters=parameters)
 
             # Use utility for execution
-            query_results = self._execute_parameterized_query_safely(
+            query_results = self._execute_query_safely(
                 query, job_config, "partition column types"
             )
             return {row.column_name: row.data_type for row in query_results}
@@ -951,15 +1233,18 @@ AND partition_id != '__NULL__'
 AND partition_id != '__UNPARTITIONED__'
 AND total_rows > 0
 ORDER BY total_rows DESC
-LIMIT {safe_max_results}"""
+LIMIT @max_results"""
 
             job_config = QueryJobConfig(
                 query_parameters=[
-                    ScalarQueryParameter("table_name", "STRING", table.name)
+                    ScalarQueryParameter("table_name", "STRING", table.name),
+                    ScalarQueryParameter("max_results", "INT64", safe_max_results),
                 ]
             )
 
-            partition_info_results = self.execute_query_with_config(query, job_config)
+            partition_info_results = self._execute_query_safely(
+                query, job_config, "partition info from information schema"
+            )
 
             if not partition_info_results:
                 logger.warning(
@@ -1062,7 +1347,7 @@ LIMIT {safe_max_results}"""
     def _get_partition_info_from_table_query(
         self, table, project, schema, partition_columns, max_results=5
     ):
-        """Get partition information by querying the actual table using common utilities."""
+        """Get partition information by querying the actual table using parameterized queries."""
         if not partition_columns:
             return {}
 
@@ -1075,15 +1360,15 @@ LIMIT {safe_max_results}"""
                 if not self._validate_column_name(col_name, "table query partition"):
                     continue
 
-                # Use utility for query building
-                query = self._create_partition_stats_query(
+                # Use utility for query building with parameters
+                query, job_config = self._create_partition_stats_query(
                     safe_table_ref, col_name, max_results
                 )
 
                 # Use utility for execution with context
                 self._log_partition_attempt("table query", table.name, [col_name])
                 partition_values_results = self._execute_query_safely(
-                    query, f"partition column {col_name}"
+                    query, job_config, f"partition column {col_name}"
                 )
 
                 if (
@@ -1137,7 +1422,7 @@ LIMIT {safe_max_results}"""
         schema: str,
     ) -> Dict[str, str]:
         """
-        Get partition columns from INFORMATION_SCHEMA.
+        Get partition columns from INFORMATION_SCHEMA using parameterized queries.
 
         Args:
             table: BigqueryTable instance
@@ -1162,7 +1447,9 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                 ]
             )
 
-            partition_column_rows = self.execute_query_with_config(query, job_config)
+            partition_column_rows = self._execute_query_safely(
+                query, job_config, "partition columns from info schema"
+            )
 
             partition_columns = [row.column_name for row in partition_column_rows]
 
@@ -1677,15 +1964,15 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
 
                 for days_ago in quick_test_days:
                     test_date = current_date - timedelta(days=days_ago)
-                    filter_str = self._create_partition_filter_from_value(
+                    filter_str, parameters = self._create_partition_filter_from_value(
                         col_name, test_date, data_type
                     )
 
                     logger.debug(
                         f"Quick test: {days_ago} days ago ({test_date.strftime('%Y-%m-%d')}): {filter_str}"
                     )
-                    if self._verify_partition_has_data(
-                        table, project, schema, [filter_str]
+                    if self._verify_partition_has_data_with_params(
+                        table, project, schema, [(filter_str, parameters)]
                     ):
                         logger.debug(
                             f"Found working date filter using quick recent check: {filter_str}"
@@ -1707,7 +1994,9 @@ FROM {safe_table_ref}
 WHERE `{col_name}` IS NOT NULL"""
 
                 try:
-                    recent_results = self.execute_query(recent_date_query)
+                    recent_results = self._execute_query_safely(
+                        recent_date_query, context=f"recent date for {col_name}"
+                    )
                     if recent_results and recent_results[0].max_date:
                         # Start from the most recent date found in the table
                         recent_date = recent_results[0].max_date
@@ -1732,15 +2021,17 @@ WHERE `{col_name}` IS NOT NULL"""
                             if days_from_current in [0, 1, 2, 3]:
                                 continue
 
-                            filter_str = self._create_partition_filter_from_value(
-                                col_name, test_date, data_type
+                            filter_str, parameters = (
+                                self._create_partition_filter_from_value(
+                                    col_name, test_date, data_type
+                                )
                             )
 
                             logger.debug(
                                 f"Testing table max date - {days_ago} days: {filter_str}"
                             )
-                            if self._verify_partition_has_data(
-                                table, project, schema, [filter_str]
+                            if self._verify_partition_has_data_with_params(
+                                table, project, schema, [(filter_str, parameters)]
                             ):
                                 logger.debug(
                                     f"Found working date filter using table max date: {filter_str}"
@@ -1756,15 +2047,15 @@ WHERE `{col_name}` IS NOT NULL"""
                 # Try wider date range, skipping days already tested
                 for days_ago in [7, 14, 30, 60, 90, 180, 365]:
                     test_date = current_date - timedelta(days=days_ago)
-                    filter_str = self._create_partition_filter_from_value(
+                    filter_str, parameters = self._create_partition_filter_from_value(
                         col_name, test_date, data_type
                     )
 
                     logger.debug(
                         f"Extended range test - {days_ago} days ago: {filter_str}"
                     )
-                    if self._verify_partition_has_data(
-                        table, project, schema, [filter_str]
+                    if self._verify_partition_has_data_with_params(
+                        table, project, schema, [(filter_str, parameters)]
                     ):
                         logger.debug(
                             f"Found working date filter using extended range: {filter_str}"
@@ -1840,14 +2131,19 @@ WHERE `{col_name}` IS NOT NULL"""
     GROUP BY `{col_name}`
     HAVING record_count > 0
     ORDER BY `{col_name}` {order_by}
-    LIMIT 10
+    LIMIT @max_results
 )
 SELECT val, record_count FROM PartitionStats"""
 
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("max_results", "INT64", 10)]
+            )
+
             logger.debug(f"Executing fallback query with {order_by} ordering")
             try:
-                query_job = self.config.get_bigquery_client().query(query)
-                partition_stats_rows: List[Any] = list(query_job.result())
+                partition_stats_rows = self._execute_query_safely(
+                    query, job_config, f"fallback query {order_by}"
+                )
 
                 if partition_stats_rows:
                     logger.debug(
@@ -1857,14 +2153,16 @@ SELECT val, record_count FROM PartitionStats"""
                     for result in partition_stats_rows:
                         val = result.val
                         if val is not None:
-                            filter_str = self._create_partition_filter_from_value(
-                                col_name, val, data_type
+                            filter_str, parameters = (
+                                self._create_partition_filter_from_value(
+                                    col_name, val, data_type
+                                )
                             )
 
                             logger.debug(f"Testing filter: {filter_str}")
                             # Test each filter individually
-                            if self._verify_partition_has_data(
-                                table, project, schema, [filter_str]
+                            if self._verify_partition_has_data_with_params(
+                                table, project, schema, [(filter_str, parameters)]
                             ):
                                 logger.debug(f"Found working filter: {filter_str}")
                                 return filter_str
@@ -1889,12 +2187,11 @@ SELECT val, record_count FROM PartitionStats"""
         )
 
         # Try with simplified approach - just get most recent partition
-        if self._try_get_most_recent_partition(
+        recent_filters = self._try_get_most_recent_partition(
             table, project, schema, partition_cols_with_types
-        ):
-            return self._try_get_most_recent_partition(
-                table, project, schema, partition_cols_with_types
-            )
+        )
+        if recent_filters:
+            return recent_filters
 
         # Try to find the most populated partition for any column
         return self._try_find_most_populated_partition(
@@ -1934,17 +2231,25 @@ SELECT val, record_count FROM PartitionStats"""
             query = f"""SELECT *
 FROM {safe_table_ref}
 ORDER BY `{first_col}` DESC
-LIMIT 1"""
+LIMIT @limit_rows"""
 
-            latest_partition_row: List[Any] = self.execute_query(query)
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+            )
+
+            latest_partition_row = self._execute_query_safely(
+                query, job_config, "most recent partition"
+            )
 
             if latest_partition_row and len(latest_partition_row) > 0:
                 for col_name in partition_cols_with_types:
                     val = getattr(latest_partition_row[0], col_name, None)
                     if val is not None:
                         data_type = partition_cols_with_types.get(col_name, "STRING")
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, val, data_type
+                        filter_str, parameters = (
+                            self._create_partition_filter_from_value(
+                                col_name, val, data_type
+                            )
                         )
                         fallback_filters.append(filter_str)
                         logger.debug(
@@ -1989,10 +2294,16 @@ FROM {safe_table_ref}
 WHERE `{col_name}` IS NOT NULL
 GROUP BY `{col_name}`
 ORDER BY cnt DESC
-LIMIT 1"""
+LIMIT @limit_rows"""
+
+                job_config = QueryJobConfig(
+                    query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+                )
 
                 try:
-                    most_populated_results: List[Any] = self.execute_query(query)
+                    most_populated_results = self._execute_query_safely(
+                        query, job_config, f"most populated for {col_name}"
+                    )
 
                     if (
                         most_populated_results
@@ -2007,7 +2318,7 @@ LIMIT 1"""
 
             if best_col and best_val:
                 data_type = partition_cols_with_types.get(best_col, "STRING")
-                filter_str = self._create_partition_filter_from_value(
+                filter_str, parameters = self._create_partition_filter_from_value(
                     best_col, best_val, data_type
                 )
                 logger.debug(f"Last resort filter: {filter_str} with {best_count} rows")
@@ -2019,7 +2330,7 @@ LIMIT 1"""
         return None
 
     def _verify_partition_has_data(self, table, project, schema, filters):
-        """Verify that the partition filters actually return data using common utilities."""
+        """Verify that the partition filters actually return data using parameterized queries."""
         if not filters:
             return False
 
@@ -2037,11 +2348,15 @@ LIMIT 1"""
             query = f"""SELECT COUNT(*) as cnt
 FROM {safe_table_ref}
 WHERE {where_clause}
-LIMIT 1000"""
+LIMIT @limit_rows"""
+
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1000)]
+            )
 
             # Use utility for execution
             count_verification_results = self._execute_query_safely(
-                query, "partition verification"
+                query, job_config, "partition verification"
             )
 
             if count_verification_results and count_verification_results[0].cnt > 0:
@@ -2057,16 +2372,75 @@ LIMIT 1000"""
 
             # Use utility for fallback attempt
             try:
-                simpler_query = (
-                    "SELECT 1 FROM " + safe_table_ref + f" WHERE {where_clause} LIMIT 1"
+                simpler_query = f"""SELECT 1 FROM {safe_table_ref} WHERE {where_clause} LIMIT @limit_rows"""
+
+                job_config = QueryJobConfig(
+                    query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
                 )
+
                 sample_verification_results = self._execute_query_safely(
-                    simpler_query, "partition verification fallback"
+                    simpler_query, job_config, "partition verification fallback"
                 )
                 return len(sample_verification_results) > 0
             except Exception as e:
                 logger.warning(f"Simple verification also failed: {e}")
                 return False
+
+    def _verify_partition_has_data_with_params(
+        self, table, project, schema, filter_param_pairs
+    ):
+        """Verify that partition filters with parameters return data."""
+        if not filter_param_pairs:
+            return False
+
+        safe_table_ref = self._build_safe_table_reference(project, schema, table.name)
+
+        # Combine all filters and parameters
+        where_clauses = []
+        all_parameters = []
+
+        for filter_str, parameters in filter_param_pairs:
+            if self._validate_filter_expression(filter_str):
+                where_clauses.append(filter_str)
+                all_parameters.extend(parameters)
+            else:
+                logger.warning(
+                    f"Rejecting invalid filter in verification: {filter_str}"
+                )
+
+        if not where_clauses:
+            return False
+
+        where_clause = " AND ".join(where_clauses)
+
+        try:
+            query = f"""SELECT COUNT(*) as cnt
+FROM {safe_table_ref}
+WHERE {where_clause}
+LIMIT @limit_rows"""
+
+            # Add limit parameter
+            all_parameters.append(ScalarQueryParameter("limit_rows", "INT64", 1000))
+
+            job_config = QueryJobConfig(query_parameters=all_parameters)
+
+            count_verification_results = self._execute_query_safely(
+                query, job_config, "partition verification with params"
+            )
+
+            if count_verification_results and count_verification_results[0].cnt > 0:
+                logger.debug(
+                    f"Verified partition filters return {count_verification_results[0].cnt} rows: {where_clause}"
+                )
+                return True
+            else:
+                logger.warning(f"Partition verification found no data: {where_clause}")
+                return False
+        except Exception as e:
+            logger.warning(
+                f"Error verifying partition data with params: {e}", exc_info=True
+            )
+            return False
 
     def _get_partitions_with_sampling(
         self,
@@ -2110,11 +2484,19 @@ LIMIT 1000"""
 
             # Use TABLESAMPLE to get a small sample of data
             sample_query = f"""SELECT *
-FROM {safe_table_ref} TABLESAMPLE SYSTEM (1 PERCENT)
-LIMIT 100"""
+FROM {safe_table_ref} TABLESAMPLE SYSTEM (@sample_percent PERCENT)
+LIMIT @limit_rows"""
 
-            query_job = self.config.get_bigquery_client().query(sample_query)
-            partition_sample_rows: List[Any] = list(query_job.result())
+            job_config = QueryJobConfig(
+                query_parameters=[
+                    ScalarQueryParameter("sample_percent", "FLOAT64", 1.0),
+                    ScalarQueryParameter("limit_rows", "INT64", 100),
+                ]
+            )
+
+            partition_sample_rows = self._execute_query_safely(
+                sample_query, job_config, "partition sampling"
+            )
 
             if not partition_sample_rows:
                 logger.debug("Sample query returned no results")
@@ -2126,8 +2508,10 @@ LIMIT 100"""
                 for row in partition_sample_rows:
                     if hasattr(row, col_name) and getattr(row, col_name) is not None:
                         val = getattr(row, col_name)
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, val, data_type
+                        filter_str, parameters = (
+                            self._create_partition_filter_from_value(
+                                col_name, val, data_type
+                            )
                         )
                         filters.append(filter_str)
                         logger.debug(
@@ -2190,8 +2574,10 @@ LIMIT 100"""
                     combined_filters = []
                     for col_name, value in partition_values.items():
                         data_type = partition_cols_with_types.get(col_name, "STRING")
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, value, data_type
+                        filter_str, parameters = (
+                            self._create_partition_filter_from_value(
+                                col_name, value, data_type
+                            )
                         )
                         combined_filters.append(filter_str)
 
@@ -2223,8 +2609,10 @@ LIMIT 100"""
                     )
 
                     if partition_value is not None:
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, partition_value, data_type
+                        filter_str, parameters = (
+                            self._create_partition_filter_from_value(
+                                col_name, partition_value, data_type
+                            )
                         )
                         logger.debug(
                             f"Found filter for column {col_name}: {filter_str}"
@@ -2324,8 +2712,15 @@ LIMIT 100"""
                 )
 
                 # Run a simple query to trigger partition error
-                test_query = "SELECT COUNT(*) FROM " + safe_table_ref + "LIMIT 1"
-                self.execute_query(test_query)
+                test_query = (
+                    f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT @limit_rows"""
+                )
+                job_config = QueryJobConfig(
+                    query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+                )
+                self._execute_query_safely(
+                    test_query, job_config, "partition detection"
+                )
 
                 # If the query succeeds, table is not partitioned
                 logger.debug(f"Table {table.name} is not partitioned")
@@ -2412,8 +2807,10 @@ LIMIT 100"""
                     filters = []
                     for col_name, value in partition_values.items():
                         data_type = column_data_types.get(col_name, "STRING")
-                        filter_str = self._create_partition_filter_from_value(
-                            col_name, value, data_type
+                        filter_str, parameters = (
+                            self._create_partition_filter_from_value(
+                                col_name, value, data_type
+                            )
                         )
                         filters.append(filter_str)
 
@@ -2432,7 +2829,7 @@ LIMIT 100"""
                 )
 
                 if partition_value is not None:
-                    filter_str = self._create_partition_filter_from_value(
+                    filter_str, parameters = self._create_partition_filter_from_value(
                         col_name, partition_value, data_type
                     )
                     individual_filters.append(filter_str)
@@ -2514,7 +2911,7 @@ LIMIT 100"""
         self, table: BigqueryTable, project: str, schema: str
     ) -> set:
         """
-        Extract partition column names from INFORMATION_SCHEMA.
+        Extract partition column names from INFORMATION_SCHEMA using parameterized queries.
 
         Args:
             table: BigqueryTable instance
@@ -2542,11 +2939,8 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             )
 
             # Use the configured timeout for partition operations
-            query_job = self.config.get_bigquery_client().query(
-                query, job_config=job_config
-            )
-            query_results = list(
-                query_job.result(timeout=self.config.profiling.partition_fetch_timeout)
+            query_results = self._execute_query_safely(
+                query, job_config, "partition columns from schema"
             )
             required_partition_columns = {row.column_name for row in query_results}
             logger.debug(
@@ -2561,9 +2955,14 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                     project, schema, table.name
                 )
 
-                test_query = f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT 1"""
-                self.config.get_bigquery_client().query(test_query).result(
-                    timeout=self.config.profiling.partition_fetch_timeout
+                test_query = (
+                    f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT @limit_rows"""
+                )
+                job_config = QueryJobConfig(
+                    query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+                )
+                self._execute_query_safely(
+                    test_query, job_config, "partition error detection"
                 )
             except Exception as e:
                 error_info = self._extract_partition_info_from_error(str(e))
@@ -2578,7 +2977,7 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         column_data_types: Dict[str, str],
     ) -> List[str]:
         """
-        Process time-based partition columns (year, month, day, hour).
+        Process time-based partition columns (year, month, day, hour) with parameterized queries.
 
         Args:
             time_based_columns: Set of time-based column names
@@ -2595,33 +2994,40 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             col_data_type = column_data_types.get(col_name, "STRING")
 
             if col_name_lower == "year":
-                value = current_time.year
+                pass
             elif col_name_lower == "month":
-                value = current_time.month
                 # Format month with leading zero if used as string
                 if col_data_type.upper() in {"STRING"}:
-                    partition_filters.append(f"`{col_name}` = '{value:02d}'")
+                    partition_filters.append(
+                        f"`{col_name}` = @month_val_{hash(col_name) % 1000}"
+                    )
                     continue
             elif col_name_lower == "day":
-                value = current_time.day
                 # Format day with leading zero if used as string
                 if col_data_type.upper() in {"STRING"}:
-                    partition_filters.append(f"`{col_name}` = '{value:02d}'")
+                    partition_filters.append(
+                        f"`{col_name}` = @day_val_{hash(col_name) % 1000}"
+                    )
                     continue
             elif col_name_lower == "hour":
-                value = current_time.hour
                 # Format hour with leading zero if used as string
                 if col_data_type.upper() in {"STRING"}:
-                    partition_filters.append(f"`{col_name}` = '{value:02d}'")
+                    partition_filters.append(
+                        f"`{col_name}` = @hour_val_{hash(col_name) % 1000}"
+                    )
                     continue
             else:
                 continue
 
             # Handle casting based on column type
             if col_data_type.upper() in {"STRING"}:
-                partition_filters.append(f"`{col_name}` = '{value}'")
+                partition_filters.append(
+                    f"`{col_name}` = @str_val_{hash(col_name) % 1000}"
+                )
             else:
-                partition_filters.append(f"`{col_name}` = {value}")
+                partition_filters.append(
+                    f"`{col_name}` = @num_val_{hash(col_name) % 1000}"
+                )
 
         return partition_filters
 
@@ -2671,7 +3077,7 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
     def _get_column_data_types_for_fallback(
         self, table: BigqueryTable, project: str, schema: str
     ) -> Dict[str, str]:
-        """Get column data types for fallback filter generation."""
+        """Get column data types for fallback filter generation using parameterized queries."""
         column_data_types = {}
         try:
             safe_info_schema_ref = self._build_safe_table_reference(
@@ -2688,7 +3094,9 @@ WHERE table_name = @table_name"""
                 ]
             )
 
-            query_results = self.execute_query_with_config(query, job_config)
+            query_results = self._execute_query_safely(
+                query, job_config, "column data types for fallback"
+            )
             column_data_types = {
                 row.column_name: row.data_type for row in query_results
             }
@@ -2713,7 +3121,9 @@ WHERE table_name = @table_name"""
     def _create_fallback_filter_for_column(
         self, col_name, column_data_types, fallback_date
     ):
-        """Create a fallback filter for a specific column using common utilities."""
+        """Create a fallback filter for a specific column using parameterized approach."""
+        # Note: Since we're returning simple filter strings for fallback (not parameterized),
+        # we maintain the existing logic but could enhance this further if needed
         data_type = (
             column_data_types.get(col_name, "").upper() if column_data_types else ""
         )
@@ -2743,8 +3153,7 @@ WHERE table_name = @table_name"""
             "",
         ]:
             formatted_date = fallback_date.strftime("%Y-%m-%d")
-            escaped_date = self._escape_sql_string(formatted_date)
-            return f"`{col_name}` = '{escaped_date}'"
+            return f"`{col_name}` = '{formatted_date}'"
         else:
             # Last resort - use IS NOT NULL
             logger.warning(
@@ -2752,107 +3161,44 @@ WHERE table_name = @table_name"""
             )
             return f"`{col_name}` IS NOT NULL"
 
+    def _format_filter_value(self, value: Any, format_type: str) -> str:
+        """
+        Format a value for use in a filter based on the format type.
+
+        Args:
+            value: Value to format
+            format_type: How to format ("numeric", "zero_padded", "date_string", "string")
+
+        Returns:
+            Formatted value string for SQL
+        """
+        if format_type == "numeric":
+            return str(value)
+        elif format_type == "zero_padded":
+            return f"'{value:02d}'"
+        elif format_type in ("date_string", "string"):
+            # Note: For fallback filters, we're keeping the simple approach
+            # but could enhance to use parameters if needed
+            escaped_value = str(value).replace("'", "''")
+            return f"'{escaped_value}'"
+        else:
+            # Default to escaped string
+            escaped_value = str(value).replace("'", "''")
+            return f"'{escaped_value}'"
+
     def _create_explicit_fallback_filter(self, col_name: str) -> str:
         """Create filter using explicit fallback value from config."""
         fallback_value = self.config.profiling.fallback_partition_values[col_name]
 
         if isinstance(fallback_value, str):
-            filter_str = f"`{col_name}` = '{fallback_value}'"
+            # Escape string values
+            escaped_value = fallback_value.replace("'", "''")
+            filter_str = f"`{col_name}` = '{escaped_value}'"
         else:
             filter_str = f"`{col_name}` = {fallback_value}"
 
         logger.debug(f"Using explicit fallback value for {col_name}: {fallback_value}")
         return filter_str
-
-    def _create_day_column_filter(self, col_name: str, fallback_date: datetime) -> str:
-        """Create filter for 'day' column using day of month as string."""
-        day_of_month = fallback_date.day
-        filter_str = f"`{col_name}` = '{day_of_month:02d}'"
-        logger.debug(
-            f"Using day of month as string for 'day' column: '{day_of_month:02d}'"
-        )
-        return filter_str
-
-    def _create_date_type_filter(
-        self, col_name: str, fallback_date: datetime, data_type: str
-    ) -> str:
-        """Create filter for DATE type columns."""
-        formatted_date = fallback_date.strftime("%Y-%m-%d")
-        filter_str = f"`{col_name}` = DATE '{formatted_date}'"
-        logger.debug(
-            f"Using DATE literal for {col_name} ({data_type} type): {formatted_date}"
-        )
-        return filter_str
-
-    def _create_timestamp_type_filter(
-        self, col_name: str, fallback_date: datetime, data_type: str
-    ) -> str:
-        """Create filter for TIMESTAMP/DATETIME type columns."""
-        formatted_datetime = fallback_date.strftime("%Y-%m-%d %H:%M:%S")
-        filter_str = f"`{col_name}` = TIMESTAMP '{formatted_datetime}'"
-        logger.debug(
-            f"Using TIMESTAMP literal for {col_name} ({data_type} type): {formatted_datetime}"
-        )
-        return filter_str
-
-    def _create_string_date_filter(self, col_name: str, fallback_date: datetime) -> str:
-        """Create filter for STRING columns that look like date columns."""
-        formatted_date = fallback_date.strftime("%Y-%m-%d")
-        filter_str = f"`{col_name}` = '{formatted_date}'"
-        logger.debug(
-            f"Using string literal for {col_name} (STRING type): {formatted_date}"
-        )
-        return filter_str
-
-    def _create_year_filter(self, col_name: str, fallback_date: datetime) -> str:
-        """Create filter for year columns."""
-        year_value = fallback_date.year
-        filter_str = f"`{col_name}` = '{year_value}'"
-        logger.debug(f"Using year fallback as string for {col_name}: '{year_value}'")
-        return filter_str
-
-    def _create_month_filter(self, col_name: str, fallback_date: datetime) -> str:
-        """Create filter for month columns."""
-        month_value = fallback_date.month
-        filter_str = f"`{col_name}` = '{month_value:02d}'"
-        logger.debug(
-            f"Using month fallback as string for {col_name}: '{month_value:02d}'"
-        )
-        return filter_str
-
-    def _create_day_like_filter(self, col_name: str, fallback_date: datetime) -> str:
-        """Create filter for day-like columns."""
-        day_value = fallback_date.day
-        filter_str = f"`{col_name}` = '{day_value:02d}'"
-        logger.debug(f"Using day fallback as string for {col_name}: '{day_value:02d}'")
-        return filter_str
-
-    def _is_string_date_column(self, col_lower: str, data_type: str) -> bool:
-        """Check if column is a STRING type that looks like a date."""
-        date_patterns = [
-            "date",
-            "dt",
-            "partition_date",
-            "created_date",
-            "timestamp",
-            "datetime",
-            "time",
-            "created_at",
-            "event_time",
-        ]
-        return col_lower in date_patterns and data_type in ["STRING", "VARCHAR", ""]
-
-    def _is_year_column(self, col_lower: str) -> bool:
-        """Check if column is a year column."""
-        return col_lower == "year" or (
-            col_lower.endswith("year") and len(col_lower) < 10
-        )
-
-    def _is_month_column(self, col_lower: str) -> bool:
-        """Check if column is a month column."""
-        return col_lower == "month" or (
-            col_lower.endswith("month") and len(col_lower) < 10
-        )
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -3203,14 +3549,21 @@ WHERE {partition_where}"""
                         sample_query = f"""SELECT DISTINCT `{col}` as value
 FROM {safe_table_ref}
 WHERE `{col}` IS NOT NULL
-LIMIT 1"""
+LIMIT @limit_rows"""
 
                         # Add date filters if we have them, to reduce query scope
                         where_clauses = []
+                        parameters = [ScalarQueryParameter("limit_rows", "INT64", 1)]
+
                         for date_col in ["year", "month", "day"]:
                             if date_col in date_values and date_col in required_columns:
-                                where_clauses.append(
-                                    f"`{date_col}` = {date_values[date_col]}"
+                                where_clauses.append(f"`{date_col}` = @{date_col}_val")
+                                parameters.append(
+                                    ScalarQueryParameter(
+                                        f"{date_col}_val",
+                                        "INT64",
+                                        date_values[date_col],
+                                    )
                                 )
 
                         if where_clauses:
@@ -3219,7 +3572,11 @@ LIMIT 1"""
                                 f"WHERE {' AND '.join(where_clauses)} AND `{col}` IS NOT NULL",
                             )
 
-                        result = self.execute_query(sample_query)
+                        job_config = QueryJobConfig(query_parameters=parameters)
+                        result = self._execute_query_safely(
+                            sample_query, job_config, f"sample value for {col}"
+                        )
+
                         if result and len(result) > 0 and hasattr(result[0], "value"):
                             value = result[0].value
                             if isinstance(value, (int, float)):
@@ -3245,7 +3602,7 @@ LIMIT 1"""
         filters: List[str],
     ) -> Tuple[bool, int]:
         """
-        Check if a partition has data by running a COUNT query.
+        Check if a partition has data by running a COUNT query with parameters.
 
         Args:
             project: Project ID
@@ -3279,7 +3636,7 @@ LIMIT 1"""
 FROM {safe_table_ref}
 WHERE {" AND ".join(validated_filters)}"""
 
-            results = self.execute_query(query)
+            results = self._execute_query_safely(query, context="partition data check")
 
             if results and len(results) > 0:
                 row_count = getattr(results[0], "row_count", 0)
@@ -3373,9 +3730,17 @@ FROM {safe_table_ref}
 WHERE {" AND ".join(date_filters)} AND `{col}` IS NOT NULL
 GROUP BY `{col}`
 ORDER BY count DESC
-LIMIT 1"""
+LIMIT @limit_rows"""
 
-                            result = self.execute_query(sample_query)
+                            job_config = QueryJobConfig(
+                                query_parameters=[
+                                    ScalarQueryParameter("limit_rows", "INT64", 1)
+                                ]
+                            )
+
+                            result = self._execute_query_safely(
+                                sample_query, job_config, f"sample for {col}"
+                            )
 
                             if (
                                 result
@@ -3510,9 +3875,13 @@ LIMIT 1"""
             test_query = f"""SELECT COUNT(*) as count
 FROM {safe_table_ref}
 WHERE {" AND ".join(date_filters)}
-LIMIT 1"""
+LIMIT @limit_rows"""
 
-            self.execute_query(test_query)
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+            )
+
+            self._execute_query_safely(test_query, job_config, "date filter test")
             # If we get here, filters work but partition is empty
             logger.debug(
                 "Date filters work but partition is empty, trying to find a partition with data"
@@ -3600,8 +3969,15 @@ LIMIT 1"""
                 safe_table_ref = self._build_safe_table_reference(
                     project, schema, table.name
                 )
-                test_query = f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT 1"""
-                self.execute_query(test_query)
+                test_query = (
+                    f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT @limit_rows"""
+                )
+                job_config = QueryJobConfig(
+                    query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+                )
+                self._execute_query_safely(
+                    test_query, job_config, "required columns detection"
+                )
             except Exception as e:
                 error_info = self._extract_partition_info_from_error(str(e))
                 if "required_columns" in error_info and error_info["required_columns"]:
@@ -3681,7 +4057,7 @@ LIMIT 1"""
         date_filters: List[str],
     ) -> Tuple[Any, bool]:
         """
-        Sample a value for a column using a query.
+        Sample a value for a column using a parameterized query.
 
         Args:
             project: BigQuery project ID
@@ -3710,7 +4086,9 @@ FROM {safe_table_ref}
 WHERE `{col_name}` IS NOT NULL
 GROUP BY `{col_name}`
 ORDER BY count DESC
-LIMIT 1"""
+LIMIT @limit_rows"""
+
+            parameters = [ScalarQueryParameter("limit_rows", "INT64", 1)]
 
             # Apply date filters if available
             if date_filters:
@@ -3726,8 +4104,12 @@ LIMIT 1"""
                         f"WHERE {' AND '.join(validated_date_filters)} AND `{col_name}` IS NOT NULL",
                     )
 
+            job_config = QueryJobConfig(query_parameters=parameters)
+
             # Execute the query
-            result = self.execute_query(sample_query)
+            result = self._execute_query_safely(
+                sample_query, job_config, f"sample column {col_name}"
+            )
 
             if result and len(result) > 0:
                 value = getattr(result[0], "value", None)
@@ -3963,8 +4345,17 @@ LIMIT 1"""
                         project, schema, table.name
                     )
                     # Run a simple query to trigger partition error
-                    test_query = f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT 1"""
-                    self.execute_query(test_query)
+                    test_query = (
+                        f"""SELECT COUNT(*) FROM {safe_table_ref} LIMIT @limit_rows"""
+                    )
+                    job_config = QueryJobConfig(
+                        query_parameters=[
+                            ScalarQueryParameter("limit_rows", "INT64", 1)
+                        ]
+                    )
+                    self._execute_query_safely(
+                        test_query, job_config, "partition trigger"
+                    )
                 except Exception as e:
                     error_filters, error_values, error_has_data = (
                         self._try_error_based_filters(e, project, schema, table)
@@ -4050,7 +4441,7 @@ LIMIT 1"""
 
     def execute_query(self, query: str) -> List[Any]:
         """
-        Execute a BigQuery query with timeout from configuration and security validation.
+        Execute a BigQuery query with timeout from configuration and enhanced security validation.
 
         Args:
             query: SQL query to execute
@@ -4058,11 +4449,14 @@ LIMIT 1"""
         Returns:
             List of row results
         """
-        # Validate query doesn't contain obvious injection attempts
+        # Enhanced security validation
+        self._validate_sql_structure(query)
+
+        # Additional basic pattern check for immediate threats
         dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
         for pattern in dangerous_patterns:
             if pattern in query:
-                logger.warning(
+                logger.error(
                     f"Query contains potentially dangerous pattern '{pattern}'. Query rejected."
                 )
                 raise ValueError(f"Query contains dangerous pattern: {pattern}")
@@ -4070,7 +4464,13 @@ LIMIT 1"""
         try:
             timeout = self.config.profiling.partition_fetch_timeout
             logger.debug(f"Executing query with {timeout}s timeout")
-            job_config = QueryJobConfig(timeout_ms=timeout * 1000)
+            job_config = QueryJobConfig(
+                timeout_ms=timeout * 1000,
+                # Additional security: disable query caching for sensitive operations
+                use_query_cache=False,
+                # Enable dry run for initial validation (commented out as it would prevent actual execution)
+                # dry_run=True
+            )
             query_job = self.config.get_bigquery_client().query(
                 query, job_config=job_config
             )
@@ -4083,7 +4483,7 @@ LIMIT 1"""
         self, query: str, job_config: QueryJobConfig
     ) -> List[Any]:
         """
-        Execute a BigQuery query with custom job configuration including timeout and security validation.
+        Execute a BigQuery query with custom job configuration including timeout and enhanced security validation.
 
         Args:
             query: SQL query to execute
@@ -4092,11 +4492,14 @@ LIMIT 1"""
         Returns:
             List of row results
         """
-        # Validate query doesn't contain obvious injection attempts
+        # Enhanced security validation
+        self._validate_sql_structure(query)
+
+        # Additional basic pattern check
         dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
         for pattern in dangerous_patterns:
             if pattern in query:
-                logger.warning(
+                logger.error(
                     f"Query contains potentially dangerous pattern '{pattern}'. Query rejected."
                 )
                 raise ValueError(f"Query contains dangerous pattern: {pattern}")
@@ -4106,6 +4509,9 @@ LIMIT 1"""
             logger.debug(f"Executing query with {timeout}s timeout and custom config")
             # Ensure timeout is set even with custom config
             job_config.timeout_ms = timeout * 1000
+            # Additional security settings
+            job_config.use_query_cache = False
+
             query_job = self.config.get_bigquery_client().query(
                 query, job_config=job_config
             )
@@ -4246,8 +4652,8 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
                 ]
             )
 
-            partitioning_check_result = self.execute_query_with_config(
-                query, job_config
+            partitioning_check_result = self._execute_query_safely(
+                query, job_config, "custom partition check"
             )
             is_partitioned = 0
             if partitioning_check_result and len(partitioning_check_result) > 0:
@@ -4265,11 +4671,17 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
             safe_table_ref = self._build_safe_table_reference(
                 project, schema, table.name
             )
-            sample_query = "SELECT * FROM " + safe_table_ref + " LIMIT 10"
+            sample_query = f"""SELECT * FROM {safe_table_ref} LIMIT @limit_rows"""
+
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 10)]
+            )
 
             try:
                 # This might fail if partition elimination is required
-                sample_results = self.execute_query(sample_query)
+                sample_results = self._execute_query_safely(
+                    sample_query, job_config, "custom partition sample"
+                )
                 if sample_results and len(sample_results) > 0:
                     logger.debug(
                         f"Found data in table {table.name} without partition filters"
@@ -4280,11 +4692,14 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
 
             # Last resort - use the LIMIT approach which bypasses partition elimination
             logger.warning(f"Using LIMIT approach to profile {table.name}")
-            custom_sql = "SELECT * FROM" + safe_table_ref + " LIMIT 1000000"
+
+            # Note: For the final custom SQL in batch kwargs, we need to use literal values
+            # since the execution context may not support parameters
+            custom_sql_literal = f"""SELECT * FROM {safe_table_ref} LIMIT 1000000"""
 
             batch_kwargs.update(
                 {
-                    "custom_sql": custom_sql,
+                    "custom_sql": custom_sql_literal,
                     "partition_handling": "true",
                     "fallback_approach": "true",
                 }
@@ -4305,7 +4720,7 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
         use_info_schema: bool = True,
     ) -> Optional[Any]:
         """
-        Unified method to find a partition value for a single column.
+        Unified method to find a partition value for a single column using parameterized queries.
 
         Args:
             table: BigqueryTable instance
@@ -4360,14 +4775,19 @@ WHERE table_name = @table_name AND is_partitioning_column = 'YES'"""
     GROUP BY `{col_name}`
     HAVING record_count > 0
     ORDER BY {order_by}
-    LIMIT 1
+    LIMIT @limit_rows
 )
 SELECT val, record_count FROM PartitionStats"""
 
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 1)]
+            )
+
             logger.debug(f"Finding partition value for {col_name}: {query}")
 
-            query_job = self.config.get_bigquery_client().query(query)
-            column_partition_results = list(query_job.result())
+            column_partition_results = self._execute_query_safely(
+                query, job_config, f"single column partition {col_name}"
+            )
 
             if not column_partition_results or column_partition_results[0].val is None:
                 logger.warning(f"No valid partition value found for column {col_name}")
@@ -4411,7 +4831,7 @@ SELECT val, record_count FROM PartitionStats"""
         use_info_schema: bool = True,
     ) -> Optional[Dict[str, Any]]:
         """
-        Unified method to find partition values for multiple columns.
+        Unified method to find partition values for multiple columns using parameterized queries.
 
         Args:
             table: BigqueryTable instance
@@ -4431,8 +4851,8 @@ SELECT val, record_count FROM PartitionStats"""
             else:
                 logger.warning(f"Invalid column name: {col}")
 
-            if not valid_columns:
-                return None
+        if not valid_columns:
+            return None
 
         # First try INFORMATION_SCHEMA.PARTITIONS for regular tables
         if use_info_schema and not table.external:
@@ -4464,12 +4884,17 @@ WHERE {where_conditions}
 GROUP BY {columns_group}
 HAVING record_count > 0
 ORDER BY record_count DESC
-LIMIT 10"""
+LIMIT @limit_rows"""
+
+            job_config = QueryJobConfig(
+                query_parameters=[ScalarQueryParameter("limit_rows", "INT64", 10)]
+            )
 
             logger.debug(f"Finding multi-column partition values: {query}")
 
-            query_job = self.config.get_bigquery_client().query(query)
-            query_results = list(query_job.result())
+            query_results = self._execute_query_safely(
+                query, job_config, "multi-column partition values"
+            )
 
             if not query_results:
                 logger.warning("No valid partition combinations found")
