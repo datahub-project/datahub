@@ -187,10 +187,7 @@ class EntityClient:
         # -> probably add a "mode" parameter that can be "update" (e.g. if not modified) or "update_force"
 
         mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
-        if emit_mode is not None:
-            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
-        else:
-            self._graph.emit_mcps(mcps)
+        self._graph.emit_mcps(mcps, emit_mode=emit_mode)
 
     def _update_patch(
         self, updater: MetadataPatchProposal, check_exists: bool = True
