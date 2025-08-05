@@ -82,7 +82,7 @@ export const loginForOnboarding = async (
 export const skipIntroducePage = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
     try {
-      localStorage.setItem('skipAcrylIntroducePage', 'true');
+      localStorage.setItem('skipWelcomeModal', 'true');
     } catch (e) {
       console.warn('Failed to set localStorage:', e);
     }
