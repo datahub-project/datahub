@@ -671,7 +671,6 @@ def test_dbt_cloud_source_description_precedence() -> None:
     The table-level description should take precedence since it's more specific.
     """
 
-    # Create a mock DBTCloudSource
     config = DBTCloudConfig(
         access_url="https://test.getdbt.com",
         token="dummy_token",
@@ -685,7 +684,6 @@ def test_dbt_cloud_source_description_precedence() -> None:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
     source = DBTCloudSource(config, ctx)
 
-    # Create mock node data representing a source with both descriptions
     source_node_data: Dict[str, Any] = {
         "uniqueId": "source.my_project.my_schema.my_table",
         "name": "my_table",
@@ -709,10 +707,8 @@ def test_dbt_cloud_source_description_precedence() -> None:
         "loader": None,
     }
 
-    # Parse the node using the DBTCloudSource method
     parsed_node = source._parse_into_dbt_node(source_node_data)
 
-    # Assert that the table-level description is used, not the schema-level sourceDescription
     assert parsed_node.description == "This is the table-level description for my_table"
     assert (
         parsed_node.description != "This is the schema-level description for my_schema"
@@ -739,7 +735,6 @@ def test_dbt_cloud_source_description_fallback() -> None:
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
     source = DBTCloudSource(config, ctx)
 
-    # Create mock node data with empty table description but present schema description
     source_node_data: Dict[str, Any] = {
         "uniqueId": "source.my_project.my_schema.my_table",
         "name": "my_table",
@@ -763,10 +758,8 @@ def test_dbt_cloud_source_description_fallback() -> None:
         "loader": None,
     }
 
-    # Parse the node using the DBTCloudSource method
     parsed_node = source._parse_into_dbt_node(source_node_data)
 
-    # Should fall back to sourceDescription when table description is empty
     assert (
         parsed_node.description == "This is the schema-level description for my_schema"
     )
