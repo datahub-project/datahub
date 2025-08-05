@@ -173,7 +173,7 @@ class EntityClient:
     def update(
         self,
         entity: Union[Entity, MetadataPatchProposal],
-        emit_mode: Optional[EmitMode] = None,
+        *, emit_mode: Optional[EmitMode] = None,
     ) -> None:
         if isinstance(entity, MetadataPatchProposal):
             return self._update_patch(entity)
