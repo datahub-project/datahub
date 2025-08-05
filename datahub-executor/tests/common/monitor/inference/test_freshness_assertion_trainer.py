@@ -7,6 +7,8 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInfoClass,
+    DatasetFilterClass,
+    DatasetFilterTypeClass,
     FixedIntervalScheduleClass,
     FreshnessAssertionInfoClass,
     FreshnessAssertionScheduleClass,
@@ -164,6 +166,10 @@ def mock_freshness_assertion_info() -> AssertionInfoClass:
                 unit="HOUR",
                 multiple=6,
             ),
+        ),
+        filter=DatasetFilterClass(
+            type=DatasetFilterTypeClass.SQL,
+            sql="SELECT * FROM table WHERE id > 100",
         ),
     )
 
@@ -477,6 +483,89 @@ def test_train_and_update_assertion(
     assert result == mock_assertion
 
 
+@patch(
+    "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._get_sensitivity_level"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._get_assertion_info"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._update_freshness_monitor_evaluation_spec"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.freshness_assertion_trainer.FreshnessAssertionTrainer._rebuild_assertion"
+)
+def test_train_and_update_assertion_preserves_filter(
+    mock_rebuild_assertion: MagicMock,
+    mock_update_context: MagicMock,
+    mock_get_assertion_info: MagicMock,
+    mock_get_sensitivity_level: MagicMock,
+    trainer: FreshnessAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_assertion: Mock,
+    mock_operations_data: List[Mock],
+    mock_fixed_interval: Mock,
+    mock_evaluation_spec: Mock,
+) -> None:
+    """Test that train_and_update_assertion preserves the original filter."""
+    # Arrange
+    original_filter = DatasetFilterClass(
+        type=DatasetFilterTypeClass.SQL,
+        sql="SELECT * FROM original_table WHERE original_condition = 1",
+    )
+
+    # Create assertion info with the original filter
+    freshness_assertion_info = AssertionInfoClass(
+        type="FRESHNESS",
+        freshnessAssertion=FreshnessAssertionInfoClass(
+            type=FreshnessAssertionTypeClass.DATASET_CHANGE,
+            entity="urn:li:dataset:test-dataset",
+            schedule=FreshnessAssertionScheduleClass(
+                type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+                fixedInterval=FixedIntervalScheduleClass(
+                    unit="HOUR",
+                    multiple=6,
+                ),
+            ),
+            filter=original_filter,
+        ),
+    )
+
+    sensitivity = 2
+    mock_get_sensitivity_level.return_value = sensitivity
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_fixed_interval_schedule.return_value = mock_fixed_interval
+    mock_get_assertion_info.return_value = freshness_assertion_info
+    mock_rebuild_assertion.return_value = cast(Assertion, mock_assertion)
+
+    # Act
+    trainer.train_and_update_assertion(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_assertion),
+        cast(List[Operation], mock_operations_data),
+        None,
+        cast(AssertionEvaluationSpec, mock_evaluation_spec),
+    )
+
+    # Assert
+    # Verify that the assertion info passed to update still has the original filter
+    mock_dependencies["monitor_client"].update_assertion_info.assert_called_once_with(
+        mock_assertion.urn, freshness_assertion_info
+    )
+    assert freshness_assertion_info.freshnessAssertion is not None
+    assert freshness_assertion_info.freshnessAssertion.filter == original_filter
+    assert (
+        freshness_assertion_info.freshnessAssertion.filter.type
+        == DatasetFilterTypeClass.SQL
+    )
+    assert (
+        freshness_assertion_info.freshnessAssertion.filter.sql
+        == "SELECT * FROM original_table WHERE original_condition = 1"
+    )
+
+
 def test_get_sensitivity_level_with_settings(
     trainer: FreshnessAssertionTrainer,
 ) -> None:
@@ -557,13 +646,19 @@ def test_build_fixed_interval_freshness_assertion_info(
     result = trainer._build_fixed_interval_freshness_assertion_info(
         entity_urn,
         cast(FixedIntervalScheduleClass, mock_fixed_interval),
+        DatasetFilterClass(
+            type=DatasetFilterTypeClass.SQL,
+            sql="SELECT * FROM table WHERE id > 100",
+        ),
     )
 
     # Assert
     assert isinstance(result, FreshnessAssertionInfoClass)
     assert result.type == FreshnessAssertionTypeClass.DATASET_CHANGE
     assert result.entity == entity_urn
-
+    assert result.filter is not None
+    assert result.filter.type == DatasetFilterTypeClass.SQL
+    assert result.filter.sql == "SELECT * FROM table WHERE id > 100"
     assert result.schedule is not None
     assert result.schedule.type == FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL
     assert result.schedule.fixedInterval == mock_fixed_interval

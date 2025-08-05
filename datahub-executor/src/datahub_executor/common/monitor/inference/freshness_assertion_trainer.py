@@ -6,6 +6,7 @@ from typing import List, Optional
 from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInfoClass,
+    DatasetFilterClass,
     FixedIntervalScheduleClass,
     FreshnessAssertionInfoClass,
     FreshnessAssertionScheduleClass,
@@ -205,6 +206,9 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         new_freshness_assertion = self._build_fixed_interval_freshness_assertion_info(
             assertion.entity.urn,
             fixed_interval,
+            assertion_info.freshnessAssertion.filter
+            if assertion_info.freshnessAssertion
+            else None,
         )
         assertion_info.freshnessAssertion = new_freshness_assertion
 
@@ -264,6 +268,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         self,
         entity_urn: str,
         fixed_interval: FixedIntervalScheduleClass,
+        filter: Optional[DatasetFilterClass],
     ) -> FreshnessAssertionInfoClass:
         """
         Build a freshness assertion info with a fixed interval schedule.
@@ -275,6 +280,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
                 type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
                 fixedInterval=fixed_interval,
             ),
+            filter=filter,
         )
 
     def _update_freshness_monitor_evaluation_spec(

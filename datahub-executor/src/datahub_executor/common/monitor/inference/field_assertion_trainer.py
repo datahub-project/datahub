@@ -7,6 +7,7 @@ from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
+    DatasetFilterClass,
     FieldAssertionInfoClass,
     FieldAssertionTypeClass,
     FieldMetricAssertionClass,
@@ -230,6 +231,9 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             field,
             metric,
             current_boundary,
+            assertion_info.fieldAssertion.filter
+            if assertion_info.fieldAssertion
+            else None,
         )
         assertion_info.fieldAssertion = new_field_metric_assertion
 
@@ -243,6 +247,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
             future_boundaries,
             evaluation_spec,
             assertion_info.description,
+            assertion_info.fieldAssertion.filter,
         )
 
         # 6) Persist the updated assertion info
@@ -300,6 +305,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         field: SchemaFieldSpecClass,
         metric: Union[str, FieldMetricTypeClass],
         boundary: MetricBoundary,
+        filter: Optional[DatasetFilterClass],
     ) -> FieldAssertionInfoClass:
         """
         Build a field metric assertion info with updated boundaries.
@@ -313,6 +319,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
                 operator=AssertionStdOperatorClass.BETWEEN,
                 parameters=build_std_parameters(boundary),
             ),
+            filter=filter,
         )
 
     def _update_field_metric_monitor_evaluation_context(
@@ -325,6 +332,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         boundaries: List[MetricBoundary],
         evaluation_spec: AssertionEvaluationSpec,
         assertion_description: Optional[str],
+        filter: Optional[DatasetFilterClass],
     ) -> None:
         """
         Update the monitor's embedded assertions with future boundary predictions.
@@ -336,7 +344,7 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         for boundary in boundaries:
             # Build field metric assertion info for this boundary
             field_metric_assertion_info = self._build_field_metric_assertion_info(
-                entity_urn, field, metric, boundary
+                entity_urn, field, metric, boundary, filter
             )
 
             # Create assertion info

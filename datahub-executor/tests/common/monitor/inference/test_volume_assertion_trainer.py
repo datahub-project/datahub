@@ -11,6 +11,8 @@ from datahub.metadata.schema_classes import (
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
     AssertionStdParametersClass,
+    DatasetFilterClass,
+    DatasetFilterTypeClass,
     EmbeddedAssertionClass,
     RowCountTotalClass,
     VolumeAssertionInfoClass,
@@ -207,6 +209,10 @@ def mock_assertion_info() -> AssertionInfoClass:
         rowCountChange=None,
         incrementingSegmentRowCountChange=None,
         incrementingSegmentRowCountTotal=None,
+        filter=DatasetFilterClass(
+            type=DatasetFilterTypeClass.SQL,
+            sql="SELECT * FROM table WHERE id > 100",
+        ),
     )
 
     return AssertionInfoClass(
@@ -533,6 +539,7 @@ def test_train_and_update_assertion(
         mock_boundaries[1:],  # Future boundaries
         mock_evaluation_spec,
         "Test description",
+        mock_assertion_info.volumeAssertion.filter,
     )
 
     # Check assertion info was updated
@@ -545,6 +552,98 @@ def test_train_and_update_assertion(
 
     # Check result
     assert result == mock_assertion
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._get_sensitivity_level"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._get_assertion_info"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._update_volume_monitor_evaluation_context"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.volume_assertion_trainer.VolumeAssertionTrainer._rebuild_assertion"
+)
+def test_train_and_update_assertion_preserves_filter(
+    mock_rebuild_assertion: MagicMock,
+    mock_update_context: MagicMock,
+    mock_get_assertion_info: MagicMock,
+    mock_get_sensitivity_level: MagicMock,
+    trainer: VolumeAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_boundaries: List[Mock],
+    mock_evaluation_spec: Mock,
+) -> None:
+    """Test that train_and_update_assertion preserves the original filter."""
+    # Arrange
+    original_filter = DatasetFilterClass(
+        type=DatasetFilterTypeClass.SQL,
+        sql="SELECT * FROM original_table WHERE original_condition = 1",
+    )
+
+    # Create assertion info with the original filter
+    volume_assertion_info = AssertionInfoClass(
+        type="VOLUME",
+        volumeAssertion=VolumeAssertionInfoClass(
+            type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+            entity="urn:li:dataset:test-dataset",
+            rowCountTotal=RowCountTotalClass(
+                operator=AssertionStdOperatorClass.BETWEEN,
+                parameters=AssertionStdParametersClass(
+                    minValue=AssertionStdParameterClass(type="NUMBER", value="100"),
+                    maxValue=AssertionStdParameterClass(type="NUMBER", value="200"),
+                ),
+            ),
+            rowCountChange=None,
+            incrementingSegmentRowCountChange=None,
+            incrementingSegmentRowCountTotal=None,
+            filter=original_filter,
+        ),
+        description="Test description",
+    )
+
+    sensitivity = 2
+    mock_get_sensitivity_level.return_value = sensitivity
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.return_value = mock_boundaries
+    mock_get_assertion_info.return_value = volume_assertion_info
+    mock_rebuild_assertion.return_value = cast(Assertion, mock_assertion)
+
+    # Act
+    trainer.train_and_update_assertion(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_assertion),
+        mock_metrics_data,
+        None,
+        cast(AssertionEvaluationSpec, mock_evaluation_spec),
+    )
+
+    # Assert
+    # Verify that the original filter is preserved in the update context call
+    mock_update_context.assert_called_once()
+    call_args = mock_update_context.call_args[0]
+    actual_filter = call_args[6]  # 7th argument is the filter
+
+    assert actual_filter == original_filter
+    assert actual_filter.type == DatasetFilterTypeClass.SQL
+    assert (
+        actual_filter.sql == "SELECT * FROM original_table WHERE original_condition = 1"
+    )
+
+    # Verify that the assertion info passed to update still has the original filter
+    mock_dependencies["monitor_client"].update_assertion_info.assert_called_once_with(
+        mock_assertion.urn, volume_assertion_info
+    )
+    assert (
+        volume_assertion_info.volumeAssertion is not None
+        and volume_assertion_info.volumeAssertion.filter == original_filter
+    )
 
 
 def test_get_sensitivity_level_with_settings(
@@ -627,6 +726,10 @@ def test_build_volume_assertion_info(
     result = trainer._build_volume_assertion_info(
         entity_urn,
         cast(MetricBoundary, mock_boundary),
+        DatasetFilterClass(
+            type=DatasetFilterTypeClass.SQL,
+            sql="SELECT * FROM table WHERE id > 100",
+        ),
     )
 
     # Assert
@@ -647,6 +750,10 @@ def test_build_volume_assertion_info(
     assert result.rowCountTotal.parameters.maxValue.value == str(
         mock_boundary.upper_bound.value
     )
+
+    assert result.filter is not None
+    assert result.filter.type == DatasetFilterTypeClass.SQL
+    assert result.filter.sql == "SELECT * FROM table WHERE id > 100"
 
 
 @patch(
@@ -670,6 +777,7 @@ def test_update_volume_monitor_evaluation_context(
     mock_dependencies: Dict[str, Union[MagicMock, Mock]],
     mock_boundaries: List[Mock],
     mock_evaluation_spec: Mock,
+    mock_assertion_info: AssertionInfoClass,
 ) -> None:
     """Test updating volume monitor evaluation context with embedded assertions."""
     # Arrange
@@ -686,13 +794,15 @@ def test_update_volume_monitor_evaluation_context(
     mock_create_inference_details.return_value = inference_details
 
     # Act
+    assert mock_assertion_info.volumeAssertion is not None
     trainer._update_volume_monitor_evaluation_context(
         assertion_urn,
         monitor_urn,
         entity_urn,
         cast(List[MetricBoundary], mock_boundaries),
         cast(AssertionEvaluationSpec, mock_evaluation_spec),
-        "test description",
+        "Test description",
+        mock_assertion_info.volumeAssertion.filter,
     )
 
     # Assert

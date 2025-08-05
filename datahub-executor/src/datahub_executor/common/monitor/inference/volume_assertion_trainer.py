@@ -7,6 +7,7 @@ from datahub.metadata.schema_classes import (
     AssertionEvaluationContextClass,
     AssertionInfoClass,
     AssertionStdOperatorClass,
+    DatasetFilterClass,
     RowCountTotalClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
@@ -245,6 +246,9 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         new_vol_assertion = self._build_volume_assertion_info(
             assertion.entity.urn,
             current_boundary,
+            assertion_info.volumeAssertion.filter
+            if assertion_info.volumeAssertion
+            else None,
         )
         assertion_info.volumeAssertion = new_vol_assertion
 
@@ -256,6 +260,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
             future_boundaries,
             evaluation_spec,
             assertion_info.description,
+            assertion_info.volumeAssertion.filter,
         )
 
         # 6) Persist the updated assertion info
@@ -299,6 +304,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         self,
         entity_urn: str,
         boundary: MetricBoundary,
+        filter: Optional[DatasetFilterClass],
     ) -> VolumeAssertionInfoClass:
         """
         Build a volume assertion info with updated boundaries.
@@ -313,6 +319,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
             rowCountChange=None,
             incrementingSegmentRowCountChange=None,
             incrementingSegmentRowCountTotal=None,
+            filter=filter,
         )
 
     def _update_volume_monitor_evaluation_context(
@@ -323,6 +330,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         boundaries: List[MetricBoundary],
         evaluation_spec: AssertionEvaluationSpec,
         assertion_description: Optional[str],
+        filter: Optional[DatasetFilterClass],
     ) -> None:
         """
         Update the monitor's embedded assertions with future boundary predictions.
@@ -333,7 +341,9 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
 
         for boundary in boundaries:
             # Build volume assertion info for this boundary
-            vol_assertion_info = self._build_volume_assertion_info(entity_urn, boundary)
+            vol_assertion_info = self._build_volume_assertion_info(
+                entity_urn, boundary, filter
+            )
 
             # Create assertion info
             assertion_info = AssertionInfoClass(
