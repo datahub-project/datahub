@@ -397,10 +397,49 @@ def test_update_with_metadata_patch_proposal_and_emit_mode(
     # Create a minimal MetadataPatchProposal - we don't need to add real patches for this test
     patch_proposal = MetadataPatchProposal(dataset_urn)
     # Mock the build method to return a valid MCP list
-    with patch.object(patch_proposal, 'build', return_value=[]):
+    with patch.object(patch_proposal, "build", return_value=[]):
         # Test update with patch proposal - emit_mode should be ignored for patch proposals
         client.entities.update(patch_proposal, emit_mode=EmitMode.ASYNC)
 
         # Verify the patch was processed (emit_mcps should be called)
         mock_graph.emit_mcps.assert_called_once()
         # For patch proposals, emit_mode is not passed through _update_patch method
+
+
+def test_create_with_emit_mode(client: DataHubClient, mock_graph: Mock) -> None:
+    """Test create method with emit_mode parameter."""
+    dataset = Dataset(
+        platform="snowflake",
+        name="test_db.test_schema.table_1",
+        env="prod",
+        schema=[("col1", "string")],
+    )
+
+    # Test with ASYNC emit mode
+    client.entities.create(dataset, emit_mode=EmitMode.ASYNC)
+
+    # Verify emit_mcps was called with emit_mode
+    mock_graph.emit_mcps.assert_called_once()
+    call_args = mock_graph.emit_mcps.call_args
+    assert "emit_mode" in call_args.kwargs
+    assert call_args.kwargs["emit_mode"] == EmitMode.ASYNC
+
+
+def test_create_without_emit_mode(client: DataHubClient, mock_graph: Mock) -> None:
+    """Test create method without emit_mode parameter (default behavior)."""
+    dataset = Dataset(
+        platform="snowflake",
+        name="test_db.test_schema.table_1",
+        env="prod",
+        schema=[("col1", "string")],
+    )
+
+    # Test without emit_mode (should use default)
+    client.entities.create(dataset)
+
+    # Verify emit_mcps was called without emit_mode
+    mock_graph.emit_mcps.assert_called_once()
+    call_args = mock_graph.emit_mcps.call_args
+    assert (
+        "emit_mode" not in call_args.kwargs or call_args.kwargs.get("emit_mode") is None
+    )
