@@ -1,5 +1,10 @@
 import { Page, Route } from '@playwright/test';
 
+export const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";
+export const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
+export const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
+export const THEME_V2_STATUS_KEY = "isThemeV2Enabled";
+
 /**
  * Utility functions for Playwright tests
  */
@@ -76,43 +81,44 @@ export const loginForOnboarding = async (
   });
 };
 
+
+export const setLocalStorage = async (page: Page, key: string, value?: string): Promise<void> => {
+  await page.evaluate(({ key, value }) => {
+    try {
+      localStorage.setItem(key, value || 'true');
+    } catch (e) {
+      console.warn('Failed to set localStorage:', e);
+    }
+  }, { key, value });
+};
+
 /**
  * Skip onboarding tour
  */
 export const skipOnboardingTour = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
-    try {
-      localStorage.setItem('skipOnboardingTour', 'true');
-    } catch (e) {
-      console.warn('Failed to set localStorage:', e);
-    }
-  });
+  await setLocalStorage(page, SKIP_ONBOARDING_TOUR_KEY);
 };
 
 
 /**
- * Skip onboarding tour
+ * Skip welcome modal
  */
 export const skipWelcomeModal = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
-    try {
-      localStorage.setItem('skipWelcomeModal', 'true');
-    } catch (e) {
-      console.warn('Failed to set localStorage:', e);
-    }
-  });
+  await setLocalStorage(page, SKIP_WELCOME_MODAL_KEY);
 };
+
 /**
- * Set up theme V2 configuration
+ * Skip introduce page
+ */
+export const skipIntroducePage = async (page: Page): Promise<void> => {
+  await setLocalStorage(page, SKIP_INTRODUCE_PAGE_KEY);
+};
+
+/**
+ * Enable theme V2
  */
 export const enableThemeV2 = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
-    try {
-      localStorage.setItem('isThemeV2Enabled', 'true');
-    } catch (e) {
-      console.warn('Failed to set localStorage:', e);
-    }
-  });
+  await setLocalStorage(page, THEME_V2_STATUS_KEY);
 
   await interceptGraphQL(page, 'appConfig', (json: GraphQLResponse) => {
     json.data.appConfig.featureFlags.themeV2Enabled = true;

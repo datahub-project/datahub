@@ -4,7 +4,8 @@ import {
   skipOnboardingTour, 
   enableThemeV2,
   interceptTrackingEvents, 
-  skipWelcomeModal
+  skipIntroducePage,
+  SKIP_WELCOME_MODAL_KEY
 } from '../utils';
 
 interface TrackingEvent {
@@ -15,13 +16,12 @@ interface TrackingEvent {
 }
 
 test.describe('WelcomeToDataHubModal', () => {
-  const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
-
   test.beforeEach(async ({ page }: { page: Page }) => {
-    // Navigate to the app first to avoid localStorage security errors
+    // Navigate to the app first as it's required to for localStorage to work
     await page.goto('/');
-    // Clear localStorage and set up initial state
+
     await skipOnboardingTour(page);
+    await skipIntroducePage(page);
     await enableThemeV2(page);
   });
 
@@ -37,8 +37,8 @@ test.describe('WelcomeToDataHubModal', () => {
     let modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // Click the last carousel dot
-    const carouselDots = modal.locator('li');
+    // Click the last carousel dot in slick-dots
+    const carouselDots = modal.locator('.slick-dots li');
     const lastDot = carouselDots.last();
     await lastDot.click();
 
