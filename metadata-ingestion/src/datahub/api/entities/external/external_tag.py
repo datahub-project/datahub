@@ -47,7 +47,9 @@ class ExternalTag(BaseModel):
         if key is not None:
             # Direct initialization with key/value
             processed_key = (
-                RestrictedText(raw_text=key) if not isinstance(key, RestrictedText) else key
+                RestrictedText(raw_text=key)
+                if not isinstance(key, RestrictedText)
+                else key
             )
             processed_value = None
             if value is not None:
