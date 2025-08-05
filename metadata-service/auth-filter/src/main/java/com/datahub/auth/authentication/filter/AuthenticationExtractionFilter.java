@@ -145,7 +145,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
 
     try {
       // Attempt to authenticate the request
-      authentication = authenticatorChain.authenticate(authRequest, false);
+      authentication = authenticatorChain.authenticate(authRequest, _logAuthenticatorExceptions);
 
       if (authentication != null) {
         log.debug(

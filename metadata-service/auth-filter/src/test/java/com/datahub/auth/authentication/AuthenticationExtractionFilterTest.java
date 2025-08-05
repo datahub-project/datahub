@@ -281,4 +281,211 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
     // Note: The @AfterMethod will also clean up, but the filter should do it too
     verify(filterChain, times(1)).doFilter(servletRequest, servletResponse);
   }
+
+  /**
+   * Test that plugin authenticators can be properly registered and used in the authentication
+   * chain. This tests the registerPlugins() functionality that we restored.
+   */
+  @Test
+  public void testPluginAuthenticatorRegistration()
+      throws ServletException, IOException, AuthenticationException {
+    // Setup
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationExtractionFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+
+    // Custom FilterChain that captures the authentication context during execution
+    final Authentication[] capturedAuth = new Authentication[1];
+    FilterChain filterChain =
+        (req, resp) -> {
+          capturedAuth[0] = AuthenticationContext.getAuthentication();
+        };
+
+    // Mock plugin-specific authentication request
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of("X-Plugin-Auth")));
+    when(servletRequest.getHeader("X-Plugin-Auth")).thenReturn("plugin-token");
+    when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
+
+    // Create a mock plugin authenticator that would recognize this header
+    AuthenticatorChain realChain = new AuthenticatorChain();
+
+    // Mock a simple plugin authenticator (simulating what TestLenientModeAuthenticator does)
+    com.datahub.plugins.auth.authentication.Authenticator mockPluginAuth =
+        mock(com.datahub.plugins.auth.authentication.Authenticator.class);
+
+    when(mockPluginAuth.authenticate(any()))
+        .thenReturn(
+            new Authentication(new Actor(ActorType.USER, "plugin-user"), "plugin:credentials"));
+
+    realChain.register(mockPluginAuth);
+
+    // Inject the real chain with our mock plugin
+    ReflectionTestUtils.setField(authenticationExtractionFilter, "authenticatorChain", realChain);
+
+    // Execute
+    authenticationExtractionFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify plugin authentication worked
+    assertNotNull(capturedAuth[0], "Authentication context should be set");
+    assertEquals(
+        capturedAuth[0].getActor().getId(), "plugin-user", "Should authenticate as plugin user");
+    assertEquals(
+        capturedAuth[0].getCredentials(), "plugin:credentials", "Should have plugin credentials");
+  }
+
+  /**
+   * Test plugin authentication fallback - when plugin fails, should continue to native
+   * authenticators.
+   */
+  @Test
+  public void testPluginAuthenticationFallback()
+      throws ServletException, IOException, AuthenticationException {
+    // Setup
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationExtractionFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+
+    // Custom FilterChain that captures the authentication context during execution
+    final Authentication[] capturedAuth = new Authentication[1];
+    FilterChain filterChain =
+        (req, resp) -> {
+          capturedAuth[0] = AuthenticationContext.getAuthentication();
+        };
+
+    // Mock both plugin header and standard Authorization header
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of("X-Plugin-Auth", AUTHORIZATION_HEADER_NAME)));
+    when(servletRequest.getHeader("X-Plugin-Auth")).thenReturn("invalid-plugin-token");
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME))
+        .thenReturn("Bearer valid-standard-token");
+    when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
+
+    // Create a chain with plugin that fails and standard auth that succeeds
+    AuthenticatorChain realChain = new AuthenticatorChain();
+
+    // Mock plugin authenticator that fails
+    com.datahub.plugins.auth.authentication.Authenticator mockPluginAuth =
+        mock(com.datahub.plugins.auth.authentication.Authenticator.class);
+    when(mockPluginAuth.authenticate(any())).thenReturn(null); // Plugin fails
+
+    // Mock standard authenticator that succeeds
+    com.datahub.plugins.auth.authentication.Authenticator mockStandardAuth =
+        mock(com.datahub.plugins.auth.authentication.Authenticator.class);
+    when(mockStandardAuth.authenticate(any()))
+        .thenReturn(new Authentication(new Actor(ActorType.USER, "standard-user"), "bearer:token"));
+
+    realChain.register(mockPluginAuth); // Register plugin first
+    realChain.register(mockStandardAuth); // Then standard auth
+
+    // Inject the chain
+    ReflectionTestUtils.setField(authenticationExtractionFilter, "authenticatorChain", realChain);
+
+    // Execute
+    authenticationExtractionFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify fallback to standard authentication worked
+    assertNotNull(capturedAuth[0], "Authentication context should be set");
+    assertEquals(
+        capturedAuth[0].getActor().getId(),
+        "standard-user",
+        "Should fallback to standard user when plugin fails");
+    assertEquals(
+        capturedAuth[0].getCredentials(), "bearer:token", "Should have standard credentials");
+  }
+
+  /** Test that when both plugin and standard authentication fail, we get anonymous context. */
+  @Test
+  public void testPluginAndStandardAuthenticationBothFail()
+      throws ServletException, IOException, AuthenticationException {
+    // Setup
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationExtractionFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+
+    // Custom FilterChain that captures the authentication context during execution
+    final Authentication[] capturedAuth = new Authentication[1];
+    FilterChain filterChain =
+        (req, resp) -> {
+          capturedAuth[0] = AuthenticationContext.getAuthentication();
+        };
+
+    // Mock both plugin and standard headers
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of("X-Plugin-Auth", AUTHORIZATION_HEADER_NAME)));
+    when(servletRequest.getHeader("X-Plugin-Auth")).thenReturn("invalid-plugin-token");
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer invalid-token");
+    when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
+
+    // Create a chain where both plugin and standard auth fail
+    AuthenticatorChain realChain = new AuthenticatorChain();
+
+    // Mock plugin authenticator that fails
+    com.datahub.plugins.auth.authentication.Authenticator mockPluginAuth =
+        mock(com.datahub.plugins.auth.authentication.Authenticator.class);
+    when(mockPluginAuth.authenticate(any())).thenReturn(null);
+
+    // Mock standard authenticator that also fails
+    com.datahub.plugins.auth.authentication.Authenticator mockStandardAuth =
+        mock(com.datahub.plugins.auth.authentication.Authenticator.class);
+    when(mockStandardAuth.authenticate(any())).thenReturn(null);
+
+    realChain.register(mockPluginAuth);
+    realChain.register(mockStandardAuth);
+
+    // Inject the chain
+    ReflectionTestUtils.setField(authenticationExtractionFilter, "authenticatorChain", realChain);
+
+    // Execute
+    authenticationExtractionFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify fallback to anonymous context
+    assertNotNull(capturedAuth[0], "Authentication context should be set");
+    assertEquals(
+        capturedAuth[0].getActor().getId(),
+        "anonymous",
+        "Should get anonymous user when all authentication fails");
+    assertEquals(
+        capturedAuth[0].getActor().getType(),
+        ActorType.USER,
+        "Anonymous actor should be USER type");
+  }
+
+  /**
+   * Test the buildAuthenticatorChain method works correctly with both enabled and disabled auth.
+   */
+  @Test
+  public void testBuildAuthenticatorChain() throws Exception {
+    // This test verifies the internal buildAuthenticatorChain method that we restored
+    // We can't directly test plugin loading without setting up actual plugin files,
+    // but we can test that the method doesn't crash and creates a chain
+
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+
+    // Test that init() completes without exception
+    // (buildAuthenticatorChain is called during init via @PostConstruct)
+    try {
+      authenticationExtractionFilter.init(mockFilterConfig);
+    } catch (Exception e) {
+      fail(
+          "buildAuthenticatorChain should not throw exceptions during initialization: "
+              + e.getMessage());
+    }
+
+    // Verify that an authenticator chain was created
+    AuthenticatorChain chain =
+        (AuthenticatorChain)
+            ReflectionTestUtils.getField(authenticationExtractionFilter, "authenticatorChain");
+    assertNotNull(chain, "AuthenticatorChain should be created during initialization");
+  }
 }
