@@ -12,6 +12,7 @@ import {
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
+    ResourceRefInput,
     ScenarioType,
     SearchBarApi,
 } from '@types';
@@ -137,6 +138,7 @@ export enum EventType {
     HomePageTemplateModuleExpandClick,
     HomePageTemplateModuleLinkClick,
     HomePageTemplateModuleAnnouncementDismiss,
+    SetDeprecation,
     WelcomeToDataHubModalViewEvent,
     WelcomeToDataHubModalInteractEvent,
     WelcomeToDataHubModalExitEvent,
@@ -392,6 +394,8 @@ export const EntityActionType = {
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
+    SetDomain: 'SetDomain',
+    SetDataProduct: 'SetDataProduct',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
@@ -1025,6 +1029,13 @@ export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEven
     type: EventType.HomePageTemplateModuleAnnouncementDismiss;
 }
 
+export interface SetDeprecationEvent extends BaseEvent {
+    type: EventType.SetDeprecation;
+    entityUrns: string[];
+    deprecated: boolean;
+    resources?: ResourceRefInput[];
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1146,6 +1157,7 @@ export type Event =
     | HomePageTemplateModuleViewAllClickEvent
     | HomePageTemplateModuleLinkClickEvent
     | HomePageTemplateModuleAnnouncementDismissEvent
+    | SetDeprecationEvent
     | WelcomeToDataHubModalViewEvent
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
