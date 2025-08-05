@@ -1,4 +1,3 @@
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 import { Popover } from '@components';
 import { AxisBottom } from '@visx/axis';
 import { Group } from '@visx/group';
@@ -6,6 +5,8 @@ import { scaleUtc } from '@visx/scale';
 import { Bar } from '@visx/shape';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { useMemo } from 'react';
+
+import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LinkWrapper } from '@app/shared/LinkWrapper';

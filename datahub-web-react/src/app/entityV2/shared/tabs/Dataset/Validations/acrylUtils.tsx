@@ -1,10 +1,11 @@
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
 import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
 import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
+
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
