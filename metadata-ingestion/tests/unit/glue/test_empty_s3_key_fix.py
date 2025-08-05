@@ -81,7 +81,8 @@ def test_empty_s3_key_handling():
 
         # Verify that we still get workunits for the jobs themselves (DataFlow entities)
         # even though their script processing failed
-        dataflow_workunits = [wu for wu in workunits if "dataFlow" in wu.id]
+        job_names = {"test-job-empty-key", "test-job-bucket-only"}
+        dataflow_workunits = [wu for wu in workunits if wu.id in job_names]
         assert (
             len(dataflow_workunits) == 2
         )  # Should have DataFlow entities for both jobs
