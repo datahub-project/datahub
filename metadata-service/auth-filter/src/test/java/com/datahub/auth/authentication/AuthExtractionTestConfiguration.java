@@ -23,8 +23,8 @@ import org.springframework.context.annotation.DependsOn;
 /**
  * Test configuration for AuthenticationExtractionFilter tests.
  *
- * <p>Provides the same setup as AuthTestConfiguration but creates the
- * AuthenticationExtractionFilter instead of AuthenticationFilter.
+ * <p>Provides the necessary beans and configuration for testing the authentication extraction tier
+ * of the two-tier authentication system.
  */
 @Configuration
 public class AuthExtractionTestConfiguration {

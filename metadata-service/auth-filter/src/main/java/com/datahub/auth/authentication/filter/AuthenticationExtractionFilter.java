@@ -205,8 +205,8 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
   }
 
   /**
-   * This filter should run for ALL requests - no exclusions. The existing AuthenticationFilter will
-   * handle exclusions based on configuration.
+   * This filter should run for ALL requests - no exclusions. The AuthenticationEnforcementFilter
+   * will handle exclusions based on configuration.
    *
    * @param request HTTP servlet request
    * @return false - never skip this filter

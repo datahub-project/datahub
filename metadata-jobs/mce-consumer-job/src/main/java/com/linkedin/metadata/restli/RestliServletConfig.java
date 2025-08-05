@@ -47,7 +47,7 @@ public class RestliServletConfig {
 
   @Bean
   public FilterRegistrationBean<AuthenticationEnforcementFilter>
-      authenticationFilterRegistrationBean(
+      authenticationEnforcementFilterRegistrationBean(
           @Qualifier("restliServletRegistration")
               ServletRegistrationBean<RestliHandlerServlet> servlet,
           AuthenticationEnforcementFilter authenticationEnforcementFilter) {
@@ -82,7 +82,7 @@ public class RestliServletConfig {
     registrationBean.setServletRegistrationBeans(Collections.singletonList(servlet));
     registrationBean.setUrlPatterns(Collections.singletonList("/gms/*"));
     registrationBean.setServletNames(Collections.singletonList(servlet.getServletName()));
-    registrationBean.setOrder(0); // Run before AuthenticationFilter (order 1)
+    registrationBean.setOrder(0); // Run before AuthenticationEnforcementFilter (order 1)
     registrationBean.setFilter(authenticationExtractionFilter);
     return registrationBean;
   }

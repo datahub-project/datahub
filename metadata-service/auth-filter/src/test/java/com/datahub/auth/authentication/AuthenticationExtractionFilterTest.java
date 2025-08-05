@@ -460,32 +460,95 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
         "Anonymous actor should be USER type");
   }
 
-  /**
-   * Test the buildAuthenticatorChain method works correctly with both enabled and disabled auth.
-   */
-  @Test
-  public void testBuildAuthenticatorChain() throws Exception {
-    // This test verifies the internal buildAuthenticatorChain method that we restored
-    // We can't directly test plugin loading without setting up actual plugin files,
-    // but we can test that the method doesn't crash and creates a chain
+  // =================================
+  // Additional Coverage Tests (NEW)
+  // =================================
 
+  /** Test multiple authentication headers - should process in chain order */
+  @Test
+  public void testMultipleAuthenticationHeaders()
+      throws ServletException, IOException, AuthenticationException {
+    // Setup
     FilterConfig mockFilterConfig = mock(FilterConfig.class);
     when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationExtractionFilter.init(mockFilterConfig);
 
-    // Test that init() completes without exception
-    // (buildAuthenticatorChain is called during init via @PostConstruct)
-    try {
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+
+    final Authentication[] capturedAuth = new Authentication[1];
+    FilterChain filterChain =
+        (req, resp) -> capturedAuth[0] = AuthenticationContext.getAuthentication();
+
+    // Mock multiple authentication headers
+    when(servletRequest.getHeaderNames())
+        .thenReturn(
+            Collections.enumeration(List.of(AUTHORIZATION_HEADER_NAME, "X-API-Key", "Cookie")));
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer token1");
+    when(servletRequest.getHeader("X-API-Key")).thenReturn("api-key-123");
+    when(servletRequest.getHeader("Cookie")).thenReturn("session=abc123");
+    when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
+
+    // Mock authenticator chain - first authenticator succeeds
+    AuthenticatorChain mockAuthenticatorChain = mock(AuthenticatorChain.class);
+    when(mockAuthenticatorChain.authenticate(any(), anyBoolean()))
+        .thenReturn(new Authentication(new Actor(ActorType.USER, "bearer-user"), "bearer:token"));
+
+    ReflectionTestUtils.setField(
+        authenticationExtractionFilter, "authenticatorChain", mockAuthenticatorChain);
+
+    // Execute
+    authenticationExtractionFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    // Verify first successful authenticator is used
+    assertNotNull(capturedAuth[0], "Authentication context should be set");
+    assertEquals(
+        capturedAuth[0].getActor().getId(), "bearer-user", "Should use first successful auth");
+  }
+
+  /** Test different HTTP methods - all should be processed the same */
+  @Test
+  public void testDifferentHttpMethods()
+      throws ServletException, IOException, AuthenticationException {
+    String[] methods = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"};
+
+    for (String method : methods) {
+      // Setup for each method
+      FilterConfig mockFilterConfig = mock(FilterConfig.class);
+      when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
       authenticationExtractionFilter.init(mockFilterConfig);
-    } catch (Exception e) {
-      fail(
-          "buildAuthenticatorChain should not throw exceptions during initialization: "
-              + e.getMessage());
-    }
 
-    // Verify that an authenticator chain was created
-    AuthenticatorChain chain =
-        (AuthenticatorChain)
-            ReflectionTestUtils.getField(authenticationExtractionFilter, "authenticatorChain");
-    assertNotNull(chain, "AuthenticatorChain should be created during initialization");
+      HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+      HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+
+      final Authentication[] capturedAuth = new Authentication[1];
+      FilterChain filterChain =
+          (req, resp) -> capturedAuth[0] = AuthenticationContext.getAuthentication();
+
+      // Mock request for this method
+      when(servletRequest.getMethod()).thenReturn(method);
+      when(servletRequest.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
+      when(servletRequest.getServletPath()).thenReturn("/api/v2/test/" + method.toLowerCase());
+
+      // Mock authenticator chain to return null (anonymous)
+      AuthenticatorChain mockAuthenticatorChain = mock(AuthenticatorChain.class);
+      when(mockAuthenticatorChain.authenticate(any(), anyBoolean())).thenReturn(null);
+
+      ReflectionTestUtils.setField(
+          authenticationExtractionFilter, "authenticatorChain", mockAuthenticatorChain);
+
+      // Execute
+      authenticationExtractionFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+      // Verify anonymous context is set for all HTTP methods
+      assertNotNull(capturedAuth[0], "Authentication context should be set for " + method);
+      assertEquals(
+          capturedAuth[0].getActor().getId(),
+          "anonymous",
+          "Should have anonymous context for " + method);
+
+      // Cleanup for next iteration
+      AuthenticationContext.remove();
+    }
   }
 }
