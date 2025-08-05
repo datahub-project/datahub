@@ -1,12 +1,14 @@
 import pathlib
 from dataclasses import dataclass
 from typing import Optional, Tuple, Type, Union
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
@@ -281,3 +283,124 @@ def test_delete_entity(
         )
     else:
         mock_graph.delete_entity.assert_not_called()
+
+
+def test_upsert_with_emit_mode(client: DataHubClient, mock_graph: Mock) -> None:
+    """Test upsert method with emit_mode parameter."""
+    dataset = Dataset(
+        platform="snowflake",
+        name="test_db.test_schema.table_1",
+        env="prod",
+        schema=[("col1", "string")],
+    )
+
+    # Test with ASYNC emit mode
+    client.entities.upsert(dataset, emit_mode=EmitMode.ASYNC)
+
+    # Verify emit_mcps was called with emit_mode
+    mock_graph.emit_mcps.assert_called_once()
+    call_args = mock_graph.emit_mcps.call_args
+    assert "emit_mode" in call_args.kwargs
+    assert call_args.kwargs["emit_mode"] == EmitMode.ASYNC
+
+
+def test_upsert_without_emit_mode(client: DataHubClient, mock_graph: Mock) -> None:
+    """Test upsert method without emit_mode parameter (default behavior)."""
+    dataset = Dataset(
+        platform="snowflake",
+        name="test_db.test_schema.table_1",
+        env="prod",
+        schema=[("col1", "string")],
+    )
+
+    # Test without emit_mode (should use default)
+    client.entities.upsert(dataset)
+
+    # Verify emit_mcps was called without emit_mode
+    mock_graph.emit_mcps.assert_called_once()
+    call_args = mock_graph.emit_mcps.call_args
+    assert (
+        "emit_mode" not in call_args.kwargs or call_args.kwargs.get("emit_mode") is None
+    )
+
+
+def test_update_with_emit_mode(client: DataHubClient, mock_graph: Mock) -> None:
+    """Test update method with emit_mode parameter."""
+    # Setup mock for existing dataset
+    mock_graph.exists.return_value = True
+    dataset_urn = DatasetUrn(
+        platform="snowflake", name="test_db.test_schema.table_1", env="prod"
+    )
+
+    # Mock the get_entity_semityped response with initial state
+    mock_graph.get_entity_semityped.return_value = {
+        "datasetProperties": models.DatasetPropertiesClass(
+            description="original description",
+            customProperties={},
+            tags=[],
+        )
+    }
+
+    # Get dataset and modify it
+    dataset = client.entities.get(dataset_urn)
+    dataset.set_description("updated description")
+
+    # Test update with SYNC_WAIT emit mode
+    client.entities.update(dataset, emit_mode=EmitMode.SYNC_WAIT)
+
+    # Verify emit_mcps was called with emit_mode
+    # Note: There are multiple calls (get + update), so we check the last call
+    call_args = mock_graph.emit_mcps.call_args
+    assert "emit_mode" in call_args.kwargs
+    assert call_args.kwargs["emit_mode"] == EmitMode.SYNC_WAIT
+
+
+def test_update_without_emit_mode(client: DataHubClient, mock_graph: Mock) -> None:
+    """Test update method without emit_mode parameter (default behavior)."""
+    # Setup mock for existing dataset
+    mock_graph.exists.return_value = True
+    dataset_urn = DatasetUrn(
+        platform="snowflake", name="test_db.test_schema.table_1", env="prod"
+    )
+
+    # Mock the get_entity_semityped response with initial state
+    mock_graph.get_entity_semityped.return_value = {
+        "datasetProperties": models.DatasetPropertiesClass(
+            description="original description",
+            customProperties={},
+            tags=[],
+        )
+    }
+
+    # Get dataset and modify it
+    dataset = client.entities.get(dataset_urn)
+    dataset.set_description("updated description")
+
+    # Test update without emit_mode (should use default)
+    client.entities.update(dataset)
+
+    # Verify emit_mcps was called without emit_mode
+    call_args = mock_graph.emit_mcps.call_args
+    assert (
+        "emit_mode" not in call_args.kwargs or call_args.kwargs.get("emit_mode") is None
+    )
+
+
+def test_update_with_metadata_patch_proposal_and_emit_mode(
+    client: DataHubClient, mock_graph: Mock
+) -> None:
+    """Test update method with MetadataPatchProposal and emit_mode parameter."""
+    # Setup existing entity
+    mock_graph.exists.return_value = True
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)"
+
+    # Create a minimal MetadataPatchProposal - we don't need to add real patches for this test
+    patch_proposal = MetadataPatchProposal(dataset_urn)
+    # Mock the build method to return a valid MCP list
+    with patch.object(patch_proposal, 'build', return_value=[]):
+        # Test update with patch proposal - emit_mode should be ignored for patch proposals
+        client.entities.update(patch_proposal, emit_mode=EmitMode.ASYNC)
+
+        # Verify the patch was processed (emit_mcps should be called)
+        mock_graph.emit_mcps.assert_called_once()
+        # For patch proposals, emit_mode is not passed through _update_patch method
