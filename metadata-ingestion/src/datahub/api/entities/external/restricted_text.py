@@ -11,41 +11,12 @@ Features:
 
 from __future__ import annotations
 
-from typing import Any, ClassVar, Optional, Set, Union
+from typing import ClassVar, Optional, Set
 
-# Check Pydantic version and import accordingly
-try:
-    from pydantic import VERSION
-
-    PYDANTIC_V2 = int(VERSION.split(".")[0]) >= 2
-except (ImportError, AttributeError):
-    # Fallback for older versions that don't have VERSION
-    PYDANTIC_V2 = False
-
-if PYDANTIC_V2:
-    from pydantic import GetCoreSchemaHandler  # type: ignore[attr-defined]
-    from pydantic_core import core_schema
-else:
-    from pydantic.validators import str_validator
+from datahub.configuration.common import ConfigModel
 
 
-class RestrictedTextConfig:
-    """Configuration class for RestrictedText."""
-
-    def __init__(
-        self,
-        max_length: Optional[int] = None,
-        forbidden_chars: Optional[Set[str]] = None,
-        replacement_char: Optional[str] = None,
-        truncation_suffix: Optional[str] = None,
-    ):
-        self.max_length = max_length
-        self.forbidden_chars = forbidden_chars
-        self.replacement_char = replacement_char
-        self.truncation_suffix = truncation_suffix
-
-
-class RestrictedText(str):
+class RestrictedText(ConfigModel):
     """A string type that stores the original value but returns a truncated and sanitized version.
 
     This type allows you to:
@@ -60,8 +31,9 @@ class RestrictedText(str):
         # Basic usage with default settings
         name: RestrictedText
 
-        # Custom max length and character replacement using Field
-        custom_field: RestrictedText = RestrictedText.with_config(
+        # Custom max length and character replacement
+        custom_field: RestrictedText = RestrictedText(
+            text="hello-world.test",
             max_length=10,
             forbidden_chars={' ', '-', '.'},
             replacement_char='_'
@@ -73,175 +45,128 @@ class RestrictedText(str):
         custom_field="hello-world.test"
     )
 
-    print(model.name)  # Truncated and sanitized version
-    print(model.name.original)  # Original value
-    print(model.custom_field)  # "hello_worl..."
+    # model.name returns truncated and sanitized version
+    # model.name.raw_text returns original value
+    # model.custom_field returns "hello_worl..."
     ```
     """
 
     # Default configuration
-    _default_max_length: ClassVar[Optional[int]] = 50
-    _default_forbidden_chars: ClassVar[Set[str]] = {" ", "\t", "\n", "\r"}
-    _default_replacement_char: ClassVar[str] = "_"
-    _default_truncation_suffix: ClassVar[str] = "..."
+    DEFAULT_MAX_LENGTH: ClassVar[Optional[int]] = 50
+    DEFAULT_FORBIDDEN_CHARS: ClassVar[Set[str]] = {" ", "\t", "\n", "\r"}
+    DEFAULT_REPLACEMENT_CHAR: ClassVar[str] = "_"
+    DEFAULT_TRUNCATION_SUFFIX: ClassVar[str] = "..."
 
-    def __new__(cls, value: str = "") -> "RestrictedText":
-        """Create a new string instance."""
-        instance = str.__new__(cls, "")  # We'll set the display value later
-        return instance
+    raw_text: str
+    max_length: Optional[int] = None
+    forbidden_chars: Optional[Set[str]] = None
+    replacement_char: Optional[str] = None
+    truncation_suffix: Optional[str] = None
+    _processed_value: Optional[str] = None
 
-    def __init__(self, value: str = ""):
-        """Initialize the RestrictedText with a value."""
-        self.original: str = value
-        self.max_length = self._default_max_length
-        self.forbidden_chars = self._default_forbidden_chars
-        self.replacement_char = self._default_replacement_char
-        self.truncation_suffix = self._default_truncation_suffix
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.validate_text()
 
-        # Process the value
-        self._processed_value = self._process_value(value)
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.pydantic_accept_raw_text
+        yield cls.validate
+        yield cls.pydantic_validate_text
 
-    def _configure(
+    @classmethod
+    def pydantic_accept_raw_text(cls, v):
+        if isinstance(v, (RestrictedText, dict)):
+            return v
+        assert isinstance(v, str), "text must be a string"
+        return {"text": v}
+
+    @classmethod
+    def pydantic_validate_text(cls, v):
+        assert isinstance(v, RestrictedText)
+        assert v.validate_text()
+        return v
+
+    @classmethod
+    def validate(cls, v):
+        """Validate and create a RestrictedText instance."""
+        if isinstance(v, RestrictedText):
+            return v
+
+        # This should be a dict at this point from pydantic_accept_raw_text
+        if isinstance(v, dict):
+            instance = cls(**v)
+            instance.validate_text()
+            return instance
+
+        raise ValueError(f"Unable to validate RestrictedText from {type(v)}")
+
+    def validate_text(self) -> bool:
+        """Validate the text and apply restrictions."""
+        # Set defaults if not provided
+        max_length = (
+            self.max_length if self.max_length is not None else self.DEFAULT_MAX_LENGTH
+        )
+        forbidden_chars = (
+            self.forbidden_chars
+            if self.forbidden_chars is not None
+            else self.DEFAULT_FORBIDDEN_CHARS
+        )
+        replacement_char = (
+            self.replacement_char
+            if self.replacement_char is not None
+            else self.DEFAULT_REPLACEMENT_CHAR
+        )
+        truncation_suffix = (
+            self.truncation_suffix
+            if self.truncation_suffix is not None
+            else self.DEFAULT_TRUNCATION_SUFFIX
+        )
+
+        # Store processed value
+        self._processed_value = self._process_value(
+            self.raw_text,
+            max_length,
+            forbidden_chars,
+            replacement_char,
+            truncation_suffix,
+        )
+        return True
+
+    def _process_value(
         self,
-        max_length: Optional[int] = None,
-        forbidden_chars: Optional[Set[str]] = None,
-        replacement_char: Optional[str] = None,
-        truncation_suffix: Optional[str] = None,
-    ) -> "RestrictedText":
-        """Configure this instance with custom settings."""
-        if max_length is not None:
-            self.max_length = max_length
-        if forbidden_chars is not None:
-            self.forbidden_chars = forbidden_chars
-        if replacement_char is not None:
-            self.replacement_char = replacement_char
-        if truncation_suffix is not None:
-            self.truncation_suffix = truncation_suffix
-
-        # Reprocess the value with new configuration
-        self._processed_value = self._process_value(self.original)
-        return self
-
-    def _process_value(self, value: str) -> str:
+        value: str,
+        max_length: Optional[int],
+        forbidden_chars: Set[str],
+        replacement_char: str,
+        truncation_suffix: str,
+    ) -> str:
         """Process the value by replacing characters and truncating."""
         # Replace specified characters
         processed = value
-        for char in self.forbidden_chars:
-            processed = processed.replace(char, self.replacement_char)
+        for char in forbidden_chars:
+            processed = processed.replace(char, replacement_char)
 
         # Truncate if necessary
-        if self.max_length is not None and len(processed) > self.max_length:
-            if len(self.truncation_suffix) >= self.max_length:
+        if max_length is not None and len(processed) > max_length:
+            if len(truncation_suffix) >= max_length:
                 # If suffix is too long, just truncate without suffix
-                processed = processed[: self.max_length]
+                processed = processed[:max_length]
             else:
                 # Truncate and add suffix
-                truncate_length = self.max_length - len(self.truncation_suffix)
-                processed = processed[:truncate_length] + self.truncation_suffix
+                truncate_length = max_length - len(truncation_suffix)
+                processed = processed[:truncate_length] + truncation_suffix
 
         return processed
 
     def __str__(self) -> str:
         """Return the processed (truncated and sanitized) value."""
-        return self._processed_value
+        return self._processed_value or ""
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._processed_value!r})"
+        return f"{self.__class__.__name__}({self.raw_text!r})"
 
     @property
     def processed(self) -> str:
         """Get the processed (truncated and sanitized) value."""
-        return self._processed_value
-
-    @classmethod
-    def with_config(
-        cls,
-        max_length: Optional[int] = None,
-        forbidden_chars: Optional[Set[str]] = None,
-        replacement_char: Optional[str] = None,
-        truncation_suffix: Optional[str] = None,
-    ) -> RestrictedTextConfig:
-        """Create a configuration object for use as field default.
-
-        Args:
-            max_length: Maximum length of the processed string
-            forbidden_chars: Set of characters to replace
-            replacement_char: Character to use as replacement
-            truncation_suffix: Suffix to add when truncating
-
-        Returns:
-            A configuration object that can be used as field default
-        """
-        return RestrictedTextConfig(
-            max_length=max_length,
-            forbidden_chars=forbidden_chars,
-            replacement_char=replacement_char,
-            truncation_suffix=truncation_suffix,
-        )
-
-    # Pydantic v2 methods
-    if PYDANTIC_V2:
-
-        @classmethod
-        def _validate(
-            cls,
-            __input_value: Union[str, "RestrictedText"],
-            _: core_schema.ValidationInfo,
-        ) -> "RestrictedText":
-            """Validate and create a RestrictedText instance."""
-            if isinstance(__input_value, RestrictedText):
-                return __input_value
-            return cls(__input_value)
-
-        @classmethod
-        def __get_pydantic_core_schema__(
-            cls, source: type[Any], handler: GetCoreSchemaHandler
-        ) -> core_schema.CoreSchema:
-            """Get the Pydantic core schema for this type."""
-            return core_schema.with_info_after_validator_function(
-                cls._validate,
-                core_schema.str_schema(),
-                field_name=cls.__name__,
-            )
-
-    # Pydantic v1 methods
-    else:
-
-        @classmethod
-        def __get_validators__(cls):
-            """Pydantic v1 validator method."""
-            yield cls.validate
-
-        @classmethod
-        def validate(cls, v, field=None):
-            """Validate and create a RestrictedText instance for Pydantic v1."""
-            if isinstance(v, RestrictedText):
-                return v
-
-            if not isinstance(v, str):
-                # Let pydantic handle the string validation
-                v = str_validator(v)
-
-            # Create instance
-            instance = cls(v)
-
-            # Check if there's a field default that contains configuration
-            if (
-                field
-                and hasattr(field, "default")
-                and isinstance(field.default, RestrictedTextConfig)
-            ):
-                config = field.default
-                instance._configure(
-                    max_length=config.max_length,
-                    forbidden_chars=config.forbidden_chars,
-                    replacement_char=config.replacement_char,
-                    truncation_suffix=config.truncation_suffix,
-                )
-
-            return instance
-
-        @classmethod
-        def __modify_schema__(cls, field_schema):
-            """Modify the JSON schema for Pydantic v1."""
-            field_schema.update(type="string", examples=["example string"])
+        return self._processed_value or ""

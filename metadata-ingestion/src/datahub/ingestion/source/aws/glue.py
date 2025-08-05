@@ -395,7 +395,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     t = LakeFormationTag(
                         key=tag_key,
                         value=tag_value,
-                        catalog_id=catalog_id,
+                        catalog=catalog_id,
                     )
                     tags.append(t)
             return tags
@@ -438,7 +438,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     t = LakeFormationTag(
                         key=tag_key,
                         value=tag_value,
-                        catalog_id=catalog_id,
+                        catalog=catalog_id,
                     )
                     tags.append(t)
             return tags
