@@ -9,7 +9,7 @@ export default function useDomainsByUrns(urns: string[]) {
         variables: {
             urns,
         },
-        fetchPolicy: 'cache-and-network',
+        fetchPolicy: 'cache-first',
         skip: urns.length === 0,
     });
 
