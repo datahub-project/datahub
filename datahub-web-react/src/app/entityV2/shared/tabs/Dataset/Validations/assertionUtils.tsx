@@ -1,10 +1,10 @@
+import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
 import QueryString from 'query-string';
 import React from 'react';
 
 // TODO
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { FAILURE_COLOR_HEX, ERROR_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 import {
     AssertionResult,
@@ -58,7 +58,6 @@ export const getResultText = (result: AssertionResultType) => {
 /**
  * Returns the display color associated with an AssertionResultType
  */
-const SUCCESS_COLOR_HEX = '#4db31b';
 const INIT_COLOR_HEX = '#2F54EB';
 const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
 

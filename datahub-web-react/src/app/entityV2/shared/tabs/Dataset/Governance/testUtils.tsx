@@ -1,8 +1,8 @@
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 
 import { TestResultType } from '@types';
-import { FAILURE_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 /**
  * Returns the display text assoociated with an Test Result Type
@@ -21,7 +21,6 @@ export const getResultText = (result: TestResultType) => {
 /**
  * Returns the display color assoociated with an TestResultType
  */
-const SUCCESS_COLOR_HEX = '#4db31b';
 
 export const getResultColor = (result: TestResultType) => {
     switch (result) {

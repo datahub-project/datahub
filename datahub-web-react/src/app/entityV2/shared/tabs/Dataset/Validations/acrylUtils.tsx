@@ -1,3 +1,4 @@
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
@@ -14,7 +15,6 @@ import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Datase
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
 import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
-import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX, WARNING_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {

@@ -1,3 +1,4 @@
+import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { Popover } from '@components';
 import { AxisBottom } from '@visx/axis';
 import { Group } from '@visx/group';
@@ -8,7 +9,7 @@ import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
-import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX, ERROR_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
+
 import { AssertionResultType } from '@types';
 
 export type AssertionResult = {

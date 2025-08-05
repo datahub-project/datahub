@@ -1,3 +1,4 @@
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { Popover } from '@components';
 import { AxisBottom } from '@visx/axis';
 import { Group } from '@visx/group';
@@ -6,7 +7,6 @@ import { Bar } from '@visx/shape';
 import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 export type BooleanResult = {
     isSuccess: boolean;

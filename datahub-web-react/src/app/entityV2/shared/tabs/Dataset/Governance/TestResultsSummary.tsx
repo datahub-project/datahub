@@ -1,3 +1,4 @@
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { CheckCircleFilled, CloseCircleFilled, StopOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
@@ -5,7 +6,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 const SummaryHeader = styled.div`
     width: 100%;
