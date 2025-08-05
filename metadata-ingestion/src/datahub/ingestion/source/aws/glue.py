@@ -395,7 +395,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     t = LakeFormationTag(
                         key=tag_key,
                         value=tag_value,
-                        catalog_id=catalog_id,
+                        catalog=catalog_id,
                     )
                     tags.append(t)
             return tags
@@ -438,7 +438,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     t = LakeFormationTag(
                         key=tag_key,
                         value=tag_value,
-                        catalog_id=catalog_id,
+                        catalog=catalog_id,
                     )
                     tags.append(t)
             return tags
@@ -522,6 +522,14 @@ class GlueSource(StatefulIngestionSourceBase):
         bucket = url.netloc
         key = url.path[1:]
 
+        # validate that we have a non-empty key
+        if not key:
+            self.report.num_job_script_location_invalid += 1
+            logger.warning(
+                f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path for flow urn: {flow_urn}."
+            )
+            return None
+
         # download the script contents
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_object
         try:
@@ -533,6 +541,14 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             self.report.num_job_script_failed_download += 1
             return None
+        except botocore.exceptions.ParamValidationError as e:
+            self.report_warning(
+                flow_urn,
+                f"Invalid S3 path for Glue job script {script_path}: {e}",
+            )
+            self.report.num_job_script_location_invalid += 1
+            return None
+
         script = obj["Body"].read().decode("utf-8")
 
         try:

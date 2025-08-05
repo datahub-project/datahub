@@ -18,7 +18,12 @@ public class Constants {
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
-  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
+  // Actor ID for unauthenticated requests
+  public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
+  // Unauthenticated requests (no valid credentials provided).
+  public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
+  // Unknown principal (identity exists but cannot be determined).
+  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN";
   public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
   public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
