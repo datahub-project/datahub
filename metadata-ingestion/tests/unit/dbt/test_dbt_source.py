@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
-from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig, DBTCloudSource
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceReport,
@@ -658,3 +658,115 @@ def test_drop_duplicate_sources() -> None:
     # Verify report counters
     assert source.report.duplicate_sources_dropped == 1
     assert source.report.duplicate_sources_references_updated == 1
+
+
+def test_dbt_cloud_source_description_precedence() -> None:
+    """
+    Test that dbt Cloud source prioritizes table-level description over schema-level sourceDescription.
+
+    In dbt sources, there are two types of descriptions:
+    - description: table-level description (specific to the source table)
+    - sourceDescription: schema-level description (describes the overall source schema)
+
+    The table-level description should take precedence since it's more specific.
+    """
+
+    # Create a mock DBTCloudSource
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    # Create mock node data representing a source with both descriptions
+    source_node_data = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "This is the table-level description for my_table",
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    # Parse the node using the DBTCloudSource method
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    # Assert that the table-level description is used, not the schema-level sourceDescription
+    assert parsed_node.description == "This is the table-level description for my_table"
+    assert (
+        parsed_node.description != "This is the schema-level description for my_schema"
+    )
+    assert parsed_node.name == "my_table"
+    assert parsed_node.node_type == "source"
+
+
+def test_dbt_cloud_source_description_fallback() -> None:
+    """
+    Test that dbt Cloud source falls back to sourceDescription when table description is empty.
+    """
+
+    config = DBTCloudConfig(
+        access_url="https://test.getdbt.com",
+        token="dummy_token",
+        account_id="123456",
+        project_id="1234567",
+        job_id="12345678",
+        run_id="123456789",
+        target_platform="snowflake",
+    )
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-cloud-source")
+    source = DBTCloudSource(config, ctx)
+
+    # Create mock node data with empty table description but present schema description
+    source_node_data = {
+        "uniqueId": "source.my_project.my_schema.my_table",
+        "name": "my_table",
+        "description": "",  # Empty table description
+        "sourceDescription": "This is the schema-level description for my_schema",
+        "resourceType": "source",
+        "identifier": "my_table",
+        "sourceName": "my_schema",
+        "database": "my_database",
+        "schema": "my_schema",
+        "type": None,
+        "owner": None,
+        "comment": "",
+        "columns": [],
+        "meta": {},
+        "tags": [],
+        "maxLoadedAt": None,
+        "snapshottedAt": None,
+        "state": None,
+        "freshnessChecked": None,
+        "loader": None,
+    }
+
+    # Parse the node using the DBTCloudSource method
+    parsed_node = source._parse_into_dbt_node(source_node_data)
+
+    # Should fall back to sourceDescription when table description is empty
+    assert (
+        parsed_node.description == "This is the schema-level description for my_schema"
+    )

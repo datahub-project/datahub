@@ -371,8 +371,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
         comment = node.get("comment", "")
         description = node["description"]
-        if node.get("sourceDescription"):
-            description = node["sourceDescription"]
+        description = node["description"] or node.get("sourceDescription", "")
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
