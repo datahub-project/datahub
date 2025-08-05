@@ -1359,6 +1359,13 @@ class LookerExplore:
             fine_grained_lineages = []
             if config.extract_column_level_lineage:
                 for field in self.fields or []:
+                    # Skip creating fine-grained lineage for empty field names to prevent invalid schema field URNs
+                    if not field.name or not field.name.strip():
+                        logger.warning(
+                            f"Skipping fine-grained lineage for field with empty name in explore '{self.name}'"
+                        )
+                        continue
+
                     for upstream_column_ref in field.upstream_fields:
                         # Skip creating fine-grained lineage for empty column names to prevent invalid schema field URNs
                         if (
