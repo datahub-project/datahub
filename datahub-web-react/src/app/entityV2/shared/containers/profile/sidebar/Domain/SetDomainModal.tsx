@@ -11,7 +11,7 @@ import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
-import analytics, { EventType } from '@src/app/analytics';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityContext';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useAppConfig } from '@src/app/useAppConfig';
@@ -50,7 +50,7 @@ export const SetDomainModal = ({
     canPropose = true,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
-    const { refetch: entityRefetch } = useEntityContext();
+    const { refetch: entityRefetch, entityType } = useEntityContext();
     const mutationUrn = useMutationUrn();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
@@ -174,6 +174,25 @@ export const SetDomainModal = ({
         setSelectedDomain(undefined);
     };
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const onOk = () => {
         if (!selectedDomain) {
             return;
@@ -196,6 +215,7 @@ export const SetDomainModal = ({
                 if (!errors) {
                     message.success({ content: 'Updated Domain!', duration: 2 });
                     refetch?.();
+                    sendAnalytics();
                     onModalClose();
                     setSelectedDomain(undefined);
                 }
