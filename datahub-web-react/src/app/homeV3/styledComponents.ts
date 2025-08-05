@@ -62,7 +62,7 @@ export const ContentContainer = styled.div`
 export const CenteredContainer = styled.div`
     max-width: 1600px; // could simply increase this - ask in design review
     width: 100%;
-    padding: 0 8px 16px 0;
+    padding: 0 8px 16px 8px;
 `;
 
 export const ContentDiv = styled.div`
