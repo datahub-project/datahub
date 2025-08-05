@@ -72,6 +72,8 @@ dependencies {
   implementation externalDependency.playPac4j
   implementation "com.nimbusds:nimbus-jose-jwt:$nimbusJoseJwtVersion"
   implementation externalDependency.jsonSmart
+  
+  implementation externalDependency.shiroCore
 
   implementation externalDependency.playCache
   implementation externalDependency.playCaffeineCache
