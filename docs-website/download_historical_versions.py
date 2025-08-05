@@ -4,6 +4,7 @@ import tarfile
 import time
 import urllib.request
 import shutil
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 repo_url = "https://api.github.com/repos/datahub-project/static-assets"
 
@@ -18,30 +19,26 @@ def download_file(url, destination):
                 f.write(chunk)
 
 
+@retry(
+    stop=stop_after_attempt(10),
+    wait=wait_exponential(multiplier=1, min=1, max=30),
+    retry=retry_if_exception_type((urllib.error.HTTPError, urllib.error.URLError, Exception))
+)
 def fetch_urls(
-    repo_url: str, folder_path: str, file_format: str, active_versions: list, max_retries=3, retry_delay=5
+    repo_url: str, folder_path: str, file_format: str, active_versions: list
 ):
     api_url = f"{repo_url}/contents/{folder_path}"
-    for attempt in range(max_retries + 1):
-        try:
-            response = urllib.request.urlopen(api_url)
-            if response.status == 403 or (500 <= response.status < 600):
-                raise Exception(f"HTTP Error {response.status}: {response.reason}")
-            data = response.read().decode("utf-8")
-            urls = [
-                file["download_url"]
-                for file in json.loads(data)
-                if file["name"].endswith(file_format) and any(version in file["name"] for version in active_versions)
-            ]
-            print(urls)
-            return urls
-        except Exception as e:
-            if attempt < max_retries:
-                print(f"Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(retry_delay * 2**attempt)
-            else:
-                print("Max retries reached. Unable to fetch data.")
-                raise
+    response = urllib.request.urlopen(api_url)
+    if response.status == 403 or (500 <= response.status < 600):
+        raise Exception(f"HTTP Error {response.status}: {response.reason}")
+    data = response.read().decode("utf-8")
+    urls = [
+        file["download_url"]
+        for file in json.loads(data)
+        if file["name"].endswith(file_format) and any(version in file["name"] for version in active_versions)
+    ]
+    print(urls)
+    return urls
 
 
 def extract_tar_file(destination_path):
