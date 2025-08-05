@@ -6,6 +6,7 @@ import { Bar } from '@visx/shape';
 import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 export type BooleanResult = {
     isSuccess: boolean;
@@ -29,9 +30,6 @@ type Props = {
     timeRange: TimeRange;
     width: number;
 };
-
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
 
 /**
  * True / false results displayed on a horizontal timeline.

@@ -8,7 +8,7 @@ import React, { useMemo } from 'react';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
-
+import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX, ERROR_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 import { AssertionResultType } from '@types';
 
 export type AssertionResult = {
@@ -34,9 +34,6 @@ type Props = {
     width: number;
 };
 
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
-const ERROR_COLOR_HEX = '#FAAD14';
 const INIT_COLOR_HEX = '#8C8C8C';
 
 const getFillColor = (type: AssertionResultType) => {

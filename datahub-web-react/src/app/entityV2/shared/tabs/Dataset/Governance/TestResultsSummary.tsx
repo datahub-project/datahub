@@ -5,6 +5,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -39,9 +40,6 @@ export type TestsSummary = {
 type Props = {
     summary: TestsSummary;
 };
-
-const SUCCESS_COLOR_HEX = '#52C41A';
-const FAILURE_COLOR_HEX = '#F5222D';
 
 const getSummaryIcon = (summary: TestsSummary) => {
     if (summary.total === 0) {
