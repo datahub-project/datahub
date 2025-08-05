@@ -54,9 +54,9 @@ import org.pac4j.core.profile.ProfileManager;
 import org.pac4j.core.util.serializer.JavaSerializer;
 import org.pac4j.play.LogoutController;
 import org.pac4j.play.http.PlayHttpActionAdapter;
-import org.pac4j.play.store.JdkAesDataEncrypter;
 import org.pac4j.play.store.PlayCacheSessionStore;
 import org.pac4j.play.store.PlayCookieSessionStore;
+import org.pac4j.play.store.ShiroAesDataEncrypter;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
@@ -121,7 +121,7 @@ public class AuthModule extends AbstractModule {
             DigestUtils.sha256Hex(aesKeyBase.getBytes(StandardCharsets.UTF_8));
         final String aesEncryptionKey = aesKeyHash.substring(0, 16);
         playCacheCookieStore =
-            new PlayCookieSessionStore(new JdkAesDataEncrypter(aesEncryptionKey.getBytes()));
+            new PlayCookieSessionStore(new ShiroAesDataEncrypter(aesEncryptionKey.getBytes()));
         playCacheCookieStore.setSerializer(new JavaSerializer());
       } catch (Exception e) {
         throw new RuntimeException("Failed to instantiate Pac4j cookie session store!", e);
