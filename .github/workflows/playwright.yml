@@ -41,12 +41,12 @@ jobs:
           ADMIN_PASSWORD: datahub
 
       - name: Publish Test Results
-        uses: dorny/test-reporter@v1
+        uses: dorny/test-reporter@d61b558e8df85cb60d09ca3e5b09653b4477cea7 # v1
         if: always()
         with:
           name: 🎭 Playwright Tests
-          path: smoke-test/tests/playwright/playwright-report/results.json
-          reporter: playwright-json
+          path: smoke-test/tests/playwright/playwright-report/results.xml
+          reporter: java-junit
           fail-on-error: true
 
       - name: Upload Playwright Report
