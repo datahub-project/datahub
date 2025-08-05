@@ -18,7 +18,7 @@ This automation can:
 
 - Automatically suggests glossary terms for tables and columns.
 - Goes beyond a predefined set of terms and works with your business glossary.
-- Generates [proposals](../managed-datahub/approval-workflows.md) for owners to review, or can automatically add terms to tables/columns.
+- Generates [proposals](../managed-datahub/change-proposals.md) for owners to review, or can automatically add terms to tables/columns.
 - Automatically adjusts to human-provided feedback and curation (coming soon).
 
 ## Prerequisites
