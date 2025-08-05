@@ -64,8 +64,10 @@ class PatternCleanUpOwnership(OwnershipTransformer):
         # get current owner URNs from the graph
         current_owner_urns = self._get_current_owner_urns(entity_urn)
         if aspect is not None and type(aspect) is OwnershipClass:
-            current_owner_urns = current_owner_urns.union({owner.owner for owner in aspect.owners})
-        
+            current_owner_urns = current_owner_urns.union(
+                {owner.owner for owner in aspect.owners}
+            )
+
         # clean all the owners based on the parameters received from config
         cleaned_owner_urns = set()
         for owner_urn in current_owner_urns:
