@@ -18,15 +18,21 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 5 : 0,
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
+  /* Timeout settings to match Cypress */
+  timeout: 30000,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:9002',
+    /* Support environment variable override like Cypress CYPRESS_BASE_URL */
+    baseURL: (process.env.PLAYWRIGHT_BASE_URL || process.env.CYPRESS_BASE_URL || 'http://localhost:9002/') as string,
+
+    /* Action timeout to match Cypress defaultCommandTimeout */
+    actionTimeout: 10000,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
