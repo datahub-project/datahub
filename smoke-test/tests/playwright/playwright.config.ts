@@ -22,7 +22,12 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 1 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: 'html',
+  reporter: [
+    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    ['json', { outputFile: 'playwright-report/results.json' }],
+    // Add GitHub Actions reporter for CI
+    process.env.CI ? ['github'] : null,
+  ].filter(Boolean),
   /* Timeout settings to match Cypress */
   timeout: 30000,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -36,6 +41,12 @@ export default defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
+    
+    /* Capture screenshot on failure */
+    screenshot: 'only-on-failure',
+    
+    /* Record video on failure */
+    video: 'retain-on-failure',
   },
 
   /* Configure projects for major browsers */
