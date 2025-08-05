@@ -10,8 +10,5 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node", "@playwright/test"]
   },
-  "include": [
-    "**/*.ts",
-    "**/*.js"
-  ]
+  "include": ["**/*.ts", "**/*.js"]
 }

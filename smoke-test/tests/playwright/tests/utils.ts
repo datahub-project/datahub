@@ -1,4 +1,4 @@
-import { Page, Route } from '@playwright/test';
+import { Page, Route } from "@playwright/test";
 
 export const SKIP_INTRODUCE_PAGE_KEY = "skipAcrylIntroducePage";
 export const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
@@ -34,30 +34,31 @@ interface TrackingEvent {
   [key: string]: any;
 }
 
-export const hasOperationName = (postData: GraphQLRequest | null, operationName: string): boolean => {
-  return postData?.operationName === operationName;
-};
+export const hasOperationName = (
+  postData: GraphQLRequest | null,
+  operationName: string,
+): boolean => postData?.operationName === operationName;
 
 /**
  * Helper to intercept and modify GraphQL responses
  */
 export const interceptGraphQL = async (
-  page: Page, 
-  operationName: string, 
-  modifier?: (json: GraphQLResponse) => void
+  page: Page,
+  operationName: string,
+  modifier?: (json: GraphQLResponse) => void,
 ): Promise<void> => {
-  await page.route('/api/v2/graphql', async (route: Route) => {
+  await page.route("/api/v2/graphql", async (route: Route) => {
     const request = route.request();
     const postData = request.postDataJSON() as GraphQLRequest;
-    
+
     if (hasOperationName(postData, operationName)) {
       const response = await route.fetch();
-      const json = await response.json() as GraphQLResponse;
-      
+      const json = (await response.json()) as GraphQLResponse;
+
       if (modifier) {
         modifier(json);
       }
-      
+
       await route.fulfill({ response, json });
     } else {
       await route.continue();
@@ -69,27 +70,45 @@ export const interceptGraphQL = async (
  * Login for onboarding tests (without setting skip flags)
  */
 export const loginForOnboarding = async (
-  page: Page, 
-  username?: string, 
-  password?: string
+  page: Page,
+  username?: string,
+  password?: string,
 ): Promise<void> => {
-  await page.request.post('/logIn', {
+  await page.request.post("/logIn", {
     data: {
-      username: username || process.env.ADMIN_USERNAME || 'datahub',
-      password: password || process.env.ADMIN_PASSWORD || 'datahub'
-    }
+      username: username || process.env.ADMIN_USERNAME || "datahub",
+      password: password || process.env.ADMIN_PASSWORD || "datahub",
+    },
   });
 };
 
+export const clearLocalStorage = async (
+  page: Page,
+  key: string,
+): Promise<void> => {
+  await page.evaluate(
+    ({ storageKey }) => {
+      localStorage.removeItem(storageKey);
+    },
+    { storageKey: key },
+  );
+};
 
-export const setLocalStorage = async (page: Page, key: string, value?: string): Promise<void> => {
-  await page.evaluate(({ key, value }) => {
-    try {
-      localStorage.setItem(key, value || 'true');
-    } catch (e) {
-      console.warn('Failed to set localStorage:', e);
-    }
-  }, { key, value });
+export const setLocalStorage = async (
+  page: Page,
+  key: string,
+  value?: string,
+): Promise<void> => {
+  await page.evaluate(
+    ({ storageKey, storageValue }) => {
+      try {
+        localStorage.setItem(storageKey, storageValue || "true");
+      } catch (e) {
+        console.warn("Failed to set localStorage:", e);
+      }
+    },
+    { storageKey: key, storageValue: value },
+  );
 };
 
 /**
@@ -98,7 +117,6 @@ export const setLocalStorage = async (page: Page, key: string, value?: string): 
 export const skipOnboardingTour = async (page: Page): Promise<void> => {
   await setLocalStorage(page, SKIP_ONBOARDING_TOUR_KEY);
 };
-
 
 /**
  * Skip welcome modal
@@ -120,7 +138,7 @@ export const skipIntroducePage = async (page: Page): Promise<void> => {
 export const enableThemeV2 = async (page: Page): Promise<void> => {
   await setLocalStorage(page, THEME_V2_STATUS_KEY);
 
-  await interceptGraphQL(page, 'appConfig', (json: GraphQLResponse) => {
+  await interceptGraphQL(page, "appConfig", (json: GraphQLResponse) => {
     json.data.appConfig.featureFlags.themeV2Enabled = true;
     json.data.appConfig.featureFlags.themeV2Default = true;
   });
@@ -129,15 +147,17 @@ export const enableThemeV2 = async (page: Page): Promise<void> => {
 /**
  * Set up tracking event interception
  */
-export const interceptTrackingEvents = async (page: Page): Promise<TrackingEvent[]> => {
+export const interceptTrackingEvents = async (
+  page: Page,
+): Promise<TrackingEvent[]> => {
   const events: TrackingEvent[] = [];
-  
-  await page.route('**/track**', (route: Route) => {
+
+  await page.route("**/track**", (route: Route) => {
     const request = route.request();
     const postData = request.postDataJSON() as TrackingEvent;
     events.push(postData);
     route.fulfill({ status: 200 });
   });
-  
+
   return events;
 };
