@@ -88,8 +88,8 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
             return existing_platform_resource
 
         return LakeFormationTagPlatformResourceId(
-            tag_key=tag.key,
-            tag_value=tag.value if tag.value is not None else None,
+            tag_key=str(tag.key),
+            tag_value=str(tag.value) if tag.value is not None else None,
             platform_instance=platform_instance,
             exists_in_lake_formation=exists_in_lake_formation,
             catalog=catalog,
