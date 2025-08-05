@@ -352,6 +352,10 @@ class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
       if (totalRecordsStr != null) {
         dataSetProfile.setRowCount(Long.parseLong(totalRecordsStr));
       }
+      String totalFileSizeStr = currentSnapshot.summary().get(SnapshotSummary.TOTAL_FILE_SIZE_PROP);
+      if (totalFileSizeStr != null) {
+        dataSetProfile.setSizeInBytes(Long.parseLong(totalFileSizeStr));
+      }
     }
 
     return dataSetProfile;
