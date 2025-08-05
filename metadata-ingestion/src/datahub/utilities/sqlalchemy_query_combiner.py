@@ -357,6 +357,8 @@ class SQLAlchemyQueryCombiner:
                 for col in cols:
                     if col.key:
                         data[col.key] = row[index]
+                    elif isinstance(col, sqlalchemy.sql.elements.TextClause):
+                        data[row._fields[index]] = row[index]
                     else:
                         # Replicate the same names for anonymous functions as
                         # SQLAlchemy would generate.
