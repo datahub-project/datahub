@@ -2,15 +2,18 @@ package io.datahubproject.iceberg.catalog;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
-import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_ICEBERG_METADATA_ASPECT_NAME;
+import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.container.Container;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
@@ -18,6 +21,7 @@ import com.linkedin.dataset.ViewProperties;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -29,6 +33,7 @@ import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.iceberg.Snapshot;
@@ -196,7 +201,6 @@ abstract class TableOrViewOpsDelegate<M> {
     }
 
     additionalMcps(metadata.metadata(), datasetBatch);
-
     try {
       AspectsBatch aspectsBatch = icebergBatch.asAspectsBatch();
       entityService.ingestProposal(operationContext, aspectsBatch, false);
@@ -210,22 +214,12 @@ abstract class TableOrViewOpsDelegate<M> {
       }
     }
 
-    DatasetProfile datasetProfile =
-        getDataSetProfile(metadata.metadata())
-            .setTimestampMillis(icebergBatch.getAuditStamp().getTime());
-
-    MetadataChangeProposal datasetProfileMcp =
-        new MetadataChangeProposal()
-            .setEntityUrn(datasetUrn)
-            .setEntityType(DATASET_ENTITY_NAME)
-            .setAspectName(DATASET_PROFILE_ASPECT_NAME)
-            .setAspect(serializeAspect(datasetProfile))
-            .setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(
-        operationContext, datasetProfileMcp, icebergBatch.getAuditStamp(), true);
+    additionalAsyncMcps(datasetUrn, metadata, icebergBatch.getAuditStamp());
   }
 
   protected abstract DatasetProfile getDataSetProfile(M metadata);
+
+  protected abstract StringMap getIcebergProperties(M metadata);
 
   FileIO io() {
     return io;
@@ -255,7 +249,56 @@ abstract class TableOrViewOpsDelegate<M> {
 
   abstract RuntimeException noSuchEntityException();
 
+  // Any additional MCPs that need to be stored in the same transaction.
   void additionalMcps(M metadata, IcebergBatch.EntityBatch datasetBatch) {}
+
+  // Any additional MCPs that can be ingested asynchronously (and hence outside the iceberg commit
+  // path)
+  void additionalAsyncMcps(
+      DatasetUrn datasetUrn, MetadataWrapper<M> metadata, AuditStamp auditStamp) {
+    DatasetProfile datasetProfile =
+        getDataSetProfile(metadata.metadata()).setTimestampMillis(auditStamp.getTime());
+
+    MetadataChangeProposal datasetProfileMcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(datasetUrn)
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(DATASET_PROFILE_ASPECT_NAME)
+            .setAspect(serializeAspect(datasetProfile))
+            .setChangeType(ChangeType.UPSERT);
+    entityService.ingestProposal(operationContext, datasetProfileMcp, auditStamp, true);
+
+    RecordTemplate prevDatasetPropertiesData =
+        entityService.getLatestAspect(operationContext, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME);
+    if (prevDatasetPropertiesData != null) {
+      DatasetProperties prevPropertiesAspect =
+          new DatasetProperties(prevDatasetPropertiesData.data());
+      StringMap prevPropertiesMap = prevPropertiesAspect.getCustomProperties();
+      Set<String> prevIcebergProperties =
+          prevPropertiesMap.keySet().stream()
+              .filter(key -> key.startsWith(ICEBERG_PROPERTY_PREFIX))
+              .collect(Collectors.toSet());
+
+      StringMap newIcebergProperties = getIcebergProperties(metadata.metadata());
+      Set<String> deletedIcebergProperties =
+          prevIcebergProperties.stream()
+              .filter(key -> !newIcebergProperties.containsKey(key))
+              .collect(Collectors.toSet());
+
+      DatasetPropertiesPatchBuilder patchBuilder =
+          new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+      for (String deletedProperty : deletedIcebergProperties) {
+        patchBuilder.removeCustomProperty(deletedProperty);
+      }
+      for (String newProperty : newIcebergProperties.keySet()) {
+        patchBuilder.addCustomProperty(
+            ICEBERG_PROPERTY_PREFIX + newProperty, newIcebergProperties.get(newProperty));
+      }
+
+      MetadataChangeProposal datasetPropertiesMcp = patchBuilder.build();
+      entityService.ingestProposal(operationContext, datasetPropertiesMcp, auditStamp, true);
+    }
+  }
 }
 
 @Slf4j
@@ -326,6 +369,11 @@ class ViewOpsDelegate extends TableOrViewOpsDelegate<ViewMetadata> {
     datasetProfile.setColumnCount(columnCount);
     return datasetProfile;
   }
+
+  @Override
+  protected StringMap getIcebergProperties(ViewMetadata metadata) {
+    return new StringMap(metadata.properties());
+  }
 }
 
 class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
@@ -384,6 +432,11 @@ class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
   @Override
   RuntimeException noSuchEntityException() {
     return new NoSuchTableException("No such table %s", name());
+  }
+
+  @Override
+  protected StringMap getIcebergProperties(TableMetadata metadata) {
+    return new StringMap(metadata.properties());
   }
 }
 
