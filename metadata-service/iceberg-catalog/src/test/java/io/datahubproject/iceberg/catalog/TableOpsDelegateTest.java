@@ -26,6 +26,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.ActorContext;
@@ -33,9 +34,12 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.apache.iceberg.PartitionField;
+import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotSummary;
@@ -429,6 +433,461 @@ public class TableOpsDelegateTest {
   public void testRefreshNotFound() {
     when(mockWarehouse.getIcebergMetadata(identifier)).thenReturn(Optional.empty());
     assertNull(tableDelegate.refresh());
+  }
+
+  @Test
+  public void testPartitionFieldDetection() throws Exception {
+    // Setup schema with fields that have JSON properties containing field IDs
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "date", Types.StringType.get()),
+            Types.NestedField.optional(3, "region", Types.StringType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(2); // Different schema ID to trigger processing
+
+    // Mock partition spec with partition fields
+    PartitionSpec partitionSpec = mock(PartitionSpec.class);
+    PartitionField datePartitionField = mock(PartitionField.class);
+    PartitionField regionPartitionField = mock(PartitionField.class);
+
+    when(datePartitionField.sourceId()).thenReturn(2); // date field
+    when(regionPartitionField.sourceId()).thenReturn(3); // region field
+    when(partitionSpec.fields()).thenReturn(List.of(datePartitionField, regionPartitionField));
+
+    // Mock table metadata with partition spec
+    when(metadata.spec(1)).thenReturn(partitionSpec);
+    when(metadata.defaultSpecId()).thenReturn(1);
+
+    // Setup base metadata with different schema ID
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1);
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    // Mock existing dataset aspect
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    // Mock schema fields with JSON properties containing field IDs
+    org.apache.avro.Schema avroSchema = AvroSchemaUtil.convert(schema, fullName);
+    AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
+    SchemaMetadata schemaMetadata =
+        converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+
+    // Manually set JSON properties for testing
+    for (SchemaField field : schemaMetadata.getFields()) {
+      if ("date".equals(field.getFieldPath())) {
+        field.setJsonProps("{\"field-id\": \"2\"}");
+      } else if ("region".equals(field.getFieldPath())) {
+        field.setJsonProps("{\"field-id\": \"3\"}");
+      } else {
+        field.setJsonProps("{\"field-id\": \"1\"}");
+      }
+    }
+
+    // Capture the schema metadata to verify partition fields
+    ArgumentCaptor<SchemaMetadata> schemaMetadataCaptor =
+        ArgumentCaptor.forClass(SchemaMetadata.class);
+
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    verify(entityBatch).aspect(eq(SCHEMA_METADATA_ASPECT_NAME), schemaMetadataCaptor.capture());
+
+    SchemaMetadata capturedSchemaMetadata = schemaMetadataCaptor.getValue();
+
+    boolean foundPartitionField = false;
+    for (SchemaField field : capturedSchemaMetadata.getFields()) {
+      if (field.getFieldPath().contains(".date") || field.getFieldPath().contains(".region")) {
+        assertTrue(
+            Boolean.TRUE.equals(field.isIsPartitioningKey()),
+            "Partition field should be marked as partitioning key");
+        foundPartitionField = true;
+      } else {
+        assertFalse(
+            Boolean.TRUE.equals(field.isIsPartitioningKey()),
+            "Non-partition field should not be marked as partitioning key");
+      }
+    }
+    assertTrue(foundPartitionField, "Should have found at least one partition field");
+  }
+
+  @Test
+  public void testPartitionFieldJsonParsingError() throws Exception {
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "date", Types.StringType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(2);
+
+    // Mock partition spec
+    PartitionSpec partitionSpec = mock(PartitionSpec.class);
+    PartitionField datePartitionField = mock(PartitionField.class);
+    when(datePartitionField.sourceId()).thenReturn(2);
+    when(partitionSpec.fields()).thenReturn(List.of(datePartitionField));
+
+    when(metadata.spec(1)).thenReturn(partitionSpec);
+    when(metadata.defaultSpecId()).thenReturn(1);
+
+    // Setup base metadata
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1);
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    // Mock schema fields with malformed JSON properties
+    org.apache.avro.Schema avroSchema = AvroSchemaUtil.convert(schema, fullName);
+    AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
+    SchemaMetadata schemaMetadata =
+        converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+
+    // Set malformed JSON properties
+    for (SchemaField field : schemaMetadata.getFields()) {
+      if ("date".equals(field.getFieldPath())) {
+        field.setJsonProps("{\"field-id\": invalid json}"); // Malformed JSON
+      } else {
+        field.setJsonProps("{\"field-id\": \"1\"}");
+      }
+    }
+
+    // The commit should still succeed despite JSON parsing errors
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    // Verify that the commit still succeeded
+    verify(mockEntityService)
+        .ingestProposal(same(mockOperationContext), same(mockAspectsBatch), eq(false));
+    verifyDatasetProfile();
+  }
+
+  @Test
+  public void testPartitionFieldNoMatchingSchemaField() throws Exception {
+    Schema schema = new Schema(Types.NestedField.required(1, "id", Types.LongType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(2);
+
+    // Mock partition spec with field ID that doesn't exist in schema
+    PartitionSpec partitionSpec = mock(PartitionSpec.class);
+    PartitionField nonExistentPartitionField = mock(PartitionField.class);
+    when(nonExistentPartitionField.sourceId()).thenReturn(999); // Non-existent field ID
+    when(partitionSpec.fields()).thenReturn(List.of(nonExistentPartitionField));
+
+    when(metadata.spec(1)).thenReturn(partitionSpec);
+    when(metadata.defaultSpecId()).thenReturn(1);
+
+    // Setup base metadata
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1);
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    // Mock schema fields with valid JSON properties
+    org.apache.avro.Schema avroSchema = AvroSchemaUtil.convert(schema, fullName);
+    AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
+    SchemaMetadata schemaMetadata =
+        converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+
+    for (SchemaField field : schemaMetadata.getFields()) {
+      field.setJsonProps("{\"field-id\": \"1\"}");
+    }
+
+    // The commit should still succeed even with non-matching partition fields
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    // Verify that the commit still succeeded
+    verify(mockEntityService)
+        .ingestProposal(same(mockOperationContext), same(mockAspectsBatch), eq(false));
+    verifyDatasetProfile();
+  }
+
+  @Test
+  public void testPartitionFieldEmptySpec() throws Exception {
+    Schema schema = new Schema(Types.NestedField.required(1, "id", Types.LongType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(2);
+
+    // Mock empty partition spec
+    PartitionSpec partitionSpec = mock(PartitionSpec.class);
+    when(partitionSpec.fields()).thenReturn(List.of()); // Empty partition fields
+
+    when(metadata.spec(1)).thenReturn(partitionSpec);
+    when(metadata.defaultSpecId()).thenReturn(1);
+
+    // Setup base metadata
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1);
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    // The commit should succeed with empty partition spec
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    // Verify that the commit succeeded
+    verify(mockEntityService)
+        .ingestProposal(same(mockOperationContext), same(mockAspectsBatch), eq(false));
+    verifyDatasetProfile();
+  }
+
+  @Test
+  public void testSchemaChangeTriggersPartitionProcessing() throws Exception {
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "date", Types.StringType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(2); // Different schema ID
+
+    // Mock partition spec
+    PartitionSpec partitionSpec = mock(PartitionSpec.class);
+    PartitionField datePartitionField = mock(PartitionField.class);
+    when(datePartitionField.sourceId()).thenReturn(2);
+    when(partitionSpec.fields()).thenReturn(List.of(datePartitionField));
+
+    when(metadata.spec(1)).thenReturn(partitionSpec);
+    when(metadata.defaultSpecId()).thenReturn(1);
+
+    // Setup base metadata with different schema ID
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1); // Different schema ID
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    // Mock schema fields with JSON properties
+    org.apache.avro.Schema avroSchema = AvroSchemaUtil.convert(schema, fullName);
+    AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
+    SchemaMetadata schemaMetadata =
+        converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+
+    for (SchemaField field : schemaMetadata.getFields()) {
+      if ("date".equals(field.getFieldPath())) {
+        field.setJsonProps("{\"field-id\": \"2\"}");
+      } else {
+        field.setJsonProps("{\"field-id\": \"1\"}");
+      }
+    }
+
+    // Capture schema metadata to verify partition processing occurred
+    ArgumentCaptor<SchemaMetadata> schemaMetadataCaptor =
+        ArgumentCaptor.forClass(SchemaMetadata.class);
+
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    // Verify that schema metadata was processed (partition processing occurred)
+    verify(entityBatch).aspect(eq(SCHEMA_METADATA_ASPECT_NAME), schemaMetadataCaptor.capture());
+
+    SchemaMetadata capturedSchemaMetadata = schemaMetadataCaptor.getValue();
+    boolean foundPartitionField = false;
+    for (SchemaField field : capturedSchemaMetadata.getFields()) {
+      if (field.getFieldPath().contains(".date")) {
+        assertTrue(
+            Boolean.TRUE.equals(field.isIsPartitioningKey()),
+            "Partition field should be marked as partitioning key");
+        foundPartitionField = true;
+      }
+    }
+    assertTrue(foundPartitionField, "Should have found partition field");
+  }
+
+  @Test
+  public void testNoSchemaChangeSkipsPartitionProcessing() throws Exception {
+    Schema schema = new Schema(Types.NestedField.required(1, "id", Types.LongType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(1); // Same schema ID
+
+    // Setup base metadata with same schema ID
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1); // Same schema ID
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    // Verify that schema metadata was NOT processed (no schema change)
+    verify(entityBatch, never()).aspect(eq(SCHEMA_METADATA_ASPECT_NAME), any(SchemaMetadata.class));
+
+    // Verify that the commit still succeeded
+    verify(mockEntityService)
+        .ingestProposal(same(mockOperationContext), same(mockAspectsBatch), eq(false));
+    verifyDatasetProfile();
+  }
+
+  @Test
+  public void testNullTableMetadataSkipsPartitionProcessing() throws Exception {
+    Schema schema = new Schema(Types.NestedField.required(1, "id", Types.LongType.get()));
+
+    TableMetadata metadata = mock(TableMetadata.class);
+    when(metadata.schema()).thenReturn(schema);
+    when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.currentSchemaId()).thenReturn(2);
+    when(metadata.spec(1)).thenReturn(null); // Null partition spec
+
+    // Setup base metadata
+    TableMetadata base = mock(TableMetadata.class);
+    when(base.currentSchemaId()).thenReturn(1);
+    when(base.metadataFileLocation()).thenReturn("s3://bucket/metadata/00001-metadata.json");
+
+    Pair<EnvelopedAspect, DatasetUrn> existingDatasetAspect =
+        mockWarehouseIcebergMetadata("s3://bucket/metadata/00001-metadata.json", false, "version1");
+    when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(existingDatasetAspect);
+
+    DatasetUrn datasetUrn = existingDatasetAspect.getSecond();
+    String newMetadataPointerLocation = "s3://bucket/metadata/00002-metadata.json";
+    IcebergCatalogInfo newCatalogInfo =
+        new IcebergCatalogInfo().setMetadataPointer(newMetadataPointerLocation).setView(false);
+
+    IcebergBatch.EntityBatch entityBatch = mock(IcebergBatch.EntityBatch.class);
+    when(mockIcebergBatch.conditionalUpdateEntity(
+            eq(datasetUrn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_ICEBERG_METADATA_ASPECT_NAME),
+            eq(newCatalogInfo),
+            eq("version1")))
+        .thenReturn(entityBatch);
+
+    tableDelegate.doCommit(
+        new MetadataWrapper<>(base),
+        new MetadataWrapper<>(metadata),
+        () -> newMetadataPointerLocation);
+
+    // Verify that the commit succeeded despite null partition spec
+    verify(mockEntityService)
+        .ingestProposal(same(mockOperationContext), same(mockAspectsBatch), eq(false));
+    verifyDatasetProfile();
   }
 
   @Test
