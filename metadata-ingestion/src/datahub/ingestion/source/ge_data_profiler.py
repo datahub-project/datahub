@@ -216,6 +216,14 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
                 )
             ).scalar()
         )
+    elif self.engine.dialect.name.lower() == DATABRICKS:
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_count_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
