@@ -77,9 +77,23 @@ export const loginForOnboarding = async (
 };
 
 /**
- * Skip introduce page by setting localStorage
+ * Skip onboarding tour
  */
-export const skipIntroducePage = async (page: Page): Promise<void> => {
+export const skipOnboardingTour = async (page: Page): Promise<void> => {
+  await page.evaluate(() => {
+    try {
+      localStorage.setItem('skipOnboardingTour', 'true');
+    } catch (e) {
+      console.warn('Failed to set localStorage:', e);
+    }
+  });
+};
+
+
+/**
+ * Skip onboarding tour
+ */
+export const skipWelcomeModal = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
     try {
       localStorage.setItem('skipWelcomeModal', 'true');
@@ -88,7 +102,6 @@ export const skipIntroducePage = async (page: Page): Promise<void> => {
     }
   });
 };
-
 /**
  * Set up theme V2 configuration
  */
@@ -104,21 +117,6 @@ export const enableThemeV2 = async (page: Page): Promise<void> => {
   await interceptGraphQL(page, 'appConfig', (json: GraphQLResponse) => {
     json.data.appConfig.featureFlags.themeV2Enabled = true;
     json.data.appConfig.featureFlags.themeV2Default = true;
-  });
-};
-
-/**
- * Clear onboarding-related localStorage items
- */
-export const clearOnboardingStorage = async (page: Page): Promise<void> => {
-  await page.evaluate(() => {
-    try {
-      localStorage.removeItem('skipWelcomeModal');
-      localStorage.removeItem('skipOnboardingTour');
-      localStorage.removeItem('isThemeV2Enabled');
-    } catch (e) {
-      console.warn('Failed to clear localStorage:', e);
-    }
   });
 };
 

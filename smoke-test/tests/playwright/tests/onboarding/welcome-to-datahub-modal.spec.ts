@@ -1,10 +1,10 @@
 import { test, expect, Page } from '@playwright/test';
 import { 
   loginForOnboarding, 
-  skipIntroducePage, 
-  enableThemeV2, 
-  clearOnboardingStorage,
-  interceptTrackingEvents 
+  skipOnboardingTour, 
+  enableThemeV2,
+  interceptTrackingEvents, 
+  skipWelcomeModal
 } from '../utils';
 
 interface TrackingEvent {
@@ -21,13 +21,8 @@ test.describe('WelcomeToDataHubModal', () => {
     // Navigate to the app first to avoid localStorage security errors
     await page.goto('/');
     // Clear localStorage and set up initial state
-    await clearOnboardingStorage(page);
-    await skipIntroducePage(page);
+    await skipOnboardingTour(page);
     await enableThemeV2(page);
-  });
-
-  test.afterEach(async ({ page }: { page: Page }) => {
-    await clearOnboardingStorage(page);
   });
 
   test('should display the modal for first-time users', async ({ page }: { page: Page }) => {
@@ -39,7 +34,7 @@ test.describe('WelcomeToDataHubModal', () => {
     await page.goto('/');
 
     // Wait for and verify modal is visible
-    const modal = page.getByRole('dialog');
+    let modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
     // Click the last carousel dot
@@ -65,24 +60,13 @@ test.describe('WelcomeToDataHubModal', () => {
     }, SKIP_WELCOME_MODAL_KEY);
     
     expect(skipModalValue).toBe('true');
-  });
-
-  test('should not display the modal if user has already seen it', async ({ page }: { page: Page }) => {
-    // Set localStorage to indicate user has already seen modal
-    await page.evaluate((key: string) => {
-      try {
-        localStorage.setItem(key, 'true');
-      } catch (e) {
-        console.warn('Failed to set localStorage:', e);
-      }
-    }, SKIP_WELCOME_MODAL_KEY);
 
     // Login for onboarding
     await loginForOnboarding(page);
     await page.goto('/');
 
     // Verify modal does not exist
-    const modal = page.getByRole('dialog');
+    modal = page.getByRole('dialog');
     await expect(modal).not.toBeVisible();
   });
 
@@ -98,9 +82,8 @@ test.describe('WelcomeToDataHubModal', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
     
-    // Click close button - use more specific selector since getByLabelText may not exist
-    const closeButton = page.locator('[aria-label*="close" i], [title*="close" i], .ant-modal-close');
-    await closeButton.first().click();
+    // Click close button
+    await page.getByLabel('Close').first().click();
     
     // Verify modal is closed
     await expect(modal).not.toBeVisible();
