@@ -89,16 +89,20 @@ const getFormattedReasonTextForFieldMetricAssertion = (run: AssertionRunEvent) =
     const field = assertionInfo?.fieldAssertion?.fieldMetricAssertion?.field?.path || 'column';
     const metricType = assertionInfo?.fieldAssertion?.fieldMetricAssertion?.metric;
     const metricText = (metricType && getFieldMetricLabel(metricType)) || 'Aggregation';
-    const actual = tryGetFieldMetricAssertionNumericalResult(run.result);
+    const actualRaw = tryGetFieldMetricAssertionNumericalResult(run.result);
+    const actual =
+        typeof actualRaw === 'number'
+            ? formatNumberWithoutAbbreviation(actualRaw, isPercentageMetric(metricType) ? 'percentage' : 'absolute')
+            : undefined;
     const result = run.result?.type;
     if (result === AssertionResultType.Success) {
         if (actual !== undefined) {
-            return `${metricText} of ${field} (${isPercentageMetric(metricType) ? `${actual}%` : actual}) met the expected conditions.`;
+            return `${metricText} of ${field} (${actual}) met the expected conditions.`;
         }
         return `${metricText} of ${field} met the expected conditions.`;
     }
     if (actual !== undefined) {
-        return `${metricText} of ${field} (${isPercentageMetric(metricType) ? `${actual}%` : actual}) did not meet the expected conditions.`;
+        return `${metricText} of ${field} (${actual}) did not meet the expected conditions.`;
     }
     return `${metricText} of ${field} did not meet the expected conditions.`;
 };
@@ -112,7 +116,7 @@ const getFormattedReasonTextForFieldValuesAssertion = (run: AssertionRunEvent) =
         return `All rows values met the expected conditions for column ${field}.`;
     }
     if (invalidRowsCount !== undefined) {
-        return `${invalidRowsCount} rows did not meet the expected conditions for column ${field}.`;
+        return `${formatNumberWithoutAbbreviation(invalidRowsCount)} rows did not meet the expected conditions for column ${field}.`;
     }
     return `Some rows did not meet the expected conditions for column ${field}.`;
 };
@@ -129,7 +133,7 @@ const getFormattedReasonTextForAbsoluteSqlAssertion = (run: AssertionRunEvent) =
     // Be careful about showing the actual result that was returned, since it may contain sensitive information.
     const resultType = run.result?.type;
     const maybeResultValue = tryGetSqlAssertionNumericalResult(run.result);
-    const resultValueStr = maybeResultValue ? ` (${maybeResultValue})` : '';
+    const resultValueStr = maybeResultValue ? ` (${formatNumberWithoutAbbreviation(maybeResultValue)})` : '';
     if (resultType === AssertionResultType.Success) {
         return `The result of the provided SQL query${resultValueStr} met the expected conditions.`;
     }

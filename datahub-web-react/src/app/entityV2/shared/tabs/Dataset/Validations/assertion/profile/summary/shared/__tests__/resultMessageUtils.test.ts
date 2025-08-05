@@ -551,7 +551,7 @@ describe('getFormattedExpectedResultTextForAbsoluteAssertionRange', () => {
     });
 });
 
-describe('getFormattedReasonText for Field Metric Assertions', () => {
+describe('getFormattedReasonText for Field Assertions', () => {
     const baseAssertion = {
         urn: 'test-assertion-urn',
         type: EntityType.Assertion,
@@ -578,301 +578,498 @@ describe('getFormattedReasonText for Field Metric Assertions', () => {
         __typename: 'AssertionRunEvent' as const,
     } as any; // Using any to simplify test setup
 
-    describe('percentage metrics', () => {
-        it('should format percentage metric with actual value - success case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'age_column',
+    describe('Field Metric Assertions', () => {
+        describe('percentage metrics with formatNumberWithoutAbbreviation', () => {
+            it('should format percentage metric with simple number - success case', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'age_column',
+                                    },
+                                    metric: FieldMetricType.NullPercentage,
                                 },
-                                metric: FieldMetricType.NullPercentage,
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '5' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Null percentage of age_column (5%) met the expected conditions.');
+            });
+
+            it('should format percentage metric with decimal - failure case', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'email_field',
+                                    },
+                                    metric: FieldMetricType.EmptyPercentage,
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '15.5' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Empty percentage of email_field (15.5%) did not meet the expected conditions.');
+            });
+
+            it('should format percentage metric with large number and commas', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'complex_field',
+                                    },
+                                    metric: FieldMetricType.UniquePercentage,
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '1234.56' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe(
+                    'Unique percentage of complex_field (1,234.56%) did not meet the expected conditions.',
+                );
+            });
+
+            it('should format percentage metric without actual value - success case', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'status_column',
+                                    },
+                                    metric: FieldMetricType.UniquePercentage,
+                                },
                             },
                         },
                     },
-                    nativeResults: [{ key: 'Metric Value', value: '5' }],
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Null percentage of age_column (5%) met the expected conditions.');
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Unique percentage of status_column met the expected conditions.');
+            });
         });
 
-        it('should format percentage metric with actual value - failure case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Failure,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'email_field',
+        describe('non-percentage metrics with formatNumberWithoutAbbreviation', () => {
+            it('should format non-percentage metric with large number and commas', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'user_id',
+                                    },
+                                    metric: FieldMetricType.UniqueCount,
                                 },
-                                metric: FieldMetricType.EmptyPercentage,
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '12345' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Unique count of user_id (12,345) met the expected conditions.');
+            });
+
+            it('should format non-percentage metric with decimal values', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'price',
+                                    },
+                                    metric: FieldMetricType.Max,
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '9999.99' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Max of price (9,999.99) did not meet the expected conditions.');
+            });
+
+            it('should format non-percentage metric with very large number', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'record_count',
+                                    },
+                                    metric: FieldMetricType.UniqueCount,
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '1000000' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Unique count of record_count (1,000,000) met the expected conditions.');
+            });
+
+            it('should format non-percentage metric without actual value - success case', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'amount',
+                                    },
+                                    metric: FieldMetricType.Mean,
+                                },
                             },
                         },
                     },
-                    nativeResults: [{ key: 'Metric Value', value: '15.5' }],
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Empty percentage of email_field (15.5%) did not meet the expected conditions.');
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Average of amount met the expected conditions.');
+            });
         });
 
-        it('should format percentage metric without actual value - success case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'status_column',
+        describe('edge cases for field metrics', () => {
+            it('should handle missing field path', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    metric: FieldMetricType.NullPercentage,
                                 },
-                                metric: FieldMetricType.UniquePercentage,
                             },
                         },
+                        nativeResults: [{ key: 'Metric Value', value: '10' }],
                     },
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Unique percentage of status_column met the expected conditions.');
-        });
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Null percentage of column (10%) met the expected conditions.');
+            });
 
-        it('should format percentage metric without actual value - failure case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Failure,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'score_field',
+            it('should handle missing metric type', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'test_field',
+                                    },
                                 },
-                                metric: FieldMetricType.ZeroPercentage,
                             },
                         },
+                        nativeResults: [{ key: 'Metric Value', value: '1042' }],
                     },
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Zero percentage of score_field did not meet the expected conditions.');
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Aggregation of test_field (1,042) did not meet the expected conditions.');
+            });
+
+            it('should handle zero actual value for percentage metric', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'error_count',
+                                    },
+                                    metric: FieldMetricType.NegativePercentage,
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '0' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Negative percentage of error_count (0%) met the expected conditions.');
+            });
+
+            it('should handle zero actual value for non-percentage metric', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldMetric,
+                                fieldMetricAssertion: {
+                                    field: {
+                                        path: 'null_count',
+                                    },
+                                    metric: FieldMetricType.NullCount,
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Metric Value', value: '0' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Null count of null_count (0) met the expected conditions.');
+            });
         });
     });
 
-    describe('non-percentage metrics', () => {
-        it('should format non-percentage metric with actual value - success case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'user_id',
-                                },
-                                metric: FieldMetricType.UniqueCount,
-                            },
-                        },
-                    },
-                    nativeResults: [{ key: 'Metric Value', value: '1000' }],
-                },
-            };
-
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Unique count of user_id (1000) met the expected conditions.');
-        });
-
-        it('should format non-percentage metric with actual value - failure case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Failure,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'price',
-                                },
-                                metric: FieldMetricType.Max,
-                            },
-                        },
-                    },
-                    nativeResults: [{ key: 'Metric Value', value: '9999.99' }],
-                },
-            };
-
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Max of price (9999.99) did not meet the expected conditions.');
-        });
-
-        it('should format non-percentage metric without actual value - success case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'amount',
-                                },
-                                metric: FieldMetricType.Mean,
-                            },
-                        },
-                    },
-                },
-            };
-
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Average of amount met the expected conditions.');
-        });
-
-        it('should format non-percentage metric without actual value - failure case', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Failure,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'description',
-                                },
-                                metric: FieldMetricType.MinLength,
-                            },
-                        },
-                    },
-                },
-            };
-
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Min length of description did not meet the expected conditions.');
-        });
-    });
-
-    describe('edge cases', () => {
-        it('should handle missing field path', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                metric: FieldMetricType.NullPercentage,
-                            },
-                        },
-                    },
-                    nativeResults: [{ key: 'Metric Value', value: '10' }],
-                },
-            };
-
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Null percentage of column (10%) met the expected conditions.');
-        });
-
-        it('should handle missing metric type', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Failure,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'test_field',
+    describe('Field Values Assertions', () => {
+        describe('with formatNumberWithoutAbbreviation for invalid row counts', () => {
+            it('should format success case without row count', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'status_column',
+                                    },
                                 },
                             },
                         },
                     },
-                    nativeResults: [{ key: 'Metric Value', value: '42' }],
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Aggregation of test_field (42) did not meet the expected conditions.');
-        });
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('All rows values met the expected conditions for column status_column.');
+            });
 
-        it('should handle zero actual value for percentage metric', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'error_count',
+            it('should format failure case with small invalid row count', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'email_field',
+                                    },
                                 },
-                                metric: FieldMetricType.NegativePercentage,
+                            },
+                        },
+                        nativeResults: [{ key: 'Invalid Rows', value: '5' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('5 rows did not meet the expected conditions for column email_field.');
+            });
+
+            it('should format failure case with large invalid row count and commas', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'data_quality_field',
+                                    },
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Invalid Rows', value: '12345' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('12,345 rows did not meet the expected conditions for column data_quality_field.');
+            });
+
+            it('should format failure case with very large invalid row count', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'problematic_field',
+                                    },
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Invalid Rows', value: '1000000' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe(
+                    '1,000,000 rows did not meet the expected conditions for column problematic_field.',
+                );
+            });
+
+            it('should format failure case with decimal invalid row count', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'calculated_field',
+                                    },
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Invalid Rows', value: '1234.5' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('1,234.5 rows did not meet the expected conditions for column calculated_field.');
+            });
+
+            it('should handle zero invalid rows', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'test_field',
+                                    },
+                                },
+                            },
+                        },
+                        nativeResults: [{ key: 'Invalid Rows', value: '0' }],
+                    },
+                };
+
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('0 rows did not meet the expected conditions for column test_field.');
+            });
+
+            it('should format failure case without invalid row count', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Failure,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {
+                                    field: {
+                                        path: 'unknown_field',
+                                    },
+                                },
                             },
                         },
                     },
-                    nativeResults: [{ key: 'Metric Value', value: '0' }],
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Negative percentage of error_count (0%) met the expected conditions.');
-        });
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('Some rows did not meet the expected conditions for column unknown_field.');
+            });
 
-        it('should handle zero actual value for non-percentage metric', () => {
-            const run = {
-                ...baseRun,
-                result: {
-                    type: AssertionResultType.Success,
-                    assertion: {
-                        type: AssertionType.Field,
-                        fieldAssertion: {
-                            type: FieldAssertionType.FieldMetric,
-                            fieldMetricAssertion: {
-                                field: {
-                                    path: 'null_count',
-                                },
-                                metric: FieldMetricType.NullCount,
+            it('should handle missing field path', () => {
+                const run = {
+                    ...baseRun,
+                    result: {
+                        type: AssertionResultType.Success,
+                        assertion: {
+                            type: AssertionType.Field,
+                            fieldAssertion: {
+                                type: FieldAssertionType.FieldValues,
+                                fieldValuesAssertion: {},
                             },
                         },
                     },
-                    nativeResults: [{ key: 'Metric Value', value: '0' }],
-                },
-            };
+                };
 
-            const result = getFormattedReasonText(baseAssertion, run);
-            expect(result).toBe('Null count of null_count (0) met the expected conditions.');
+                const result = getFormattedReasonText(baseAssertion, run);
+                expect(result).toBe('All rows values met the expected conditions for column column.');
+            });
         });
     });
 });
