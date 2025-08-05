@@ -27,6 +27,7 @@ import {
 } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, ResourceRefInput, Tag } from '@types';
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 
 export enum OperationType {
     ADD,
@@ -285,6 +286,32 @@ export default function EditTagTermsModal({
         setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
     };
 
+    const sendAnalytics = () => {
+        const isSchemaField = resources[0].subResource;
+
+        let eventType;
+        if (isSchemaField) {
+            eventType =
+                type === EntityType.Tag ? EntityActionType.UpdateSchemaTags : EntityActionType.UpdateSchemaTerms;
+        } else {
+            eventType = type === EntityType.Tag ? EntityActionType.UpdateTags : EntityActionType.UpdateTerms;
+        }
+        const isBatchAdd = resources.length > 1;
+        if (isBatchAdd)
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: eventType,
+                entityUrns: resources.map((resource) => resource.resourceUrn),
+            });
+        else
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: eventType,
+                entityType: type,
+                entityUrn: resources[0].resourceUrn,
+            });
+    };
+
     const batchAddTags = () => {
         batchAddTagsMutation({
             variables: {
@@ -300,6 +327,7 @@ export default function EditTagTermsModal({
                         content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    sendAnalytics();
                 }
             })
             .catch((e) => {
@@ -330,6 +358,7 @@ export default function EditTagTermsModal({
                         content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
                         duration: 2,
                     });
+                    sendAnalytics();
                 }
             })
             .catch((e) => {

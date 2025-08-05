@@ -3,6 +3,7 @@ import { Tooltip } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
@@ -32,6 +33,11 @@ export default function UpdateDeprecationMenuAction() {
             });
             message.destroy();
             message.success({ content: 'Deprecation Updated', duration: 2 });
+            analytics.event({
+                type: EventType.SetDeprecation,
+                entityUrns: [urn],
+                deprecated: deprecatedStatus,
+            });
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {

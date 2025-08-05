@@ -12,10 +12,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { getModalDomContainer } from '@src/utils/focus';
-
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Domain, Entity, EntityType } from '@types';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 
 type Props = {
     urns: string[];
@@ -34,6 +35,7 @@ type SelectedDomain = {
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityContext();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -104,6 +106,25 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const onOk = () => {
         if (!selectedDomain) {
             return;
@@ -126,6 +147,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 if (!errors) {
                     message.success({ content: 'Updated Domain!', duration: 2 });
                     refetch?.();
+                    sendAnalytics();
                     onModalClose();
                     setSelectedDomain(undefined);
                 }
