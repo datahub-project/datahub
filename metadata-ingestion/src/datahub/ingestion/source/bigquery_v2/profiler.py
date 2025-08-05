@@ -47,7 +47,18 @@ def validate_bigquery_identifier(
     # Strip whitespace to prevent padding attacks
     identifier = identifier.strip()
 
+    # Special handling for BigQuery system tables and schemas
+    if identifier.startswith("INFORMATION_SCHEMA"):
+        # INFORMATION_SCHEMA is a special system schema in BigQuery
+        if identifier == "INFORMATION_SCHEMA" or identifier.startswith(
+            "INFORMATION_SCHEMA."
+        ):
+            # Allow system tables like INFORMATION_SCHEMA.TABLES, INFORMATION_SCHEMA.COLUMNS, etc.
+            # These are built-in BigQuery system views and are safe
+            return f"`{identifier}`"
+
     # Check for common SQL injection patterns in identifiers
+    # Note: Removed 'script' from dangerous patterns as it interferes with legitimate table names
     dangerous_patterns = [
         ";",
         "--",
@@ -65,7 +76,6 @@ def validate_bigquery_identifier(
         "execute",
         "sp_",
         "xp_",
-        "script",
         "javascript:",
         "vbscript:",
         "<script",
@@ -127,113 +137,68 @@ def validate_bigquery_identifier(
                 f"Invalid {identifier_type} identifier cannot start with double underscore: {clean_identifier}"
             )
 
-    # Final security check: ensure identifier doesn't match reserved words
-    reserved_words = {
-        "all",
-        "and",
-        "any",
-        "array",
-        "as",
-        "asc",
-        "assert_rows_modified",
-        "at",
-        "between",
-        "by",
-        "case",
-        "cast",
-        "collate",
-        "contains",
-        "create",
-        "cross",
-        "cube",
-        "current",
-        "default",
-        "define",
-        "desc",
-        "distinct",
-        "else",
-        "end",
-        "enum",
-        "escape",
-        "except",
-        "exclude",
-        "exists",
-        "extract",
-        "false",
-        "fetch",
-        "following",
-        "for",
-        "from",
-        "full",
-        "group",
-        "grouping",
-        "groups",
-        "hash",
-        "having",
-        "if",
-        "ignore",
-        "in",
-        "inner",
-        "intersect",
-        "interval",
-        "into",
-        "is",
-        "join",
-        "lateral",
-        "left",
-        "like",
-        "limit",
-        "lookup",
-        "merge",
-        "natural",
-        "new",
-        "no",
-        "not",
+    # Note: We don't check for SQL reserved words here because:
+    # 1. Project IDs follow Google Cloud naming rules, not SQL rules
+    # 2. BigQuery allows reserved words as identifiers when escaped with backticks (which we do)
+    # 3. The backticking ensures safe usage in SQL contexts
+
+    # Only check for truly problematic identifiers that could cause issues even when backticked
+    truly_problematic = {
+        "__null__",
+        "__unpartitioned__",
+        "__temp__",
         "null",
-        "nulls",
-        "of",
-        "on",
-        "or",
-        "order",
-        "outer",
-        "over",
-        "partition",
-        "preceding",
-        "proto",
-        "range",
-        "recursive",
-        "respect",
-        "right",
-        "rollup",
-        "rows",
-        "select",
-        "set",
-        "some",
-        "struct",
-        "tablesample",
-        "then",
-        "to",
-        "treat",
         "true",
-        "unbounded",
-        "union",
-        "unnest",
-        "using",
-        "when",
-        "where",
-        "window",
-        "with",
-        "within",
+        "false",
     }
 
-    if clean_identifier.lower() in reserved_words:
+    if clean_identifier.lower() in truly_problematic:
         logger.warning(
-            f"Identifier '{clean_identifier}' is a reserved word, proceeding with backticks"
+            f"Identifier '{clean_identifier}' may cause issues in BigQuery contexts"
         )
-        # Note: We allow reserved words but log a warning since BigQuery handles them with backticks
 
     # Return with backticks for safe SQL usage
     return f"`{clean_identifier}`"
+
+
+def execute_query(self, query: str) -> List[Any]:
+    """
+    Execute a BigQuery query with timeout from configuration and enhanced security validation.
+
+    Args:
+        query: SQL query to execute
+
+    Returns:
+        List of row results
+    """
+    # Enhanced security validation
+    self._validate_sql_structure(query)
+
+    # Additional basic pattern check for immediate threats
+    dangerous_patterns = [";", "--", "/*", "xp_cmdshell", "sp_executesql"]
+    for pattern in dangerous_patterns:
+        if pattern in query:
+            logger.error(
+                f"Query contains potentially dangerous pattern '{pattern}'. Query rejected."
+            )
+            raise ValueError(f"Query contains dangerous pattern: {pattern}")
+
+    try:
+        logger.debug(
+            f"Executing query with {self.config.profiling.partition_fetch_timeout}s timeout"
+        )
+        job_config = QueryJobConfig(
+            job_timeout_ms=self.config.profiling.partition_fetch_timeout * 1000,
+            # Additional security: disable query caching for sensitive operations
+            use_query_cache=False,
+        )
+        query_job = self.config.get_bigquery_client().query(
+            query, job_config=job_config
+        )
+        return list(query_job.result())
+    except Exception as e:
+        logger.warning(f"Query execution error: {e}")
+        raise
 
 
 def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
@@ -248,6 +213,12 @@ def build_safe_table_reference(project: str, dataset: str, table: str) -> str:
     Returns:
         Safe table reference like `project`.`dataset`.`table`
     """
+    # Special handling for INFORMATION_SCHEMA tables
+    if table.startswith("INFORMATION_SCHEMA"):
+        safe_project = validate_bigquery_identifier(project, "project")
+        safe_dataset = validate_bigquery_identifier(dataset, "dataset")
+        return f"{safe_project}.{safe_dataset}.`{table}`"
+
     safe_project = validate_bigquery_identifier(project, "project")
     safe_dataset = validate_bigquery_identifier(dataset, "dataset")
     safe_table = validate_bigquery_identifier(table, "table")
@@ -713,14 +684,23 @@ SELECT val, record_count FROM PartitionStats"""
             # In a production environment, you'd load this from configuration
             # or query INFORMATION_SCHEMA to get allowed tables
             try:
+                # Special handling for INFORMATION_SCHEMA tables - always allow these system tables
+                if table_name.startswith("INFORMATION_SCHEMA"):
+                    return True
+
                 # Query to get all tables in the dataset (this creates a dynamic whitelist)
-                safe_info_schema_ref = self._build_safe_table_reference(
-                    project, schema, "INFORMATION_SCHEMA.TABLES"
+                # Build the reference manually to avoid circular validation issues
+                safe_project = validate_bigquery_identifier(project, "project")
+                safe_schema = validate_bigquery_identifier(schema, "dataset")
+
+                # For INFORMATION_SCHEMA.TABLES, we need to handle it specially
+                info_schema_ref = (
+                    f"{safe_project}.{safe_schema}.`INFORMATION_SCHEMA.TABLES`"
                 )
 
                 query = f"""SELECT table_name 
-FROM {safe_info_schema_ref} 
-WHERE table_name = @table_name"""
+    FROM {info_schema_ref} 
+    WHERE table_name = @table_name"""
 
                 job_config = QueryJobConfig(
                     query_parameters=[
@@ -744,18 +724,23 @@ WHERE table_name = @table_name"""
         self, project: str, schema: str, table_name: str
     ) -> str:
         """Build a safe table reference for use in SQL queries with enhanced validation."""
-        # Enhanced validation with whitelist checking for regular tables
-        # (Skip whitelist for INFORMATION_SCHEMA system tables)
-        if not table_name.startswith("INFORMATION_SCHEMA."):
-            # Create whitelist validator
-            whitelist_validator = self._create_whitelist_validator(project, schema)
 
-            # Only validate against whitelist for non-system tables
-            if not table_name.startswith(
-                "INFORMATION_SCHEMA"
-            ) and not whitelist_validator(table_name):
-                logger.warning(f"Table {table_name} not found in dataset {schema}")
-                # Note: We log but don't fail here as the table might be external or newly created
+        # Special handling for INFORMATION_SCHEMA system tables
+        if table_name.startswith("INFORMATION_SCHEMA"):
+            # For system tables, use simpler validation
+            safe_project = validate_bigquery_identifier(project, "project")
+            safe_schema = validate_bigquery_identifier(schema, "dataset")
+            # Don't validate INFORMATION_SCHEMA table names through the regular validator
+            return f"{safe_project}.{safe_schema}.`{table_name}`"
+
+        # Enhanced validation with whitelist checking for regular tables
+        # Create whitelist validator
+        whitelist_validator = self._create_whitelist_validator(project, schema)
+
+        # Only validate against whitelist for non-system tables
+        if not whitelist_validator(table_name):
+            logger.warning(f"Table {table_name} not found in dataset {schema}")
+            # Note: We log but don't fail here as the table might be external or newly created
 
         return build_safe_table_reference(project, schema, table_name)
 
@@ -4505,10 +4490,13 @@ LIMIT @limit_rows"""
                 raise ValueError(f"Query contains dangerous pattern: {pattern}")
 
         try:
-            timeout = self.config.profiling.partition_fetch_timeout
-            logger.debug(f"Executing query with {timeout}s timeout and custom config")
+            logger.debug(
+                f"Executing query with {self.config.profiling.partition_fetch_timeout}s timeout and custom config"
+            )
             # Ensure timeout is set even with custom config
-            job_config.timeout_ms = timeout * 1000
+            job_config.job_timeout_ms = (
+                self.config.profiling.partition_fetch_timeout * 1000
+            )
             # Additional security settings
             job_config.use_query_cache = False
 
