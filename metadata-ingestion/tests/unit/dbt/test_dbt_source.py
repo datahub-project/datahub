@@ -1,5 +1,5 @@
 from datetime import timedelta
-from typing import Dict, List, TypedDict, Union
+from typing import Any, Dict, List, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -686,7 +686,7 @@ def test_dbt_cloud_source_description_precedence() -> None:
     source = DBTCloudSource(config, ctx)
 
     # Create mock node data representing a source with both descriptions
-    source_node_data = {
+    source_node_data: Dict[str, Any] = {
         "uniqueId": "source.my_project.my_schema.my_table",
         "name": "my_table",
         "description": "This is the table-level description for my_table",
@@ -740,7 +740,7 @@ def test_dbt_cloud_source_description_fallback() -> None:
     source = DBTCloudSource(config, ctx)
 
     # Create mock node data with empty table description but present schema description
-    source_node_data = {
+    source_node_data: Dict[str, Any] = {
         "uniqueId": "source.my_project.my_schema.my_table",
         "name": "my_table",
         "description": "",  # Empty table description
