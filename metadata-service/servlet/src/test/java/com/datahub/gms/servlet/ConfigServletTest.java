@@ -150,6 +150,9 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
         new Authentication(actor, "credentials", Collections.emptyMap());
     AuthenticationContext.setAuthentication(authentication);
 
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
     // Execute request
     configServlet.doGet(request, response);
 
@@ -172,6 +175,9 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     Actor anonymousActor = new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID);
     Authentication anonymousAuth = new Authentication(anonymousActor, "", Collections.emptyMap());
     AuthenticationContext.setAuthentication(anonymousAuth);
+
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
 
     // Execute request
     configServlet.doGet(request, response);
@@ -196,6 +202,9 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     // No authentication context set (null)
     // AuthenticationContext.getAuthentication() will return null
 
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
     // Execute request
     configServlet.doGet(request, response);
 
@@ -216,7 +225,10 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testProgressiveDisclosure_ConfigContainsUserType() throws Exception {
-    // Test that the userType property is always present in response
+    // Test that the userType property is present in verbose response
+    // Mock verbose parameter
+    when(request.getParameter("verbose")).thenReturn("true");
+
     configServlet.doGet(request, response);
 
     // Parse response
@@ -224,9 +236,33 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
 
     assertNotNull(config);
-    assertTrue(config.has("userType"), "Response should always contain 'userType' property");
+    assertTrue(config.has("userType"), "Verbose response should contain 'userType' property");
     assertNotNull(config.path("userType"), "userType should not be null");
     assertTrue(config.path("userType").isTextual(), "userType should be a string");
+  }
+
+  @Test
+  public void testBackwardCompatibility_NoUserTypeWithoutVerbose() throws Exception {
+    // Test that userType is NOT included without verbose parameter (backward compatibility)
+    // Don't mock verbose parameter - it should return null by default
+
+    configServlet.doGet(request, response);
+
+    // Parse response
+    String responseContent = responseWriter.toString();
+    JsonNode config = operationContext.getObjectMapper().readValue(responseContent, JsonNode.class);
+
+    assertNotNull(config);
+    // Verify userType is NOT present without verbose=true
+    assertTrue(
+        !config.has("userType"),
+        "Response should NOT contain 'userType' without verbose=true (backward compatibility)");
+
+    // Verify other config fields are still present
+    assertTrue(config.path("noCode").asBoolean());
+    assertTrue(config.path("retention").asBoolean());
+    assertTrue(config.path("statefulIngestionCapable").asBoolean());
+    assertTrue(config.path("patchCapable").asBoolean());
   }
 
   // =================================
@@ -261,6 +297,9 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testDoGet_ConfigurationStructure() throws Exception {
+    // Mock verbose parameter to include userType
+    when(request.getParameter("verbose")).thenReturn("true");
+
     configServlet.doGet(request, response);
 
     // Parse response JSON
