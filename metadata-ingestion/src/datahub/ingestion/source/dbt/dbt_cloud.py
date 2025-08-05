@@ -370,7 +370,6 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name = node["alias"]
 
         comment = node.get("comment", "")
-        description = node["description"]
         description = node["description"] or node.get("sourceDescription", "")
 
         if node["resourceType"] == "model":
