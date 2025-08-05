@@ -1,4 +1,4 @@
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 import { Popover } from '@components';
 import { AxisBottom } from '@visx/axis';
 import { Group } from '@visx/group';

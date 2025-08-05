@@ -1,4 +1,4 @@
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@alchemy-components/theme/foundations/colors';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 
