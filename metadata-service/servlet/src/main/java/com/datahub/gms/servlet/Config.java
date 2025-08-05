@@ -145,9 +145,11 @@ public class Config extends HttpServlet {
     try {
       resp.setContentType("application/json");
 
-      // Create a copy of cached config and add user type for progressive disclosure
+      // Create a copy of cached config and conditionally add user type for verbose mode
       Map<String, Object> responseConfig = new HashMap<>(cachedConfig);
-      responseConfig.put("userType", determineUserType());
+      if (shouldIncludeVerboseInfo(req)) {
+        responseConfig.put("userType", determineUserType());
+      }
 
       String json =
           objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseConfig);
@@ -205,6 +207,16 @@ public class Config extends HttpServlet {
 
   private static boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
     return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
+  }
+
+  /**
+   * Checks if verbose information should be included in the response.
+   *
+   * @param req the HTTP request
+   * @return true if the "verbose" query parameter is set to "true"
+   */
+  private boolean shouldIncludeVerboseInfo(HttpServletRequest req) {
+    return "true".equals(req.getParameter("verbose"));
   }
 
   /**

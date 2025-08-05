@@ -510,24 +510,24 @@ def test_config_progressive_disclosure():
     """
     logger.info("🧪 Testing /config progressive disclosure...")
     
-    # Test anonymous access
-    response = requests.get(f"{get_gms_url()}/config")
+    # Test anonymous access with verbose parameter
+    response = requests.get(f"{get_gms_url()}/config?verbose=true")
     assert response.status_code == 200, f"Anonymous /config access failed: {response.status_code}"
     
     anonymous_config = response.json()
-    assert "userType" in anonymous_config, "Config response should include userType"
+    assert "userType" in anonymous_config, "Config response should include userType with verbose=true"
     assert anonymous_config["userType"] == "anonymous", f"Expected 'anonymous', got {anonymous_config.get('userType')}"
     logger.info("✅ Anonymous user correctly identified")
     
-    # Test authenticated access
+    # Test authenticated access with verbose parameter
     from tests.utils import get_frontend_session
     auth_session = TestSessionWrapper(get_frontend_session())
     
-    response = auth_session.get(f"{auth_session.gms_url()}/config")
+    response = auth_session.get(f"{auth_session.gms_url()}/config?verbose=true")
     assert response.status_code == 200, f"Authenticated /config access failed: {response.status_code}"
     
     authenticated_config = response.json()
-    assert "userType" in authenticated_config, "Config response should include userType"
+    assert "userType" in authenticated_config, "Config response should include userType with verbose=true"
     assert authenticated_config["userType"] in ["user", "admin"], f"Expected 'user' or 'admin', got {authenticated_config.get('userType')}"
     logger.info(f"✅ Authenticated user correctly identified as: {authenticated_config['userType']}")
     
@@ -537,6 +537,14 @@ def test_config_progressive_disclosure():
         assert anonymous_config.get(field) == authenticated_config.get(field), f"Base config field {field} should be the same"
     
     logger.info("✅ Progressive disclosure working: same base config, different userType")
+    
+    # Test backward compatibility - userType should NOT be included without verbose parameter
+    response_no_verbose = requests.get(f"{get_gms_url()}/config")
+    assert response_no_verbose.status_code == 200, f"Non-verbose /config access failed: {response_no_verbose.status_code}"
+    
+    no_verbose_config = response_no_verbose.json()
+    assert "userType" not in no_verbose_config, "Config response should NOT include userType without verbose=true (backward compatibility)"
+    logger.info("✅ Backward compatibility maintained: userType not included without verbose parameter")
 
 
 # ===========================================

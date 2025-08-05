@@ -8,6 +8,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.AuthenticatorContext;
@@ -154,6 +155,9 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
             authentication.getActor().getType());
       }
 
+    } catch (AuthenticationExpiredException e) {
+      // Authentication token expired - log as info and handle gracefully
+      log.info("Authentication token expired, will set anonymous context: {}", e.getMessage());
     } catch (Exception e) {
       // Authentication failed - this is expected and handled gracefully
       log.debug("Authentication extraction failed, will set anonymous context: {}", e.getMessage());
