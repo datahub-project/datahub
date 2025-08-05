@@ -1,5 +1,6 @@
 package com.datahub.auth.authentication;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -118,7 +119,7 @@ public class AuthenticationEnforcementFilterTest extends AbstractTestNGSpringCon
     when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
 
     // Set up anonymous user context (simulating what AuthenticationExtractionFilter would do)
-    Actor anonymousActor = new Actor(ActorType.USER, "anonymous");
+    Actor anonymousActor = new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID);
     Authentication authentication = new Authentication(anonymousActor, "", Collections.emptyMap());
     AuthenticationContext.setAuthentication(authentication);
 

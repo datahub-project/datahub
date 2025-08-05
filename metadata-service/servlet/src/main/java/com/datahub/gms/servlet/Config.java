@@ -1,5 +1,7 @@
 package com.datahub.gms.servlet;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -213,7 +215,7 @@ public class Config extends HttpServlet {
   private String determineUserType() {
     try {
       Authentication auth = AuthenticationContext.getAuthentication();
-      if (auth == null || "anonymous".equals(auth.getActor().getId())) {
+      if (auth == null || ANONYMOUS_ACTOR_ID.equals(auth.getActor().getId())) {
         return "anonymous";
       }
 

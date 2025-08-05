@@ -1,5 +1,6 @@
 package com.datahub.gms.servlet;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -168,7 +169,7 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
   @Test
   public void testProgressiveDisclosure_AnonymousUser() throws Exception {
     // Setup anonymous user context
-    Actor anonymousActor = new Actor(ActorType.USER, "anonymous");
+    Actor anonymousActor = new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID);
     Authentication anonymousAuth = new Authentication(anonymousActor, "", Collections.emptyMap());
     AuthenticationContext.setAuthentication(anonymousAuth);
 

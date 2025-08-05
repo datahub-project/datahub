@@ -1,5 +1,7 @@
 package com.datahub.auth.authentication.filter;
 
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.google.common.annotations.VisibleForTesting;
@@ -111,8 +113,7 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
     }
 
     // Check if this is the anonymous user set by AuthenticationExtractionFilter
-    return AuthenticationExtractionFilter.ANONYMOUS_ACTOR_ID.equals(
-        authentication.getActor().getId());
+    return ANONYMOUS_ACTOR_ID.equals(authentication.getActor().getId());
   }
 
   @VisibleForTesting

@@ -1,6 +1,7 @@
 package com.datahub.auth.authentication.filter;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -70,7 +71,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class AuthenticationExtractionFilter extends OncePerRequestFilter {
 
   // Constants for anonymous authentication
-  public static final String ANONYMOUS_ACTOR_ID = "anonymous";
   private static final String ANONYMOUS_CREDENTIALS = "";
 
   @Autowired private ConfigurationProvider configurationProvider;

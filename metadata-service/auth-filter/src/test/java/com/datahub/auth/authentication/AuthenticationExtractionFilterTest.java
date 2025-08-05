@@ -1,6 +1,7 @@
 package com.datahub.auth.authentication;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -128,7 +129,7 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
     assertNotNull(capturedAuth[0], "Authentication context should be set even for expired tokens");
     assertEquals(
         capturedAuth[0].getActor().getId(),
-        "anonymous",
+        ANONYMOUS_ACTOR_ID,
         "Should have anonymous actor for expired token");
   }
 
@@ -173,7 +174,7 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
     assertNotNull(capturedAuth[0], "Authentication context should be set even for exceptions");
     assertEquals(
         capturedAuth[0].getActor().getId(),
-        "anonymous",
+        ANONYMOUS_ACTOR_ID,
         "Should have anonymous actor for exceptions");
   }
 
@@ -213,7 +214,9 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
     // Verify - should continue with anonymous context during filter execution
     assertNotNull(capturedAuth[0], "Authentication context should be set");
     assertEquals(
-        capturedAuth[0].getActor().getId(), "anonymous", "Should have anonymous actor for no auth");
+        capturedAuth[0].getActor().getId(),
+        ANONYMOUS_ACTOR_ID,
+        "Should have anonymous actor for no auth");
     assertEquals(
         capturedAuth[0].getActor().getType(),
         ActorType.USER,
@@ -452,7 +455,7 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
     assertNotNull(capturedAuth[0], "Authentication context should be set");
     assertEquals(
         capturedAuth[0].getActor().getId(),
-        "anonymous",
+        ANONYMOUS_ACTOR_ID,
         "Should get anonymous user when all authentication fails");
     assertEquals(
         capturedAuth[0].getActor().getType(),
@@ -544,7 +547,7 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
       assertNotNull(capturedAuth[0], "Authentication context should be set for " + method);
       assertEquals(
           capturedAuth[0].getActor().getId(),
-          "anonymous",
+          ANONYMOUS_ACTOR_ID,
           "Should have anonymous context for " + method);
 
       // Cleanup for next iteration
