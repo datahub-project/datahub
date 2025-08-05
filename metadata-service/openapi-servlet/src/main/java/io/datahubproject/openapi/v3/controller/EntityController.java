@@ -470,23 +470,16 @@ public class EntityController
             .build(opContext);
     List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
 
-    if (!async) {
-      // Group results by entity type for response structure
-      Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
-      for (IngestResult result : results) {
-        String entityType = result.getUrn().getEntityType();
-        resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
-      }
+    // Group results by entity type for response structure
+    Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
+    for (IngestResult result : results) {
+      String entityType = result.getUrn().getEntityType();
+      resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
+    }
 
-      for (String entityName : entityTypes) {
-        List<IngestResult> entityResults = resultsByEntityType.getOrDefault(entityName, List.of());
-        response.put(entityName, buildEntityList(opContext, entityResults, withSystemMetadata));
-      }
-    } else {
-      // For async requests, return empty lists for each entity type
-      for (String entityName : entityTypes) {
-        response.put(entityName, List.of());
-      }
+    for (String entityName : entityTypes) {
+      List<IngestResult> entityResults = resultsByEntityType.getOrDefault(entityName, List.of());
+      response.put(entityName, buildEntityList(opContext, entityResults, withSystemMetadata));
     }
 
     return async ? ResponseEntity.accepted().body(response) : ResponseEntity.ok(response);
