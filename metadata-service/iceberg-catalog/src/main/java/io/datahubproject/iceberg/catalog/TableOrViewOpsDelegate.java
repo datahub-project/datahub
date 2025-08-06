@@ -268,6 +268,8 @@ abstract class TableOrViewOpsDelegate<M> {
             .setChangeType(ChangeType.UPSERT);
     entityService.ingestProposal(operationContext, datasetProfileMcp, auditStamp, true);
 
+    StringMap newIcebergProperties = getIcebergProperties(metadata.metadata());
+    Set<String> deletedIcebergProperties = null;
     RecordTemplate prevDatasetPropertiesData =
         entityService.getLatestAspect(operationContext, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME);
     if (prevDatasetPropertiesData != null) {
@@ -279,22 +281,24 @@ abstract class TableOrViewOpsDelegate<M> {
               .filter(key -> key.startsWith(ICEBERG_PROPERTY_PREFIX))
               .collect(Collectors.toSet());
 
-      StringMap newIcebergProperties = getIcebergProperties(metadata.metadata());
-      Set<String> deletedIcebergProperties =
+      deletedIcebergProperties =
           prevIcebergProperties.stream()
               .filter(key -> !newIcebergProperties.containsKey(key))
               .collect(Collectors.toSet());
-
-      DatasetPropertiesPatchBuilder patchBuilder =
-          new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+    }
+    DatasetPropertiesPatchBuilder patchBuilder =
+        new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+    if (deletedIcebergProperties != null) {
       for (String deletedProperty : deletedIcebergProperties) {
         patchBuilder.removeCustomProperty(deletedProperty);
       }
-      for (String newProperty : newIcebergProperties.keySet()) {
-        patchBuilder.addCustomProperty(
-            ICEBERG_PROPERTY_PREFIX + newProperty, newIcebergProperties.get(newProperty));
-      }
+    }
+    for (String newProperty : newIcebergProperties.keySet()) {
+      patchBuilder.addCustomProperty(
+          ICEBERG_PROPERTY_PREFIX + newProperty, newIcebergProperties.get(newProperty));
+    }
 
+    if (deletedIcebergProperties != null || newIcebergProperties.size() > 0) {
       MetadataChangeProposal datasetPropertiesMcp = patchBuilder.build();
       entityService.ingestProposal(operationContext, datasetPropertiesMcp, auditStamp, true);
     }

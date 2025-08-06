@@ -3,6 +3,7 @@ package io.datahubproject.iceberg.catalog;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
 import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_ICEBERG_METADATA_ASPECT_NAME;
+import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.ICEBERG_PROPERTY_PREFIX;
 import static io.datahubproject.iceberg.catalog.Utils.containerUrn;
 import static io.datahubproject.iceberg.catalog.Utils.platformUrn;
 import static org.mockito.ArgumentMatchers.any;
@@ -16,6 +17,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.container.Container;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
@@ -493,5 +495,244 @@ public class TableOpsDelegateTest {
     assertEquals(result.getColumnCount().longValue(), 2L);
     assertEquals(result.getRowCount().longValue(), 500L);
     assertNull(result.getSizeInBytes()); // Should be null when no file size info
+  }
+
+  @Test
+  public void testAdditionalAsyncMcpsWithExistingDatasetProperties() {
+    // Create a real TableOpsDelegate instance for testing
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock existing dataset properties with Iceberg properties
+    DatasetProperties existingProperties = new DatasetProperties();
+    StringMap existingCustomProperties = new StringMap();
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "old_value1");
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "old_value2");
+    existingCustomProperties.put("non_iceberg_property", "should_not_change");
+    existingProperties.setCustomProperties(existingCustomProperties);
+
+    // Mock entityService.getLatestAspect to return existing properties
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext), any(DatasetUrn.class), eq(DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(existingProperties);
+
+    // Mock TableMetadata with new Iceberg properties
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Map<String, String> newIcebergProperties = new HashMap<>();
+    newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "new_value1");
+    newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property3", "new_value3");
+    when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock AuditStamp
+    AuditStamp auditStamp = new AuditStamp().setTime(Instant.now().toEpochMilli());
+    when(mockIcebergBatch.getAuditStamp()).thenReturn(auditStamp);
+
+    // Create MetadataWrapper
+    MetadataWrapper<TableMetadata> metadataWrapper = new MetadataWrapper<>(mockMetadata);
+    DatasetUrn datasetUrn = mock(DatasetUrn.class);
+
+    realTableDelegate.additionalAsyncMcps(datasetUrn, metadataWrapper, auditStamp);
+
+    // Verify that entityService.ingestProposal was called for dataset properties update
+    verify(mockEntityService, times(2))
+        .ingestProposal(
+            eq(mockOperationContext), any(MetadataChangeProposal.class), eq(auditStamp), eq(true));
+  }
+
+  @Test
+  public void testAdditionalAsyncMcpsWithNoExistingDatasetProperties() {
+    // Create a real TableOpsDelegate instance for testing
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock entityService.getLatestAspect to return null (no existing properties)
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext), any(DatasetUrn.class), eq(DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(null);
+
+    // Mock TableMetadata with Iceberg properties
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Map<String, String> newIcebergProperties = new HashMap<>();
+    newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "value1");
+    newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "value2");
+    when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock schema to prevent NullPointerException
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock AuditStamp
+    AuditStamp auditStamp = new AuditStamp().setTime(Instant.now().toEpochMilli());
+    when(mockIcebergBatch.getAuditStamp()).thenReturn(auditStamp);
+
+    // Create MetadataWrapper
+    MetadataWrapper<TableMetadata> metadataWrapper = new MetadataWrapper<>(mockMetadata);
+    DatasetUrn datasetUrn = mock(DatasetUrn.class);
+
+    realTableDelegate.additionalAsyncMcps(datasetUrn, metadataWrapper, auditStamp);
+
+    // Verify that entityService.ingestProposal was called twice (for dataset profile and dataset
+    // properties)
+    // The dataset properties update happens because there are new properties to add
+    verify(mockEntityService, times(2))
+        .ingestProposal(
+            eq(mockOperationContext), any(MetadataChangeProposal.class), eq(auditStamp), eq(true));
+  }
+
+  @Test
+  public void testAdditionalAsyncMcpsWithNoNewProperties() {
+    // Create a real TableOpsDelegate instance for testing
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock existing dataset properties with Iceberg properties
+    DatasetProperties existingProperties = new DatasetProperties();
+    StringMap existingCustomProperties = new StringMap();
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "old_value1");
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "old_value2");
+    existingCustomProperties.put("non_iceberg_property", "should_not_change");
+    existingProperties.setCustomProperties(existingCustomProperties);
+
+    // Mock entityService.getLatestAspect to return existing properties
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext), any(DatasetUrn.class), eq(DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(existingProperties);
+
+    // Mock TableMetadata with no new Iceberg properties
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Map<String, String> newIcebergProperties = new HashMap<>();
+    when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock AuditStamp
+    AuditStamp auditStamp = new AuditStamp().setTime(Instant.now().toEpochMilli());
+    when(mockIcebergBatch.getAuditStamp()).thenReturn(auditStamp);
+
+    // Create MetadataWrapper
+    MetadataWrapper<TableMetadata> metadataWrapper = new MetadataWrapper<>(mockMetadata);
+    DatasetUrn datasetUrn = mock(DatasetUrn.class);
+
+    realTableDelegate.additionalAsyncMcps(datasetUrn, metadataWrapper, auditStamp);
+
+    // Verify that entityService.ingestProposal was called twice (for dataset profile and dataset
+    // properties)
+    // The dataset properties update happens because there are properties to delete
+    verify(mockEntityService, times(2))
+        .ingestProposal(
+            eq(mockOperationContext), any(MetadataChangeProposal.class), eq(auditStamp), eq(true));
+  }
+
+  @Test
+  public void testAdditionalAsyncMcpsWithDeletedIcebergProperties() {
+    // Create a real TableOpsDelegate instance for testing
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock existing dataset properties with Iceberg properties that should be deleted
+    DatasetProperties existingProperties = new DatasetProperties();
+    StringMap existingCustomProperties = new StringMap();
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "old_value1");
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "old_value2");
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property3", "old_value3");
+    existingCustomProperties.put("non_iceberg_property", "should_not_change");
+    existingProperties.setCustomProperties(existingCustomProperties);
+
+    // Mock entityService.getLatestAspect to return existing properties
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext), any(DatasetUrn.class), eq(DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(existingProperties);
+
+    // Mock TableMetadata with fewer Iceberg properties (property2 and property3 should be deleted)
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Map<String, String> newIcebergProperties = new HashMap<>();
+    newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "new_value1");
+    when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock AuditStamp
+    AuditStamp auditStamp = new AuditStamp().setTime(Instant.now().toEpochMilli());
+    when(mockIcebergBatch.getAuditStamp()).thenReturn(auditStamp);
+
+    // Create MetadataWrapper
+    MetadataWrapper<TableMetadata> metadataWrapper = new MetadataWrapper<>(mockMetadata);
+    DatasetUrn datasetUrn = mock(DatasetUrn.class);
+
+    realTableDelegate.additionalAsyncMcps(datasetUrn, metadataWrapper, auditStamp);
+
+    // Verify that entityService.ingestProposal was called for dataset properties update
+    verify(mockEntityService, times(2))
+        .ingestProposal(
+            eq(mockOperationContext), any(MetadataChangeProposal.class), eq(auditStamp), eq(true));
+  }
+
+  @Test
+  public void testAdditionalAsyncMcpsWithEmptyIcebergProperties() {
+    // Create a real TableOpsDelegate instance for testing
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock existing dataset properties with Iceberg properties
+    DatasetProperties existingProperties = new DatasetProperties();
+    StringMap existingCustomProperties = new StringMap();
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "old_value1");
+    existingCustomProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "old_value2");
+    existingCustomProperties.put("non_iceberg_property", "should_not_change");
+    existingProperties.setCustomProperties(existingCustomProperties);
+
+    // Mock entityService.getLatestAspect to return existing properties
+    when(mockEntityService.getLatestAspect(
+            eq(mockOperationContext), any(DatasetUrn.class), eq(DATASET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(existingProperties);
+
+    // Mock TableMetadata with no Iceberg properties (all should be deleted)
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Map<String, String> newIcebergProperties = new HashMap<>();
+    when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock schema to prevent NullPointerException
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock AuditStamp
+    AuditStamp auditStamp = new AuditStamp().setTime(Instant.now().toEpochMilli());
+    when(mockIcebergBatch.getAuditStamp()).thenReturn(auditStamp);
+
+    // Create MetadataWrapper
+    MetadataWrapper<TableMetadata> metadataWrapper = new MetadataWrapper<>(mockMetadata);
+    DatasetUrn datasetUrn = mock(DatasetUrn.class);
+
+    realTableDelegate.additionalAsyncMcps(datasetUrn, metadataWrapper, auditStamp);
+
+    // Verify that entityService.ingestProposal was called for dataset properties update
+    verify(mockEntityService, times(2))
+        .ingestProposal(
+            eq(mockOperationContext), any(MetadataChangeProposal.class), eq(auditStamp), eq(true));
   }
 }
