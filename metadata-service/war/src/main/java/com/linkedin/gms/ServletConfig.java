@@ -7,7 +7,6 @@ import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
-import com.datahub.gms.servlet.HealthCheck;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -90,16 +89,8 @@ public class ServletConfig implements WebMvcConfigurer {
     return registration;
   }
 
-  @Bean
-  public ServletRegistrationBean<HealthCheck> healthCheckServlet() {
-    ServletRegistrationBean<HealthCheck> registration =
-        new ServletRegistrationBean<>(new HealthCheck());
-    registration.setName("healthCheck");
-    registration.addUrlMappings("/health");
-    registration.setLoadOnStartup(15);
-    registration.setAsyncSupported(true);
-    return registration;
-  }
+  // HealthCheck servlet removed - replaced by bootstrap-aware /health endpoint in
+  // HealthCheckController
 
   @Bean
   public ServletRegistrationBean<Config> configServlet() {
