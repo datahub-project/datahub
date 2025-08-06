@@ -524,11 +524,11 @@ class IcebergSource(StatefulIngestionSourceBase):
         custom_properties["format-version"] = str(table.metadata.format_version)
         custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
         last_modified: Optional[int] = table.metadata.last_updated_ms
-        if table.current_snapshot():
-            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
+        if current_snapshot := table.current_snapshot():
+            custom_properties["snapshot-id"] = str(current_snapshot.snapshot_id)
+            custom_properties["manifest-list"] = current_snapshot.manifest_list
             if not last_modified:
-                last_modified = int(table.current_snapshot().timestamp_ms)
+                last_modified = int(current_snapshot.timestamp_ms)
         if "created-at" in custom_properties:
             try:
                 dt = dateutil_parser.isoparse(custom_properties["created-at"])

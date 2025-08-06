@@ -36,7 +36,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
 
     tag_key: str
     tag_value: Optional[str] = None
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
     exists_in_unity_catalog: bool = False
     persisted: bool = False
 
@@ -218,7 +218,7 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
     datahub_urns: LinkedResourceSet
     managed_by_datahub: bool
     id: UnityCatalogTagPlatformResourceId
-    allowed_values: Optional[List[str]]
+    allowed_values: Optional[List[str]] = None
 
     def get_id(self) -> ExternalEntityId:
         return self.id
