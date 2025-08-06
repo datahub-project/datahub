@@ -75,7 +75,7 @@ jobs:
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - name: Compute Tag
         id: tag
         env:
@@ -176,7 +176,7 @@ jobs:
     if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
 
       - uses: actions/setup-python@v5
         with:
@@ -241,7 +241,9 @@ jobs:
         uses: depot/setup-action@v1
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
 
       - uses: actions/setup-python@v5
         with:
@@ -303,7 +305,7 @@ jobs:
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
       - id: download_image
         name: Download images from depot
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
@@ -418,7 +420,9 @@ jobs:
             ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
 
       - name: Set up Depot CLI
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}

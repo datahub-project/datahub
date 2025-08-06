@@ -13,7 +13,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceReport, StructuredLogCategory
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.mock_data.datahub_mock_data_report import (
@@ -34,6 +34,8 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+PLATFORM_NAME = "fake"
 
 
 class SubTypePattern(StrEnum):
@@ -144,7 +146,7 @@ class DataHubMockDataConfig(ConfigModel):
     )
 
 
-@platform_name("DataHubMockData")
+@platform_name(PLATFORM_NAME)
 @config_class(DataHubMockDataConfig)
 @support_status(SupportStatus.TESTING)
 class DataHubMockDataSource(Source):
@@ -176,6 +178,7 @@ class DataHubMockDataSource(Source):
                     message="This is test warning",
                     title="Test Warning",
                     context=f"This is test warning {i}",
+                    log_category=StructuredLogCategory.LINEAGE,
                 )
 
         # We don't want any implicit aspects to be produced
@@ -309,7 +312,7 @@ class DataHubMockDataSource(Source):
             table_level, table_index, subtype_pattern, subtype_types, level_subtypes
         )
 
-        urn = make_dataset_urn(platform="fake", name=table_name)
+        urn = make_dataset_urn(platform=PLATFORM_NAME, name=table_name)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=urn,
             entityType="dataset",
@@ -433,7 +436,7 @@ class DataHubMockDataSource(Source):
 
     def _get_status_aspect(self, table: str) -> MetadataWorkUnit:
         urn = make_dataset_urn(
-            platform="fake",
+            platform=PLATFORM_NAME,
             name=table,
         )
         mcp = MetadataChangeProposalWrapper(
@@ -448,7 +451,7 @@ class DataHubMockDataSource(Source):
     ) -> MetadataWorkUnit:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn(
-                platform="fake",
+                platform=PLATFORM_NAME,
                 name=downstream_table,
             ),
             entityType="dataset",
@@ -456,7 +459,7 @@ class DataHubMockDataSource(Source):
                 upstreams=[
                     UpstreamClass(
                         dataset=make_dataset_urn(
-                            platform="fake",
+                            platform=PLATFORM_NAME,
                             name=upstream_table,
                         ),
                         type=DatasetLineageTypeClass.TRANSFORMED,
@@ -468,7 +471,7 @@ class DataHubMockDataSource(Source):
 
     def _get_profile_aspect(self, table: str) -> MetadataWorkUnit:
         urn = make_dataset_urn(
-            platform="fake",
+            platform=PLATFORM_NAME,
             name=table,
         )
         mcp = MetadataChangeProposalWrapper(
@@ -485,7 +488,7 @@ class DataHubMockDataSource(Source):
 
     def _get_usage_aspect(self, table: str) -> MetadataWorkUnit:
         urn = make_dataset_urn(
-            platform="fake",
+            platform=PLATFORM_NAME,
             name=table,
         )
         mcp = MetadataChangeProposalWrapper(

@@ -249,7 +249,7 @@ To create an approval workflow request, users must simply provide responses for 
 Once completed, it can be submitted by clicking "Submit".
 
 <p align="center">
-  <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/workflows/create-action-workflow-entity-profile.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/blob/main/imgs/workflows/create-action-workflow-entity-profile.png"/>
 </p>
 
 Once a request is submitted, your open requests will be visible from within **Tasks** > **Requests** > **My Requests**.
@@ -271,7 +271,7 @@ Users assigned as reviewers can manage requests through the **Task Center**:
    - Submitted form responses
 
 <p align="center">
-  <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/workflows/review-action-workflow-request-details.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/blob/main/imgs/workflows/review-action-workflow-request-details.png"/>
 </p>
 
 2. **Make a Decision**: For each request, you can:
@@ -282,7 +282,7 @@ Users assigned as reviewers can manage requests through the **Task Center**:
 3. **Add Comments**: Provide context for your decision to help requestors understand the outcome
 
 <p align="center">
-  <img width="70%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/workflows/review-action-workflow-request-confirm.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/blob/main/imgs/workflows/review-action-workflow-request-confirm.png"/>
 </p>
 
 ## Getting Notified About Access Workflows
