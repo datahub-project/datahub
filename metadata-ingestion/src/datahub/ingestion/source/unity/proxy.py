@@ -30,6 +30,7 @@ from databricks.sdk.service.sql import (
 from databricks.sdk.service.workspace import ObjectType
 from databricks.sql import connect
 from databricks.sql.types import Row
+from typing_extensions import assert_never
 
 from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -57,8 +58,13 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# It is enough to keep the cache size to 1, since we only process one catalog at a time
+# We need to change this if we want to support parallel processing of multiple catalogs
+_MAX_CONCURRENT_CATALOGS = 1
 
 
 @dataclasses.dataclass
@@ -336,13 +342,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             conditions.append(f"event_time <= '{end_time.isoformat()}'")
         return " AND " + " AND ".join(conditions) if conditions else ""
 
-    @cached(cachetools.FIFOCache(maxsize=100))
-    def get_catalog_table_lineage(
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_table_lineage_via_system_tables(
         self,
         catalog: str,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
-    ) -> Dict[str, TableLineageInfo]:
+    ) -> FileBackedDict[TableLineageInfo]:
         """Get table lineage for all tables in a catalog using system tables."""
         logger.info(f"Fetching table lineage for catalog: {catalog}")
         try:
@@ -367,7 +373,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 """
             rows = self._execute_sql_query(query, [catalog, catalog])
 
-            result_dict: Dict[str, TableLineageInfo] = {}
+            result_dict: FileBackedDict[TableLineageInfo] = FileBackedDict()
             for row in rows:
                 entity_type = row["entity_type"]
                 entity_id = row["entity_id"]
@@ -440,16 +446,16 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Error getting table lineage for catalog {catalog}: {e}",
                 exc_info=True,
             )
-            return {}
+            return FileBackedDict()
 
-    @cached(cachetools.FIFOCache(maxsize=100))
-    def get_catalog_column_lineage(
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_column_lineage_via_system_tables(
         self,
         catalog: str,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
-    ) -> Dict[str, Dict[str, dict]]:
-        """Get column lineage for all tables in a catalog."""
+    ) -> FileBackedDict[Dict[str, dict]]:
+        """Get column lineage for all tables in a catalog using system tables."""
         logger.info(f"Fetching column lineage for catalog: {catalog}")
         try:
             additional_where = self._build_datetime_where_conditions(
@@ -478,7 +484,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 """
             rows = self._execute_sql_query(query, [catalog])
 
-            result_dict: Dict[str, Dict[str, dict]] = {}
+            result_dict: FileBackedDict[Dict[str, dict]] = FileBackedDict()
             for row in rows:
                 result_dict.setdefault(row["target_table_schema"], {}).setdefault(
                     row["target_table_name"], {}
@@ -499,9 +505,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Error getting column lineage for catalog {catalog}: {e}",
                 exc_info=True,
             )
-            return {}
+            return FileBackedDict()
 
-    def list_lineages_by_table(
+    def list_lineages_by_table_via_http_api(
         self, table_name: str, include_entity_lineage: bool
     ) -> dict:
         """List table lineage by table name."""
@@ -515,7 +521,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             },
         )
 
-    def list_lineages_by_column(self, table_name: str, column_name: str) -> list:
+    def list_lineages_by_column_via_http_api(
+        self, table_name: str, column_name: str
+    ) -> list:
         """List column lineage by table name and column name."""
         logger.debug(f"Getting column lineage for {table_name}.{column_name}")
         try:
@@ -552,15 +560,17 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 use_system_tables = True
             elif self.lineage_data_source == LineageDataSource.API:
                 use_system_tables = False
-            else:  # "auto"
+            elif self.lineage_data_source == LineageDataSource.AUTO:
                 # Use the newer system tables if we have a SQL warehouse, otherwise fall back
                 # to the older (and slower) HTTP API.
                 use_system_tables = bool(self.warehouse_id)
+            else:
+                assert_never(self.lineage_data_source)
 
             if use_system_tables:
                 self._process_system_table_lineage(table, start_time, end_time)
             else:
-                self._process_http_api_lineage(table, include_entity_lineage)
+                self._process_table_lineage_via_http_api(table, include_entity_lineage)
         except Exception as e:
             logger.warning(
                 f"Error getting lineage on table {table.ref}: {e}", exc_info=True
@@ -573,7 +583,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         end_time: Optional[datetime] = None,
     ) -> None:
         """Process table lineage using system.access.table_lineage table."""
-        catalog_lineage = self.get_catalog_table_lineage(
+        catalog_lineage = self.get_catalog_table_lineage_via_system_tables(
             table.ref.catalog, start_time, end_time
         )
         table_full_name = table.ref.qualified_table_name
@@ -635,11 +645,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ):
                 table.downstream_notebooks[notebook_ref.id] = notebook_ref
 
-    def _process_http_api_lineage(
+    def _process_table_lineage_via_http_api(
         self, table: Table, include_entity_lineage: bool
     ) -> None:
         """Process table lineage using the HTTP API (legacy fallback)."""
-        response: dict = self.list_lineages_by_table(
+        response: dict = self.list_lineages_by_table_via_http_api(
             table_name=table.ref.qualified_table_name,
             include_entity_lineage=include_entity_lineage,
         )
@@ -687,14 +697,16 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 use_system_tables = True
             elif self.lineage_data_source == LineageDataSource.API:
                 use_system_tables = False
-            else:  # "auto"
+            elif self.lineage_data_source == LineageDataSource.AUTO:
                 # Use the newer system tables if we have a SQL warehouse, otherwise fall back
                 # to the older (and slower) HTTP API.
                 use_system_tables = bool(self.warehouse_id)
+            else:
+                assert_never(self.lineage_data_source)
 
             if use_system_tables:
                 lineage = (
-                    self.get_catalog_column_lineage(
+                    self.get_catalog_column_lineage_via_system_tables(
                         table.ref.catalog, start_time, end_time
                     )
                     .get(table.ref.schema, {})
@@ -704,7 +716,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = [
                         executor.submit(
-                            self.list_lineages_by_column,
+                            self.list_lineages_by_column_via_http_api,
                             table.ref.qualified_table_name,
                             column_name,
                         )
@@ -882,9 +894,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.warning(f"Failed to execute SQL query: {e}")
             return []
 
-    # It is enough to keep the cache size to 1, since we only process one catalog at a time
-    # We need to change this if we want to support parallel processing of multiple catalogs
-    @cached(cachetools.FIFOCache(maxsize=1))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching schema tags for catalog: `{catalog}`")
@@ -907,9 +917,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    # It is enough to keep the cache size to 1, since we only process one catalog at a time
-    # We need to change this if we want to support parallel processing of multiple catalogs
-    @cached(cachetools.FIFOCache(maxsize=1))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_catalog_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
@@ -931,8 +939,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    # It is enough to keep the cache size to 1, since we only process one catalog at a time
-    @cached(cachetools.FIFOCache(maxsize=1))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
@@ -955,7 +962,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_column_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching column tags for catalog: `{catalog}`")

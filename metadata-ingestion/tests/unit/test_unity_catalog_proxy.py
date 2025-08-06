@@ -61,9 +61,9 @@ class TestUnityCatalogProxy:
         """Test get_catalog_table_lineage with no results."""
         mock_execute.return_value = []
 
-        result = mock_proxy.get_catalog_table_lineage("test_catalog")
+        result = mock_proxy.get_catalog_table_lineage_via_system_tables("test_catalog")
 
-        assert result == {}
+        assert len(result) == 0
         mock_execute.assert_called_once()
 
     @patch(
@@ -77,7 +77,7 @@ class TestUnityCatalogProxy:
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 12, 31)
 
-        mock_proxy.get_catalog_table_lineage(
+        mock_proxy.get_catalog_table_lineage_via_system_tables(
             "test_catalog", start_time=start_time, end_time=end_time
         )
 
@@ -136,7 +136,7 @@ class TestUnityCatalogProxy:
         ]
         mock_execute.return_value = mock_data
 
-        result = mock_proxy.get_catalog_table_lineage("test_catalog")
+        result = mock_proxy.get_catalog_table_lineage_via_system_tables("test_catalog")
 
         # Verify tables are initialized
         assert "test_catalog.schema.target_table" in result
@@ -178,9 +178,9 @@ class TestUnityCatalogProxy:
         """Test get_catalog_column_lineage with no results."""
         mock_execute.return_value = []
 
-        result = mock_proxy.get_catalog_column_lineage("test_catalog")
+        result = mock_proxy.get_catalog_column_lineage_via_system_tables("test_catalog")
 
-        assert result == {}
+        assert len(result) == 0
         mock_execute.assert_called_once()
 
     @patch(
@@ -194,7 +194,7 @@ class TestUnityCatalogProxy:
         start_time = datetime(2023, 1, 1)
         end_time = datetime(2023, 12, 31)
 
-        mock_proxy.get_catalog_column_lineage(
+        mock_proxy.get_catalog_column_lineage_via_system_tables(
             "test_catalog", start_time=start_time, end_time=end_time
         )
 
@@ -224,7 +224,7 @@ class TestUnityCatalogProxy:
         ]
         mock_execute.return_value = mock_data
 
-        result = mock_proxy.get_catalog_column_lineage("test_catalog")
+        result = mock_proxy.get_catalog_column_lineage_via_system_tables("test_catalog")
 
         # Verify nested dictionary structure
         assert "target_schema" in result
@@ -275,15 +275,15 @@ class TestUnityCatalogProxy:
         mock_execute.side_effect = Exception("SQL execution failed")
 
         # Test table lineage error handling
-        result = mock_proxy.get_catalog_table_lineage("test_catalog")
-        assert result == {}
+        result = mock_proxy.get_catalog_table_lineage_via_system_tables("test_catalog")
+        assert len(result) == 0
 
         # Test column lineage error handling
-        result = mock_proxy.get_catalog_column_lineage("test_catalog")
-        assert result == {}
+        result = mock_proxy.get_catalog_column_lineage_via_system_tables("test_catalog")
+        assert len(result) == 0
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage_via_system_tables"
     )
     def test_process_system_table_lineage(self, mock_get_lineage, mock_proxy):
         """Test _process_system_table_lineage method."""
@@ -418,7 +418,7 @@ class TestUnityCatalogProxy:
         assert downstream_notebook.last_updated == datetime(2023, 1, 5)
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage_via_system_tables"
     )
     @patch("datahub.ingestion.source.unity.proxy.logger")
     def test_process_system_table_lineage_invalid_table_name(
@@ -506,7 +506,7 @@ class TestUnityCatalogProxy:
         assert len(table.upstreams) == 0
 
     @patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage"
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage_via_system_tables"
     )
     def test_process_system_table_lineage_no_lineage_data(
         self, mock_get_lineage, mock_proxy

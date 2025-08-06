@@ -7,12 +7,14 @@ from urllib.parse import urljoin
 from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
+    UNKNOWN_USER,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_group_urn,
     make_schema_field_urn,
+    make_ts_millis,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -412,12 +414,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                         self.config.workspace_url, f"#notebook/{notebook.id}"
                     ),
                     created=(
-                        TimeStampClass(int(notebook.created_at.timestamp() * 1000))
+                        TimeStampClass(make_ts_millis(notebook.created_at))
                         if notebook.created_at
                         else None
                     ),
                     lastModified=(
-                        TimeStampClass(int(notebook.modified_at.timestamp() * 1000))
+                        TimeStampClass(make_ts_millis(notebook.modified_at))
                         if notebook.modified_at
                         else None
                     ),
@@ -436,23 +438,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if not notebook.upstreams:
             return None
 
+        upstreams = []
+        for upstream_ref in notebook.upstreams:
+            timestamp = make_ts_millis(upstream_ref.last_updated)
+            upstreams.append(
+                self._create_upstream_class(
+                    self.gen_dataset_urn(upstream_ref),
+                    DatasetLineageTypeClass.COPY,
+                    timestamp,
+                )
+            )
+
         return MetadataChangeProposalWrapper(
             entityUrn=self.gen_notebook_urn(notebook),
-            aspect=UpstreamLineageClass(
-                upstreams=[
-                    UpstreamClass(
-                        dataset=self.gen_dataset_urn(upstream_ref),
-                        type=DatasetLineageTypeClass.COPY,
-                        auditStamp=AuditStampClass(
-                            time=int(upstream_ref.last_updated.timestamp() * 1000)
-                            if upstream_ref.last_updated
-                            else int(time.time() * 1000),
-                            actor="urn:li:corpuser:unknown",
-                        ),
-                    )
-                    for upstream_ref in notebook.upstreams
-                ]
-            ),
+            aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
@@ -715,30 +714,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 for d_col, u_cols in sorted(downstream_to_upstream_cols.items())
             )
 
+            timestamp = make_ts_millis(upstream_ref.last_updated)
             upstreams.append(
-                UpstreamClass(
-                    dataset=upstream_urn,
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                    created=AuditStampClass(
-                        time=int(upstream_ref.last_updated.timestamp() * 1000)
-                        if upstream_ref.last_updated
-                        else int(time.time() * 1000),
-                        actor="urn:li:corpuser:unknown",
-                    ),
+                self._create_upstream_class(
+                    upstream_urn,
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    timestamp,
                 )
             )
 
         for notebook in table.upstream_notebooks.values():
+            timestamp = make_ts_millis(notebook.last_updated)
             upstreams.append(
-                UpstreamClass(
-                    dataset=self.gen_notebook_urn(notebook.id),
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                    created=AuditStampClass(
-                        time=int(notebook.last_updated.timestamp() * 1000)
-                        if notebook.last_updated
-                        else int(time.time() * 1000),
-                        actor="urn:li:corpuser:unknown",
-                    ),
+                self._create_upstream_class(
+                    self.gen_notebook_urn(notebook.id),
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    timestamp,
                 )
             )
 
@@ -807,6 +798,31 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform=self.platform,
             instance=self.config.platform_instance,
         ).as_urn()
+
+    def _create_upstream_class(
+        self,
+        dataset_urn: str,
+        lineage_type: Union[str, DatasetLineageTypeClass],
+        timestamp: Optional[int],
+    ) -> UpstreamClass:
+        """
+        Helper method to create UpstreamClass with optional audit stamp.
+        If timestamp is None, audit stamp is omitted.
+        """
+        if timestamp is not None:
+            return UpstreamClass(
+                dataset=dataset_urn,
+                type=lineage_type,
+                auditStamp=AuditStampClass(
+                    time=timestamp,
+                    actor=UNKNOWN_USER,
+                ),
+            )
+        else:
+            return UpstreamClass(
+                dataset=dataset_urn,
+                type=lineage_type,
+            )
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
@@ -998,16 +1014,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         created: Optional[TimeStampClass] = None
         if table.created_at:
             custom_properties["created_at"] = str(table.created_at)
-            created = TimeStampClass(
-                int(table.created_at.timestamp() * 1000),
-                make_user_urn(table.created_by) if table.created_by else None,
-            )
+            created_ts = make_ts_millis(table.created_at)
+            if created_ts is not None:
+                created = TimeStampClass(
+                    created_ts,
+                    make_user_urn(table.created_by) if table.created_by else None,
+                )
         last_modified = created
         if table.updated_at:
-            last_modified = TimeStampClass(
-                int(table.updated_at.timestamp() * 1000),
-                table.updated_by and make_user_urn(table.updated_by),
-            )
+            updated_ts = make_ts_millis(table.updated_at)
+            if updated_ts is not None:
+                last_modified = TimeStampClass(
+                    updated_ts,
+                    table.updated_by and make_user_urn(table.updated_by),
+                )
 
         return DatasetPropertiesClass(
             name=table.name,
