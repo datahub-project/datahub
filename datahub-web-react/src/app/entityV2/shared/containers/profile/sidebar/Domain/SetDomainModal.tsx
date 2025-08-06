@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -10,13 +11,13 @@ import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { getModalDomContainer } from '@src/utils/focus';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Domain, Entity, EntityType } from '@types';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 
 type Props = {
     urns: string[];

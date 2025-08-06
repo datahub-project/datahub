@@ -3,6 +3,7 @@ import { Tag as CustomTag, Empty, Form, Modal, Select, Typography, message } fro
 import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
@@ -27,7 +28,6 @@ import {
 } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { Entity, EntityType, ResourceRefInput, Tag } from '@types';
-import analytics, { EntityActionType, EventType } from '@app/analytics';
 
 export enum OperationType {
     ADD,

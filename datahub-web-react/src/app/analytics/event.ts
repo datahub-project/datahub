@@ -1126,4 +1126,3 @@ export type Event =
     | HomePageTemplateModuleLinkClickEvent
     | HomePageTemplateModuleAnnouncementDismissEvent
     | SetDeprecationEvent;
-
