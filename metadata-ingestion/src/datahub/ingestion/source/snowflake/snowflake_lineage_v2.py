@@ -72,7 +72,7 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: Optional[str]
+    column_name: Optional[str] = None
     upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
