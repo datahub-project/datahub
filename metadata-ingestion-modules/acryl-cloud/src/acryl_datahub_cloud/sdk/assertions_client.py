@@ -312,6 +312,7 @@ class AssertionsClient:
             )
             return self._create_smart_freshness_assertion(
                 dataset_urn=dataset_urn,
+                urn=urn,
                 display_name=display_name,
                 detection_mechanism=detection_mechanism,
                 sensitivity=sensitivity,
@@ -396,6 +397,7 @@ class AssertionsClient:
             )
             return self._create_smart_volume_assertion(
                 dataset_urn=dataset_urn,
+                urn=urn,
                 display_name=display_name,
                 detection_mechanism=detection_mechanism,
                 sensitivity=sensitivity,
@@ -483,6 +485,7 @@ class AssertionsClient:
             )
             return self._create_freshness_assertion(
                 dataset_urn=dataset_urn,
+                urn=urn,
                 display_name=display_name,
                 detection_mechanism=detection_mechanism,
                 incident_behavior=incident_behavior,
@@ -571,6 +574,7 @@ class AssertionsClient:
             # Extract criteria from definition to call the new signature
             parsed_criteria = VolumeAssertionCriteria.parse(criteria)
             return self._create_volume_assertion(
+                urn=urn,
                 dataset_urn=dataset_urn,
                 display_name=display_name,
                 detection_mechanism=detection_mechanism,
@@ -673,6 +677,7 @@ class AssertionsClient:
             )
             return self._create_sql_assertion(
                 dataset_urn=dataset_urn,
+                urn=urn,
                 display_name=display_name,
                 criteria_condition=criteria.condition,
                 criteria_parameters=criteria.parameters,
@@ -1362,6 +1367,7 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
@@ -1439,7 +1445,7 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
         assertion_input = _SmartFreshnessAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
@@ -1474,6 +1480,7 @@ class AssertionsClient:
         *,
         dataset_urn: Union[str, DatasetUrn],
         display_name: Optional[str] = None,
+        urn: Optional[Union[str, AssertionUrn]] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
@@ -1560,7 +1567,7 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
         assertion_input = _SmartVolumeAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
@@ -1595,6 +1602,7 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
         freshness_schedule_check_type: Optional[
@@ -1667,7 +1675,7 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
         assertion_input = _FreshnessAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
@@ -1701,6 +1709,7 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
@@ -1784,7 +1793,7 @@ class AssertionsClient:
         }
 
         assertion_input = _VolumeAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
@@ -1817,6 +1826,7 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
         criteria_condition: Union[SqlAssertionCondition, str],
@@ -1884,7 +1894,7 @@ class AssertionsClient:
             parameters=criteria_parameters,
         )
         assertion_input = _SqlAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
@@ -2555,6 +2565,7 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
         column_name: str,
         metric_type: MetricInputType,
         display_name: Optional[str] = None,
@@ -2646,7 +2657,7 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
         assertion_input = _SmartColumnMetricAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             column_name=column_name,
@@ -2726,6 +2737,7 @@ class AssertionsClient:
             )
             return self._create_smart_column_metric_assertion(
                 dataset_urn=dataset_urn,
+                urn=urn,
                 column_name=column_name,
                 metric_type=metric_type,
                 schedule=schedule,
@@ -3553,6 +3565,7 @@ class AssertionsClient:
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
         column_name: str,
         metric_type: MetricInputType,
         operator: OperatorInputType,
@@ -3594,7 +3607,7 @@ class AssertionsClient:
             )
             created_by = DEFAULT_CREATED_BY
         assertion_input = _ColumnMetricAssertionInput(
-            urn=None,
+            urn=urn,
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             column_name=column_name,
@@ -3680,6 +3693,7 @@ class AssertionsClient:
             )
             return self._create_column_metric_assertion(
                 dataset_urn=dataset_urn,
+                urn=urn,
                 column_name=column_name,
                 metric_type=metric_type,
                 operator=operator,
