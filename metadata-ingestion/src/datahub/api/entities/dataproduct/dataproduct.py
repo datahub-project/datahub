@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
-from pydantic import Field
 from ruamel.yaml import YAML
 
 import datahub.emitter.mce_builder as builder
@@ -103,7 +102,7 @@ class DataProduct(ConfigModel):
 
     id: str
     domain: str
-    _resolved_domain_urn: Optional[str] = Field(None, validate_default=True)
+    _resolved_domain_urn: Optional[str] = None
     assets: Optional[List[str]] = None
     display_name: Optional[str] = None
     owners: Optional[List[Union[str, Ownership]]] = None
