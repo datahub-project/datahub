@@ -509,9 +509,8 @@ Once you create tables in iceberg, each of those tables show up in DataHub as a 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-dataset-schema.png"/>
 </p>
 
-Any Iceberg `TBLPROPERTIES` set via DDL show up in as DatasetProperties with a prefix `iceberg:` This is in addition to any additional metadata properties that may be
-added directly to the dataset via Datahub CLI/API. The iceberg table properties can only be set via DDL and shown in DatasetProperties with the `iceberg:` prefix for
-visibility, but this is a one way sync. Changes to iceberg properties via datahub APIs do not get written to the Iceberg table metadata.
+Some of the standard metadata fields are populated in the Dataset Properties. Additionally, any Iceberg `TBLPROPERTIES` set via DDL on tables or views are also shown in DatasetProperties with a prefix `iceberg:`
+The iceberg 'TBLPROPERTIES' can only be set via DDL and is a one way sync. Changes to iceberg `TBLPROPERTIES` properties via datahub APIs do not get written to the Iceberg table or view properties.
 
 ## Troubleshooting
 
