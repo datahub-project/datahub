@@ -334,6 +334,10 @@ public class DataHubIcebergWarehouse {
       DatasetProperties fromDatasetProperties =
           new DatasetProperties(fromDatasetPropertiesRecord.data());
       datasetProperties.setCustomProperties(fromDatasetProperties.getCustomProperties());
+    } else {
+      // For rename, this should never be null, because at minimum, the name and qualified name
+      // must be set via datasetProperties
+      log.error("Internal error: existing dataset properties not found for dataset {}", datasetUrn);
     }
 
     IcebergBatch.EntityBatch datasetBatch =
