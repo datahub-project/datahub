@@ -6,6 +6,9 @@ import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_
 import static io.datahubproject.iceberg.catalog.Utils.*;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DatasetUrn;
@@ -22,19 +25,19 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
-import org.apache.iceberg.Snapshot;
-import org.apache.iceberg.SnapshotSummary;
-import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.*;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
@@ -58,6 +61,8 @@ abstract class TableOrViewOpsDelegate<M> {
   private final FileIOFactory fileIOFactory;
   private volatile M currentMetadata = null;
   private volatile boolean shouldRefresh = true;
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   TableOrViewOpsDelegate(
       DataHubIcebergWarehouse warehouse,
@@ -177,6 +182,52 @@ abstract class TableOrViewOpsDelegate<M> {
       AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
       SchemaMetadata schemaMetadata =
           converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+      // extend schema metadata with partition info
+      if (metadata.tableMetadata != null) {
+        PartitionSpec partitionSpec =
+            metadata.tableMetadata.spec(metadata.tableMetadata.defaultSpecId());
+        if (partitionSpec != null) {
+          HashMap<String, SchemaField> fieldIdToSchemaFieldMap = new HashMap<>();
+          for (SchemaField schemaField : schemaMetadata.getFields()) {
+            if (schemaField.hasJsonProps()) {
+              String jsonProps = schemaField.getJsonProps();
+              Map<String, Object> jsonPropsMap = null;
+              try {
+                // jsonProps (and its source in avro) can have string key/values. Iceberg
+                // spec for field-ids uses String key and integer values and these get
+                // stored in jsonProps. There may be other custom properties we do not
+                // process so using string key/value.
+                jsonPropsMap =
+                    OBJECT_MAPPER.readValue(jsonProps, new TypeReference<Map<String, Object>>() {});
+                Object fieldId = jsonPropsMap.get("field-id");
+                if (fieldId != null) {
+                  fieldIdToSchemaFieldMap.put(fieldId.toString(), schemaField);
+                }
+              } catch (JsonProcessingException e) {
+                // Lets not block table commit. This just means we wont have partition info
+                // populated in our metadata. The compute engine can continue to use IRC
+                // for this table.
+                log.error("Failed to process partitioning information for table {}", name(), e);
+              }
+            }
+          }
+          for (PartitionField field : partitionSpec.fields()) {
+            String fieldIdStr = String.valueOf(field.sourceId());
+            if (fieldIdToSchemaFieldMap.containsKey(fieldIdStr)) {
+              SchemaField datahubField = fieldIdToSchemaFieldMap.get(fieldIdStr);
+              datahubField.setIsPartitioningKey(true);
+            } else {
+              // This shouldn't really happen per the spec, but we are referring to a
+              // field id that was missing in the schema. Possible bug in schematron or
+              // iceberg metadata is corrupt
+              log.error(
+                  "Internal error: Could not find field-id {} in schema for table {}",
+                  fieldIdStr,
+                  name());
+            }
+          }
+        }
+      }
       datasetBatch.aspect(SCHEMA_METADATA_ASPECT_NAME, schemaMetadata);
     }
 
