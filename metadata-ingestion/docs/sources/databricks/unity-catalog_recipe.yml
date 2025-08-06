@@ -2,6 +2,7 @@ source:
   type: unity-catalog
   config:
     workspace_url: https://my-workspace.cloud.databricks.com
+#   auth_type: azure_default
     token: "<token>"
     include_metastore: false
     include_ownership: true
