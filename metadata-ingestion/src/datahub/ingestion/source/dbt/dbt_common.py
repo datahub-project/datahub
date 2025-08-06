@@ -374,12 +374,11 @@ class DBTCommonConfig(
         "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
-
     dbt_is_primary_sibling: bool = Field(
         default=True,
         description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. When disabled, target platform nodes are treated as primary and DBT nodes as secondary.",
     )
-    
+
     drop_duplicate_sources: bool = Field(
         default=True,
         description="When enabled, drops sources that have the same name in the target platform as a model. "
@@ -1007,6 +1006,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_target_platform_mces(non_test_nodes)
+
+        logger.info("Creating sibling relationships")
+        for node in non_test_nodes:
+            yield from self._create_sibling_aspects(node)
 
         yield from self.create_test_entity_mcps(
             test_nodes,
@@ -2146,6 +2149,45 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for existing_term in existing_terms_class.terms:
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
+
+    def _create_sibling_aspects(self, node: DBTNode) -> Iterable[MetadataWorkUnit]:
+        """Create explicit sibling relationships between dbt and target platform entities."""
+        if not node.exists_in_target_platform or node.node_type == "source":
+            return
+
+        dbt_urn = node.get_urn(
+            DBT_PLATFORM,
+            self.config.env,
+            self.config.platform_instance,
+        )
+        target_urn = node.get_urn(
+            self.config.target_platform,
+            self.config.env,
+            self.config.target_platform_instance,
+        )
+
+        from datahub.metadata.schema_classes import SiblingsClass
+
+        if self.config.dbt_is_primary_sibling:
+            # dbt is primary, target platform is secondary
+            primary_urn = dbt_urn
+            secondary_urn = target_urn
+        else:
+            # target platform is primary, dbt is secondary
+            primary_urn = target_urn
+            secondary_urn = dbt_urn
+
+        # Create sibling relationship on the secondary entity
+        yield MetadataChangeProposalWrapper(
+            entityUrn=secondary_urn,
+            aspect=SiblingsClass(primary=False, siblings=[primary_urn]),
+        ).as_workunit()
+
+        # Create sibling relationship on the primary entity
+        yield MetadataChangeProposalWrapper(
+            entityUrn=primary_urn,
+            aspect=SiblingsClass(primary=True, siblings=[secondary_urn]),
+        ).as_workunit()
 
     def get_report(self):
         return self.report
