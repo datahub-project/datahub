@@ -1,14 +1,17 @@
 import {
   addDomainsModule,
+  addFirstHomeDefaultModule,
   addYourAssetsModule,
   createAssetCollectionModule,
   createDocumentationModule,
   createHierarchyModule,
   createLinkModule,
   editAssetCollectionModule,
+  finishEditingDefaultTemplate,
   removeFirstModuleWithTestId,
   resetToOrgDefault,
   setThemeV2AndHomePageRedesignFlags,
+  startEditingDefaultTemplate,
 } from "./utils";
 
 describe("home page modules", () => {
@@ -47,6 +50,7 @@ describe("home page modules", () => {
       .should("be.visible")
       .children()
       .should("have.length", 2);
+
     // Clean-up
     resetToOrgDefault();
   });
@@ -58,6 +62,7 @@ describe("home page modules", () => {
       .should("be.visible")
       .children()
       .should("have.length", 1);
+
     // Clean-up
     resetToOrgDefault();
   });
@@ -67,6 +72,7 @@ describe("home page modules", () => {
     createLinkModule(linkName, "www.google.com");
     cy.getWithTestId("link-module").should("be.visible");
     cy.waitTextVisible(linkName);
+
     // Clean-up
     resetToOrgDefault();
   });
@@ -78,6 +84,7 @@ describe("home page modules", () => {
     cy.getWithTestId("documentation-module").should("be.visible");
     cy.waitTextVisible(moduleName);
     cy.waitTextVisible(text);
+
     // Clean-up
     resetToOrgDefault();
   });
@@ -128,6 +135,28 @@ describe("home page modules", () => {
       .should("have.length", 3);
 
     // Clean-up
+    resetToOrgDefault();
+  });
+
+  it("add home default module", () => {
+    const name = "Global Collection Module";
+    addYourAssetsModule();
+    startEditingDefaultTemplate();
+    createAssetCollectionModule(name);
+    finishEditingDefaultTemplate();
+    addFirstHomeDefaultModule();
+
+    cy.waitTextVisible(name);
+    cy.getWithTestId("asset-collection-module").should("be.visible");
+    cy.getWithTestId("asset-collection-entities")
+      .should("be.visible")
+      .children()
+      .should("have.length", 2);
+
+    // Clean-up
+    startEditingDefaultTemplate();
+    removeFirstModuleWithTestId("asset-collection-module");
+    finishEditingDefaultTemplate();
     resetToOrgDefault();
   });
 });

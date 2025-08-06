@@ -217,6 +217,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 disabled:
                     (SMALL_MODULE_TYPES.includes(module.properties.type) && !isSmallModuleRow) ||
                     (LARGE_MODULE_TYPES.includes(module.properties.type) && isSmallModuleRow),
+                'data-testid': 'home-default-submenu-option',
             }));
 
             const homeDefaults = {
@@ -233,6 +234,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 expandIcon: <></>, // hide the default expand icon
                 popupClassName: RESET_DROPDOWN_MENU_STYLES_CLASSNAME, // reset styles of submenu
                 children: adminModuleItems,
+                'data-testid': 'home-default-modules',
             };
 
             items.push({

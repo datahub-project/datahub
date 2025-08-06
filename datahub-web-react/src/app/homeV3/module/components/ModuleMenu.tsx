@@ -1,4 +1,5 @@
-import { Dropdown, Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip, colors } from '@components';
+import { Dropdown } from 'antd';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 

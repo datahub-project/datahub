@@ -13,6 +13,16 @@ export const setThemeV2AndHomePageRedesignFlags = (isOn) => {
   });
 };
 
+export const clickFirstAddModuleButton = () => {
+  cy.getWithTestId("add-button-container").first().realHover();
+  cy.getWithTestId("add-module-button").first().should("be.visible").click();
+};
+
+export const clickLastAddModuleButton = () => {
+  cy.getWithTestId("add-button-container").last().realHover();
+  cy.getWithTestId("add-module-button").last().should("be.visible").click();
+};
+
 export const shouldShowDefaultTemplate = () => {
   cy.getWithTestId("your-assets-module").should("exist");
   cy.getWithTestId("domains-module").should("exist");
@@ -45,14 +55,12 @@ export const finishEditingDefaultTemplate = () => {
 };
 
 export const addYourAssetsModule = () => {
-  cy.getWithTestId("add-button-container").first().realHover();
-  cy.getWithTestId("add-module-button").first().should("be.visible").click();
+  clickFirstAddModuleButton();
   cy.getWithTestId("add-your-assets-module").click();
 };
 
 export const addDomainsModule = () => {
-  cy.getWithTestId("add-button-container").first().realHover();
-  cy.getWithTestId("add-module-button").first().should("be.visible").click();
+  clickFirstAddModuleButton();
   cy.getWithTestId("add-domains-module").click();
 };
 
@@ -66,21 +74,19 @@ export const removeFirstModuleWithTestId = (testId) => {
 };
 
 export const createAssetCollectionModule = (name) => {
-  cy.getWithTestId("add-button-container").first().realHover();
-  cy.getWithTestId("add-module-button").first().should("be.visible").click();
+  clickFirstAddModuleButton();
   cy.getWithTestId("add-asset-collection-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
   cy.getWithTestId("select-assets-search-results").should("exist");
+  // Select first 2 assets
   cy.getWithTestId("asset-selection-checkbox").eq(0).click({ force: true });
-
   cy.getWithTestId("asset-selection-checkbox").eq(1).click({ force: true });
   cy.getWithTestId("selected-assets-list").children().should("have.length", 2);
   cy.getWithTestId("create-update-module-button").click();
 };
 
 export const createHierarchyModule = (name) => {
-  cy.getWithTestId("add-button-container").first().realHover();
-  cy.getWithTestId("add-module-button").first().should("be.visible").click();
+  clickFirstAddModuleButton();
   cy.getWithTestId("add-hierarchy-module").click();
   cy.getWithTestId("hierarchy-module-name").should("be.visible").type(name);
   cy.getWithTestId("hierarchy-module-nodes").should("exist");
@@ -89,8 +95,7 @@ export const createHierarchyModule = (name) => {
 };
 
 export const createLinkModule = (name, url) => {
-  cy.getWithTestId("add-button-container").last().realHover();
-  cy.getWithTestId("add-module-button").last().should("be.visible").click();
+  clickLastAddModuleButton();
   cy.getWithTestId("add-link-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
   cy.getWithTestId("link-url").should("be.visible").type(url);
@@ -98,8 +103,7 @@ export const createLinkModule = (name, url) => {
 };
 
 export const createDocumentationModule = (name, text) => {
-  cy.getWithTestId("add-button-container").last().realHover();
-  cy.getWithTestId("add-module-button").last().should("be.visible").click();
+  clickFirstAddModuleButton();
   cy.getWithTestId("add-documentation-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
   cy.getWithTestId("rich-text-documentation").should("be.visible").type(text);
@@ -114,12 +118,21 @@ export const editAssetCollectionModule = (updatedName) => {
     });
   cy.getWithTestId("edit-module").click();
 
+  // edit name
   cy.getWithTestId("module-name")
     .should("be.visible")
     .clear()
     .type(updatedName);
+
+  // edit selected assets, select third one
   cy.getWithTestId("asset-selection-checkbox").eq(2).click({ force: true });
 
   cy.getWithTestId("selected-assets-list").children().should("have.length", 3);
   cy.getWithTestId("create-update-module-button").click();
+};
+
+export const addFirstHomeDefaultModule = () => {
+  clickFirstAddModuleButton();
+  cy.getWithTestId("home-default-modules").trigger("mouseover");
+  cy.getWithTestId("home-default-submenu-option").first().click();
 };
