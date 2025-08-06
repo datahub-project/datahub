@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Union
 
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -182,9 +182,8 @@ class BigQueryFilterConfig(SQLFilterConfig):
     )
 
     # NOTE: `schema_pattern` is added here only to hide it from docs.
-    schema_pattern: AllowDenyPattern = Field(
+    schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
-        hidden_from_docs=True,
     )
 
     @root_validator(pre=False, skip_on_failure=True)
@@ -320,8 +319,7 @@ class BigQueryV2Config(
         description="Include full payload into events. It is only for debugging and internal use.",
     )
 
-    number_of_datasets_process_in_batch: int = Field(
-        hidden_from_docs=True,
+    number_of_datasets_process_in_batch: HiddenFromDocs[int] = Field(
         default=10000,
         description="Number of table queried in batch when getting metadata. This is a low level config property "
         "which should be touched with care.",
@@ -439,14 +437,12 @@ class BigQueryV2Config(
         description="Useful for debugging lineage information. Set to True to see the raw lineage created internally.",
     )
 
-    run_optimized_column_query: bool = Field(
-        hidden_from_docs=True,
+    run_optimized_column_query: HiddenFromDocs[bool] = Field(
         default=False,
         description="Run optimized column query to get column information. This is an experimental feature and may not work for all cases.",
     )
 
-    file_backed_cache_size: int = Field(
-        hidden_from_docs=True,
+    file_backed_cache_size: HiddenFromDocs[int] = Field(
         default=2000,
         description="Maximum number of entries for the in-memory caches of FileBacked data structures.",
     )
@@ -456,10 +452,9 @@ class BigQueryV2Config(
         description="Option to exclude empty projects from being ingested.",
     )
 
-    schema_resolution_batch_size: int = Field(
+    schema_resolution_batch_size: HiddenFromDocs[int] = Field(
         default=100,
         description="The number of tables to process in a batch when resolving schema from DataHub.",
-        hidden_from_schema=True,
     )
 
     max_threads_dataset_parallelism: int = Field(

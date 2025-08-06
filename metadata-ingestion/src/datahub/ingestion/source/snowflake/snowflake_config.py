@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Set
 import pydantic
 from pydantic import Field, root_validator, validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -272,10 +272,11 @@ class SnowflakeV2Config(
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
     )
 
-    structured_properties_template_cache_invalidation_interval: int = Field(
-        hidden_from_docs=True,
-        default=60,
-        description="Interval in seconds to invalidate the structured properties template cache.",
+    structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
+        Field(
+            default=60,
+            description="Interval in seconds to invalidate the structured properties template cache.",
+        )
     )
 
     include_external_url: bool = Field(
@@ -342,8 +343,7 @@ class SnowflakeV2Config(
     )
 
     # Allows empty containers to be ingested before datasets are added, avoiding permission errors
-    warn_no_datasets: bool = Field(
-        hidden_from_docs=True,
+    warn_no_datasets: HiddenFromDocs[bool] = Field(
         default=False,
         description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )

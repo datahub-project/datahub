@@ -8,7 +8,11 @@ from looker_sdk.sdk.api40.models import DBConnection
 from pydantic import Field, validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigurationError,
+    HiddenFromDocs,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -132,11 +136,10 @@ class LookerCommonConfig(EnvConfigMixin, PlatformInstanceConfigMixin):
         description="When enabled, attaches tags to measures, dimensions and dimension groups to make them more "
         "discoverable. When disabled, adds this information to the description of the column.",
     )
-    platform_name: str = Field(
+    platform_name: HiddenFromDocs[str] = Field(
         # TODO: This shouldn't be part of the config.
         "looker",
         description="Default platform name.",
-        hidden_from_docs=True,
     )
     extract_column_level_lineage: bool = Field(
         True,

@@ -8,8 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
-from pydantic import BaseModel
-from pydantic.class_validators import root_validator, validator
+from pydantic import BaseModel, root_validator, validator
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder

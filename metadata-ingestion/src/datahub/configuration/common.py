@@ -1,20 +1,25 @@
+import dataclasses
 import re
 import unittest.mock
 from abc import ABC, abstractmethod
 from enum import auto
 from typing import (
     IO,
+    TYPE_CHECKING,
+    Annotated,
     Any,
     ClassVar,
     Dict,
     List,
     Optional,
     Type,
+    TypeVar,
     Union,
     runtime_checkable,
 )
 
 import pydantic
+import pydantic_core
 from cached_property import cached_property
 from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
@@ -81,6 +86,27 @@ def redact_raw_config(obj: Any) -> Any:
         return [redact_raw_config(v) for v in obj]
     else:
         return obj
+
+
+if TYPE_CHECKING:
+    AnyType = TypeVar("AnyType")
+    HiddenFromDocs = Annotated[AnyType, ...]
+else:
+    HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class SupportedSources:
+    sources: List[str]
+
+    def __get_pydantic_json_schema__(
+        self,
+        core_schema: pydantic_core.core_schema.CoreSchema,
+        handler: pydantic.GetJsonSchemaHandler,
+    ) -> pydantic.json_schema.JsonSchemaValue:
+        json_schema = handler(core_schema)
+        json_schema["supported_sources"] = self.sources
+        return json_schema
 
 
 class ConfigModel(BaseModel):

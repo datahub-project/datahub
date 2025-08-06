@@ -18,7 +18,7 @@ import pydantic
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
@@ -194,13 +194,13 @@ class GenericAggregatedDataset(Generic[ResourceType]):
 
 
 class BaseUsageConfig(BaseTimeWindowConfig):
-    queries_character_limit: int = Field(
+    queries_character_limit: HiddenFromDocs[int] = Field(
+        # Hidden since we don't want to encourage people to break elasticsearch.
         default=DEFAULT_QUERIES_CHARACTER_LIMIT,
         description=(
             "Total character limit for all queries in a single usage aspect."
             " Queries will be truncated to length `queries_character_limit / top_n_queries`."
         ),
-        hidden_from_docs=True,  # Don't want to encourage people to break elasticsearch
     )
 
     top_n_queries: pydantic.PositiveInt = Field(

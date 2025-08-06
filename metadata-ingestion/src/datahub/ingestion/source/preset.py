@@ -2,7 +2,7 @@ import logging
 from typing import Dict, Optional
 
 import requests
-from pydantic.class_validators import root_validator, validator
+from pydantic import root_validator, validator
 from pydantic.fields import Field
 
 from datahub.emitter.mce_builder import DEFAULT_ENV

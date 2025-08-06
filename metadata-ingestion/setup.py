@@ -18,10 +18,7 @@ base_requirements = {
     "typing_extensions>=4.5.0",
     # Actual dependencies.
     "typing-inspect",
-    # pydantic 1.8.2 is incompatible with mypy 0.910.
-    # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
-    "pydantic>=1.10.0,!=1.10.3",
+    "pydantic>=2.4.0",
     "mixpanel>=4.9.0",
     # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
     "sentry-sdk>=1.33.1",
@@ -56,12 +53,6 @@ framework_common = {
     "jsonref",
     "jsonschema",
     "ruamel.yaml",
-}
-
-pydantic_no_v2 = {
-    # pydantic 2 makes major, backwards-incompatible changes - https://github.com/pydantic/pydantic/issues/4887
-    # Tags sources that require the pydantic v2 API.
-    "pydantic<2",
 }
 
 rest_common = {"requests", "requests_file"}
@@ -119,7 +110,7 @@ classification_lib = {
 
 dbt_common = {
     *sqlglot_lib,
-    "more_itertools",
+    "more-itertools",
 }
 
 cachetools_lib = {
@@ -508,7 +499,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "datahub-debug": {"dnspython==2.7.0", "requests"},
     "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
-    "mongodb": {"pymongo[srv]>=3.11", "packaging"},
+    "mongodb": {"pymongo>=4.8.0", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": sql_common | mysql,
@@ -725,7 +716,6 @@ base_dev_requirements = {
         if plugin
         for dependency in plugins[plugin]
     ),
-    *pydantic_no_v2,
 }
 
 dev_requirements = {
@@ -959,40 +949,16 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     extras_require={
         "base": list(framework_common),
         **{
-            plugin: list(
-                framework_common
-                | (
-                    # While pydantic v2 support is experimental, require that all plugins
-                    # continue to use v1. This will ensure that no ingestion recipes break.
-                    pydantic_no_v2
-                    if plugin
-                    not in {
-                        "airflow",
-                        "datahub-rest",
-                        "datahub-kafka",
-                        "sync-file-emitter",
-                        "sql-parser",
-                        # Some sources have been manually tested for compatibility with pydantic v2.
-                        "iceberg",
-                        "feast",
-                        "bigquery-slim",
-                        "snowflake-slim",
-                        "mysql",  # tested in smoke-test
-                    }
-                    else set()
-                )
-                | dependencies
-            )
+            plugin: list(framework_common | dependencies)
             for (plugin, dependencies) in plugins.items()
         },
         "all": list(
             framework_common.union(
-                pydantic_no_v2,
                 *[
                     requirements
                     for plugin, requirements in plugins.items()
                     if plugin not in all_exclude_plugins
-                ],
+                ]
             )
         ),
         "cloud": ["acryl-datahub-cloud"],
