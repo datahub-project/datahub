@@ -166,7 +166,11 @@ export const SubscribeAction = ({ assertion, refetch }: Props) => {
                 <span>
                     <ActionMenuItem
                         key="subscribe-urn"
-                        onClick={() => {}}
+                        onClick={() => {
+                            if (!isSubscribedToThisAssertionGenerally && !hasGroupRelationships && items.length === 1) {
+                                onClickMenuItem(DROPDOWN_KEYS.SUBSCRIBE_ME);
+                            }
+                        }}
                         icon={
                             isSubscribedToThisAssertionGenerally ? (
                                 <BellSimple weight="fill" color={colors.gray[400]} />
