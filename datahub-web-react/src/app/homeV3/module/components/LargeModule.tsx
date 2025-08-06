@@ -38,6 +38,7 @@ const ModuleHeader = styled.div`
 const DragHandle = styled.div<{ $isDragging?: boolean }>`
     cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
     flex: 1;
+    max-width: calc(100% - 10px);
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`

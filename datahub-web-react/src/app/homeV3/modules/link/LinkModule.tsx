@@ -1,4 +1,4 @@
-import { Icon, Text } from '@components';
+import { Icon, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -6,6 +6,7 @@ import analytics, { EventType } from '@app/analytics';
 import SmallModule from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import ImageOrIcon from '@app/homeV3/modules/link/ImageOrIcon';
+import { DescriptionContainer, NameContainer } from '@app/homeV3/styledComponents';
 
 const Container = styled.div`
     display: flex;
@@ -22,11 +23,13 @@ const LeftSection = styled.div`
     display: flex;
     gap: 8px;
     align-items: center;
+    max-width: calc(100% - 24px);
 `;
 
 const TextSection = styled.div`
     display: flex;
     flex-direction: column;
+    max-width: calc(100% - 30px);
 `;
 
 export default function LinkModule(props: ModuleProps) {
@@ -50,13 +53,29 @@ export default function LinkModule(props: ModuleProps) {
                     <ImageOrIcon imageUrl={linkParams?.imageUrl} />
 
                     <TextSection>
-                        <Text color="gray" colorLevel={600} weight="bold" size="lg" lineHeight="normal">
+                        <NameContainer
+                            ellipsis={{
+                                tooltip: {
+                                    color: 'white',
+                                    overlayInnerStyle: { color: colors.gray[1700] },
+                                    showArrow: false,
+                                },
+                            }}
+                        >
                             {name}
-                        </Text>
+                        </NameContainer>
                         {linkParams?.description && (
-                            <Text color="gray" size="sm">
+                            <DescriptionContainer
+                                ellipsis={{
+                                    tooltip: {
+                                        color: 'white',
+                                        overlayInnerStyle: { color: colors.gray[1700] },
+                                        showArrow: false,
+                                    },
+                                }}
+                            >
                                 {linkParams?.description}
-                            </Text>
+                            </DescriptionContainer>
                         )}
                     </TextSection>
                 </LeftSection>
