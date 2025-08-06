@@ -52,7 +52,9 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold">{title}</Text>
+                <Text weight="semiBold" color="gray" colorLevel={600}>
+                    {title}
+                </Text>
                 {description && (
                     <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
                         {description}

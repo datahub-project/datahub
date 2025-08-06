@@ -45,7 +45,7 @@ const Content = styled.div<{ $hasViewAll: boolean }>`
     overflow-y: auto;
     padding-right: 5px;
     scrollbar-gutter: stable;
-    height: ${({ $hasViewAll }) => ($hasViewAll ? '226px' : '238px')};
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '234px' : '246px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -54,9 +54,8 @@ const LoaderContainer = styled.div`
 `;
 
 const ViewAllButton = styled(Button)`
-    margin-left: auto;
-    margin-right: 16px;
     margin: 0 16px 0 auto;
+    padding-right: 8px;
 `;
 
 interface Props extends ModuleProps {
