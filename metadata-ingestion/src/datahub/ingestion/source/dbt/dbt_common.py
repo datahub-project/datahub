@@ -2157,6 +2157,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     def _create_sibling_aspect_for_dbt_entity(self, node: DBTNode) -> Optional[Any]:
         """Create sibling aspect for dbt entity pointing to target platform entity."""
 
+        if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+            return None
+
         # Only create explicit sibling relationships when needed
         if not self.config.dbt_is_primary_sibling:
             # When target platform should be primary
@@ -2181,6 +2184,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self, node: DBTNode, dbt_urn: str
     ) -> Optional[Any]:
         """Create sibling aspect for target platform entity pointing to dbt entity."""
+
+        if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+            return None
 
         # Only create explicit sibling relationships when needed
         if not self.config.dbt_is_primary_sibling:

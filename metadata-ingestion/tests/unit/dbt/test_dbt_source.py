@@ -658,3 +658,126 @@ def test_drop_duplicate_sources() -> None:
     # Verify report counters
     assert source.report.duplicate_sources_dropped == 1
     assert source.report.duplicate_sources_references_updated == 1
+
+
+def test_dbt_sibling_aspects_creation():
+    """Test that sibling aspects are created correctly based on configuration."""
+    ctx = PipelineContext(run_id="test-run-id")
+
+    # Test with dbt as primary (default) - should not create sibling aspects for models
+    config_dbt_primary = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "dbt_is_primary_sibling": True,
+        }
+    )
+    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
+
+    model_node = DBTNode(
+        name="test_model",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test model",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="model.package.test_model",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="model",
+        materialization="table",
+        max_loaded_at=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+
+    # For models when dbt is primary - should return None (no explicit sibling needed)
+    dbt_sibling_aspect = source_dbt_primary._create_sibling_aspect_for_dbt_entity(
+        model_node
+    )
+    assert dbt_sibling_aspect is None
+
+    target_sibling_aspect = source_dbt_primary._create_sibling_aspect_for_target_entity(
+        model_node, "dummy_dbt_urn"
+    )
+    assert target_sibling_aspect is None
+
+    # Test with target platform as primary - should create sibling aspects for models
+    config_target_primary = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "dbt_is_primary_sibling": False,
+        }
+    )
+    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+
+    # For models when target platform is primary - should create sibling aspects
+    dbt_sibling_aspect = source_target_primary._create_sibling_aspect_for_dbt_entity(
+        model_node
+    )
+    assert dbt_sibling_aspect is not None
+    assert dbt_sibling_aspect.primary is False
+    assert len(dbt_sibling_aspect.siblings) == 1
+
+    target_sibling_aspect = (
+        source_target_primary._create_sibling_aspect_for_target_entity(
+            model_node, "dummy_dbt_urn"
+        )
+    )
+    assert target_sibling_aspect is not None
+    assert target_sibling_aspect.primary is True
+    assert target_sibling_aspect.siblings == ["dummy_dbt_urn"]
+
+
+def test_dbt_sibling_aspects_respects_entity_filtering():
+    """Test that sibling aspects are only created when entities are enabled."""
+    ctx = PipelineContext(run_id="test-run-id")
+
+    # Configure to only emit test results (no models/sources)
+    config = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "dbt_is_primary_sibling": False,
+            "entities_enabled": {"test_results": "ONLY"},
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    model_node = DBTNode(
+        name="test_model",
+        database="test_db",
+        schema="test_schema",
+        alias=None,
+        comment="",
+        description="Test model",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="model.package.test_model",
+        dbt_file_path=None,
+        dbt_package_name="package",
+        node_type="model",
+        materialization="table",
+        max_loaded_at=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        compiled_code=None,
+    )
+
+    # Should not create sibling aspects when model emission is disabled
+    dbt_sibling_aspect = source._create_sibling_aspect_for_dbt_entity(model_node)
+    assert dbt_sibling_aspect is None, (
+        "Should not create sibling aspects when entity type is disabled"
+    )
+
+    target_sibling_aspect = source._create_sibling_aspect_for_target_entity(
+        model_node, "dummy_dbt_urn"
+    )
+    assert target_sibling_aspect is None, (
+        "Should not create sibling aspects when entity type is disabled"
+    )
