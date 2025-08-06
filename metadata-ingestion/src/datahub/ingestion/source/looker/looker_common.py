@@ -1373,7 +1373,7 @@ class LookerExplore:
                             or not upstream_column_ref.column.strip()
                         ):
                             logger.warning(
-                                f"Skipping fine-grained lineage for field '{field.name}' in explore '{self.name}' "
+                                f"Skipping some fine-grained lineage for field '{field.name}' in explore '{self.name}' "
                                 f"due to empty upstream column name in table '{upstream_column_ref.table}'"
                             )
                             continue
