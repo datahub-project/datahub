@@ -2,7 +2,9 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
 
+import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
     BaseTable,
     HeaderContainer,
@@ -18,7 +20,15 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
-import { Tooltip2 } from '@components/components/Tooltip2';
+
+export const CellHoverWrapper = styled.div`
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    align-items: center;
+    margin: -16px;
+    padding: 16px;
+`;
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -48,6 +58,7 @@ export const Table = <T,>({
     rowRefs,
     headerRef,
     rowDataTestId,
+    footer,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -92,11 +103,12 @@ export const Table = <T,>({
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
+                                    minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
-                                    shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
+                                    shouldAddRightBorder={index !== finalColumns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
-                                        <Tooltip2 title={column.tooltipTitle}>
+                                        <StructuredPopover title={column.tooltipTitle}>
                                             <HeaderContainer alignment={column.alignment}>
                                                 {column.title}
                                                 {column.sorter && ( // Render sort icons if the column is sortable
@@ -132,7 +144,7 @@ export const Table = <T,>({
                                                     </SortIconsContainer>
                                                 )}
                                             </HeaderContainer>
-                                        </Tooltip2>
+                                        </StructuredPopover>
                                     ) : (
                                         <HeaderContainer alignment={column.alignment}>
                                             {column.title}
@@ -188,7 +200,7 @@ export const Table = <T,>({
                                 <TableRow
                                     key={key}
                                     canExpand={canExpand}
-                                    onClick={() => {
+                                    onClick={(e) => {
                                         if (focusedRowIndex === index) {
                                             setFocusedRowIndex(null);
                                         } else {
@@ -196,7 +208,9 @@ export const Table = <T,>({
                                         }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
+                                        e.stopPropagation();
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     className={rowClassName?.(row)} // Add row-specific class
                                     ref={(el) => {
                                         if (rowRefs && el) {
@@ -204,7 +218,6 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
-                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
                                     canHover
@@ -212,18 +225,10 @@ export const Table = <T,>({
                                     {/* Render each cell in the row */}
 
                                     {finalColumns.map((column, i) => {
-                                        return (
-                                            <TableCell
-                                                key={column.key}
-                                                width={column.width}
-                                                alignment={
-                                                    columns.length - 1 === i && canExpand ? 'right' : column.alignment
-                                                }
-                                                isGroupHeader={canExpand}
-                                                isExpanded={isExpanded}
-                                            >
-                                                {/* Add expandable icon if applicable or render row */}
-                                                {columns.length - 1 === i && canExpand ? (
+                                        return (() => {
+                                            let content;
+                                            if (columns.length - 1 === i && canExpand) {
+                                                content = (
                                                     <div
                                                         style={{
                                                             cursor: 'pointer',
@@ -245,11 +250,38 @@ export const Table = <T,>({
                                                             /> // Collapsed icon
                                                         )}
                                                     </div>
-                                                ) : (
-                                                    renderCell(column, row, index)
-                                                )}
-                                            </TableCell>
-                                        );
+                                                );
+                                            } else {
+                                                content = renderCell(column, row, index);
+                                            }
+
+                                            const cellContent = column.cellWrapper
+                                                ? column.cellWrapper(content, row)
+                                                : content;
+
+                                            return (
+                                                <TableCell
+                                                    key={column.key}
+                                                    width={column.width}
+                                                    alignment={
+                                                        columns.length - 1 === i && canExpand
+                                                            ? 'right'
+                                                            : column.alignment
+                                                    }
+                                                    isGroupHeader={canExpand}
+                                                    isExpanded={isExpanded}
+                                                    onClick={() => {
+                                                        if (column.onCellClick) {
+                                                            column.onCellClick(row);
+                                                        }
+                                                    }}
+                                                    style={{ cursor: column.onCellClick ? 'pointer' : 'default' }}
+                                                    className={column.cellWrapper ? 'hoverable-cell' : undefined}
+                                                >
+                                                    {cellContent}
+                                                </TableCell>
+                                            );
+                                        })();
                                     })}
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
@@ -268,6 +300,7 @@ export const Table = <T,>({
                             </>
                         );
                     })}
+                    {footer}
                 </tbody>
             </BaseTable>
         </TableContainer>

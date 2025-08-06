@@ -49,6 +49,13 @@ query appConfig {
             searchResult {
                 enableNameHighlight
             }
+            theme {
+                themeId
+            }
+            application {
+                showSidebarSectionWhenEmpty
+                showApplicationInNavigation
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -61,6 +68,9 @@ query appConfig {
         }
         searchBarConfig {
             apiVariant
+        }
+        homePageConfig {
+            firstInPersonalSidebar
         }
         featureFlags {
             readOnlyModeEnabled
@@ -89,6 +99,14 @@ query appConfig {
             showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
             showManageTags
+            showIntroducePage
+            showIngestionPageRedesign
+            showLineageExpandMore
+            showHomePageRedesign
+            showProductUpdates
+            lineageGraphV3
+            logicalModelsEnabled
+            showHomepageUserRole
         }
         chromeExtensionConfig {
             enabled
@@ -118,10 +136,22 @@ query getDocPropagationSettings {
     }
 }
 
+query getHomePageSettings {
+    globalHomePageSettings {
+        defaultTemplate {
+            ...PageTemplate
+        }
+    }
+}
+
 mutation updateGlobalViewsSettings($input: UpdateGlobalViewsSettingsInput!) {
     updateGlobalViewsSettings(input: $input)
 }
 
 mutation updateDocPropagationSettings($input: UpdateDocPropagationSettingsInput!) {
     updateDocPropagationSettings(input: $input)
+}
+
+mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
+    updateApplicationsSettings(input: $input)
 }

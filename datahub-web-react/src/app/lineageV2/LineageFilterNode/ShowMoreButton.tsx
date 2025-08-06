@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { LINEAGE_FILTER_PAGINATION, LineageFilter, LineageNodesContext } from '@app/lineageV2/common';
 import { applyOpacity } from '@app/sharedV2/colors/colorUtils';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 const MAX_INCREASE = 100;
 const LINE_HEIGHT = '1.5em';
@@ -48,8 +49,13 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${applyOpacity(REDESIGN_COLORS.TITLE_PURPLE, REDESIGN_COLORS.WHITE, 10)};
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(props) =>
+            applyOpacity(
+                props.theme.styles['primary-color'] || getColor('primary', 500, props.theme),
+                REDESIGN_COLORS.WHITE,
+                10,
+            )};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

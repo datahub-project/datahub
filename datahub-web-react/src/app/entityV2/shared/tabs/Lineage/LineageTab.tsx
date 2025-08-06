@@ -11,6 +11,7 @@ import LineageExplorer from '@app/lineage/LineageExplorer';
 import LineageGraph from '@app/lineageV2/LineageGraph';
 import { useLineageV2 } from '@app/lineageV2/useLineageV2';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { LineageDirection } from '@types';
 
@@ -31,9 +32,9 @@ const LineageSwitchWrapper = styled.div`
 `;
 
 const LineageViewSwitch = styled.div<{ selected: boolean }>`
-    background: ${({ selected }) => (selected ? colors.violet[600] : '#fff')};
+    background: ${({ selected, theme }) => (selected ? `${getColor('primary', 600, theme)}` : '#fff')};
     border-radius: 3px;
-    color: ${({ selected }) => (selected ? '#fff' : colors.violet[600])};
+    color: ${({ selected, theme }) => (selected ? '#fff' : `${getColor('primary', 600, theme)}`)};
     cursor: pointer;
     display: flex;
     font-size: 10px;

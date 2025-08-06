@@ -20,8 +20,8 @@ const Values = styled.div`
 
     :hover {
         cursor: pointer;
-        border: 1.5px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
+        background-color: ${(p) => p.theme.styles['primary-color']};
         color: #fff;
     }
 `;

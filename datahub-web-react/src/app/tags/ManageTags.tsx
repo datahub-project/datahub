@@ -1,4 +1,4 @@
-import { Button, PageTitle, Pagination, SearchBar, Tooltip2 } from '@components';
+import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -56,6 +56,7 @@ const ManageTags = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('*');
     const entityRegistry = useEntityRegistry();
     const [showCreateTagModal, setShowCreateTagModal] = useState(false);
@@ -78,11 +79,11 @@ const ManageTags = () => {
         () => ({
             types: [EntityType.Tag],
             query: debouncedSearchQuery,
-            start: (currentPage - 1) * PAGE_SIZE,
-            count: PAGE_SIZE,
+            start: (currentPage - 1) * pageSize,
+            count: pageSize,
             filters: [],
         }),
-        [currentPage, debouncedSearchQuery],
+        [currentPage, debouncedSearchQuery, pageSize],
     );
 
     const {
@@ -122,7 +123,7 @@ const ManageTags = () => {
     const renderCreateTagButton = () => {
         if (!canCreateTags) {
             return (
-                <Tooltip2
+                <StructuredPopover
                     title="You do not have permission to create tags"
                     placement="left"
                     showArrow
@@ -134,7 +135,7 @@ const ManageTags = () => {
                             Create Tag
                         </Button>
                     </span>
-                </Tooltip2>
+                </StructuredPopover>
             );
         }
 
@@ -144,6 +145,7 @@ const ManageTags = () => {
                 size="md"
                 color="violet"
                 icon={{ icon: 'Plus', source: 'phosphor' }}
+                data-testid="add-tag-button"
             >
                 Create Tag
             </Button>
@@ -182,10 +184,17 @@ const ManageTags = () => {
                     />
                     <Pagination
                         currentPage={currentPage}
-                        itemsPerPage={PAGE_SIZE}
-                        totalPages={totalTags}
+                        itemsPerPage={pageSize}
+                        total={totalTags}
                         loading={searchLoading}
-                        onPageChange={(page) => setCurrentPage(page)}
+                        onPageChange={(newPage, newPageSize) => {
+                            if (newPageSize !== pageSize) {
+                                setCurrentPage(1);
+                                setPageSize(newPageSize);
+                            } else {
+                                setCurrentPage(newPage);
+                            }
+                        }}
                     />
                 </>
             )}

@@ -12,6 +12,7 @@ from datahub.ingestion.graph.client import (
     RelatedEntity,
     get_default_graph,
 )
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ContainerClass,
@@ -243,7 +244,7 @@ def clone_aspect(
     run_id: str = str(uuid.uuid4()),
     dry_run: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     aspect_map = cli_utils.get_aspects_for_entity(
         client._session,
         client.config.server,
@@ -274,7 +275,7 @@ def clone_aspect(
 
 
 def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     yield from client.get_related_entities(
         entity_urn=urn,
         relationship_types=[
@@ -290,7 +291,7 @@ def get_incoming_relationships(urn: str) -> Iterable[RelatedEntity]:
 
 
 def get_outgoing_relationships(urn: str) -> Iterable[RelatedEntity]:
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     yield from client.get_related_entities(
         entity_urn=urn,
         relationship_types=[

@@ -10,7 +10,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
@@ -24,7 +24,6 @@ import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
-import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
@@ -47,7 +46,7 @@ import {
 } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -62,7 +61,7 @@ const TransparentButton = styled(Button)`
         display: flex;
         align-items: center;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 
@@ -180,9 +179,9 @@ export default function DefaultPreviewCard({
     logoComponent,
     url,
     entityType,
-    type,
+    type, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     typeIcon,
-    platform,
+    platform, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     platformInstanceId,
     tags,
     owners, // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -193,7 +192,7 @@ export default function DefaultPreviewCard({
     snippet,
     insights, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     domain, // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    dataProduct,
+    dataProduct, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     container,
     deprecation, // eslint-disable-next-line @typescript-eslint/no-unused-vars
     entityCount,
@@ -234,7 +233,6 @@ export default function DefaultPreviewCard({
     if (snippet) {
         insightViews.push(snippet);
     }
-    const { contentRef } = useContentTruncation(container);
 
     // TODO: Replace with something less hacky
     const finalType = type || entityRegistry.getEntityName(entityType);
@@ -306,15 +304,11 @@ export default function DefaultPreviewCard({
                     {isIconPresent && <RowContainer>{entityHeader}</RowContainer>}
                     <RowContainer style={{ marginTop: 8 }}>
                         <ContextPath
-                            type={finalType}
+                            displayedEntityType={finalType}
                             entityType={entityType}
-                            instanceId={platformInstanceId}
-                            typeIcon={typeIcon}
                             browsePaths={browsePaths}
                             parentEntities={parentEntities}
                             entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
-                            previewType={previewType}
-                            contentRef={contentRef}
                         />
                     </RowContainer>
                     {(previewType === PreviewType.HOVER_CARD ||
@@ -353,11 +347,8 @@ export default function DefaultPreviewCard({
                     previewType={previewType}
                     urn={urn}
                     entityType={entityType}
-                    platformInstanceId={platformInstanceId}
-                    typeIcon={typeIcon}
                     finalType={finalType}
                     parentEntities={parentEntities}
-                    contentRef={contentRef}
                     browsePaths={browsePaths}
                 />
             )}

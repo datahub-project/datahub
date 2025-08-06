@@ -5,6 +5,7 @@ import static com.datahub.util.RecordUtils.toRecordTemplate;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.CACHE_HIT_ATTR;
 
 import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -63,7 +64,7 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     return getCachedSearchResults(
         opContext, entityNames, query, filters, sortCriteria, from, size, facets);
@@ -85,7 +86,7 @@ public class CachingEntitySearchService {
       @Nonnull String input,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit) {
+      @Nullable Integer limit) {
     return getCachedAutoCompleteResults(opContext, entityName, input, field, filters, limit);
   }
 
@@ -106,7 +107,7 @@ public class CachingEntitySearchService {
       @Nonnull String path,
       @Nullable Filter filters,
       int from,
-      int size) {
+      @Nullable Integer size) {
     return getCachedBrowseResults(opContext, entityName, path, filters, from, size);
   }
 
@@ -132,7 +133,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
     return getCachedScrollResults(
         opContext, entities, query, filters, sortCriteria, scrollId, keepAlive, size, facets);
@@ -151,8 +152,9 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
       int from,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
+    size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
@@ -186,7 +188,7 @@ public class CachingEntitySearchService {
       @Nonnull String input,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit) {
+      @Nullable Integer limit) {
 
     return opContext.withSpan(
         "getAutoCompleteResults",
@@ -211,7 +213,12 @@ public class CachingEntitySearchService {
                   getRawAutoCompleteResults(opContext, entityName, input, field, filters, limit);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(
+                              this.getClass(), "autocomplete_cache_miss_count", 1));
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, true);
             }
@@ -232,7 +239,7 @@ public class CachingEntitySearchService {
       @Nonnull String path,
       @Nullable Filter filters,
       int from,
-      int size) {
+      @Nullable Integer size) {
 
     return opContext.withSpan(
         "getBrowseResults",
@@ -255,7 +262,11 @@ public class CachingEntitySearchService {
               result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(this.getClass(), "browse_cache_miss_count", 1));
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, true);
             }
@@ -278,7 +289,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size,
+      @Nullable Integer size,
       @Nonnull List<String> facets) {
 
     return opContext.withSpan(
@@ -321,7 +332,11 @@ public class CachingEntitySearchService {
                       facets);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
-              MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
+              opContext
+                  .getMetricUtils()
+                  .ifPresent(
+                      metricUtils ->
+                          metricUtils.increment(this.getClass(), "scroll_cache_miss_count", 1));
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, true);
             }
@@ -354,7 +369,7 @@ public class CachingEntitySearchService {
       final Filter filters,
       final List<SortCriterion> sortCriteria,
       final int start,
-      final int count,
+      @Nullable Integer count,
       @Nonnull final List<String> facets) {
     return entitySearchService.search(
         opContext, entityNames, input, filters, sortCriteria, start, count, facets);
@@ -367,7 +382,7 @@ public class CachingEntitySearchService {
       final String input,
       final String field,
       final Filter filters,
-      final int limit) {
+      @Nullable Integer limit) {
     return entitySearchService.autoComplete(opContext, entityName, input, field, filters, limit);
   }
 
@@ -378,8 +393,8 @@ public class CachingEntitySearchService {
       final String input,
       final Filter filters,
       final int start,
-      final int count) {
-    return entitySearchService.browse(opContext, entityName, input, filters, start, count);
+      @Nullable Integer limit) {
+    return entitySearchService.browse(opContext, entityName, input, filters, start, limit);
   }
 
   /** Executes the expensive search query using the {@link EntitySearchService} */
@@ -391,7 +406,7 @@ public class CachingEntitySearchService {
       final List<SortCriterion> sortCriteria,
       @Nullable final String scrollId,
       @Nullable final String keepAlive,
-      final int count,
+      @Nullable Integer count,
       final boolean fulltext,
       @Nonnull List<String> facets) {
     if (fulltext) {

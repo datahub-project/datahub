@@ -15,7 +15,11 @@
                 "column_type": null,
                 "native_column_type": null
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`a` AS `a`"
+            }
         },
         {
             "downstream": {
@@ -24,7 +28,11 @@
                 "column_type": null,
                 "native_column_type": null
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`b` AS `b`"
+            }
         },
         {
             "downstream": {
@@ -33,7 +41,33 @@
                 "column_type": null,
                 "native_column_type": null
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c` AS `c`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "inner JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,t2,PROD)"
+            ],
+            "on_clause": "`t1`.`id` = `t2`.`id`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,t1,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,t2,PROD)",
+                    "column": "id"
+                }
+            ]
         }
     ],
     "debug_info": {

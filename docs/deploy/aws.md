@@ -170,7 +170,7 @@ Do not use the 'latest' or 'debug' tags for any of the images, as those are not 
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
 the ARN of the new certificate. You also need to replace host-name with the hostname of choice like
-demo.datahubproject.io.
+demo.datahub.com.
 
 To have the metadata [authentication service](../authentication/introducing-metadata-service-authentication.md#configuring-metadata-service-authentication) enabled and use [API tokens](../authentication/personal-access-tokens.md#creating-personal-access-tokens) from the UI you will need to set the configuration in the values.yaml for the `gms` and the `frontend` deployments. This could be done by enabling the `metadata_service_authentication`:
 
@@ -191,7 +191,7 @@ following.
 
 ```
 NAME                       CLASS    HOSTS                         ADDRESS                                                                 PORTS   AGE
-datahub-datahub-frontend   <none>   demo.datahubproject.io   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
+datahub-datahub-frontend   <none>   demo.datahub.com   k8s-default-datahubd-80b034d83e-904097062.us-west-2.elb.amazonaws.com   80      3h5m
 ```
 
 Note down the elb address in the address column. Add the DNS CNAME record to the host domain pointing the host-name (

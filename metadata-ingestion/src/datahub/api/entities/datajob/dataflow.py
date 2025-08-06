@@ -30,7 +30,7 @@ class DataFlow:
     """The DataHub representation of data-flow.
 
     Args:
-        urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://datahubproject.io/docs/what/urn/.
+        urn (int): Unique identifier of the DataFlow in DataHub. For more detail refer https://docs.datahub.com/docs/what/urn/.
         id (str): Identifier of DataFlow in orchestrator.
         orchestrator (str): orchestrator. for example airflow.
         cluster (Optional[str]): [deprecated] Please use env.
@@ -40,8 +40,8 @@ class DataFlow:
         url (Optional[str]): URL pointing to DataFlow.
         tags (Set[str]): tags that need to be apply on DataFlow.
         owners (Set[str]): owners that need to be apply on DataFlow.
-        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://datahubproject.io/docs/platform-instances/.
-        env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://datahubproject.io/docs/graphql/enums/#fabrictype.
+        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to. For more detail refer https://docs.datahub.com/docs/platform-instances/.
+        env (Optional[str]): The environment that all assets produced by this orchestrator belong to. For more detail and possible values refer https://docs.datahub.com/docs/graphql/enums/#fabrictype.
     """
 
     urn: DataFlowUrn = field(init=False)

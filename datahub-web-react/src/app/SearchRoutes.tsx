@@ -2,6 +2,7 @@ import React from 'react';
 import { Redirect, Route, Switch } from 'react-router-dom';
 
 import { AnalyticsPage } from '@app/analyticsDashboard/components/AnalyticsPage';
+import { ManageApplications } from '@app/applications/ManageApplications';
 import { BrowseResultsPage } from '@app/browse/BrowseResultsPage';
 import { BusinessAttributes } from '@app/businessAttribute/BusinessAttributes';
 import { useUserContext } from '@app/context/useUserContext';
@@ -15,6 +16,7 @@ import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
+import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -43,7 +45,7 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const { config } = useAppConfig();
+    const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
 
@@ -57,6 +59,8 @@ export const SearchRoutes = (): JSX.Element => {
     const showTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+
+    const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
 
     return (
         <FinalSearchablePage>
@@ -80,6 +84,7 @@ export const SearchRoutes = (): JSX.Element => {
                 />
                 <Route path={PageRoutes.BROWSE_RESULTS} render={() => <BrowseResultsPage />} />
                 {showTags ? <Route path={PageRoutes.MANAGE_TAGS} render={() => <ManageTags />} /> : null}
+                <Route path={PageRoutes.MANAGE_APPLICATIONS} render={() => <ManageApplications />} />
                 <Route path={PageRoutes.ANALYTICS} render={() => <AnalyticsPage />} />
                 <Route path={PageRoutes.POLICIES} render={() => <Redirect to="/settings/permissions/policies" />} />
                 <Route
@@ -101,7 +106,9 @@ export const SearchRoutes = (): JSX.Element => {
                     />
                 )}
 
-                <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
+                {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPageV2 />} />}
+
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
                     path={`${PageRoutes.GLOSSARY}*`}
@@ -122,7 +129,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
-                <Route component={NoPageFound} />
+                {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>
     );

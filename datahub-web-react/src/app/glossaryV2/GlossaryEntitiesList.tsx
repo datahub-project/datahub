@@ -7,7 +7,7 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import GlossaryEntityItem from '@app/glossaryV2/GlossaryEntityItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { GlossaryNodeFragment, RootGlossaryNodeWithFourLayersFragment } from '@graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 import { GlossaryNode, GlossaryTerm } from '@types';
 
@@ -44,7 +44,7 @@ const GlossaryTerms = styled.div`
 `;
 
 interface Props {
-    nodes: (GlossaryNode | GlossaryNodeFragment)[];
+    nodes: (GlossaryNode | GlossaryNodeFragment | RootGlossaryNodeWithFourLayersFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
 }
 
@@ -66,13 +66,9 @@ function GlossaryEntitiesList(props: Props) {
                             description={node.properties?.description || ''}
                             urn={node.urn}
                             type={node.type}
-                            descendants={
-                                (node as GlossaryNodeFragment).children?.relationships
-                                    ?.map((child) => child.entity)
-                                    .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
-                            }
                             displayProperties={node.displayProperties}
                             showAsCard={!isGlossaryEntityPage}
+                            node={node}
                         />
                     ))}
                 </GlossaryNodes>

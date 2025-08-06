@@ -139,6 +139,19 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
+# Install a cacheble layer that installs external dependencies and does not get invalidated due to changes in ingestion or actions code
+# Copy just enough to enable pip compile to work. Other code changes wont invalidate this layer.
+COPY --chown=datahub:datahub ./metadata-ingestion/setup.py /metadata-ingestion/
+COPY --chown=datahub:datahub ./metadata-ingestion/src/datahub/_version.py /metadata-ingestion/src/datahub/
+COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
+COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
+COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
+
+USER datahub
+RUN echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+USER 0
+
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 # Add other default configurations into this!
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
@@ -148,13 +161,14 @@ USER datahub
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 # For the datahub-actions build, we explicitly want to retain the uv cache.
 # This speeds up the process of creating venvs at runtime.
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
-RUN uv pip install -e "/datahub-actions/[all]"
+RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh

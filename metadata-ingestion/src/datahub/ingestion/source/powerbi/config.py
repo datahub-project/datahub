@@ -513,7 +513,7 @@ class PowerBiDashboardSourceConfig(
     include_workspace_name_in_dataset_urn: bool = pydantic.Field(
         default=False,
         description="It is recommended to set this to true, as it helps prevent the overwriting of datasets."
-        "Read section #11560 at https://datahubproject.io/docs/how/updating-datahub/ before enabling this option."
+        "Read section #11560 at https://docs.datahub.com/docs/how/updating-datahub/ before enabling this option."
         "To maintain backward compatibility, this is set to False.",
     )
 

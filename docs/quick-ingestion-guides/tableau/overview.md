@@ -34,4 +34,4 @@ Continue to the [setup guide](setup.md), where we'll describe the prerequisites.
 If you want to ingest metadata from Tableau using the DataHub CLI, check out the following resources:
 
 - Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
-- [Tableau Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/tableau)
+- [Tableau Ingestion Source](https://docs.datahub.com/docs/generated/ingestion/sources/tableau)

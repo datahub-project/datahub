@@ -34,8 +34,8 @@ Additionally, you need to have the following tools installed according to the me
 <TabItem value="CLI" label="CLI" default>
 
 Install the relevant CLI version.
-Structured Properties were introduced in version `0.13.1`, but we continuously improve and add new functionality, so you should always [upgrade](https://datahubproject.io/docs/cli/#installation) to the latest cli for best results.
-Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
+Structured Properties were introduced in version `0.13.1`, but we continuously improve and add new functionality, so you should always [upgrade](https://docs.datahub.com/docs/cli/#installation) to the latest cli for best results.
+Connect to your instance via [init](https://docs.datahub.com/docs/cli/#init):
 
 - Run `datahub init` to update the instance you want to load into.
 - Set the server to your sandbox instance, `https://{your-instance-address}/gms`.

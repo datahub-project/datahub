@@ -26,6 +26,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     FormActorAssignmentClass,
     FormInfoClass,
@@ -133,7 +134,7 @@ class Forms(ConfigModel):
     def create(file: str) -> None:
         emitter: DataHubGraph
 
-        with get_default_graph() as emitter, open(file) as fp:
+        with get_default_graph(ClientMode.CLI) as emitter, open(file) as fp:
             forms: List[dict] = yaml.safe_load(fp)
             for form_raw in forms:
                 form = Forms.parse_obj(form_raw)

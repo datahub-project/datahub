@@ -34,7 +34,7 @@ const azureAdConfig: SourceConfig = {
     type: 'azure-ad',
     placeholderRecipe,
     displayName: 'Azure AD',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/azure-ad',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/azure-ad',
     logoUrl: azureLogo,
 };
 

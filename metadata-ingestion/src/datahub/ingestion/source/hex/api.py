@@ -5,7 +5,9 @@ from typing import Any, Dict, Generator, List, Optional, Union
 
 import requests
 from pydantic import BaseModel, Field, ValidationError, validator
+from requests.adapters import HTTPAdapter
 from typing_extensions import assert_never
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.constants import (
@@ -220,12 +222,35 @@ class HexApi:
         self.base_url = base_url
         self.report = report
         self.page_size = page_size
+        self.session = self._create_retry_session()
 
     def _list_projects_url(self):
         return f"{self.base_url}/projects"
 
     def _auth_header(self):
         return {"Authorization": f"Bearer {self.token}"}
+
+    def _create_retry_session(self) -> requests.Session:
+        """Create a requests session with retry logic for rate limiting.
+
+        Hex API rate limit: 60 requests per minute
+        https://learn.hex.tech/docs/api/api-overview#kernel-and-rate-limits
+        """
+        session = requests.Session()
+
+        # Configure retry strategy for 429 (Too Many Requests) with exponential backoff
+        retry_strategy = Retry(
+            total=5,  # Maximum number of retries
+            status_forcelist=[429],  # Only retry on 429 status code
+            backoff_factor=2,  # Exponential backoff: 2, 4, 8, 16, 32 seconds
+            raise_on_status=True,  # Raise exception after max retries
+        )
+
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        return session
 
     def fetch_projects(
         self,
@@ -259,7 +284,7 @@ class HexApi:
         logger.debug(f"Fetching projects page with params: {params}")
         self.report.fetch_projects_page_calls += 1
         try:
-            response = requests.get(
+            response = self.session.get(
                 url=self._list_projects_url(),
                 headers=self._auth_header(),
                 params=params,

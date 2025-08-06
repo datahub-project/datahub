@@ -55,6 +55,7 @@ type Props = {
     empty?: React.ReactNode;
     onClickMore?: () => void;
     onClickTitle?: () => void;
+    onClickEntity?: (urn?: string) => void;
     render?: (entity: GenericEntityProperties) => React.ReactNode;
 };
 
@@ -71,6 +72,7 @@ export const EntityLinkList = ({
     empty,
     onClickMore,
     onClickTitle,
+    onClickEntity,
     render,
 }: Props) => {
     const entityRegistry = useEntityRegistryV2();
@@ -94,17 +96,22 @@ export const EntityLinkList = ({
                 {(!isEmpty &&
                     entities.map((entity) => {
                         return (
-                            <EntityLink
-                                key={`${title}-${entity?.urn}`}
-                                entity={
-                                    entity
-                                        ? entityRegistry.getGenericEntityProperties(entity.type as EntityType, entity)
-                                        : null
-                                }
-                                render={render}
-                                showHealthIcon={showHealthIcon}
-                                showDeprecatedIcon={showDeprecatedIcon}
-                            />
+                            // eslint-disable-next-line
+                            <span key={`${title}-${entity?.urn}`} onClick={() => onClickEntity?.(entity?.urn || '')}>
+                                <EntityLink
+                                    entity={
+                                        entity
+                                            ? entityRegistry.getGenericEntityProperties(
+                                                  entity.type as EntityType,
+                                                  entity,
+                                              )
+                                            : null
+                                    }
+                                    render={render}
+                                    showHealthIcon={showHealthIcon}
+                                    showDeprecatedIcon={showDeprecatedIcon}
+                                />
+                            </span>
                         );
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}
             </List>

@@ -18,5 +18,5 @@ type Props = {
 
 // TODO: Decide whether we want the lightbulb or not.
 export const RecentlyEditedOrViewed = ({ entities }: Props) => {
-    return <EntityCardList title="You recently viewed" entities={entities} />;
+    return <EntityCardList title="You recently viewed" entities={entities} isHomePage />;
 };

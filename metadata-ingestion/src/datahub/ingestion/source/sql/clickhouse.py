@@ -32,6 +32,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     logger,
@@ -145,7 +146,11 @@ class ClickHouseConfig(
     )
     include_materialized_views: Optional[bool] = Field(default=True, description="")
 
-    def get_sql_alchemy_url(self, current_db=None):
+    def get_sql_alchemy_url(
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        current_db: Optional[str] = None,
+    ) -> str:
         url = make_url(
             super().get_sql_alchemy_url(uri_opts=self.uri_opts, current_db=current_db)
         )
@@ -375,8 +380,18 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default to get lineage for views via `include_view_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
+)
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

@@ -8,8 +8,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Schema Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
-> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
+> The **Schema Assertions** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
+> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 ## Introduction
 
@@ -113,7 +113,7 @@ Once these are in place, you're ready to create your Schema Assertions!
 ### Steps
 
 1. Navigate to the Table you want to monitor
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -170,7 +170,7 @@ Once your assertion has run, you will begin to see Success or Failure status:
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Schema** to open the Schema Assertion
 3. Click the "Stop" button.
 
@@ -259,5 +259,5 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the DataHub Cloud GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::

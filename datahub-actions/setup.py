@@ -21,6 +21,13 @@ package_metadata: dict = {}
 with open("./src/datahub_actions/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
+)
+
 
 def get_long_description():
     root = os.path.dirname(__file__)
@@ -30,26 +37,24 @@ def get_long_description():
     return description
 
 
-acryl_datahub_min_version = os.environ.get("ACRYL_DATAHUB_MIN_VERSION") or "1.0.0"
-
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.6",
-    "mypy==1.10.1",
+    "ruff==0.11.7",
+    "mypy==1.14.1",
 }
 
 base_requirements = {
-    *lint_requirements,
-    f"acryl-datahub[datahub-kafka]>={acryl_datahub_min_version}",
-    # Compatibility.
-    "typing_extensions>=3.7.4; python_version < '3.8'",
-    "mypy_extensions>=0.4.3",
+    f"acryl-datahub[datahub-kafka]{_self_pin}",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic<2",
-    "dictdiffer",
+    "pydantic>=2.0.0,<3.0.0",
     "ratelimit",
+    # Lower bounds on httpcore and h11 due to CVE-2025-43859.
+    "httpcore>=1.0.9",
+    "azure-identity==1.21.0",
+    "aws-msk-iam-sasl-signer-python==1.0.2",
+    "h11>=0.16",
 }
 
 framework_common = {
@@ -65,14 +70,6 @@ framework_common = {
     "tenacity",
 }
 
-aws_common = {
-    # AWS Python SDK
-    "boto3",
-    # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
-    # See https://github.com/boto/botocore/pull/2563.
-    "botocore!=1.23.0",
-}
-
 # Note: for all of these, framework_common will be added.
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
@@ -81,7 +78,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Action Plugins
     "executor": {
-        "acryl-executor==0.1.2",
+        "acryl-executor==0.2.2",
     },
     "slack": {
         "slack-bolt>=1.15.5",
@@ -92,7 +89,7 @@ plugins: Dict[str, Set[str]] = {
     "tag_propagation": set(),
     "term_propagation": set(),
     "snowflake_tag_propagation": {
-        f"acryl-datahub[snowflake]>={acryl_datahub_min_version}"
+        f"acryl-datahub[snowflake-slim]{_self_pin}",
     },
     "doc_propagation": set(),
     # Transformer Plugins (None yet)
@@ -113,10 +110,10 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker]",
 }
 
 base_dev_requirements = {
+    *lint_requirements,
     *base_requirements,
     *framework_common,
     *mypy_stubs,
@@ -190,13 +187,13 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/actions",
+        "Documentation": "https://docs.datahub.com/docs/actions",
         "Source": "https://github.com/acryldata/datahub-actions",
         "Changelog": "https://github.com/acryldata/datahub-actions/releases",
     },
-    license="Apache License 2.0",
+    license="Apache-2.0",
     description="An action framework to work with DataHub real time changes.",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
@@ -205,15 +202,9 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
-        "License :: OSI Approved",
-        "License :: OSI Approved :: Apache Software License",
         "Operating System :: Unix",
         "Operating System :: POSIX :: Linux",
         "Environment :: Console",
@@ -222,7 +213,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={

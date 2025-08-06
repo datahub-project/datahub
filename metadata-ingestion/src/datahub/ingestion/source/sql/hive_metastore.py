@@ -27,6 +27,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -36,7 +37,6 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     SQLCommonConfig,
-    make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -46,13 +46,13 @@ from datahub.ingestion.source.sql.sql_utils import (
     gen_schema_key,
     get_domain_wu,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stateful_ingestion_base import JobId
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
     ViewPropertiesClass,
@@ -67,10 +67,10 @@ TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
 class HiveMetastoreConfigMode(StrEnum):
-    hive: str = "hive"
-    presto: str = "presto"
-    presto_on_hive: str = "presto-on-hive"
-    trino: str = "trino"
+    hive = "hive"
+    presto = "presto"
+    presto_on_hive = "presto-on-hive"
+    trino = "trino"
 
 
 @dataclass
@@ -161,11 +161,20 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @platform_name("Hive Metastore")
 @config_class(HiveMetastore)
 @support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
+)
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
 @capability(
     SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+)
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.CATALOG,
+    ],
 )
 class HiveMetastoreSource(SQLAlchemySource):
     """
@@ -599,10 +608,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 yield dpi_aspect
 
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[self.table_subtype]),
             ).as_workunit()
 
@@ -808,10 +814,7 @@ class HiveMetastoreSource(SQLAlchemySource):
 
             # Add views subtype
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="subTypes",
                 aspect=SubTypesClass(typeNames=[self.view_subtype]),
             ).as_workunit()
 
@@ -822,10 +825,7 @@ class HiveMetastoreSource(SQLAlchemySource):
                 viewLogic=dataset.view_definition if dataset.view_definition else "",
             )
             yield MetadataChangeProposalWrapper(
-                entityType="dataset",
-                changeType=ChangeTypeClass.UPSERT,
                 entityUrn=dataset_urn,
-                aspectName="viewProperties",
                 aspect=view_properties_aspect,
             ).as_workunit()
 

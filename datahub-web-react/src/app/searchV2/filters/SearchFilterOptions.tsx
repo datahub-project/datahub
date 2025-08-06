@@ -1,10 +1,7 @@
-import { SlidersOutlined } from '@ant-design/icons';
-import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import MoreFilters from '@app/searchV2/filters/MoreFilters';
 import SaveViewButton from '@app/searchV2/filters/SaveViewButton';
 import SearchFilter from '@app/searchV2/filters/SearchFilter';
@@ -20,22 +17,6 @@ import { useAppConfig } from '@src/app/useAppConfig';
 import { FacetFilterInput, FacetMetadata } from '@types';
 
 const NUM_VISIBLE_FILTER_DROPDOWNS = 6;
-
-const FiltersText = styled.div`
-    font-size: 16px;
-    color: ${ANTD_GRAY[8]};
-`;
-
-const StyledSlidersOutlined = styled(SlidersOutlined)`
-    margin-right: 8px;
-`;
-
-const VerticalDivider = styled(Divider)`
-    && {
-        padding: 12px 0px;
-        margin: 0px 32px;
-    }
-`;
 
 export const FlexWrapper = styled.div`
     display: flex;
@@ -122,11 +103,6 @@ export default function SearchFilterOptions({
     return (
         <FlexSpacer>
             <FlexWrapper>
-                <FiltersText>
-                    <StyledSlidersOutlined />
-                    Filters
-                </FiltersText>
-                <VerticalDivider type="vertical" />
                 {loading && !visibleFilters?.length && <SearchFiltersLoadingSection />}
                 {visibleFilters?.map((filter) => {
                     return filterRendererRegistry.hasRenderer(filter.field) ? (

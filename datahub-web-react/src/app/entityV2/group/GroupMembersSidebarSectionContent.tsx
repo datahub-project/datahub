@@ -36,7 +36,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
                     <Typography.Paragraph type="secondary">No members yet.</Typography.Paragraph>
                 )}
                 {relationshipsTotal > 0 &&
-                    groupMemberRelationships?.relationships.map((item, index) => {
+                    groupMemberRelationships?.relationships?.map((item, index) => {
                         const user = item.entity as CorpUser;
                         return index < entityCount && <GroupMemberLink user={user} entityRegistry={entityRegistry} />;
                     })}

@@ -14,10 +14,11 @@ const DEBOUNCE_MS = 300;
 interface Props {
     fieldNames: FieldName[] | FieldName;
     query: string;
+    viewUrn?: string | null;
     onFacetsUpdated: (facets: FieldToFacetStateMap) => void;
 }
 
-export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
+export function FacetsUpdater({ fieldNames, query, viewUrn, onFacetsUpdated }: Props) {
     const [facets, setFacets] = useState<FacetMetadata[]>([]);
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const { fieldToAppliedFiltersMap } = useSearchFiltersContext();
@@ -43,13 +44,14 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
                             query,
                             orFilters: generateOrFilters(UnionType.AND, filters),
                             facets: wrappedFieldNames,
+                            viewUrn,
                         },
                     },
                 });
             }
         },
         DEBOUNCE_MS,
-        [aggregateAcrossEntities, query, filters, wrappedFieldNames],
+        [aggregateAcrossEntities, query, viewUrn, filters, wrappedFieldNames],
     );
 
     useEffect(() => {

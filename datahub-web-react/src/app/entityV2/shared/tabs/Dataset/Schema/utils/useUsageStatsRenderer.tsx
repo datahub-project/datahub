@@ -7,7 +7,6 @@ import styled from 'styled-components';
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 
-// import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { UsageQueryResult } from '@types';
 
@@ -30,7 +29,7 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            return props.hasStats ? '#533fd1' : '#C6C0E0';
+            return props.hasStats ? props.theme.styles['primary-color'] : '#C6C0E0';
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
     }

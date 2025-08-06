@@ -1,6 +1,8 @@
 import { Input } from 'antd';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { colors, typography } from '@src/alchemy-components/theme';
 
 export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string }>`
@@ -28,7 +30,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
     &:hover,
     &:focus,
     &:focus-within {
-        border-color: ${colors.violet[300]} !important;
+        border-color: ${({ theme }) => getColor('primary', 300, theme)} !important;
         box-shadow: none !important;
     }
 `;

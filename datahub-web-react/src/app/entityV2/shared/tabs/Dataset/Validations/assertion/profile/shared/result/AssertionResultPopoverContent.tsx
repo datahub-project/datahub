@@ -207,6 +207,20 @@ export const AssertionResultPopoverContent = ({
                                       </div>
                                   ))}
                               </PlatformRow>,
+                              ...(result.externalUrl
+                                  ? [
+                                        <ThinDivider />,
+                                        <PlatformRow>
+                                            <a href={result.externalUrl} target="_blank" rel="noopener noreferrer">
+                                                View results in{' '}
+                                                {assertion.platform?.name &&
+                                                assertion.platform?.name?.toLowerCase() !== 'unknown'
+                                                    ? assertion.platform?.name
+                                                    : 'source system.'}
+                                            </a>
+                                        </PlatformRow>,
+                                    ]
+                                  : []),
                           ]
                         : null}
                     {hasPlatform && (

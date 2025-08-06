@@ -34,7 +34,8 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.metadata.dao.producer",
       "io.datahubproject.metadata.jobs.common.health.kafka",
       "com.linkedin.gms.factory.context",
-      "com.linkedin.gms.factory.plugins"
+      "com.linkedin.gms.factory.plugins",
+      "com.linkedin.gms.factory.system_telemetry"
     },
     excludeFilters = {
       @ComponentScan.Filter(

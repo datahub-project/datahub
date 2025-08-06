@@ -5,14 +5,13 @@ import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import useRemoveRelatedTerms from '@app/entityV2/glossaryTerm/profile/useRemoveRelatedTerms';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => props.theme.styles['primary-color']};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -25,7 +24,7 @@ const TransparentButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 
@@ -38,7 +37,7 @@ const ListItem = styled.div`
         display: inline-block;
     }
     &:hover {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

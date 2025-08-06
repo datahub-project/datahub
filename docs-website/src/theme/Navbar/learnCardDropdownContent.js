@@ -2,17 +2,17 @@ const learCardDropdownContent = [
         {
             title: "Weekly Demo",
             iconImage: "/img/icon-join-slack.png",
-            href: "https://www.acryldata.io/webinars/weekly-live-demo",
+            href: "https://datahub.com/weekly-demo",
         },
         {
             title: "Use Cases",
             iconImage: "/img/icon-forum.png",
-            href: "/learn",
+            href: "https://datahub.com/use-cases",
         },    
         {
             title: "Adoption Stories",
             iconImage: "/img/icon-events.png",
-            href: "/adoption-stories",
+            href: "httpps://datahub.com/adoption-stories",
         },
         {
             title: "Blog",

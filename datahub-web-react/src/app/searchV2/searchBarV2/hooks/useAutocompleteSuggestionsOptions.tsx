@@ -24,7 +24,7 @@ export default function useSearchResultsOptions(
         if (!isInitialized || !hasResults)
             return [
                 {
-                    label: <Loader size="sm" />,
+                    label: <Loader size="sm" padding={16} />,
                     value: 'loader',
                     disabled: true,
                 },
@@ -46,6 +46,7 @@ export default function useSearchResultsOptions(
                             query={searchQuery}
                             siblings={shouldCombineSiblings ? combinedEntity.matchedEntities : undefined}
                             matchedFields={combinedEntity.matchedFields}
+                            variant="searchBar"
                         />
                     ),
                     type: combinedEntity.entity.type,

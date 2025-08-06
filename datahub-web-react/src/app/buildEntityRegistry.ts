@@ -1,9 +1,11 @@
 import { RoleEntity } from '@app/entity/Access/RoleEntity';
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { ApplicationEntity } from '@app/entity/application/ApplicationEntity';
 import { BusinessAttributeEntity } from '@app/entity/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entity/chart/ChartEntity';
 import { ContainerEntity } from '@app/entity/container/ContainerEntity';
 import { DashboardEntity } from '@app/entity/dashboard/DashboardEntity';
+import { DataContractEntity } from '@app/entity/dataContract/DataContractEntity';
 import { DataFlowEntity } from '@app/entity/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '@app/entity/dataJob/DataJobEntity';
 import { DataPlatformEntity } from '@app/entity/dataPlatform/DataPlatformEntity';
@@ -30,6 +32,7 @@ import { UserEntity } from '@app/entity/user/User';
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
     registry.register(new DatasetEntity());
+    registry.register(new DataContractEntity());
     registry.register(new DashboardEntity());
     registry.register(new ChartEntity());
     registry.register(new UserEntity());
@@ -56,5 +59,6 @@ export default function buildEntityRegistry() {
     registry.register(new SchemaFieldPropertiesEntity());
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
+    registry.register(new ApplicationEntity());
     return registry;
 }

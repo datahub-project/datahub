@@ -12,10 +12,10 @@ import CompactContext from '@src/app/shared/CompactContext';
 const ActionButton = styled(Link)`
     height: 22px;
     width: 22px;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border: 1px solid ${(props) => props.theme.styles['primary-color']};
     border-radius: 50%;
     text-align: center;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => props.theme.styles['primary-color']};
 
     svg {
         height: 20px;
@@ -26,7 +26,7 @@ const ActionButton = styled(Link)`
     :hover {
         cursor: pointer;
         color: ${REDESIGN_COLORS.WHITE};
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

@@ -1,5 +1,5 @@
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/hana for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/source_docs/hana for complete documentation
 source:
   type: "hana"
   config:
@@ -14,7 +14,7 @@ source:
     include_tables: true
     include_views: true   
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

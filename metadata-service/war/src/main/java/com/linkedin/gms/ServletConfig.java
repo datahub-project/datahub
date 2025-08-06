@@ -3,7 +3,8 @@ package com.linkedin.gms;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
-import com.datahub.auth.authentication.filter.AuthenticationFilter;
+import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
+import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
 import com.datahub.gms.servlet.HealthCheck;
@@ -14,13 +15,16 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
+import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.List;
 import javax.annotation.Nonnull;
 import org.apache.iceberg.rest.RESTSerializers;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
@@ -37,6 +41,7 @@ import org.springframework.http.converter.StringHttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
@@ -49,15 +54,34 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ComponentScan(
     basePackages = {"io.datahubproject.openapi.schema.registry.config", "com.linkedin.gms.servlet"})
 public class ServletConfig implements WebMvcConfigurer {
+  @Autowired private TracingInterceptor tracingInterceptor;
 
   @Value("${datahub.gms.async.request-timeout-ms}")
   private long asyncTimeoutMilliseconds;
 
   @Bean
-  public FilterRegistrationBean<AuthenticationFilter> authFilter(AuthenticationFilter filter) {
-    FilterRegistrationBean<AuthenticationFilter> registration = new FilterRegistrationBean<>();
+  public FilterRegistrationBean<AuthenticationExtractionFilter> authExtractionFilter(
+      AuthenticationExtractionFilter filter) {
+    FilterRegistrationBean<AuthenticationExtractionFilter> registration =
+        new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // Run FIRST to extract authentication info
+    registration.setAsyncSupported(true);
+
+    // Register for all paths - this filter ALWAYS runs to extract auth info
+    registration.addUrlPatterns("/*");
+
+    return registration;
+  }
+
+  @Bean
+  public FilterRegistrationBean<AuthenticationEnforcementFilter> authFilter(
+      AuthenticationEnforcementFilter filter) {
+    FilterRegistrationBean<AuthenticationEnforcementFilter> registration =
+        new FilterRegistrationBean<>();
+    registration.setFilter(filter);
+    registration.setOrder(
+        Ordered.HIGHEST_PRECEDENCE + 1); // Run SECOND after AuthenticationExtractionFilter
     registration.setAsyncSupported(true);
 
     // Register filter for all paths - exclusions are handled by shouldNotFilter()
@@ -144,6 +168,7 @@ public class ServletConfig implements WebMvcConfigurer {
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    objectMapper.registerModule(new Jdk8Module());
     MappingJackson2HttpMessageConverter jsonConverter =
         new MappingJackson2HttpMessageConverter(objectMapper);
     messageConverters.add(jsonConverter);
@@ -168,5 +193,10 @@ public class ServletConfig implements WebMvcConfigurer {
   public void configureAsyncSupport(@Nonnull AsyncSupportConfigurer configurer) {
     WebMvcConfigurer.super.configureAsyncSupport(configurer);
     configurer.setDefaultTimeout(asyncTimeoutMilliseconds);
+  }
+
+  @Override
+  public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(tracingInterceptor).addPathPatterns("/**");
   }
 }

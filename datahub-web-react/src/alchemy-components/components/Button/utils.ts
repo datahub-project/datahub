@@ -8,6 +8,8 @@ import { colors, radius, shadows, spacing, typography } from '@components/theme'
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { getColor, getFontSize } from '@components/theme/utils';
 
+import { Theme } from '@conf/theme/types';
+
 interface ColorStyles {
     bgColor: string;
     hoverBgColor: string;
@@ -21,41 +23,41 @@ interface ColorStyles {
 }
 
 // Utility function to get color styles for button - does not generate CSS
-const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): ColorStyles => {
-    const color500 = getColor(color, 500); // value of 500 shade
+const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions, theme?: Theme): ColorStyles => {
+    const color500 = getColor(color, 500, theme); // value of 500 shade
     const isViolet = color === 'violet';
 
     const base = {
         // Backgrounds
         bgColor: color500,
-        hoverBgColor: getColor(color, 600),
-        activeBgColor: getColor(color, 700),
-        disabledBgColor: getColor('gray', 100),
+        hoverBgColor: color500,
+        activeBgColor: getColor(color, 700, theme),
+        disabledBgColor: getColor('gray', 100, theme),
 
         // Borders
         borderColor: color500,
-        activeBorderColor: getColor(color, 300),
-        disabledBorderColor: getColor('gray', 200),
+        activeBorderColor: getColor(color, 300, theme),
+        disabledBorderColor: getColor('gray', 200, theme),
 
         // Text
         textColor: colors.white,
-        disabledTextColor: getColor('gray', 300),
+        disabledTextColor: getColor('gray', 300, theme),
     };
 
     // Specific color override for white
     if (color === 'white') {
         base.textColor = colors.black;
-        base.disabledTextColor = getColor('gray', 500);
+        base.disabledTextColor = getColor('gray', 500, theme);
     }
 
     // Specific color override for gray
     if (color === 'gray') {
-        base.textColor = getColor('gray', 500);
-        base.bgColor = getColor('gray', 100);
-        base.borderColor = getColor('gray', 100);
+        base.textColor = getColor('gray', 500, theme);
+        base.bgColor = getColor('gray', 100, theme);
+        base.borderColor = getColor('gray', 100, theme);
 
-        base.hoverBgColor = getColor('gray', 100);
-        base.activeBgColor = getColor('gray', 200);
+        base.hoverBgColor = getColor('gray', 100, theme);
+        base.activeBgColor = getColor('gray', 200, theme);
     }
 
     // Override styles for outline variant
@@ -66,8 +68,8 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
             borderColor: color500,
             textColor: color500,
 
-            hoverBgColor: isViolet ? getColor(color, 100) : getColor(color, 100),
-            activeBgColor: isViolet ? getColor(color, 100) : getColor(color, 200),
+            hoverBgColor: getColor(color, 100, theme),
+            activeBgColor: isViolet ? getColor(color, 100, theme) : getColor(color, 200, theme),
 
             disabledBgColor: 'transparent',
         };
@@ -99,6 +101,19 @@ const getButtonColorStyles = (variant: ButtonVariant, color: ColorOptions): Colo
             borderColor: 'transparent',
             disabledBgColor: 'transparent',
             disabledBorderColor: 'transparent',
+        };
+    }
+
+    // Override styles for secondary variant
+    if (variant === 'link') {
+        return {
+            ...base,
+            textColor: color500,
+            bgColor: colors.transparent,
+            borderColor: colors.transparent,
+            activeBgColor: colors.transparent,
+            disabledBgColor: colors.transparent,
+            disabledBorderColor: colors.transparent,
         };
     }
 
@@ -169,6 +184,18 @@ const getButtonVariantStyles = (variant: ButtonVariant, colorStyles: ColorStyles
                 color: colorStyles.disabledTextColor,
             },
         },
+        link: {
+            backgroundColor: 'transparent',
+            border: 'none',
+            color: colorStyles.textColor,
+            padding: 0,
+            '&:hover': {
+                textDecoration: 'underline',
+            },
+            '&:disabled': {
+                color: colorStyles.disabledTextColor,
+            },
+        },
     };
 
     return variantStyles[variant];
@@ -192,9 +219,10 @@ const getButtonRadiiStyles = (isCircle: boolean) => {
 };
 
 // Generate padding styles for button
-const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean) => {
+const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boolean, variant: ButtonVariant) => {
     if (isCircle) return { padding: spacing.xsm };
     if (!hasChildren) return { padding: spacing.xsm };
+    if (variant === 'link') return { padding: 0 };
 
     const paddingStyles = {
         xs: {
@@ -228,8 +256,7 @@ const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boo
 // Generate active styles for button
 const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
     borderColor: 'transparent',
-    backgroundColor: colorStyles.activeBgColor,
-    // TODO: Figure out how to make the #fff interior border transparent
+    backgroundColor: colorStyles.activeBgColor, // TODO: Figure out how to make the #fff interior border transparent
     boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${colorStyles.activeBgColor}`,
 });
 
@@ -243,16 +270,16 @@ const getButtonLoadingStyles = (): CSSObject => ({
  * Main function to generate styles for button
  */
 export const getButtonStyle = (props: ButtonStyleProps): CSSObject => {
-    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren } = props;
+    const { variant, color, size, isCircle, isActive, isLoading, isDisabled, hasChildren, theme } = props;
 
     // Get map of colors
-    const colorStyles = getButtonColorStyles(variant, color);
+    const colorStyles = getButtonColorStyles(variant, color, theme);
 
     // Define styles for button
     const variantStyles = getButtonVariantStyles(variant, colorStyles, color);
     const fontStyles = getButtonFontStyles(size);
     const radiiStyles = getButtonRadiiStyles(isCircle);
-    const paddingStyles = getButtonPadding(size, hasChildren, isCircle);
+    const paddingStyles = getButtonPadding(size, hasChildren, isCircle, variant);
 
     // Base of all generated styles
     let styles: CSSObject = {

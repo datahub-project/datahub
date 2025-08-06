@@ -15,6 +15,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
+import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
@@ -30,6 +31,7 @@ import oktaLogo from '@images/oktalogo.png';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.png';
+import presetLogo from '@images/presetlogo.svg';
 import qlikLogo from '@images/qliklogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import sacLogo from '@images/saclogo.svg';
@@ -69,6 +71,8 @@ export const FEAST_LEGACY = 'feast-legacy';
 export const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
 export const GLUE = 'glue';
 export const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
+export const GRAFANA = 'grafana';
+export const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 export const HIVE = 'hive';
 export const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
 export const KAFKA = 'kafka';
@@ -98,6 +102,8 @@ export const POSTGRES = 'postgres';
 export const POSTGRES_URN = `urn:li:dataPlatform:${POSTGRES}`;
 export const POWER_BI = 'powerbi';
 export const POWER_BI_URN = `urn:li:dataPlatform:${POWER_BI}`;
+export const PRESET = 'preset';
+export const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
 export const REDSHIFT = 'redshift';
 export const REDSHIFT_USAGE = 'redshift-usage';
 export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
@@ -157,6 +163,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
     [GLUE_URN]: glueLogo,
+    [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
@@ -171,6 +178,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ORACLE_URN]: oracleLogo,
     [POSTGRES_URN]: postgresLogo,
     [POWER_BI_URN]: powerbiLogo,
+    [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
     [TABLEAU_URN]: tableauLogo,

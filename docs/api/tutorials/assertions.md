@@ -15,7 +15,7 @@ This guide specifically covers how to use the Assertion APIs for **DataHub Cloud
 
 ## Why Would You Use Assertions APIs?
 
-The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud.
+The Assertions APIs allow you to create, schedule, run, and delete Assertions with DataHub Cloud. Additionally, you can manage subscriptions to receive notifications when assertions change state or when other entity changes occur.
 
 ### Goal Of This Guide
 
@@ -287,7 +287,7 @@ The `saveResult` argument determines whether the result of the assertion will be
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
 backend. The value defaults to `true`.
 
-If the assertion is external (not natively executed by Acryl), this API will return an error.
+If the assertion is external (not natively executed by DataHub), this API will return an error.
 
 If running the assertion is successful, the result will be returned as follows:
 
@@ -342,7 +342,7 @@ The `saveResults` argument determines whether the result of the assertion will b
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
 backend. The value defaults to `true`.
 
-If any of the assertion are external (not natively executed by Acryl), they will simply be omitted from the result set.
+If any of the assertion are external (not natively executed by DataHub), they will simply be omitted from the result set.
 
 If running the assertions is successful, the results will be returned as follows:
 
@@ -420,7 +420,7 @@ The `saveResults` argument determines whether the result of the assertion will b
 and available to view through the DataHub UI. If this is set to false, the result will NOT be stored in DataHub's
 backend. The value defaults to `true`.
 
-If any of the assertion are external (not natively executed by Acryl), they will simply be omitted from the result
+If any of the assertion are external (not natively executed by DataHub), they will simply be omitted from the result
 set.
 
 If running the assertions is successful, the results will be returned as follows:
@@ -543,7 +543,7 @@ mutation runAssertionsForAsset {
 
 </Tabs>
 
-### Experimental: Providing Dynamic Parameters to Assertions
+<!-- ### Experimental: Providing Dynamic Parameters to Assertions
 
 You can provide **dynamic parameters** to your assertions to customize their behavior. This is particularly useful for
 assertions that require dynamic parameters, such as a threshold value that changes based on the time of day.
@@ -575,7 +575,7 @@ mutation runAssertion {
 ```
 
 At runtime, the `${parameterName}` placeholder in the SQL fragment will be replaced with the provided `parameterValue` before the query
-is sent to the database for execution.
+is sent to the database for execution. -->
 
 ## Get Assertion Details
 
@@ -1148,7 +1148,7 @@ If you see the following response, the operation was successful:
 ## (Advanced) Create and Report Results for Custom Assertions
 
 If you'd like to create and report results for your own custom assertions, e.g. those which are run and
-evaluated outside of Acryl, you need to generate 2 important Assertion Entity aspects, and give the assertion a unique
+evaluated outside of DataHub Cloud, you need to generate 2 important Assertion Entity aspects, and give the assertion a unique
 URN of the following format:
 
 1. Generate a unique URN for your assertion
@@ -1162,3 +1162,31 @@ urn:li:assertion:<unique-assertion-id>
 
 3. Generate the [**AssertionRunEvent**](/docs/generated/metamodel/entities/assertion.md#assertionrunevent-timeseries) timeseries aspect using the Python SDK. This aspect should contain the result of the assertion
    run at a given timestamp and will be shown on the results graph in DataHub's UI.
+
+## Create Subscription
+
+You can create subscriptions to receive notifications when assertions change state (pass, fail, or error) or when other entity changes occur. Subscriptions can be created at the dataset level (affecting all assertions on the dataset) or at the assertion level (affecting only specific assertions).
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/create_subscription.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>
+
+## Remove Subscription
+
+You can remove existing subscriptions to stop receiving notifications. The unsubscribe method supports selective removal of specific change types or complete removal of subscriptions.
+
+<Tabs>
+<TabItem value="python" label="Python">
+
+```python
+{{ inline /metadata-ingestion/examples/library/remove_subscription.py show_path_as_comment }}
+```
+
+</TabItem>
+</Tabs>

@@ -19,6 +19,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
+    SubTypes,
 } from '@types';
 
 const StatText = styled(Typography.Text)`
@@ -48,6 +49,7 @@ export const Preview = ({
     headerDropdownItems,
     previewType,
     parentContainers,
+    subTypes,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -71,6 +73,7 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
     parentContainers?: ParentContainersResult | null;
+    subTypes?: SubTypes | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -107,6 +110,7 @@ export const Preview = ({
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             parentEntities={parentContainers?.containers}
+            type={subTypes?.typeNames?.[0]}
         />
     );
 };

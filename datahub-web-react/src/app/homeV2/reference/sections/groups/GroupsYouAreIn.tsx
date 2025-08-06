@@ -13,7 +13,7 @@ import { EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const GroupsYouAreIn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -45,6 +45,7 @@ export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 onClickMore={() => setEntityCount(entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW)}
                 onClickTitle={navigateToUserGroupsTab}
                 empty={<EmptyGroupsYouAreIn />}
+                onClickEntity={trackClickInSection}
             />
         </ReferenceSection>
     );

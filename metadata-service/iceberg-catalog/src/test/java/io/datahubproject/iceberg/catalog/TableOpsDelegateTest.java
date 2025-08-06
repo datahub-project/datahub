@@ -23,6 +23,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -31,9 +32,13 @@ import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotSummary;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.avro.AvroSchemaUtil;
@@ -42,7 +47,6 @@ import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
 import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
-import org.apache.iceberg.exceptions.ValidationException;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.types.Types;
@@ -425,5 +429,69 @@ public class TableOpsDelegateTest {
   public void testRefreshNotFound() {
     when(mockWarehouse.getIcebergMetadata(identifier)).thenReturn(Optional.empty());
     assertNull(tableDelegate.refresh());
+  }
+
+  @Test
+  public void testGetDataSetProfileWithTotalFileSize() {
+    // Create a real TableOpsDelegate instance for testing the actual getDataSetProfile method
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock TableMetadata with snapshot and summary
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock Snapshot with summary containing total file size
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    Map<String, String> mockSummary = new HashMap<>();
+    mockSummary.put(SnapshotSummary.TOTAL_RECORDS_PROP, "1000");
+    mockSummary.put(SnapshotSummary.TOTAL_FILE_SIZE_PROP, "5242880"); // 5MB in bytes
+    when(mockSnapshot.summary()).thenReturn(mockSummary);
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
+
+    // Call the actual getDataSetProfile method
+    DatasetProfile result = realTableDelegate.getDataSetProfile(mockMetadata);
+
+    // Verify the results
+    assertEquals(result.getColumnCount().longValue(), 2L);
+    assertEquals(result.getRowCount().longValue(), 1000L);
+    assertEquals(result.getSizeInBytes().longValue(), 5242880L);
+  }
+
+  @Test
+  public void testGetDataSetProfileWithoutTotalFileSize() {
+    // Create a real TableOpsDelegate instance for testing the actual getDataSetProfile method
+    TableOpsDelegate realTableDelegate =
+        new TableOpsDelegate(
+            mockWarehouse, identifier, mockEntityService, mockOperationContext, mockFileIOFactory);
+
+    // Mock TableMetadata with snapshot but no file size in summary
+    TableMetadata mockMetadata = mock(TableMetadata.class);
+    Schema schema =
+        new Schema(
+            Types.NestedField.required(1, "id", Types.LongType.get()),
+            Types.NestedField.optional(2, "data", Types.StringType.get()));
+    when(mockMetadata.schema()).thenReturn(schema);
+
+    // Mock Snapshot with summary containing only row count, no file size
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    Map<String, String> mockSummary = new HashMap<>();
+    mockSummary.put(SnapshotSummary.TOTAL_RECORDS_PROP, "500");
+    // No TOTAL_FILE_SIZE_PROP in the map
+    when(mockSnapshot.summary()).thenReturn(mockSummary);
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
+
+    // Call the actual getDataSetProfile method
+    DatasetProfile result = realTableDelegate.getDataSetProfile(mockMetadata);
+
+    // Verify the results
+    assertEquals(result.getColumnCount().longValue(), 2L);
+    assertEquals(result.getRowCount().longValue(), 500L);
+    assertNull(result.getSizeInBytes()); // Should be null when no file size info
   }
 }

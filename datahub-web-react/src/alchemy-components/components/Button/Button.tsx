@@ -7,7 +7,7 @@ import { ButtonProps, ButtonPropsDefaults } from '@components/components/Button/
 
 export const buttonDefaults: ButtonPropsDefaults = {
     variant: 'filled',
-    color: 'violet',
+    color: 'primary',
     size: 'md',
     iconPosition: 'left',
     isCircle: false,

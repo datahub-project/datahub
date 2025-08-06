@@ -14,7 +14,7 @@ import { Domain, EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export const DomainsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const DomainsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -42,6 +42,7 @@ export const DomainsYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 onClickTitle={() => setShowModal(true)}
                 empty={<EmptyDomainsYouOwn />}
                 render={(entity) => <DomainMiniPreview domain={entity as Domain} />}
+                onClickEntity={trackClickInSection}
             />
             {showModal && (
                 <EmbeddedListSearchModal

@@ -70,10 +70,10 @@ With the collected usage data, you can even see column-level usage statistics (R
 
 ### GraphQL
 
-- <https://datahubproject.io/docs/graphql/objects#usageaggregationmetrics>
-- <https://datahubproject.io/docs/graphql/objects#userusagecounts>
-- <https://datahubproject.io/docs/graphql/objects#dashboardstatssummary>
-- <https://datahubproject.io/docs/graphql/objects#dashboarduserusagecounts>
+- <https://docs.datahub.com/docs/graphql/objects#usageaggregationmetrics>
+- <https://docs.datahub.com/docs/graphql/objects#userusagecounts>
+- <https://docs.datahub.com/docs/graphql/objects#dashboardstatssummary>
+- <https://docs.datahub.com/docs/graphql/objects#dashboarduserusagecounts>
 
 ## FAQ and Troubleshooting
 

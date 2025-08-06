@@ -68,15 +68,15 @@ def import_path(path: str) -> Any:
 
 
 class ExecutorConfig(BaseModel):
-    executor_id: Optional[str]
-    task_configs: Optional[List[TaskConfig]]
+    executor_id: Optional[str] = None
+    task_configs: Optional[List[TaskConfig]] = None
 
 
 # Listens to new Execution Requests & dispatches them to the appropriate handler.
 class ExecutorAction(Action):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        config = ExecutorConfig.parse_obj(config_dict or {})
+        config = ExecutorConfig.model_validate(config_dict or {})
         return cls(config, ctx)
 
     def __init__(self, config: ExecutorConfig, ctx: PipelineContext):
@@ -203,7 +203,10 @@ class ExecutorAction(Action):
                 SecretStoreConfig(type="env", config=dict({})),
                 SecretStoreConfig(
                     type="datahub",
-                    config=DataHubSecretStoreConfig(graph_client=graph),
+                    # TODO: Once SecretStoreConfig is updated to accept arbitrary types
+                    # and not just dicts, we can just pass in the DataHubSecretStoreConfig
+                    # object directly.
+                    config=DataHubSecretStoreConfig(graph_client=graph).model_dump(),
                 ),
             ],
             graph_client=graph,

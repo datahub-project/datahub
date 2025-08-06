@@ -6,6 +6,7 @@ from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
@@ -114,7 +115,7 @@ class MockDataHubGraph(DataHubGraph):
             UsageAggregationClass,
         ],
         callback: Union[Callable[[Exception, str], None], None] = None,
-        async_flag: Optional[bool] = None,
+        emit_mode: EmitMode = EmitMode.ASYNC,
     ) -> None:
         self.emitted.append(item)  # type: ignore
 
@@ -125,8 +126,8 @@ class MockDataHubGraph(DataHubGraph):
         self,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         async_flag: Optional[bool] = None,
-        trace_flag: Optional[bool] = None,
-        trace_timeout: Optional[timedelta] = timedelta(seconds=3600),
+        emit_mode: EmitMode = EmitMode.ASYNC,
+        wait_timeout: Optional[timedelta] = timedelta(seconds=3600),
     ) -> None:
         self.emitted.append(mcp)
 

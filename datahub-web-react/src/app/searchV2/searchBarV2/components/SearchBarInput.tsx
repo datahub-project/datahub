@@ -1,11 +1,13 @@
 import { InputRef } from 'antd';
-import React, { forwardRef, useCallback, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import ViewSelectButton from '@app/entityV2/view/select/ViewSelectButton';
+import ViewSelectButtonWithPopover from '@app/entityV2/view/select/ViewSelectButtonWithPopover';
+import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
-import { SearchBar, colors, radius, transition } from '@src/alchemy-components';
-import { ViewSelect } from '@src/app/entityV2/view/select/ViewSelect';
+import { Icon, SearchBar, colors, radius, transition } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PRE_NAV_BAR_REDESIGN_SEARCHBAR_BACKGROUND = '#343444';
@@ -37,6 +39,8 @@ const ViewSelectContainer = styled.div``;
 
 export const Wrapper = styled.div<{ $open?: boolean; $isShowNavBarRedesign?: boolean }>`
     background: transparent;
+    width: 100%;
+    min-width: 500px;
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
@@ -70,15 +74,37 @@ interface Props {
     onSearch?: () => void;
     onFocus?: () => void;
     onBlur?: () => void;
+    onViewsClick?: () => void;
+    onClear?: () => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
     showCommandK?: boolean;
     viewsEnabled?: boolean;
+    viewsWithPopover?: boolean;
+    isViewsSelectOpened?: boolean;
+    setIsViewsSelectOpened?: (value: boolean) => void;
+    width?: string;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
-        { value, onChange, onSearch, onFocus, onBlur, isDropdownOpened, placeholder, showCommandK, viewsEnabled },
+        {
+            value,
+            onChange,
+            onSearch,
+            onFocus,
+            onBlur,
+            onViewsClick,
+            onClear,
+            isDropdownOpened,
+            placeholder,
+            showCommandK,
+            viewsEnabled,
+            viewsWithPopover,
+            width,
+            isViewsSelectOpened,
+            setIsViewsSelectOpened,
+        },
         ref,
     ) => {
         const [isFocused, setIsFocused] = useState<boolean>(false);
@@ -94,29 +120,62 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             onBlur?.();
         }, [onBlur]);
 
+        const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+            // disable changing position of cursor by keys used to change selected item in the search bar's response
+            if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+                e.preventDefault();
+            }
+        }, []);
+
+        const onViewSelectContainerClickHandler = (event: React.MouseEvent) => {
+            event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on the views button
+        };
+
+        const onViewsClickHandler = (isOpen: boolean) => {
+            setIsViewsSelectOpened?.(isOpen);
+            onViewsClick?.();
+        };
+
+        useEffect(() => {
+            // Automatically close the views select when the autocomplete's dropdown is opened event by keyboard shortcut
+            if (isDropdownOpened) setIsViewsSelectOpened?.(false);
+        }, [isDropdownOpened, setIsViewsSelectOpened]);
+
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
                     placeholder={placeholder}
                     onPressEnter={onSearch}
+                    onKeyDown={onKeyDown}
                     value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
                     onFocus={onFocusHandler}
                     onBlur={onBlurHandler}
                     allowClear={isDropdownOpened || isFocused}
+                    clearIcon={<Icon onClick={onClear} icon="XCircle" source="phosphor" size="2xl" />}
                     ref={ref}
                     suffix={
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
                             {viewsEnabled && (
-                                <ViewSelectContainer onClick={(e) => e.stopPropagation()}>
-                                    <ViewSelect />
+                                <ViewSelectContainer
+                                    onClick={onViewSelectContainerClickHandler}
+                                    id={V2_SEARCH_BAR_VIEWS}
+                                >
+                                    {viewsWithPopover ? (
+                                        <ViewSelectButtonWithPopover
+                                            isOpen={isViewsSelectOpened}
+                                            onOpenChange={onViewsClickHandler}
+                                        />
+                                    ) : (
+                                        <ViewSelectButton />
+                                    )}
                                 </ViewSelectContainer>
                             )}
                         </SuffixWrapper>
                     }
-                    width={isShowNavBarRedesign ? '664px' : '620px'}
+                    width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
                     $isShowNavBarRedesign={isShowNavBarRedesign}
                 />

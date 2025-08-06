@@ -10,9 +10,12 @@ import { HomePage } from '@app/home/HomePage';
 import { HomePage as HomePageV2 } from '@app/homeV2/HomePage';
 import { IntroduceYourself } from '@app/homeV2/introduce/IntroduceYourself';
 import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
+import { HomePage as HomePageV3 } from '@app/homeV3/HomePage';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
+import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
 import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
 import { getRedirectUrl } from '@conf/utils';
@@ -25,14 +28,22 @@ const StyledLayout = styled(Layout)`
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
+    useSetAppTheme();
     useSetThemeIsV2();
     useSetUserPersona();
     useSetUserTitle();
     useSetNavBarRedesignEnabled();
 
     const isThemeV2 = useIsThemeV2();
-    const FinalHomePage = isThemeV2 ? HomePageV2 : HomePage;
+    const showHomepageRedesign = useShowHomePageRedesign();
 
+    let FinalHomePage;
+
+    if (isThemeV2) {
+        FinalHomePage = showHomepageRedesign ? HomePageV3 : HomePageV2;
+    } else {
+        FinalHomePage = HomePage;
+    }
     const location = useLocation();
     const history = useHistory();
 

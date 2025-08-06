@@ -4,7 +4,6 @@ import { useState } from 'react';
 import analytics, { EventType } from '@app/analytics';
 import { useHandleDeleteDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeleteDomain';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { removeTermFromGlossaryNode } from '@app/glossaryV2/cacheUtils';
 import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
 import { getDeleteEntityMutation } from '@app/shared/deleteUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -28,10 +27,10 @@ function useDeleteEntity(
 ) {
     const [hasBeenDeleted, setHasBeenDeleted] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn } = useGlossaryEntityData();
     const { handleDeleteDomain } = useHandleDeleteDomain({ entityData, urn });
 
-    const [deleteEntity, { client }] = getDeleteEntityMutation(type)() ?? [undefined, { client: undefined }];
+    const [deleteEntity] = getDeleteEntityMutation(type)() ?? [undefined, { client: undefined }];
 
     function handleDeleteEntity() {
         deleteEntity?.({ variables: { urn } })
@@ -59,9 +58,10 @@ function useDeleteEntity(
                         if (isInGlossaryContext) {
                             const parentNodeToUpdate = getParentNodeToUpdate(entityData, type);
                             updateGlossarySidebar([parentNodeToUpdate], urnsToUpdate, setUrnsToUpdate);
-                            if (client) {
-                                removeTermFromGlossaryNode(client, parentNodeToUpdate, urn);
-                            }
+                            setNodeToDeletedUrn((currData) => ({
+                                ...currData,
+                                [parentNodeToUpdate]: urn,
+                            }));
                         }
                         if (!hideMessage) {
                             message.success({

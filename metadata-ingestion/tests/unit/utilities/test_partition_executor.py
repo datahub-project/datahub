@@ -63,9 +63,10 @@ def test_partitioned_executor_bounding():
         time.sleep(task_duration)
         return id
 
-    with PartitionExecutor(
-        max_workers=5, max_pending=10
-    ) as executor, PerfTimer() as timer:
+    with (
+        PartitionExecutor(max_workers=5, max_pending=10) as executor,
+        PerfTimer() as timer,
+    ):
         # The first 15 submits should be non-blocking.
         for i in range(15):
             executor.submit(f"key{i}", task, f"task{i}", done_callback=on_done)

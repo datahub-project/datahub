@@ -15,7 +15,7 @@
 import logging
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_tag_urn
@@ -52,18 +52,20 @@ class TagPropagationConfig(ConfigModel):
     enabled: bool = Field(
         True,
         description="Indicates whether tag propagation is enabled or not.",
-        example=True,
     )
     tag_prefixes: Optional[List[str]] = Field(
         None,
         description="Optional list of tag prefixes to restrict tag propagation.",
-        example=["urn:li:tag:classification"],
+        examples=[
+            "urn:li:tag:classification",
+        ],
     )
 
-    @validator("tag_prefixes", each_item=True)
-    def tag_prefix_should_start_with_urn(cls, v: str) -> str:
+    @field_validator("tag_prefixes")
+    @classmethod
+    def tag_prefix_should_start_with_urn(cls, v: List[str]) -> List[str]:
         if v:
-            return make_tag_urn(v)
+            return [make_tag_urn(item) for item in v]
         return v
 
 
@@ -81,7 +83,7 @@ class TagPropagationAction(Action):
 
     @classmethod
     def create(cls, config_dict, ctx):
-        config = TagPropagationConfig.parse_obj(config_dict or {})
+        config = TagPropagationConfig.model_validate(config_dict or {})
         logger.info(f"TagPropagationAction configured with {config}")
         return cls(config, ctx)
 

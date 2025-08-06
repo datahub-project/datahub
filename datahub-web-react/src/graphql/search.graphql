@@ -171,6 +171,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         dataFlow {
@@ -191,6 +194,9 @@ fragment autoCompleteFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {
@@ -217,6 +223,11 @@ fragment autoCompleteFields on Entity {
         }
     }
     ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on Application {
         properties {
             name
         }
@@ -317,6 +328,22 @@ fragment autoCompleteFields on Entity {
             name
             description
         }
+    }
+    ... on SchemaFieldEntity {
+        fieldPath
+        parent {
+            ... on Dataset {
+                urn
+                type
+                ...entityDisplayNameFields
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
     }
 }
 
@@ -757,6 +784,9 @@ fragment searchResultsWithoutSchemaField on Entity {
                 ...structuredPropertiesFields
             }
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         dataFlow {
@@ -1032,6 +1062,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on Application {
+        ...applicationSearchFields
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -1148,6 +1181,11 @@ fragment facetFields on FacetMetadata {
                     ...parentDomainsFields
                 }
             }
+            ... on Dataset {
+                platform {
+                    ...platformFields
+                }
+            }
             ... on Container {
                 platform {
                     ...platformFields
@@ -1177,6 +1215,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+            ... on Application {
                 properties {
                     name
                 }
@@ -1214,6 +1257,37 @@ fragment searchResults on SearchResults {
         text
         frequency
         score
+    }
+}
+
+fragment scrollResults on ScrollResults {
+    count
+    total
+    nextScrollId
+    searchResults {
+        entity {
+            ...searchResultFields
+        }
+        matchedFields {
+            name
+            value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        insights {
+            text
+            icon
+        }
+        extraProperties {
+            name
+            value
+        }
+    }
+    facets {
+        ...facetFields
     }
 }
 
@@ -1325,6 +1399,7 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
                 entity {
                     urn
                     type
+                    ...entityDisplayNameFields
                 }
             }
         }
@@ -1412,5 +1487,11 @@ query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
 query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
     listDataProductAssets(urn: $urn, input: $input) {
         ...searchResults
+    }
+}
+
+query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        ...scrollResults
     }
 }

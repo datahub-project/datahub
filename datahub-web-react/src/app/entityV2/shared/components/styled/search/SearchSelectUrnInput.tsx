@@ -79,7 +79,7 @@ const INITIAL_SELECTED_ENTITIES = [] as EntityAndType[];
 
 // New interface for the generic component
 interface SearchSelectUrnInputProps {
-    allowedEntityTypes: EntityType[];
+    allowedEntityTypes?: EntityType[];
     isMultiple: boolean;
     selectedValues: string[];
     updateSelectedValues: (values: string[] | number[]) => void;

@@ -1,10 +1,10 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
-import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.SessionConfig;
@@ -30,13 +30,12 @@ public class Neo4jGraphServiceFactory {
   @Bean(name = "graphService")
   @Nonnull
   protected GraphService getInstance(
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      final EntityRegistry entityRegistry) {
+      final EntityRegistry entityRegistry, final ConfigurationProvider configurationProvider) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new Neo4jGraphService(
-        systemOperationContext,
         lineageRegistry,
         neo4jDriver,
-        SessionConfig.forDatabase(neo4jDatabase));
+        SessionConfig.forDatabase(neo4jDatabase),
+        configurationProvider.getGraphService());
   }
 }

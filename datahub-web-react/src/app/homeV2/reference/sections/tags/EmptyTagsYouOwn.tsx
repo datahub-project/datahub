@@ -13,7 +13,7 @@ export const EmptyTagsYouOwn = () => {
         <Text>
             You have not created any tags yet.
             <br />
-            <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/tags">
+            <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags">
                 Learn more
             </a>{' '}
             about tags.

@@ -44,7 +44,7 @@ interface Props {
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData, canCreateGlossaryEntity, canSelectParentUrn = true } = props;
     const entityData = useEntityData();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
@@ -73,7 +73,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 },
             },
         })
-            .then(() => {
+            .then((result) => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 setTimeout(() => {
                     analytics.event({
@@ -88,8 +88,24 @@ function CreateGlossaryEntityModal(props: Props) {
                     refetch();
                     if (isInGlossaryContext) {
                         // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = entityData?.urn || getGlossaryRootToUpdate(entityType);
+                        const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        if (selectedParentUrn) {
+                            const dataKey =
+                                entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
+                            const newEntityUrn = result.data[dataKey];
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: {
+                                    urn: newEntityUrn,
+                                    type: entityType,
+                                    properties: {
+                                        name: stagedName,
+                                        description: sanitizedDescription || null,
+                                    },
+                                },
+                            }));
+                        }
                     }
                     if (refetchData) {
                         refetchData();

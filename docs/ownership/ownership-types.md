@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 
 **🤝 Version compatibility**
 
-> Open Source DataHub: **0.10.4** | Acryl: **0.2.8**
+> DataHub Core: **0.10.4** | DataHug Cloud: **0.2.8**
 
 ## What are Custom Ownership Types?
 
@@ -85,14 +85,14 @@ Here is an example of a custom ownership type named "Architect":
 To upload this file to DataHub, use the `datahub` cli via the `ingest` group of commands using the file-based recipe:
 
 ```yaml
-# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
+# see https://docs.datahub.com/docs/generated/ingestion/sources/file for complete documentation
 source:
   type: "file"
   config:
     # path to json file
     path: "metadata-ingestion/examples/ownership/ownership_type.json"
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

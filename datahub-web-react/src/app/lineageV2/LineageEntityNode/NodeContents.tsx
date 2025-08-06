@@ -54,8 +54,8 @@ const NodeWrapper = styled.div<{
             if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
             return LINEAGE_COLORS.NODE_BORDER;
         }};
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 4px 4px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -451,7 +451,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <TitleWrapper>
                             <TitleLine>
                                 <OverflowTitle
-                                    title={entity?.name}
+                                    title={entity?.name ?? entity?.urn}
                                     highlightText={searchQuery}
                                     highlightColor={highlightColor}
                                     extra={
@@ -482,7 +482,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             </TitleLine>
                         </TitleWrapper>
                         {!!numColumnsTotal && !isGhost && (
-                            <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>
+                            <ExpandColumnsWrapper
+                                onClick={showHideColumns}
+                                defaultHeight={10}
+                                data-testid="expand-contract-columns"
+                            >
                                 {numColumnsTotal} columns
                                 {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
                                 {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}

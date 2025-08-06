@@ -13,7 +13,7 @@ export const EmptyDomainsYouOwn = () => {
         <Text>
             You are not the owner of any domains yet.
             <br />
-            <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+            <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                 Learn more
             </a>{' '}
             about domains.

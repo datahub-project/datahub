@@ -15,6 +15,7 @@ import {
 
 export interface Props {
     fields: FieldName[];
+    viewUrn?: string | null;
     fieldToAppliedFiltersMap?: FieldToAppliedFieldFiltersMap;
     filtersRenderer?: FiltersRenderer;
     onFiltersApplied?: FiltersAppliedHandler;
@@ -26,6 +27,7 @@ export interface Props {
 export default function SearchFiltersProvider({
     children,
     fields,
+    viewUrn,
     fieldToAppliedFiltersMap,
     fieldToFacetStateMap,
     filtersRegistry = defaultFiltersRegistry,
@@ -40,6 +42,7 @@ export default function SearchFiltersProvider({
             value={{
                 fieldToFacetStateMap,
                 fields,
+                viewUrn,
                 fieldToAppliedFiltersMap,
                 filtersRegistry,
                 filtersRenderer,

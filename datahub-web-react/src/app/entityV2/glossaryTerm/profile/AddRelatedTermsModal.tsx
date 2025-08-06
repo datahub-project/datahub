@@ -23,6 +23,7 @@ const SearchResultContainer = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: center;
+    font-size: 12px;
 `;
 
 interface Props {

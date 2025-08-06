@@ -1,6 +1,8 @@
 import time
 import uuid
 
+import pytest
+
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -30,27 +32,43 @@ def _make_test_datajob_urn(
 
 # Common Aspect Patch Tests
 # Ownership
-def test_datajob_ownership_patch(graph_client):
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_datajob_ownership_patch(request, client_fixture_name):
+    graph_client = request.getfixturevalue(client_fixture_name)
     datajob_urn = _make_test_datajob_urn()
     helper_test_ownership_patch(graph_client, datajob_urn, DataJobPatchBuilder)
 
 
 # Tags
-def test_datajob_tags_patch(graph_client):
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_datajob_tags_patch(request, client_fixture_name):
+    graph_client = request.getfixturevalue(client_fixture_name)
     helper_test_dataset_tags_patch(
         graph_client, _make_test_datajob_urn(), DataJobPatchBuilder
     )
 
 
 # Terms
-def test_dataset_terms_patch(graph_client):
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_dataset_terms_patch(request, client_fixture_name):
+    graph_client = request.getfixturevalue(client_fixture_name)
     helper_test_entity_terms_patch(
         graph_client, _make_test_datajob_urn(), DataJobPatchBuilder
     )
 
 
 # Custom Properties
-def test_custom_properties_patch(graph_client):
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_custom_properties_patch(request, client_fixture_name):
+    graph_client = request.getfixturevalue(client_fixture_name)
     orig_datajob_info = DataJobInfoClass(name="test_name", type="TestJobType")
     helper_test_custom_properties_patch(
         graph_client,
@@ -63,7 +81,11 @@ def test_custom_properties_patch(graph_client):
 
 # Specific Aspect Patch Tests
 # Input/Output
-def test_datajob_inputoutput_dataset_patch(graph_client):
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_datajob_inputoutput_dataset_patch(request, client_fixture_name):
+    graph_client = request.getfixturevalue(client_fixture_name)
     datajob_urn = _make_test_datajob_urn()
 
     other_dataset_urn = make_dataset_urn(
@@ -139,7 +161,11 @@ def test_datajob_inputoutput_dataset_patch(graph_client):
     )
 
 
-def test_datajob_multiple_inputoutput_dataset_patch(graph_client):
+@pytest.mark.parametrize(
+    "client_fixture_name", ["graph_client", "openapi_graph_client"]
+)
+def test_datajob_multiple_inputoutput_dataset_patch(request, client_fixture_name):
+    graph_client = request.getfixturevalue(client_fixture_name)
     """Test creating a data job with multiple input and output datasets and verifying the aspects."""
     # Create the data job
     datajob_urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,training,default),training)"

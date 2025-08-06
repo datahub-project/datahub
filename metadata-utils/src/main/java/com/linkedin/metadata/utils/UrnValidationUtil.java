@@ -28,7 +28,7 @@ public class UrnValidationUtil {
   public static final int URN_NUM_BYTES_LIMIT = 512;
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
-  // https://datahubproject.io/docs/what/urn/#restrictions
+  // https://docs.datahub.com/docs/what/urn/#restrictions
   public static final Set<String> ILLEGAL_URN_CHARACTERS_PARENTHESES = Set.of("(", ")");
   // Commas are used as delimiters in tuple URNs, but not allowed in URN components
   public static final Set<String> ILLEGAL_URN_COMPONENT_DELIMITER = Set.of(",");

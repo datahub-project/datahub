@@ -3,8 +3,8 @@ import { Redirect, Route, Switch } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { EntityPage } from '@app/entity/EntityPage';
-import { GlossaryEntityContext } from '@app/entity/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
 import BusinessGlossaryPage from '@app/glossary/BusinessGlossaryPage';
 import GlossarySidebar from '@app/glossary/GlossarySidebar';
 import BusinessGlossaryPageV2 from '@app/glossaryV2/BusinessGlossaryPage';
@@ -14,6 +14,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
+import { Entity } from '@src/types.generated';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -26,6 +27,8 @@ export default function GlossaryRoutes() {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+    const [nodeToNewEntity, setNodeToNewEntity] = useState<Record<string, Entity>>({});
+    const [nodeToDeletedUrn, setNodeToDeletedUrn] = useState<Record<string, string>>({});
 
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
@@ -57,6 +60,10 @@ export default function GlossaryRoutes() {
                 setUrnsToUpdate,
                 isSidebarOpen,
                 setIsSidebarOpen,
+                nodeToNewEntity,
+                setNodeToNewEntity,
+                nodeToDeletedUrn,
+                setNodeToDeletedUrn,
             }}
         >
             <ContentWrapper>

@@ -20,8 +20,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
-    BigQueryConnectionConfig,
     BigQueryV2Config,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (

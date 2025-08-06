@@ -3,6 +3,7 @@ import React from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
 import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
 import { DataProductCard } from '@app/homeV2/content/tabs/discovery/sections/dataProducts/DataProductCard';
@@ -23,7 +24,22 @@ export const DataProducts = () => {
     const { dataProducts, loading } = useGetDataProducts();
 
     const navigateToDataProducts = () => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Data Products',
+            value: 'View all',
+        });
         history.push(PageRoutes.DATA_PRODUCTS);
+    };
+
+    const handleDataProductClick = (dataProductUrn: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Data Products',
+            value: dataProductUrn,
+        });
     };
 
     return (
@@ -34,7 +50,12 @@ export const DataProducts = () => {
                     <Carousel>
                         {dataProducts.map((item) => {
                             const { dataProduct, domain } = item;
-                            return <DataProductCard key={dataProduct.urn} dataProduct={dataProduct} domain={domain} />;
+                            return (
+                                // eslint-disable-next-line
+                                <span key={dataProduct.urn} onClick={() => handleDataProductClick(dataProduct.urn)}>
+                                    <DataProductCard dataProduct={dataProduct} domain={domain} />
+                                </span>
+                            );
                         })}
                     </Carousel>
                 </Section>

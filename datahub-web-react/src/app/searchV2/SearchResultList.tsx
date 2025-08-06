@@ -7,12 +7,12 @@ import { PreviewType } from '@app/entity/Entity';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { EntityAndType } from '@app/entity/shared/types';
 import { useInitializeSearchResultCards } from '@app/entityV2/shared/components/styled/search/useInitializeSearchResultCards';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import EmptySearchResults from '@app/searchV2/EmptySearchResults';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
 import { useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { SEARCH_BAR_CLASS_NAME } from '@app/searchV2/utils/constants';
 import { PreviewSection } from '@app/shared/MatchesContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -58,7 +58,7 @@ export const ResultWrapper = styled.div<{
         border-bottom: 1px solid ${ANTD_GRAY[5]};
         cursor: pointer;
         :hover {
-            ${!props.selected && `outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};}`};
+            ${!props.selected && `outline: 1px solid ${props.theme.styles['primary-color']}`};
         }
     `}
     position: relative;
@@ -66,8 +66,8 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
-        border-left: 5px solid ${SEARCH_COLORS.TITLE_PURPLE};
+        outline: 1px solid ${props.theme.styles['primary-color']};
+        border-left: 5px solid ${props.theme.styles['primary-color']};
         left: -5px;
         width: calc(100% + 5px);
         position: relative;
@@ -106,6 +106,8 @@ function useSearchKeyboardControls(
 ) {
     return useCallback(
         (event: KeyboardEvent) => {
+            if ((event.target as HTMLElement).closest(`.${SEARCH_BAR_CLASS_NAME}`)) return null;
+
             const prevIndex = highlightedIndex;
             let newIndex: number | null | undefined;
             if (event.key === 'ArrowDown') {
@@ -122,6 +124,8 @@ function useSearchKeyboardControls(
             if (newIndex !== undefined) {
                 setHighlightedIndex(newIndex);
             }
+
+            return null;
         },
         [highlightedIndex, setHighlightedIndex, setHighlightedByKeyboardIndex, searchResults.length],
     );

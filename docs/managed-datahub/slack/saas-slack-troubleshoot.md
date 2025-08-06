@@ -27,7 +27,7 @@ Whomever originally installed the Slack app will need to perform this.
 If they are unable to do this, you may need to go down the 'Install a new app' path below.
 :::
 
-1. Get your App Config tokens by following the first few steps outlined in the [installation guide](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
+1. Get your App Config tokens by following the first few steps outlined in the [installation guide](https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-setup/#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
 2. Paste them into their respective text inputs, and hit **'Re-connect'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/re_connect_1.png"/>
@@ -41,7 +41,7 @@ If you choose to install a new app, your team will have to re-add the new bot in
 If you'd like support in getting a list of the private channels that are subscribed to Slack notifications on DataHub, please reach out to your customer success representative.
 :::
 
-1. Get your App Config tokens by following the first few steps outlined in the [installation guide](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-setup/#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
+1. Get your App Config tokens by following the first few steps outlined in the [installation guide](https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-setup/#step-by-step-guide). If it's showing expired tokens, feel free to delete them and create a new set.
 2. Paste them into their respective text inputs, and hit **'create a new installation'**
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/re_connect_1_1.png"/>
@@ -77,20 +77,22 @@ If you've subscribed to an entity, and then performed an action (i.e., raised an
 
 If sending a test notification works, and you've verified that none of the above cases apply, then you should contact your DataHub Customer Success rep to help troubleshoot and resolve the issue.
 
-## Slack bot issues
+## Other issues
 
 Below you'll find some tips to troubleshoot issues with your Slack bot.
 
 ### Command failed with error "dispatch_failed"
 
-If you've installed the Slack bot, but your commands are failing with an error 'dispatch_failed', you can try the following to correct it.
+If you've installed the Slack bot, but your commands are failing with an error 'dispatch_failed', you can try a **Manual Installation Refresh**, as outlined below.
+
+### Manual Installation Refresh
 
 1. Open your DataHub cloud instance with the following url: `<your-instance-base-url>/settings/integrations/slack?display_all_configs=true`.
 2. Switch to the **Bot Token** tab.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/verify_tokens_1.png"/>
 </p>
-3. The values will be `**`'d out, but if any of these fields are empty (ie. Signing Secret), then you'll want to fill them in.
+3. Refill in the Bot Token and Signing Secret, even if the values are already present.
 4. Visit [api.slack.com/apps](https://api.slack.com/apps), and open your currently installed app. You will see fields like `App ID` and `Signing Secret` here:
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/verify_tokens_2.png"/>

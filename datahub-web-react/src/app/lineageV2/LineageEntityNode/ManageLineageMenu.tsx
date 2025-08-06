@@ -6,8 +6,6 @@ import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import Colors from '@components/theme/foundations/colors';
-
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '@app/lineageV2/common';
 import ManageLineageModal from '@app/lineageV2/manualLineage/ManageLineageModal';
@@ -27,7 +25,7 @@ const Wrapper = styled.div`
     top: 8px;
 
     :hover {
-        color: ${Colors.violet[500]};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

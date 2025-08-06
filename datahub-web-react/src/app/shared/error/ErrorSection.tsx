@@ -43,13 +43,13 @@ const ResourceListItem = styled.li`
 const resources = [
     {
         label: 'DataHub Project',
-        path: 'https://datahubproject.io',
+        path: 'https://docs.datahub.com',
         shouldOpenInNewTab: true,
         description: 'DataHub Project website',
     },
     {
         label: 'DataHub Docs',
-        path: 'https://datahubproject.io/docs',
+        path: 'https://docs.datahub.com/docs',
         shouldOpenInNewTab: true,
     },
     {

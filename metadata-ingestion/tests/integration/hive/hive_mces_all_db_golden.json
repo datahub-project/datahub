@@ -116,26 +116,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:25 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: COLUMN_STATS_ACCURATE": "{\\\"BASIC_STATS\\\":\\\"true\\\"}",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1744852937",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091905",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "_test_table_underscore",
@@ -266,13 +266,13 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:25 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: COLUMN_STATS_ACCURATE": "{\\\"BASIC_STATS\\\":\\\"true\\\"}",
                             "Table Parameters: another.comment": "This table has no partitions",
                             "Table Parameters: comment": "This table has array of structs",
@@ -280,14 +280,14 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1744852940",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091908",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "array_struct_test",
@@ -343,8 +343,7 @@
                                 },
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -356,8 +355,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -373,8 +371,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -456,23 +453,23 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Table Type:": "VIRTUAL_VIEW",
-                            "Table Parameters: transient_lastDdlTime": "1744852942",
-                            "SerDe Library:": "null",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
-                            "View Original Text:": "select * from db1.array_struct_test",
-                            "View Expanded Text:": "select `array_struct_test`.`property_id`, `array_struct_test`.`service` from `db1`.`array_struct_test`",
-                            "View Rewrite Enabled:": "No"
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:30 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Table Type": "VIRTUAL_VIEW",
+                            "Table Parameters: transient_lastDdlTime": "1747091910",
+                            "SerDe Library": "null",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
+                            "View Original Text": "select * from db1.array_struct_test",
+                            "View Expanded Text": "select `array_struct_test`.`property_id`, `array_struct_test`.`service` from `db1`.`array_struct_test`",
+                            "View Rewrite Enabled": "No"
                         },
                         "name": "array_struct_test_view",
                         "tags": []
@@ -524,8 +521,7 @@
                                 },
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -537,8 +533,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -554,8 +549,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -637,24 +631,24 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Table Type:": "VIRTUAL_VIEW",
-                            "Table Parameters: transient_lastDdlTime": "1744852942",
-                            "SerDe Library:": "null",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
-                            "View Original Text:": "SELECT",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:30 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Table Type": "VIRTUAL_VIEW",
+                            "Table Parameters: transient_lastDdlTime": "1747091910",
+                            "SerDe Library": "null",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
+                            "View Original Text": "SELECT",
                             "None ": "FROM `db1`.`array_struct_test_view`",
-                            "View Expanded Text:": "SELECT",
-                            "View Rewrite Enabled:": "No"
+                            "View Expanded Text": "SELECT",
+                            "View Rewrite Enabled": "No"
                         },
                         "name": "array_struct_test_view_multiline",
                         "tags": []
@@ -730,8 +724,7 @@
                                 },
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -743,8 +736,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -760,8 +752,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -843,26 +834,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:30 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: COLUMN_STATS_ACCURATE": "{\\\"BASIC_STATS\\\":\\\"true\\\"}",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1744852942",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091910",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "map_test",
@@ -915,7 +906,7 @@
                                 "nativeDataType": "map<int,string>",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"map<int,string>\", \"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
                             }
                         ]
                     }
@@ -997,26 +988,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:30 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: COLUMN_STATS_ACCURATE": "{\\\"BASIC_STATS\\\":\\\"true\\\"}",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1744852942",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091910",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "nested_struct_test",
@@ -1065,8 +1056,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1078,8 +1068,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
@@ -1091,8 +1080,7 @@
                                 },
                                 "nativeDataType": "struct<name:varchar(50),id:tinyint>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
@@ -1104,8 +1092,7 @@
                                 },
                                 "nativeDataType": "varchar(50)",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
@@ -1117,8 +1104,7 @@
                                 },
                                 "nativeDataType": "tinyint",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1200,26 +1186,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:15 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:22 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: numFiles": "1",
                             "Table Parameters: numPartitions": "1",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1744852935",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091902",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "pokes",
@@ -1363,26 +1349,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:25 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: COLUMN_STATS_ACCURATE": "{\\\"BASIC_STATS\\\":\\\"true\\\"}",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1744852937",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091905",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "struct_test",
@@ -1431,8 +1417,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:array<int>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:array<int>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1444,8 +1429,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -1461,8 +1445,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1544,26 +1527,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test_view_materialized",
-                            "Table Type:": "MATERIALIZED_VIEW",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:30 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test_view_materialized",
+                            "Table Type": "MATERIALIZED_VIEW",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1744852942",
-                            "SerDe Library:": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
-                            "InputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
-                            "View Original Text:": "select * from db1.struct_test",
-                            "View Expanded Text:": "null",
-                            "View Rewrite Enabled:": "No"
+                            "Table Parameters: transient_lastDdlTime": "1747091910",
+                            "SerDe Library": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+                            "InputFormat": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
+                            "View Original Text": "select * from db1.struct_test",
+                            "View Expanded Text": "null",
+                            "View Rewrite Enabled": "No"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1611,8 +1594,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:array<int>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:array<int>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1624,8 +1606,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -1641,8 +1622,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1724,26 +1704,26 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db1",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db1",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:30 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: COLUMN_STATS_ACCURATE": "{\\\"BASIC_STATS\\\":\\\"true\\\"}",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1744852942",
-                            "SerDe Library:": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
-                            "InputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091910",
+                            "SerDe Library": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
+                            "InputFormat": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "union_test",
@@ -1840,8 +1820,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=string].b",
@@ -1853,8 +1832,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo",
@@ -1878,8 +1856,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct1].foo.[type=double].d",
@@ -1891,8 +1868,7 @@
                                 },
                                 "nativeDataType": "double",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"double\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -2098,25 +2074,25 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "Database:": "db2",
-                            "Owner:": "root",
-                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
-                            "LastAccessTime:": "UNKNOWN",
-                            "Retention:": "0",
-                            "Location:": "hdfs://namenode:8020/user/hive/warehouse/db2.db/pokes",
-                            "Table Type:": "MANAGED_TABLE",
+                            "Database": "db2",
+                            "Owner": "root",
+                            "CreateTime": "Mon May 12 23:18:24 UTC 2025",
+                            "LastAccessTime": "UNKNOWN",
+                            "Retention": "0",
+                            "Location": "hdfs://namenode:8020/user/hive/warehouse/db2.db/pokes",
+                            "Table Type": "MANAGED_TABLE",
                             "Table Parameters: numFiles": "1",
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1744852937",
-                            "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                            "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
-                            "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
-                            "Compressed:": "No",
-                            "Num Buckets:": "-1",
-                            "Bucket Columns:": "[]",
-                            "Sort Columns:": "[]",
+                            "Table Parameters: transient_lastDdlTime": "1747091905",
+                            "SerDe Library": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "No",
+                            "Num Buckets": "-1",
+                            "Bucket Columns": "[]",
+                            "Sort Columns": "[]",
                             "Storage Desc Params: serialization.format": "1"
                         },
                         "name": "pokes",
@@ -2338,6 +2314,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
                     ],
+                    "transformOperation": "COPY: `array_struct_test`.`property_id` AS `property_id`",
                     "confidenceScore": 0.35,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
                 },
@@ -2350,6 +2327,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service)"
                     ],
+                    "transformOperation": "COPY: `array_struct_test`.`service` AS `service`",
                     "confidenceScore": 0.35,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
                 }
@@ -2474,6 +2452,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),property_id)"
                     ],
+                    "transformOperation": "COPY: `array_struct_test_view`.`property_id` AS `property_id`",
                     "confidenceScore": 0.35,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
                 },
@@ -2486,6 +2465,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),service)"
                     ],
+                    "transformOperation": "COPY: `array_struct_test_view`.`service` AS `service`",
                     "confidenceScore": 0.35,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
                 }

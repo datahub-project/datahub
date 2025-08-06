@@ -31,7 +31,6 @@ interface AboutFieldTabProps {
         profiles: any[];
         notes: Post[];
         setSelectedTabName: any;
-        isShowMoreEnabled?: boolean;
         refetch?: () => void;
         refetchNotes?: () => void;
     };
@@ -77,12 +76,8 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             notes={notes}
                             refetch={delayedRefetchNotes}
                         />
-                        {!!notes?.length && <StyledDivider dashed />}
-                        <FieldDescription
-                            expandedField={expandedField}
-                            editableFieldInfo={editableFieldInfo}
-                            isShowMoreEnabled={properties.isShowMoreEnabled}
-                        />
+                        {!!notes?.length && <StyledDivider />}
+                        <FieldDescription expandedField={expandedField} editableFieldInfo={editableFieldInfo} />
                         <FieldTags
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}

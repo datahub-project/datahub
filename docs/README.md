@@ -1,6 +1,6 @@
 # DataHub Docs Overview
 
-DataHub's project documentation is hosted at [datahubproject.io](https://datahubproject.io/docs)
+DataHub's project documentation is hosted at [datahubproject.io](https://docs.datahub.com/docs)
 
 ## Types of Documentation
 

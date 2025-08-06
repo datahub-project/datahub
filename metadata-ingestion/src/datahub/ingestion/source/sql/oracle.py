@@ -127,11 +127,15 @@ class OracleConfig(BasicSQLAlchemyConfig):
             )
         return v
 
-    def get_sql_alchemy_url(self):
-        url = super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
+        url = super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
+
         if self.service_name:
             assert not self.database
             url = f"{url}/?service_name={self.service_name}"
+
         return url
 
     def get_identifier(self, schema: str, table: str) -> str:
@@ -437,7 +441,7 @@ class OracleInspectorObjectWrapper:
             "\nac.constraint_name,"
             "\nac.constraint_type,"
             "\nacc.column_name AS local_column,"
-            "\nac.r_table_name AS remote_table,"
+            "\nac.table_name AS remote_table,"
             "\nrcc.column_name AS remote_column,"
             "\nac.r_owner AS remote_owner,"
             "\nacc.position AS loc_pos,"

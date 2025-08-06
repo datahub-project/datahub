@@ -16,6 +16,7 @@ def test_default_values():
     assert config.dataset_pattern == AllowDenyPattern.allow_all()
     assert config.chart_pattern == AllowDenyPattern.allow_all()
     assert config.dashboard_pattern == AllowDenyPattern.allow_all()
+    assert config.database_pattern == AllowDenyPattern.allow_all()
 
 
 def test_set_display_uri():

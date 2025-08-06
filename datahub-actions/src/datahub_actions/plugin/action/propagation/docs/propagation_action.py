@@ -15,11 +15,11 @@
 import json
 import logging
 import time
-from enum import Enum
 from typing import Iterable, List, Optional, Tuple
 
 from pydantic import Field
 
+from datahub.configuration.common import ConfigEnum
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -60,7 +60,7 @@ class DocPropagationDirective(PropagationDirective):
     )
 
 
-class ColumnPropagationRelationships(str, Enum):
+class ColumnPropagationRelationships(ConfigEnum):
     UPSTREAM = "upstream"
     DOWNSTREAM = "downstream"
     SIBLING = "sibling"
@@ -82,18 +82,15 @@ class DocPropagationConfig(PropagationConfig):
     enabled: bool = Field(
         True,
         description="Indicates whether documentation propagation is enabled or not.",
-        example=True,
     )
     columns_enabled: bool = Field(
         True,
         description="Indicates whether column documentation propagation is enabled or not.",
-        example=True,
     )
     # TODO: Currently this flag does nothing. Datasets are NOT supported for docs propagation.
     datasets_enabled: bool = Field(
         False,
         description="Indicates whether dataset level documentation propagation is enabled or not.",
-        example=False,
     )
     column_propagation_relationships: List[ColumnPropagationRelationships] = Field(
         [
@@ -102,11 +99,6 @@ class DocPropagationConfig(PropagationConfig):
             ColumnPropagationRelationships.UPSTREAM,
         ],
         description="Relationships for column documentation propagation.",
-        example=[
-            ColumnPropagationRelationships.UPSTREAM,
-            ColumnPropagationRelationships.SIBLING,
-            ColumnPropagationRelationships.DOWNSTREAM,
-        ],
     )
 
 
@@ -169,7 +161,7 @@ class DocPropagationAction(Action):
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = DocPropagationConfig.parse_obj(config_dict or {})
+        action_config = DocPropagationConfig.model_validate(config_dict or {})
         logger.info(f"Doc Propagation Config action configured with {action_config}")
         return cls(action_config, ctx)
 
@@ -450,7 +442,7 @@ class DocPropagationAction(Action):
             # otherwise, we add a new documentation entry sourced by this action
             for doc_association in documentations.documentations[:]:
                 if doc_association.attribution and doc_association.attribution.source:
-                    source_details_parsed: SourceDetails = SourceDetails.parse_obj(
+                    source_details_parsed: SourceDetails = SourceDetails.model_validate(
                         doc_association.attribution.sourceDetail
                     )
                     if doc_association.attribution.source == self.action_urn and (
@@ -688,7 +680,7 @@ class DocPropagationAction(Action):
             f"Downstreams: {downstreams} for {doc_propagation_directive.entity}"
         )
         entity_urn = doc_propagation_directive.entity
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.LINEAGE
         propagated_context.propagation_direction = DirectionType.DOWN
         propagated_entities_this_hop_count = 0
@@ -761,7 +753,7 @@ class DocPropagationAction(Action):
         )
         logger.debug(f"Upstreams: {upstreams} for {doc_propagation_directive.entity}")
         entity_urn = doc_propagation_directive.entity
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.LINEAGE
         propagated_context.propagation_direction = DirectionType.UP
         propagated_entities_this_hop_count = 0
@@ -827,7 +819,7 @@ class DocPropagationAction(Action):
         assert self.ctx.graph
         entity_urn = doc_propagation_directive.entity
         siblings = get_unique_siblings(self.ctx.graph, entity_urn)
-        propagated_context = SourceDetails.parse_obj(context.dict())
+        propagated_context = SourceDetails.model_validate(context.model_dump())
         propagated_context.propagation_relationship = RelationshipType.SIBLING
         propagated_context.propagation_direction = DirectionType.ALL
 

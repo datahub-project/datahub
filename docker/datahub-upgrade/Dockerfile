@@ -6,7 +6,7 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
+FROM golang:1-alpine3.22 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
@@ -23,7 +23,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3.21 AS base
+FROM alpine:3.22 AS base
 
 # Re-declaring args from above to make them available in this stage (will inherit default values)
 ARG ALPINE_REPO_URL
@@ -52,7 +52,7 @@ COPY --from=binary /go/bin/dockerize /usr/local/bin
 ENV LD_LIBRARY_PATH="/lib:/lib64"
 
 FROM base AS prod-install
-COPY datahub-upgrade.jar /datahub/datahub-upgrade/bin/
+COPY datahub-upgrade/build/libs/datahub-upgrade.jar /datahub/datahub-upgrade/bin/
 COPY docker/datahub-upgrade/start.sh /datahub/datahub-upgrade/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-upgrade/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-upgrade/scripts/start.sh

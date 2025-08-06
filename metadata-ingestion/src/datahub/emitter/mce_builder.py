@@ -59,6 +59,7 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DataPlatformUrn,
     DatasetUrn,
+    OwnershipTypeUrn,
     TagUrn,
 )
 from datahub.utilities.urn_encoder import UrnEncoder
@@ -406,7 +407,8 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
-        return OwnershipTypeClass.CUSTOM, ownership_type
+        ownership_type_urn = OwnershipTypeUrn.from_string(ownership_type)
+        return OwnershipTypeClass.CUSTOM, ownership_type_urn.urn()
     ownership_type = ownership_type.upper()
     if ownership_type in get_enum_options(OwnershipTypeClass):
         return ownership_type, None

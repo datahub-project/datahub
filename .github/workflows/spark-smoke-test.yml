@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
@@ -29,7 +30,7 @@ jobs:
   spark-smoke-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: acryldata/sane-checkout-action@v3
+      - uses: acryldata/sane-checkout-action@v4
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:

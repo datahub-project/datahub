@@ -1,3 +1,6 @@
+import '@src/App.less';
+import '@src/AppV2.less';
+
 import { ApolloClient, ApolloProvider, InMemoryCache, ServerError, createHttpLink } from '@apollo/client';
 import { onError } from '@apollo/client/link/error';
 import Cookies from 'js-cookie';
@@ -9,8 +12,6 @@ import { Routes } from '@app/Routes';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
-import '@src/App.less';
-import '@src/AppV2.less';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';

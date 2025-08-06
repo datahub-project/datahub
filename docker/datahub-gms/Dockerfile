@@ -6,7 +6,7 @@ ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
 
-FROM golang:1-alpine3.21 AS binary
+FROM golang:1-alpine3.22 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
@@ -23,7 +23,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3.21 AS base
+FROM alpine:3.22 AS base
 
 ENV JMX_VERSION=0.20.0
 
@@ -55,7 +55,7 @@ COPY metadata-models/src/main/resources/entity-registry.yml /datahub/datahub-gms
 COPY docker/datahub-gms/start.sh /datahub/datahub-gms/scripts/start.sh
 COPY docker/monitoring/client-prometheus-config.yaml /datahub/datahub-gms/scripts/prometheus-config.yaml
 RUN chmod +x /datahub/datahub-gms/scripts/start.sh
-COPY war.war /datahub/datahub-gms/bin/war.war
+COPY metadata-service/war/build/libs/war.war /datahub/datahub-gms/bin/war.war
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.
@@ -63,7 +63,7 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN mkdir -p /etc/datahub/plugins/auth/resources
+RUN mkdir -p /etc/datahub/plugins/auth/resources /datahub
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 RUN chown -R datahub:datahub /etc/datahub /datahub

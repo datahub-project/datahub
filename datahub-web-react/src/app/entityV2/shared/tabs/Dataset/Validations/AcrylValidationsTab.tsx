@@ -4,7 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { QUALITY_TAB_NAME } from '@app/entityV2/dataset/constants';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
 import { DataContractTab } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractTab';
@@ -13,20 +13,20 @@ import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/ent
 import { useAppConfig } from '@app/useAppConfig';
 
 const TabTitle = styled.span`
-    margin-left: 4px;
+    margin: 4px;
 `;
 
 const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
     background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : 'none')};
+    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'none')};
     align-items: center;
     justify-content: center;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
-    border-radius: 5px;
-    padding: 0px 12px 0px 12px;
+    border-radius: 8px;
+    padding: 0px 4px 0px 4px;
     font-size: 14px;
-    height: 40px;
+    height: 36px;
     color: ${(props) => (props.disabled && '#00000040') || 'none'};
 `;
 const TabToolbar = styled.div`
@@ -34,7 +34,7 @@ const TabToolbar = styled.div`
     position: relative;
     z-index: 1;
     height: 46px;
-    padding: 7px 12px;
+    padding: 8px 8px;
     flex: 0 0 auto;
 `;
 
@@ -68,7 +68,7 @@ export const AcrylValidationsTab = () => {
 
     // If no tab was selected, select a default tab.
     useEffect(() => {
-        if (!selectedTab) {
+        if (!selectedTab && basePath.endsWith(QUALITY_TAB_NAME)) {
             // Route to the default tab.
             history.replace(`${basePath}/${DEFAULT_TAB}?${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}`);
         }

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class HelloWorldConfig(BaseModel):
     # Whether to print the message in upper case.
-    to_upper: Optional[bool]
+    to_upper: Optional[bool] = None
 
 
 # A basic example of a DataHub action that prints all
@@ -34,7 +34,7 @@ class HelloWorldConfig(BaseModel):
 class HelloWorldAction(Action):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
-        action_config = HelloWorldConfig.parse_obj(config_dict or {})
+        action_config = HelloWorldConfig.model_validate(config_dict or {})
         return cls(action_config, ctx)
 
     def __init__(self, config: HelloWorldConfig, ctx: PipelineContext):

@@ -22,11 +22,14 @@ def test_nifi_s3_provenance_event():
     nifi_config = NifiSourceConfig.parse_obj(config_dict)
     ctx = PipelineContext(run_id="test")
 
-    with patch(
-        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
-    ) as mock_provenance_events, patch(
-        "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
-    ) as mock_delete_provenance:
+    with (
+        patch(
+            "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+        ) as mock_provenance_events,
+        patch(
+            "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+        ) as mock_delete_provenance,
+    ):
         mocked_functions(mock_provenance_events, mock_delete_provenance, "puts3")
 
         nifi_source = NifiSource(nifi_config, ctx)
@@ -93,11 +96,14 @@ def test_nifi_s3_provenance_event():
         ]
         assert ioAspect.inputDatasets == []
 
-    with patch(
-        "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
-    ) as mock_provenance_events, patch(
-        "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
-    ) as mock_delete_provenance:
+    with (
+        patch(
+            "datahub.ingestion.source.nifi.NifiSource.fetch_provenance_events"
+        ) as mock_provenance_events,
+        patch(
+            "datahub.ingestion.source.nifi.NifiSource.delete_provenance"
+        ) as mock_delete_provenance,
+    ):
         mocked_functions(mock_provenance_events, mock_delete_provenance, "fetchs3")
 
         nifi_source = NifiSource(nifi_config, ctx)

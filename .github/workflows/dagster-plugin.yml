@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/dagster-plugin.yml"
       - "metadata-ingestion-modules/dagster-plugin/**"
@@ -24,9 +25,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
 jobs:
   dagster-plugin:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-latest' || 'ubuntu-latest' }}
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
@@ -45,7 +49,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v4
-      - uses: acryldata/sane-checkout-action@v3
+      - uses: acryldata/sane-checkout-action@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -75,11 +79,13 @@ jobs:
           flags: ingestion-dagster-plugin
           name: pytest-dagster
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
     runs-on: ubuntu-latest

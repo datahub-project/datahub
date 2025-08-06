@@ -21,7 +21,7 @@ const TabContainer = styled.div`
 `;
 
 const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
-    background: ${({ isActive }) => (isActive ? `${REDESIGN_COLORS.BACKGROUND_PRIMARY_1}` : 'transperent')};
+    background: ${({ isActive, theme }) => (isActive ? `${theme.styles['primary-color']}` : 'transperent')};
     border-radius: 4px;
     color: ${({ isActive }) => (isActive ? '#fff' : '#56668E')};
     cursor: pointer;

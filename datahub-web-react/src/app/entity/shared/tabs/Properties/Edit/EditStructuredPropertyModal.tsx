@@ -1,4 +1,4 @@
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -6,7 +6,7 @@ import { useEntityContext, useEntityData, useMutationUrn } from '@app/entity/sha
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
@@ -112,6 +112,7 @@ export default function EditStructuredPropertyModal({
             title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
             onCancel={closeModal}
             open={isOpen}
+            buttons={[]}
             // Urn input is a special case that requires a wider modal since it employs a search select component
             width={isUrnInput ? SEARCH_SELECT_MODAL_WIDTH : DEFAULT_MODAL_WIDTH}
             footer={
