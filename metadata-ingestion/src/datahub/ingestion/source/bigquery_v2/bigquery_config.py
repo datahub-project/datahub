@@ -73,7 +73,7 @@ class BigQueryBaseConfig(ConfigModel):
             ) from e
         return v
 
-    @root_validator(pre=True, skip_on_failure=True)
+    @root_validator(pre=True)
     def project_id_backward_compatibility_configs_set(cls, values: Dict) -> Dict:
         project_id = values.pop("project_id", None)
         project_ids = values.get("project_ids")

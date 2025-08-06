@@ -105,7 +105,7 @@ class SupportedSources:
         handler: pydantic.GetJsonSchemaHandler,
     ) -> pydantic.json_schema.JsonSchemaValue:
         json_schema = handler(core_schema)
-        json_schema["supported_sources"] = self.sources
+        json_schema.setdefault("schema_extra", {})["supported_sources"] = self.sources
         return json_schema
 
 

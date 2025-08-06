@@ -666,7 +666,7 @@ class TableauConfig(
 
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def validate_config_values(cls, values: Dict) -> Dict:
         tags_for_hidden_assets = values.get("tags_for_hidden_assets")
         ingest_tags = values.get("ingest_tags")
