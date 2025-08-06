@@ -11,7 +11,7 @@ interface Props {
 
 const ModuleDetailsForm = ({ form, formValues }: Props) => {
     return (
-        <Form form={form} initialValues={formValues}>
+        <Form form={form} initialValues={formValues} autoComplete="off">
             <Form.Item
                 name="name"
                 rules={[

@@ -5,6 +5,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import SmallModule from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import ImageOrIcon from '@app/homeV3/modules/link/ImageOrIcon';
 
 const Container = styled.div`
     display: flex;
@@ -28,13 +29,6 @@ const TextSection = styled.div`
     flex-direction: column;
 `;
 
-const Image = styled.img`
-    height: 24px;
-    width: 24px;
-    object-fit: contain;
-    background-color: transparent;
-`;
-
 export default function LinkModule(props: ModuleProps) {
     const { name } = props.module.properties;
     const { linkParams } = props.module.properties.params;
@@ -53,11 +47,8 @@ export default function LinkModule(props: ModuleProps) {
         <SmallModule {...props} onClick={goToLink}>
             <Container>
                 <LeftSection>
-                    {linkParams?.imageUrl ? (
-                        <Image src={linkParams?.imageUrl} />
-                    ) : (
-                        <Icon icon="LinkSimple" source="phosphor" size="3xl" color="gray" />
-                    )}
+                    <ImageOrIcon imageUrl={linkParams?.imageUrl} />
+
                     <TextSection>
                         <Text color="gray" colorLevel={600} weight="bold" size="lg" lineHeight="normal">
                             {name}
