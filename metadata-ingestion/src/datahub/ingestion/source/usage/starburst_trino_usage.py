@@ -60,7 +60,7 @@ AggregatedDataset = GenericAggregatedDataset[TrinoTableRef]
 
 class TrinoConnectorInfo(BaseModel):
     partitionIds: List[str]
-    truncated: Optional[bool]
+    truncated: Optional[bool] = None
 
 
 class TrinoAccessedMetadata(BaseModel):

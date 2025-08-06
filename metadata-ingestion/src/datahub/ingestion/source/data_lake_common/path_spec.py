@@ -62,7 +62,6 @@ class SortKey(ConfigModel):
 
     date_format: Optional[str] = Field(
         default=None,
-        type=str,
         description="The date format to use when sorting. This is used to parse the date from the key. The format should follow the java [SimpleDateFormat](https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html) format.",
     )
 
