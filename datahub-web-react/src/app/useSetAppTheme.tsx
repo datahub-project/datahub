@@ -6,11 +6,11 @@ import { useCustomTheme } from '@src/customThemeContext';
 
 // add new theme ids here
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-enum ThemeId {
+export enum ThemeId {
     FIS = 'FIS',
 }
 
-function useCustomThemeId() {
+export function useCustomThemeId() {
     const { config, loaded } = useAppConfig();
 
     if (!loaded) {

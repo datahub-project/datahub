@@ -6,11 +6,15 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
+import { ThemeId, useCustomThemeId } from '@app/useSetAppTheme';
 import { colors } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 
 import DatahubCloudLogo from '@images/datahub_cloud.svg?react';
+
+const LETTER_LOGO_GAP = '16px';
+const LETTER_LOGO_MARGIN = '0 0 4px 0';
 
 const Container = styled.div`
     display: flex;
@@ -23,7 +27,7 @@ const Container = styled.div`
     transition: padding 250ms ease-in-out;
 `;
 
-const Logotype = styled.div`
+const Logotype = styled.div<{ $margin?: string }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -33,6 +37,7 @@ const Logotype = styled.div`
     border-radius: 4px;
     position: relative;
     object-fit: contain;
+    ${({ $margin }) => $margin && `margin: ${$margin};`}
 
     & svg,
     img {
@@ -56,13 +61,13 @@ const Title = styled.div`
     align-items: end;
 `;
 
-const StyledLink = styled(Link)`
+const StyledLink = styled(Link)<{ $gap?: string }>`
     display: flex;
     height: 40px;
     align-items: center;
     max-width: calc(100% - 40px);
     width: 100%;
-    gap: 8px;
+    gap: ${({ $gap }) => $gap || '8px'};
 `;
 
 type Props = {
@@ -75,6 +80,10 @@ export default function NavBarHeader({ logotype }: Props) {
     const showHomepageRedesign = useShowHomePageRedesign();
     const customName = globalSettings?.visualSettings?.customOrgName;
     const isHomePage = useIsHomePage();
+    // start SaaS Only - custom styling for specific customer logos :(
+    const customThemeId = useCustomThemeId();
+    const hasLetterLogo = customThemeId === ThemeId.FIS;
+    // end SaaS Only
 
     function handleLogoClick() {
         if (isHomePage && showHomepageRedesign) {
@@ -85,8 +94,8 @@ export default function NavBarHeader({ logotype }: Props) {
 
     return (
         <Container>
-            <StyledLink to="/" onClick={handleLogoClick}>
-                <Logotype>{logotype}</Logotype>
+            <StyledLink to="/" onClick={handleLogoClick} $gap={hasLetterLogo ? LETTER_LOGO_GAP : undefined}>
+                <Logotype $margin={hasLetterLogo ? LETTER_LOGO_MARGIN : undefined}>{logotype}</Logotype>
                 {!isCollapsed && !customName && <DatahubCloudLogo />}
                 {!isCollapsed && customName && <Title>{customName}</Title>}
             </StyledLink>
