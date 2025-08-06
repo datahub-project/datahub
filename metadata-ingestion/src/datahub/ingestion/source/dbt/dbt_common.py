@@ -2158,12 +2158,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Create sibling aspect for dbt entity pointing to target platform entity."""
 
         # Only create explicit sibling relationships when needed
-        if node.node_type == "source":
-            # Sources: target platform should always be primary
-            should_create_sibling = True
-            is_primary = False
-        elif not self.config.dbt_is_primary_sibling:
-            # Non-sources when target platform should be primary
+        if not self.config.dbt_is_primary_sibling:
+            # When target platform should be primary
             should_create_sibling = True
             is_primary = False
         else:
@@ -2187,12 +2183,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Create sibling aspect for target platform entity pointing to dbt entity."""
 
         # Only create explicit sibling relationships when needed
-        if node.node_type == "source":
-            # Sources: target platform should always be primary
-            should_create_sibling = True
-            is_primary = True
-        elif not self.config.dbt_is_primary_sibling:
-            # Non-sources when target platform should be primary
+        if not self.config.dbt_is_primary_sibling:
+            # When target platform should be primary
             should_create_sibling = True
             is_primary = True
         else:
