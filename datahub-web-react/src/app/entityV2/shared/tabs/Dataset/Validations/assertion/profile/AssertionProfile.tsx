@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
 import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
@@ -49,6 +49,16 @@ export const AssertionProfile = ({
         loading,
         refetch: localRefetch,
     } = useGetAssertionWithMonitorsQuery({ variables: { assertionUrn: urn } });
+
+    const fullRefetch = async () => {
+        try {
+            await localRefetch();
+        } catch (error) {
+            console.error('Error refetching assertion details:', error);
+        }
+        refetch?.();
+    };
+
     // TODO: we should move these casts to a deep partial assertion type
     const assertion = data?.assertion as Maybe<Assertion>;
     const monitor = data?.assertion?.monitor?.relationships?.[0]?.entity as Monitor;
@@ -61,10 +71,18 @@ export const AssertionProfile = ({
         setSelectedTab(TabType.Note);
     };
 
-    const fullRefetch = () => {
-        localRefetch();
-        refetch?.();
-    };
+    // Refresh assertion details when switching to the settings tab
+    // This is because the assertion settings (such as exclusion window) may have changed by the other tabs
+    const [isRefetchingForSettingsTab, setIsRefetchingForSettingsTab] = useState(false);
+    useEffect(() => {
+        if (selectedTab === TabType.Settings) {
+            setIsRefetchingForSettingsTab(true);
+            fullRefetch().finally(() => {
+                setIsRefetchingForSettingsTab(false);
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedTab]);
 
     const tabs = [
         {
@@ -89,7 +107,7 @@ export const AssertionProfile = ({
             label: 'Settings',
             content: (
                 <AssertionSettingsTab
-                    loading={loading}
+                    loading={loading || isRefetchingForSettingsTab}
                     assertion={assertion}
                     entity={entity}
                     refetch={fullRefetch}
