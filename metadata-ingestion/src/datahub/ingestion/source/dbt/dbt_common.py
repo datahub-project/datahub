@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SiblingsClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -869,7 +870,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes: List[DBTNode],
         extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             upstreams = get_upstreams_for_test(
                 test_node=node,
@@ -922,14 +923,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=assertion_urn,
                         aspect=self._make_data_platform_instance_aspect(),
-                    ).as_workunit()
+                    )
 
                     yield make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
                         upstream_urn,
-                    ).as_workunit()
+                    )
 
                 for test_result in node.test_results:
                     if self.config.entities_enabled.can_emit_test_results:
@@ -939,7 +940,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             assertion_urn,
                             upstream_urn,
                             test_warnings_are_errors=self.config.test_warnings_are_errors,
-                        ).as_workunit()
+                        )
                     else:
                         logger.debug(
                             f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
@@ -1006,10 +1007,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         logger.info(f"Updating {self.config.target_platform} metadata")
         yield from self.create_target_platform_mces(non_test_nodes)
-
-        logger.info("Creating sibling relationships")
-        for node in non_test_nodes:
-            yield from self._create_sibling_aspects(node)
 
         yield from self.create_test_entity_mcps(
             test_nodes,
@@ -1454,6 +1451,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if view_prop_aspect:
                 aspects.append(view_prop_aspect)
 
+            if node.exists_in_target_platform:
+                sibling_aspect = self._create_sibling_aspect_for_dbt_entity(node)
+                if sibling_aspect:
+                    aspects.append(sibling_aspect)
+
             # Generate main MCE.
             if self.config.entities_enabled.can_emit_node_type(node.node_type):
                 # Subtype.
@@ -1488,11 +1490,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
-                yield MetadataWorkUnit(
-                    id=dataset_snapshot.urn,
-                    mce=mce,
-                    is_primary_source=self.config.dbt_is_primary_sibling,
-                )
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -1554,7 +1552,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     model_performance.start_time
                 ),
             )
-
             yield from data_process_instance.end_event_mcp(
                 end_timestamp_millis=datetime_to_ts_millis(model_performance.end_time),
                 start_timestamp_millis=datetime_to_ts_millis(
@@ -1616,15 +1613,22 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=upstreams_lineage_class,
                         system_metadata=None,
                     )
-                    wu.is_primary_source = not self.config.dbt_is_primary_sibling
+                    wu.is_primary_source = False
                     yield wu
                 else:
                     yield MetadataChangeProposalWrapper(
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
-                    ).as_workunit(
-                        is_primary_source=not self.config.dbt_is_primary_sibling
+                    ).as_workunit(is_primary_source=False)
+
+                    sibling_aspect = self._create_sibling_aspect_for_target_entity(
+                        node, upstream_dbt_urn
                     )
+                    if sibling_aspect:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn,
+                            aspect=sibling_aspect,
+                        ).as_workunit()
 
     def extract_query_tag_aspects(
         self,
@@ -2150,44 +2154,55 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
-    def _create_sibling_aspects(self, node: DBTNode) -> Iterable[MetadataWorkUnit]:
-        """Create explicit sibling relationships between dbt and target platform entities."""
-        if not node.exists_in_target_platform or node.node_type == "source":
-            return
+    def _create_sibling_aspect_for_dbt_entity(self, node: DBTNode) -> Optional[Any]:
+        """Create sibling aspect for dbt entity pointing to target platform entity."""
 
-        dbt_urn = node.get_urn(
-            DBT_PLATFORM,
-            self.config.env,
-            self.config.platform_instance,
-        )
+        # Only create explicit sibling relationships when needed
+        if node.node_type == "source":
+            # Sources: target platform should always be primary
+            should_create_sibling = True
+            is_primary = False
+        elif not self.config.dbt_is_primary_sibling:
+            # Non-sources when target platform should be primary
+            should_create_sibling = True
+            is_primary = False
+        else:
+            # Default case: dbt is primary, existing relationships are sufficient
+            return None
+
+        if not should_create_sibling:
+            return None
+
         target_urn = node.get_urn(
             self.config.target_platform,
             self.config.env,
             self.config.target_platform_instance,
         )
 
-        from datahub.metadata.schema_classes import SiblingsClass
+        return SiblingsClass(primary=is_primary, siblings=[target_urn])
 
-        if self.config.dbt_is_primary_sibling:
-            # dbt is primary, target platform is secondary
-            primary_urn = dbt_urn
-            secondary_urn = target_urn
+    def _create_sibling_aspect_for_target_entity(
+        self, node: DBTNode, dbt_urn: str
+    ) -> Optional[Any]:
+        """Create sibling aspect for target platform entity pointing to dbt entity."""
+
+        # Only create explicit sibling relationships when needed
+        if node.node_type == "source":
+            # Sources: target platform should always be primary
+            should_create_sibling = True
+            is_primary = True
+        elif not self.config.dbt_is_primary_sibling:
+            # Non-sources when target platform should be primary
+            should_create_sibling = True
+            is_primary = True
         else:
-            # target platform is primary, dbt is secondary
-            primary_urn = target_urn
-            secondary_urn = dbt_urn
+            # Default case: dbt is primary, existing relationships are sufficient
+            return None
 
-        # Create sibling relationship on the secondary entity
-        yield MetadataChangeProposalWrapper(
-            entityUrn=secondary_urn,
-            aspect=SiblingsClass(primary=False, siblings=[primary_urn]),
-        ).as_workunit()
+        if not should_create_sibling:
+            return None
 
-        # Create sibling relationship on the primary entity
-        yield MetadataChangeProposalWrapper(
-            entityUrn=primary_urn,
-            aspect=SiblingsClass(primary=True, siblings=[secondary_urn]),
-        ).as_workunit()
+        return SiblingsClass(primary=is_primary, siblings=[dbt_urn])
 
     def get_report(self):
         return self.report
