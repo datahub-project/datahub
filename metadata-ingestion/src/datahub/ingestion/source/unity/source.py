@@ -96,6 +96,8 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResource,
     UnityCatalogTagPlatformResourceId,
+    clear_unity_catalog_tag_cache,
+    get_cache_stats,
 )
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -295,6 +297,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage("Ingestion Setup"):
+            # Clear tag cache at the start of ingestion to ensure fresh data
+            if self.config.include_tags:
+                clear_unity_catalog_tag_cache()
+                logger.info("Cleared Unity Catalog tag cache for fresh ingestion")
+                
             wait_on_warehouse = None
             if self.config.include_hive_metastore:
                 with self.report.new_stage("Start warehouse"):
@@ -374,6 +381,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ).get_workunits(list(self.tables.values()))
                 else:
                     raise ValueError("Unknown profiling config method")
+        
+        # Log cache statistics if tag processing was enabled
+        if self.config.include_tags:
+            cache_stats = get_cache_stats()
+            logger.info(f"Unity Catalog tag cache statistics: {cache_stats}")
 
     def build_service_principal_map(self) -> None:
         try:
