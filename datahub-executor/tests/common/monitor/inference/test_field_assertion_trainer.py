@@ -800,6 +800,149 @@ def test_train_and_update_assertion_with_floor_and_ceiling(
 
 
 @patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_floor_value"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_ceiling_value"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._update_field_metric_monitor_evaluation_context"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._rebuild_assertion"
+)
+def test_train_and_update_assertion_calls_metric_name_not_str_metric(
+    mock_rebuild_assertion: MagicMock,
+    mock_update_context: MagicMock,
+    mock_get_field_assertion_details: MagicMock,
+    mock_get_sensitivity_level: MagicMock,
+    mock_get_metric_ceiling_value: MagicMock,
+    mock_get_metric_floor_value: MagicMock,
+    trainer: FieldAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_field_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_boundaries: List[Mock],
+    mock_field_assertion_info: AssertionInfoClass,
+    mock_schema_field: Mock,
+    mock_evaluation_spec: Mock,
+) -> None:
+    """Test that train_and_update_assertion calls metric floor/ceiling functions with metric.name, not str(metric)."""
+    # Arrange
+    sensitivity = 2
+    mock_get_sensitivity_level.return_value = sensitivity
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.return_value = mock_boundaries
+
+    # Setup mock return values for floor/ceiling functions
+    mock_get_metric_floor_value.return_value = 0.0
+    mock_get_metric_ceiling_value.return_value = 100.0
+
+    # Setup field assertion details with EMPTY_PERCENTAGE enum
+    mock_get_field_assertion_details.return_value = (
+        mock_field_assertion_info,
+        cast(SchemaFieldSpecClass, mock_schema_field),
+        FieldMetricTypeClass.EMPTY_PERCENTAGE,
+    )
+
+    mock_rebuild_assertion.return_value = cast(Assertion, mock_field_assertion)
+
+    # Act
+    trainer.train_and_update_assertion(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_field_assertion),
+        mock_metrics_data,
+        None,
+        cast(AssertionEvaluationSpec, mock_evaluation_spec),
+    )
+
+    # Assert
+    # Verify that the floor and ceiling functions are called with the string name "EMPTY_PERCENTAGE"
+    # not with the enum object or str(enum_object)
+    mock_get_metric_floor_value.assert_called_once_with("EMPTY_PERCENTAGE")
+    mock_get_metric_ceiling_value.assert_called_once_with("EMPTY_PERCENTAGE")
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_floor_value"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.get_metric_ceiling_value"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_field_assertion_details"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._update_field_metric_monitor_evaluation_context"
+)
+@patch(
+    "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._rebuild_assertion"
+)
+def test_train_and_update_assertion_with_string_metric_type(
+    mock_rebuild_assertion: MagicMock,
+    mock_update_context: MagicMock,
+    mock_get_field_assertion_details: MagicMock,
+    mock_get_sensitivity_level: MagicMock,
+    mock_get_metric_ceiling_value: MagicMock,
+    mock_get_metric_floor_value: MagicMock,
+    trainer: FieldAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_field_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_boundaries: List[Mock],
+    mock_field_assertion_info: AssertionInfoClass,
+    mock_schema_field: Mock,
+    mock_evaluation_spec: Mock,
+) -> None:
+    """Test that train_and_update_assertion works correctly when metric is already a string."""
+    # Arrange
+    sensitivity = 2
+    mock_get_sensitivity_level.return_value = sensitivity
+    mock_dependencies[
+        "metrics_predictor"
+    ].predict_metric_boundaries.return_value = mock_boundaries
+
+    # Setup mock return values for floor/ceiling functions
+    mock_get_metric_floor_value.return_value = None
+    mock_get_metric_ceiling_value.return_value = None
+
+    # Setup field assertion details with string metric type (backward compatibility)
+    mock_get_field_assertion_details.return_value = (
+        mock_field_assertion_info,
+        cast(SchemaFieldSpecClass, mock_schema_field),
+        "MEAN",  # String instead of enum
+    )
+
+    mock_rebuild_assertion.return_value = cast(Assertion, mock_field_assertion)
+
+    # Act
+    trainer.train_and_update_assertion(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_field_assertion),
+        mock_metrics_data,
+        None,
+        cast(AssertionEvaluationSpec, mock_evaluation_spec),
+    )
+
+    # Assert
+    # When metric is already a string, it should be passed through as-is
+    mock_get_metric_floor_value.assert_called_once_with("MEAN")
+    mock_get_metric_ceiling_value.assert_called_once_with("MEAN")
+
+
+@patch(
     "datahub_executor.common.monitor.inference.field_assertion_trainer.FieldAssertionTrainer._get_sensitivity_level"
 )
 @patch(

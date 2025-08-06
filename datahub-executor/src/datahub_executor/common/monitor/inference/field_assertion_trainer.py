@@ -211,9 +211,10 @@ class FieldAssertionTrainer(BaseAssertionTrainer[Metric]):
         assertion_info, field, metric = self._get_field_assertion_details(assertion)
 
         # 3) Predict boundaries
-        metric_floor_value = get_metric_floor_value(str(metric))
-        metric_ceiling_value = get_metric_ceiling_value(str(metric))
-
+        # Handle both string and enum metric types
+        metric_name = metric.name if hasattr(metric, "name") else str(metric)
+        metric_floor_value = get_metric_floor_value(metric_name)
+        metric_ceiling_value = get_metric_ceiling_value(metric_name)
         boundaries = self.metrics_predictor.predict_metric_boundaries(
             events,
             timedelta(hours=1),

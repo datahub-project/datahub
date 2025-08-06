@@ -9,6 +9,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     CalendarIntervalClass,
     EmbeddedAssertionClass,
+    FieldMetricTypeClass,
     FixedIntervalScheduleClass,
 )
 
@@ -25,6 +26,8 @@ from datahub_executor.common.monitor.inference.utils import (
     create_embedded_assertion,
     create_inference_source,
     get_event_timespan_seconds,
+    get_metric_ceiling_value,
+    get_metric_floor_value,
     is_metric_anomaly,
 )
 from datahub_executor.common.types import Anomaly, CronSchedule
@@ -505,3 +508,142 @@ def test_coalesce_metrics() -> None:
     assert sum(1 for m in result if m.value == 10.0) == 1
     assert sum(1 for m in result if m.value == 15.0) == 1
     assert sum(1 for m in result if m.timestamp_ms == 200) == 1
+
+
+def test_get_metric_floor_value() -> None:
+    """Test get_metric_floor_value function with string metric names."""
+    # Test metrics that should have floor value of 0.0
+    metrics_with_floor = [
+        "EMPTY_COUNT",
+        "EMPTY_PERCENTAGE",
+        "NULL_COUNT",
+        "NULL_PERCENTAGE",
+        "NEGATIVE_COUNT",
+        "NEGATIVE_PERCENTAGE",
+        "UNIQUE_COUNT",
+        "UNIQUE_PERCENTAGE",
+        "ZERO_COUNT",
+        "ZERO_PERCENTAGE",
+        "MAX_LENGTH",
+        "MIN_LENGTH",
+    ]
+
+    for metric in metrics_with_floor:
+        assert get_metric_floor_value(metric) == 0.0, (
+            f"Metric {metric} should have floor value 0.0"
+        )
+
+    # Test metrics that should not have floor value
+    metrics_without_floor = [
+        "MEAN",
+        "MEDIAN",
+        "STDDEV",
+        "MIN",
+        "MAX",
+    ]
+
+    for metric in metrics_without_floor:
+        assert get_metric_floor_value(metric) is None, (
+            f"Metric {metric} should not have floor value"
+        )
+
+    # Test unknown metric
+    assert get_metric_floor_value("UNKNOWN_METRIC") is None
+
+
+def test_get_metric_ceiling_value() -> None:
+    """Test get_metric_ceiling_value function with string metric names."""
+    # Test percentage metrics that should have ceiling value of 100.0
+    percentage_metrics = [
+        "EMPTY_PERCENTAGE",
+        "NULL_PERCENTAGE",
+        "NEGATIVE_PERCENTAGE",
+        "UNIQUE_PERCENTAGE",
+        "ZERO_PERCENTAGE",
+    ]
+
+    for metric in percentage_metrics:
+        assert get_metric_ceiling_value(metric) == 100.0, (
+            f"Metric {metric} should have ceiling value 100.0"
+        )
+
+    # Test metrics that should not have ceiling value
+    metrics_without_ceiling = [
+        "EMPTY_COUNT",
+        "NULL_COUNT",
+        "NEGATIVE_COUNT",
+        "UNIQUE_COUNT",
+        "ZERO_COUNT",
+        "MAX_LENGTH",
+        "MIN_LENGTH",
+        "MEAN",
+        "MEDIAN",
+        "STDDEV",
+        "MIN",
+        "MAX",
+    ]
+
+    for metric in metrics_without_ceiling:
+        assert get_metric_ceiling_value(metric) is None, (
+            f"Metric {metric} should not have ceiling value"
+        )
+
+    # Test unknown metric
+    assert get_metric_ceiling_value("UNKNOWN_METRIC") is None
+
+
+def test_metric_name_vs_str_metric_regression() -> None:
+    """
+    Regression test to ensure we use metric.name correctly when dealing with enum objects.
+
+    This test demonstrates the critical bug that was fixed:
+    - FieldMetricTypeClass values are strings: "EMPTY_PERCENTAGE"
+    - datahub_executor.common.types.FieldMetricType values are enum objects with .name
+    - The bug was that str(enum_object) returns "FieldMetricType.EMPTY_PERCENTAGE"
+    - The fix is to use metric.name which returns "EMPTY_PERCENTAGE"
+
+    Only the string names work with our floor/ceiling functions.
+    """
+    # Import the actual enum type from the executor common types
+    from datahub_executor.common.types import FieldMetricType
+
+    # Test with actual enum metric type (this is what can come from some code paths)
+    metric_enum = FieldMetricType.EMPTY_PERCENTAGE
+
+    # Demonstrate the difference
+    str_result = str(metric_enum)  # Returns "FieldMetricType.EMPTY_PERCENTAGE"
+    name_result = metric_enum.name  # Returns "EMPTY_PERCENTAGE"
+
+    # The bug: str(metric) returns the full enum representation
+    assert str_result == "FieldMetricType.EMPTY_PERCENTAGE"
+    assert get_metric_floor_value(str_result) is None  # This would fail!
+    assert get_metric_ceiling_value(str_result) is None  # This would fail!
+
+    # The fix: metric.name returns just the enum name, which matches our constants
+    assert name_result == "EMPTY_PERCENTAGE"
+    assert get_metric_floor_value(name_result) == 0.0  # This works!
+    assert get_metric_ceiling_value(name_result) == 100.0  # This works!
+
+    # Test with other metric types to ensure comprehensive coverage
+    test_cases = [
+        (FieldMetricType.NULL_PERCENTAGE, 0.0, 100.0),
+        (FieldMetricType.UNIQUE_COUNT, 0.0, None),
+        (FieldMetricType.MEAN, None, None),
+    ]
+
+    for metric, expected_floor, expected_ceiling in test_cases:
+        # str(metric) would not work with our functions
+        str_name = str(metric)
+        assert get_metric_floor_value(str_name) is None
+        assert get_metric_ceiling_value(str_name) is None
+
+        # metric.name works correctly
+        enum_name = metric.name
+        assert get_metric_floor_value(enum_name) == expected_floor
+        assert get_metric_ceiling_value(enum_name) == expected_ceiling
+
+    # Also test that regular string values (FieldMetricTypeClass) work directly
+    string_metric = FieldMetricTypeClass.EMPTY_PERCENTAGE  # This is actually a string
+    assert isinstance(string_metric, str)
+    assert get_metric_floor_value(string_metric) == 0.0
+    assert get_metric_ceiling_value(string_metric) == 100.0

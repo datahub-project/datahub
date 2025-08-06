@@ -49,7 +49,11 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
     MetricBoundary,
     MetricPredictor,
 )
-from datahub_executor.common.monitor.inference.utils import is_metric_anomaly
+from datahub_executor.common.monitor.inference.utils import (
+    get_metric_ceiling_value,
+    get_metric_floor_value,
+    is_metric_anomaly,
+)
 from datahub_executor.common.types import (
     AssertionAdjustmentSettings,
     AssertionExclusionWindow,
@@ -396,12 +400,25 @@ Example exclusion windows:
 
     metric_predictor = MetricPredictor(user_config=user_config)
 
+    metric_type = (
+        assertion.assertion.field_assertion.field_metric_assertion.metric
+        if assertion.assertion.field_assertion
+        else None
+    )
+    if metric_type:
+        metric_floor_value = get_metric_floor_value(metric_type.name)
+        metric_ceiling_value = get_metric_ceiling_value(metric_type.name)
+    st.write(
+        f"Predicting metric boundaries for {metric_type} with floor value {metric_floor_value} and ceiling value {metric_ceiling_value}"
+    )
     metric_boundaries = metric_predictor.predict_metric_boundaries(
         training_metrics,
         unit=unit,
         multiple=multiple,
         sensitivity_level=sensitivity,
         start_time=last_day_cutoff,
+        floor_value=metric_floor_value,
+        ceiling_value=metric_ceiling_value,
     )
 
     fig = plot_metrics_and_predictions(
