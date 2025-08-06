@@ -456,6 +456,11 @@ public class ViewOpsDelegateTest {
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property3", "new_value3");
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
 
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/view");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("view-uuid-123");
+
     // Mock schema to prevent NullPointerException
     Schema schema =
         new Schema(
@@ -498,6 +503,11 @@ public class ViewOpsDelegateTest {
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "value1");
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "value2");
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/view");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("view-uuid-123");
 
     // Mock schema to prevent NullPointerException
     Schema schema =
@@ -549,6 +559,11 @@ public class ViewOpsDelegateTest {
     ViewMetadata mockMetadata = mock(ViewMetadata.class);
     Map<String, String> newIcebergProperties = new HashMap<>();
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/view");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("view-uuid-123");
 
     // Mock schema to prevent NullPointerException
     Schema schema =
@@ -603,6 +618,11 @@ public class ViewOpsDelegateTest {
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "new_value1");
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
 
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/view");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("view-uuid-123");
+
     // Mock schema to prevent NullPointerException
     Schema schema =
         new Schema(
@@ -651,6 +671,11 @@ public class ViewOpsDelegateTest {
     ViewMetadata mockMetadata = mock(ViewMetadata.class);
     Map<String, String> newIcebergProperties = new HashMap<>();
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/view");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("view-uuid-123");
 
     // Mock schema to prevent NullPointerException
     Schema schema =

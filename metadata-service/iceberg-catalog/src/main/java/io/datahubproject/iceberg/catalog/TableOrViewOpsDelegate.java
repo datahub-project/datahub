@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
 import org.apache.iceberg.Snapshot;
@@ -252,6 +253,10 @@ abstract class TableOrViewOpsDelegate<M> {
   // Any additional MCPs that need to be stored in the same transaction.
   void additionalMcps(M metadata, IcebergBatch.EntityBatch datasetBatch) {}
 
+  // Useful properties in the metadata. They vary for table vs view.
+  abstract void addMetadataProperties(
+      DatasetPropertiesPatchBuilder patchBuilder, @Nonnull M metadata);
+
   // Any additional MCPs that can be ingested asynchronously (and hence outside the iceberg commit
   // path)
   void additionalAsyncMcps(
@@ -293,6 +298,12 @@ abstract class TableOrViewOpsDelegate<M> {
         patchBuilder.removeCustomProperty(deletedProperty);
       }
     }
+
+    // Some useful metadata fields added as properties.
+    // Properties vary for tables and views, hence subclass implements them.
+    addMetadataProperties(patchBuilder, metadata.metadata());
+
+    // TBLPROPERTIES set via DDL have 'iceberg:' prefix
     for (String newProperty : newIcebergProperties.keySet()) {
       patchBuilder.addCustomProperty(
           ICEBERG_PROPERTY_PREFIX + newProperty, newIcebergProperties.get(newProperty));
@@ -378,6 +389,14 @@ class ViewOpsDelegate extends TableOrViewOpsDelegate<ViewMetadata> {
   protected StringMap getIcebergProperties(ViewMetadata metadata) {
     return new StringMap(metadata.properties());
   }
+
+  @Override
+  void addMetadataProperties(
+      DatasetPropertiesPatchBuilder patchBuilder, @Nonnull ViewMetadata metadata) {
+    patchBuilder.addCustomProperty("location", metadata.location());
+    patchBuilder.addCustomProperty("format-version", String.valueOf(metadata.formatVersion()));
+    patchBuilder.addCustomProperty("view-uuid", metadata.uuid());
+  }
 }
 
 class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
@@ -441,6 +460,22 @@ class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
   @Override
   protected StringMap getIcebergProperties(TableMetadata metadata) {
     return new StringMap(metadata.properties());
+  }
+
+  @Override
+  void addMetadataProperties(
+      DatasetPropertiesPatchBuilder patchBuilder, @Nonnull TableMetadata metadata) {
+    patchBuilder.addCustomProperty("location", metadata.location());
+    patchBuilder.addCustomProperty("format-version", String.valueOf(metadata.formatVersion()));
+    patchBuilder.addCustomProperty("table-uuid", metadata.uuid());
+    if (metadata.currentSnapshot() != null) {
+      patchBuilder.addCustomProperty(
+          "snapshot-id", String.valueOf(metadata.currentSnapshot().snapshotId()));
+      patchBuilder.addCustomProperty(
+          "sequence-number", String.valueOf(metadata.currentSnapshot().sequenceNumber()));
+      patchBuilder.addCustomProperty(
+          "manifest-list", metadata.currentSnapshot().manifestListLocation());
+    }
   }
 }
 

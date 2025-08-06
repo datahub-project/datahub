@@ -120,6 +120,15 @@ public class TableOpsDelegateTest {
     TableMetadata metadata = mock(TableMetadata.class);
     when(metadata.schema()).thenReturn(schema);
     when(metadata.location()).thenReturn("s3://bucket/table");
+    when(metadata.formatVersion()).thenReturn(2);
+    when(metadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(metadata.currentSnapshot()).thenReturn(mockSnapshot);
 
     // Simulating new table creation
     when(mockWarehouse.getIcebergMetadataEnveloped(identifier)).thenReturn(null);
@@ -222,6 +231,15 @@ public class TableOpsDelegateTest {
     TableMetadata metadata = mock(TableMetadata.class);
     when(metadata.location()).thenReturn("s3://bucket/table");
     when(metadata.currentSchemaId()).thenReturn(existingSchemaId);
+    when(metadata.formatVersion()).thenReturn(2);
+    when(metadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(metadata.currentSnapshot()).thenReturn(mockSnapshot);
 
     TableMetadata base = mock(TableMetadata.class);
     when(base.metadataFileLocation()).thenReturn(existingLocation);
@@ -273,6 +291,15 @@ public class TableOpsDelegateTest {
     when(metadata.schema()).thenReturn(schema);
     when(metadata.location()).thenReturn("s3://bucket/table");
     when(metadata.currentSchemaId()).thenReturn(existingSchemaId + 1);
+    when(metadata.formatVersion()).thenReturn(2);
+    when(metadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(metadata.currentSnapshot()).thenReturn(mockSnapshot);
 
     TableMetadata base = mock(TableMetadata.class);
     when(base.metadataFileLocation()).thenReturn(existingLocation);
@@ -524,6 +551,18 @@ public class TableOpsDelegateTest {
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property3", "new_value3");
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
 
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/table");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
+
     Schema schema =
         new Schema(
             Types.NestedField.required(1, "id", Types.LongType.get()),
@@ -564,6 +603,18 @@ public class TableOpsDelegateTest {
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "value1");
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property2", "value2");
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/table");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
 
     // Mock schema to prevent NullPointerException
     Schema schema =
@@ -614,6 +665,18 @@ public class TableOpsDelegateTest {
     TableMetadata mockMetadata = mock(TableMetadata.class);
     Map<String, String> newIcebergProperties = new HashMap<>();
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/table");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
 
     Schema schema =
         new Schema(
@@ -666,6 +729,18 @@ public class TableOpsDelegateTest {
     newIcebergProperties.put(ICEBERG_PROPERTY_PREFIX + "property1", "new_value1");
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
 
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/table");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
+
     Schema schema =
         new Schema(
             Types.NestedField.required(1, "id", Types.LongType.get()),
@@ -712,6 +787,18 @@ public class TableOpsDelegateTest {
     TableMetadata mockMetadata = mock(TableMetadata.class);
     Map<String, String> newIcebergProperties = new HashMap<>();
     when(mockMetadata.properties()).thenReturn(newIcebergProperties);
+
+    // Mock metadata properties that will be added by addMetadataProperties
+    when(mockMetadata.location()).thenReturn("/path/to/table");
+    when(mockMetadata.formatVersion()).thenReturn(2);
+    when(mockMetadata.uuid()).thenReturn("table-uuid-123");
+
+    // Mock current snapshot
+    Snapshot mockSnapshot = mock(Snapshot.class);
+    when(mockSnapshot.snapshotId()).thenReturn(12345L);
+    when(mockSnapshot.sequenceNumber()).thenReturn(1L);
+    when(mockSnapshot.manifestListLocation()).thenReturn("/path/to/manifest-list");
+    when(mockMetadata.currentSnapshot()).thenReturn(mockSnapshot);
 
     // Mock schema to prevent NullPointerException
     Schema schema =
