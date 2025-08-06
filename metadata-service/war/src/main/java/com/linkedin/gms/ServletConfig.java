@@ -89,9 +89,6 @@ public class ServletConfig implements WebMvcConfigurer {
     return registration;
   }
 
-  // HealthCheck servlet removed - replaced by bootstrap-aware /health endpoint in
-  // HealthCheckController
-
   @Bean
   public ServletRegistrationBean<Config> configServlet() {
     ServletRegistrationBean<Config> registration = new ServletRegistrationBean<>(new Config());
