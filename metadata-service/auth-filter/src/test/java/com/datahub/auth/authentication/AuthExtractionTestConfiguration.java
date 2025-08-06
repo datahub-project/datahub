@@ -2,7 +2,7 @@ package com.datahub.auth.authentication;
 
 import static org.mockito.Mockito.*;
 
-import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
+import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.TokenServiceConfiguration;
@@ -20,8 +20,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
 
+/**
+ * Test configuration for AuthenticationExtractionFilter tests.
+ *
+ * <p>Provides the necessary beans and configuration for testing the authentication extraction tier
+ * of the two-tier authentication system.
+ */
 @Configuration
-public class AuthTestConfiguration {
+public class AuthExtractionTestConfiguration {
 
   @Bean
   public EntityService<?> entityService() {
@@ -77,9 +83,8 @@ public class AuthTestConfiguration {
   }
 
   @Bean
-  // TODO: Constructor injection
   @DependsOn({"configurationProvider", "dataHubTokenService", "entityService"})
-  public AuthenticationEnforcementFilter authenticationEnforcementFilter() throws ServletException {
-    return new AuthenticationEnforcementFilter();
+  public AuthenticationExtractionFilter authenticationExtractionFilter() throws ServletException {
+    return new AuthenticationExtractionFilter();
   }
 }
