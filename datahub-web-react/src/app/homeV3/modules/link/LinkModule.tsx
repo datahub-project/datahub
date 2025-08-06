@@ -50,7 +50,7 @@ export default function LinkModule(props: ModuleProps) {
     }
 
     return (
-        <SmallModule {...props} onClick={goToLink}>
+        <SmallModule {...props} onClick={goToLink} dataTestId="link-module">
             <Container>
                 <LeftSection>
                     {linkParams?.imageUrl ? (

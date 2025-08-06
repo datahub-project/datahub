@@ -14,7 +14,7 @@ export default function TreeNodesRenderer() {
     const { nodes } = useTreeViewContext();
 
     return (
-        <Wrapper>
+        <Wrapper data-testid="hierarchy-module-nodes">
             {nodes.map((node) => (
                 <TreeNodeRenderer node={node} depth={0} key={node.value} />
             ))}

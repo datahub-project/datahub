@@ -90,11 +90,11 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule
                 />
             ),
-
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Link);
             },
             disabled: isLargeModuleRow,
+            'data-testid': 'add-link-module',
         };
 
         const documentation = {
@@ -109,11 +109,11 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule={false}
                 />
             ),
-
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.RichText);
             },
             disabled: isSmallModuleRow,
+            'data-testid': 'add-documentation-module',
         };
 
         const assetCollection = {
@@ -132,6 +132,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                 handleOpenCreateModuleModal(DataHubPageModuleType.AssetCollection);
             },
             disabled: isSmallModuleRow,
+            'data-testid': 'add-asset-collection-module',
         };
 
         const hierarchyView = {
@@ -141,6 +142,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             onClick: () => {
                 handleOpenCreateModuleModal(DataHubPageModuleType.Hierarchy);
             },
+            'data-testid': 'add-hierarchy-module',
         };
 
         items.push({
@@ -162,11 +164,11 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule={false}
                 />
             ),
-
             onClick: () => {
                 handleAddExistingModule(YOUR_ASSETS_MODULE);
             },
             disabled: isSmallModuleRow,
+            'data-testid': 'add-your-assets-module',
         };
 
         const domains = {
@@ -181,11 +183,11 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
                     isSmallModule={false}
                 />
             ),
-
             onClick: () => {
                 handleAddExistingModule(DOMAINS_MODULE);
             },
             disabled: isSmallModuleRow,
+            'data-testid': 'add-domains-module',
         };
 
         items.push({

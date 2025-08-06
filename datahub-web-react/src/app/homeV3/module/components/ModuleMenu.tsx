@@ -1,5 +1,4 @@
-import { Icon, Text, Tooltip, colors } from '@components';
-import { Dropdown } from 'antd';
+import { Dropdown, Icon, Text, Tooltip, colors } from '@components';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
@@ -54,50 +53,54 @@ export default function ModuleMenu({ module, position }: Props) {
 
     const menuItemStyle = { fontSize: '14px', padding: '5px 16px' };
 
+    const menu = {
+        items: [
+            {
+                title: 'Edit',
+                key: 'edit',
+                label: (
+                    <>
+                        {!canEdit ? (
+                            <Tooltip title="You can not edit Default widgets" data-testid="edit-module-tooltip">
+                                <Text color="gray" colorLevel={300}>
+                                    Edit
+                                </Text>
+                            </Tooltip>
+                        ) : (
+                            <Text color="gray" colorLevel={600}>
+                                Edit
+                            </Text>
+                        )}
+                    </>
+                ),
+                style: {
+                    ...menuItemStyle,
+                },
+                onClick: handleEditModule,
+                disabled: !canEdit,
+                'data-testid': 'edit-module',
+            },
+
+            {
+                title: 'Remove',
+                label: 'Remove',
+                key: 'remove',
+                style: {
+                    ...menuItemStyle,
+                    color: colors.red[500],
+                },
+                onClick: handleRemove,
+                'data-testid': 'remove-module',
+            },
+        ],
+    };
+
     return (
-        <DropdownWrapper onClick={handleMenuClick}>
+        <DropdownWrapper onClick={handleMenuClick} data-testid="module-options">
             <Dropdown
                 trigger={['click']}
                 dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
-                menu={{
-                    items: [
-                        {
-                            title: 'Edit',
-                            key: 'edit',
-                            label: (
-                                <>
-                                    {!canEdit ? (
-                                        <Tooltip title="You can not edit Default widgets">
-                                            <Text color="gray" colorLevel={300}>
-                                                Edit
-                                            </Text>
-                                        </Tooltip>
-                                    ) : (
-                                        <Text color="gray" colorLevel={600}>
-                                            Edit
-                                        </Text>
-                                    )}
-                                </>
-                            ),
-                            style: {
-                                ...menuItemStyle,
-                            },
-                            onClick: handleEditModule,
-                            disabled: !canEdit,
-                        },
-
-                        {
-                            title: 'Remove',
-                            label: 'Remove',
-                            key: 'remove',
-                            style: {
-                                ...menuItemStyle,
-                                color: colors.red[500],
-                            },
-                            onClick: handleRemove,
-                        },
-                    ],
-                }}
+                menu={menu}
             >
                 <StyledIcon icon="DotsThreeVertical" source="phosphor" size="lg" />
             </Dropdown>

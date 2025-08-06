@@ -17,7 +17,7 @@ const AssetCollectionModule = (props: ModuleProps) => {
     const { entities, loading } = useGetEntities(assetUrns);
 
     return (
-        <LargeModule {...props} loading={loading}>
+        <LargeModule {...props} loading={loading} dataTestId="asset-collection-module">
             {entities?.length === 0 ? (
                 <EmptyContent
                     icon="Stack"
@@ -25,15 +25,17 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     description="Edit the module and add assets to see them in this list"
                 />
             ) : (
-                entities
-                    .filter((entity): entity is Entity => entity !== null)
-                    .map((entity) => (
-                        <EntityItem
-                            entity={entity}
-                            key={entity?.urn}
-                            moduleType={DataHubPageModuleType.AssetCollection}
-                        />
-                    ))
+                <div data-testid="asset-collection-entities">
+                    {entities
+                        .filter((entity): entity is Entity => entity !== null)
+                        .map((entity) => (
+                            <EntityItem
+                                entity={entity}
+                                key={entity?.urn}
+                                moduleType={DataHubPageModuleType.AssetCollection}
+                            />
+                        ))}
+                </div>
             )}
         </LargeModule>
     );

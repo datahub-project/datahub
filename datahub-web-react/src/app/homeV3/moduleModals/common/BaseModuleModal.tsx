@@ -45,6 +45,7 @@ export default function BaseModuleModal({
             color: 'primary',
             variant: 'filled',
             onClick: onUpsert,
+            buttonDataTestId: 'create-update-module-button',
             ...submitButtonProps,
         },
     ];

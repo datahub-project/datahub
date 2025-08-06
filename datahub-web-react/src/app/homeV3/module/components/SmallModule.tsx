@@ -44,7 +44,17 @@ const StyledModuleContainer = styled(ModuleContainer)<{ clickable?: boolean }>`
     ${({ clickable }) => clickable && `cursor: pointer;`}
 `;
 
-export default function SmallModule({ children, module, position, onClick }: React.PropsWithChildren<ModuleProps>) {
+interface Props extends ModuleProps {
+    dataTestId?: string;
+}
+
+export default function SmallModule({
+    children,
+    module,
+    position,
+    onClick,
+    dataTestId,
+}: React.PropsWithChildren<Props>) {
     const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
         id: `module-${module.urn}-${position.rowIndex}-${position.moduleIndex}`,
         data: {
@@ -55,7 +65,13 @@ export default function SmallModule({ children, module, position, onClick }: Rea
     });
 
     return (
-        <StyledModuleContainer clickable={!!onClick} onClick={onClick} ref={setNodeRef} {...attributes}>
+        <StyledModuleContainer
+            clickable={!!onClick}
+            onClick={onClick}
+            ref={setNodeRef}
+            {...attributes}
+            data-testId={dataTestId}
+        >
             <ContainerWithHover>
                 <DragIcon
                     {...listeners}

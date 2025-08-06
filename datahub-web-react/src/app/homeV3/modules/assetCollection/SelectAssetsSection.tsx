@@ -60,6 +60,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                     size="xs"
                     isChecked={selectedAssetUrns?.includes(entity.urn)}
                     onCheckboxChange={() => handleCheckboxChange(entity.urn)}
+                    data-testid="asset-selection-checkbox"
                 />
             </ItemDetailsContainer>
         );
@@ -97,7 +98,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 appliedFilters={appliedFilters}
                 updateFieldFilters={updateFieldFilters}
             />
-            <ResultsContainer>{content}</ResultsContainer>
+            <ResultsContainer data-testid="select-assets-search-results">{content}</ResultsContainer>
         </AssetsSection>
     );
 };

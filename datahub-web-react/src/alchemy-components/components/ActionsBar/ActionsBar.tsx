@@ -22,5 +22,5 @@ const ActionsContainer = styled.div`
 export type ActionsBarProps = { children?: React.ReactNode };
 
 export const ActionsBar = ({ children }: ActionsBarProps) => {
-    return <ActionsContainer>{children}</ActionsContainer>;
+    return <ActionsContainer data-testid="editing-default-template-bar">{children}</ActionsContainer>;
 };
