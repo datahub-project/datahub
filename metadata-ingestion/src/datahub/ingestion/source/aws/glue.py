@@ -541,6 +541,14 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             self.report.num_job_script_failed_download += 1
             return None
+        except botocore.exceptions.ParamValidationError as e:
+            self.report_warning(
+                flow_urn,
+                f"Invalid S3 path for Glue job script {script_path}: {e}",
+            )
+            self.report.num_job_script_location_invalid += 1
+            return None
+
         script = obj["Body"].read().decode("utf-8")
 
         try:

@@ -1,6 +1,7 @@
 import datetime
 from unittest.mock import patch
 
+import botocore.exceptions
 from botocore.stub import Stubber
 
 from datahub.ingestion.api.common import PipelineContext
@@ -159,8 +160,79 @@ def test_original_error_scenario():
     assert glue_source_instance.report.num_job_script_location_invalid == 1
 
 
+def test_param_validation_error_handling():
+    """Test that ParamValidationError from S3 get_object is properly caught and handled."""
+
+    config = GlueSourceConfig(
+        aws_region="us-west-2",
+        extract_transforms=True,
+    )
+
+    ctx = PipelineContext(run_id="test_run")
+    glue_source_instance = GlueSource(config=config, ctx=ctx)
+
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    # Test case 1: Mock ParamValidationError during S3 get_object call
+    with patch.object(glue_source_instance.s3_client, "get_object") as mock_s3_get:
+        # Simulate the ParamValidationError that would occur with invalid S3 parameters
+        mock_s3_get.side_effect = botocore.exceptions.ParamValidationError(
+            report="Invalid length for parameter Key, value: 0, valid min length: 1"
+        )
+
+        initial_invalid_count = (
+            glue_source_instance.report.num_job_script_location_invalid
+        )
+
+        result = glue_source_instance.get_dataflow_graph(
+            "s3://test-bucket/invalid-key", flow_urn
+        )
+
+        # Should return None instead of crashing
+        assert result is None
+
+        # Should increment the invalid script location counter
+        assert (
+            glue_source_instance.report.num_job_script_location_invalid
+            == initial_invalid_count + 1
+        )
+
+        # Verify the S3 get_object was actually called (so we know the error handling is in the right place)
+        mock_s3_get.assert_called_once_with(Bucket="test-bucket", Key="invalid-key")
+
+    # Test case 2: Different ParamValidationError scenarios
+    with patch.object(glue_source_instance.s3_client, "get_object") as mock_s3_get:
+        # Simulate another type of ParamValidationError
+        mock_s3_get.side_effect = botocore.exceptions.ParamValidationError(
+            report="Parameter validation failed: Invalid bucket name"
+        )
+
+        initial_invalid_count = (
+            glue_source_instance.report.num_job_script_location_invalid
+        )
+
+        result = glue_source_instance.get_dataflow_graph(
+            "s3://invalid-bucket-name/script.py", flow_urn
+        )
+
+        # Should return None instead of crashing
+        assert result is None
+
+        # Should increment the invalid script location counter
+        assert (
+            glue_source_instance.report.num_job_script_location_invalid
+            == initial_invalid_count + 1
+        )
+
+        # Verify the S3 get_object was called with the expected parameters
+        mock_s3_get.assert_called_once_with(
+            Bucket="invalid-bucket-name", Key="script.py"
+        )
+
+
 if __name__ == "__main__":
     test_empty_s3_key_handling()
     test_get_dataflow_graph_with_empty_key_directly()
     test_original_error_scenario()
+    test_param_validation_error_handling()
     print("All tests passed!")
