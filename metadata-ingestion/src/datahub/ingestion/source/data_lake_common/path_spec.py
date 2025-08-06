@@ -62,7 +62,6 @@ class SortKey(ConfigModel):
 
     date_format: Optional[str] = Field(
         default=None,
-        type=str,
         description="The date format to use when sorting. This is used to parse the date from the key. The format should follow the java [SimpleDateFormat](https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html) format.",
     )
 
@@ -260,7 +259,7 @@ class PathSpec(ConfigModel):
     ) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_folder_include.parse(path)
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_no_double_stars(cls, values: Dict) -> Dict:
         if "include" not in values:
             return values

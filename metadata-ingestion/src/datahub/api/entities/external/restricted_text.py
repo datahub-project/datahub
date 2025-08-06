@@ -45,9 +45,9 @@ class RestrictedText(ConfigModel):
         custom_field="hello-world.test"
     )
 
-    # model.name returns truncated and sanitized version
-    # model.name.raw_text returns original value
-    # model.custom_field returns "hello_worl..."
+    print(model.name)  # Truncated and sanitized version
+    print(model.name.text)  # Original value
+    print(model.custom_field)  # "hello_worl..."
     ```
     """
 
