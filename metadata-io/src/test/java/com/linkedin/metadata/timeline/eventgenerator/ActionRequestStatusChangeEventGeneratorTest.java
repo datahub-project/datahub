@@ -12,6 +12,7 @@ import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequest;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -58,6 +59,7 @@ public class ActionRequestStatusChangeEventGeneratorTest {
     UserService mockUserService = mock(UserService.class);
     OperationContext mockOperationContext = mock(OperationContext.class);
     ActionWorkflowService mockWorkflowService = mock(ActionWorkflowService.class);
+    SystemEntityClient mockSystemEntityClient = mock(SystemEntityClient.class);
 
     when(mockUserService.getUserEmail(any(OperationContext.class), any(Urn.class)))
         .thenReturn("test@example.com");
@@ -65,7 +67,7 @@ public class ActionRequestStatusChangeEventGeneratorTest {
     // Create generator with workflow dependencies
     ActionRequestStatusChangeEventGenerator generator =
         new ActionRequestStatusChangeEventGenerator(
-            mockUserService, mockOperationContext, mockWorkflowService);
+            mockUserService, mockOperationContext, mockWorkflowService, mockSystemEntityClient);
 
     Urn urn = Urn.createFromString("urn:li:actionRequest:test");
     String entity = "actionRequest";
@@ -106,11 +108,12 @@ public class ActionRequestStatusChangeEventGeneratorTest {
     UserService mockUserService = mock(UserService.class);
     OperationContext mockOperationContext = mock(OperationContext.class);
     ActionWorkflowService mockWorkflowService = mock(ActionWorkflowService.class);
+    SystemEntityClient mockSystemEntityClient = mock(SystemEntityClient.class);
 
     // Create generator with workflow dependencies
     ActionRequestStatusChangeEventGenerator generator =
         new ActionRequestStatusChangeEventGenerator(
-            mockUserService, mockOperationContext, mockWorkflowService);
+            mockUserService, mockOperationContext, mockWorkflowService, mockSystemEntityClient);
 
     Urn urn = Urn.createFromString("urn:li:actionRequest:test");
     String entity = "actionRequest";

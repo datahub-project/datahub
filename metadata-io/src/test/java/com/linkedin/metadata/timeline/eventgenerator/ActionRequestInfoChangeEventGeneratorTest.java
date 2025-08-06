@@ -10,6 +10,7 @@ import com.linkedin.actionrequest.*;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequest;
 import com.linkedin.common.*;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -146,6 +147,7 @@ public class ActionRequestInfoChangeEventGeneratorTest {
     // Setup mocks
     UserService mockUserService = mock(UserService.class);
     OperationContext mockOperationContext = mock(OperationContext.class);
+    SystemEntityClient mockSystemClient = mock(SystemEntityClient.class);
 
     // Mock user service to return user email for the test URN
     Urn actorUrn = Urn.createFromString("urn:li:corpuser:test");
@@ -154,7 +156,8 @@ public class ActionRequestInfoChangeEventGeneratorTest {
 
     // Create generator with workflow dependencies
     ActionRequestInfoChangeEventGenerator generator =
-        new ActionRequestInfoChangeEventGenerator(mockUserService, mockOperationContext);
+        new ActionRequestInfoChangeEventGenerator(
+            mockUserService, mockOperationContext, mockSystemClient);
 
     Urn urn = Urn.createFromString("urn:li:actionRequest:test");
     String entity = "actionRequest";
@@ -187,10 +190,12 @@ public class ActionRequestInfoChangeEventGeneratorTest {
     // Setup mocks
     UserService mockUserService = mock(UserService.class);
     OperationContext mockOperationContext = mock(OperationContext.class);
+    SystemEntityClient mockSystemClient = mock(SystemEntityClient.class);
 
     // Create generator with workflow dependencies
     ActionRequestInfoChangeEventGenerator generator =
-        new ActionRequestInfoChangeEventGenerator(mockUserService, mockOperationContext);
+        new ActionRequestInfoChangeEventGenerator(
+            mockUserService, mockOperationContext, mockSystemClient);
 
     Urn urn = Urn.createFromString("urn:li:actionRequest:test");
     String entity = "actionRequest";
@@ -228,13 +233,15 @@ public class ActionRequestInfoChangeEventGeneratorTest {
     // Mock dependencies
     UserService mockUserService = mock(UserService.class);
     OperationContext mockOperationContext = mock(OperationContext.class);
+    SystemEntityClient mockSystemClient = mock(SystemEntityClient.class);
 
     when(mockUserService.getUserEmail(any(OperationContext.class), any(Urn.class)))
         .thenReturn("test@example.com");
 
     // Create generator with workflow dependencies
     ActionRequestInfoChangeEventGenerator generator =
-        new ActionRequestInfoChangeEventGenerator(mockUserService, mockOperationContext);
+        new ActionRequestInfoChangeEventGenerator(
+            mockUserService, mockOperationContext, mockSystemClient);
 
     Urn urn = Urn.createFromString("urn:li:actionRequest:test");
     String entity = "actionRequest";
@@ -266,10 +273,12 @@ public class ActionRequestInfoChangeEventGeneratorTest {
     // Mock dependencies
     UserService mockUserService = mock(UserService.class);
     OperationContext mockOperationContext = mock(OperationContext.class);
+    SystemEntityClient mockSystemClient = mock(SystemEntityClient.class);
 
     // Create generator with workflow dependencies
     ActionRequestInfoChangeEventGenerator generator =
-        new ActionRequestInfoChangeEventGenerator(mockUserService, mockOperationContext);
+        new ActionRequestInfoChangeEventGenerator(
+            mockUserService, mockOperationContext, mockSystemClient);
 
     Urn urn = Urn.createFromString("urn:li:actionRequest:test");
     String entity = "actionRequest";

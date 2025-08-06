@@ -1,7 +1,7 @@
 package com.linkedin.gms.factory.notifications;
 
-import com.datahub.notification.provider.IdentityProvider;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.service.IdentityProvider;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;

@@ -1,11 +1,10 @@
-package com.datahub.notification;
+package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.notification.provider.IdentityProvider;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;

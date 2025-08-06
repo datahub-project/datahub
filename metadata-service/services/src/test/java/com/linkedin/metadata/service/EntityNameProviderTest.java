@@ -1,4 +1,4 @@
-package com.datahub.notification.provider;
+package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;

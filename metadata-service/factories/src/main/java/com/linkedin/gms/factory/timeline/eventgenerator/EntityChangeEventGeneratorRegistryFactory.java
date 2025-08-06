@@ -107,10 +107,11 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(
         ACTION_REQUEST_STATUS_ASPECT_NAME,
         new ActionRequestStatusChangeEventGenerator(
-            userService, systemOperationContext, actionWorkflowService));
+            userService, systemOperationContext, actionWorkflowService, systemEntityClient));
     registry.register(
         ACTION_REQUEST_INFO_ASPECT_NAME,
-        new ActionRequestInfoChangeEventGenerator(userService, systemOperationContext));
+        new ActionRequestInfoChangeEventGenerator(
+            userService, systemOperationContext, systemEntityClient));
 
     // Incidents change event generator
     registry.register(INCIDENT_INFO_ASPECT_NAME, new IncidentInfoChangeEventGenerator());

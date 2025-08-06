@@ -1,4 +1,4 @@
-package com.datahub.notification.provider;
+package com.linkedin.metadata.service;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.chart.ChartInfo;

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.actionrequest.*;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -16,7 +17,6 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.*;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class ActionRequestInfoChangeEventGenerator
     extends EntityChangeEventGenerator<ActionRequestInfo> {
@@ -31,13 +31,12 @@ public class ActionRequestInfoChangeEventGenerator
 
   // Constructor with workflow dependencies
   public ActionRequestInfoChangeEventGenerator(
-      @Nullable final UserService userService,
-      @Nullable final OperationContext systemOperationContext) {
+      @Nonnull final UserService userService,
+      @Nonnull final OperationContext systemOperationContext,
+      @Nonnull final SystemEntityClient systemEntityClient) {
     this.workflowFormRequestStepCompletionChangeEventGenerator =
-        (userService != null && systemOperationContext != null)
-            ? new WorkflowFormRequestStepCompletionChangeEventGenerator(
-                userService, systemOperationContext)
-            : null;
+        new WorkflowFormRequestStepCompletionChangeEventGenerator(
+            userService, systemOperationContext, systemEntityClient);
   }
 
   @Override

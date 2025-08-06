@@ -24,6 +24,7 @@ import com.linkedin.actionworkflow.ActionWorkflowRequestStepState;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -43,6 +44,7 @@ public class WorkflowFormRequestCompletionChangeEventGeneratorTest {
   private UserService mockUserService;
   private OperationContext mockOperationContext;
   private ActionWorkflowService mockActionWorkflowService;
+  private SystemEntityClient mockSystemEntityClient;
 
   private static final Urn TEST_ACTION_REQUEST_URN =
       UrnUtils.getUrn("urn:li:actionRequest:test-request");
@@ -57,6 +59,7 @@ public class WorkflowFormRequestCompletionChangeEventGeneratorTest {
     mockUserService = mock(UserService.class);
     mockOperationContext = mock(OperationContext.class);
     mockActionWorkflowService = mock(ActionWorkflowService.class);
+    mockSystemEntityClient = mock(SystemEntityClient.class);
 
     // Mock user service to return user email
     when(mockUserService.getUserEmail(any(OperationContext.class), eq(TEST_ACTOR_URN)))
@@ -70,7 +73,10 @@ public class WorkflowFormRequestCompletionChangeEventGeneratorTest {
 
     generator =
         new WorkflowFormRequestCompletionChangeEventGenerator(
-            mockUserService, mockOperationContext, mockActionWorkflowService);
+            mockUserService,
+            mockOperationContext,
+            mockActionWorkflowService,
+            mockSystemEntityClient);
   }
 
   @Test
@@ -80,7 +86,7 @@ public class WorkflowFormRequestCompletionChangeEventGeneratorTest {
 
     // Test constructor with null parameters
     WorkflowFormRequestCompletionChangeEventGenerator nullGenerator =
-        new WorkflowFormRequestCompletionChangeEventGenerator(null, null, null);
+        new WorkflowFormRequestCompletionChangeEventGenerator(null, null, null, null);
     assertNotNull(nullGenerator);
   }
 
@@ -912,6 +918,167 @@ public class WorkflowFormRequestCompletionChangeEventGeneratorTest {
     // Verify expiresAtMs parameter is not included when expiresAt is not set
     Map<String, Object> parameters = event.getParameters();
     assertFalse(parameters.containsKey("expiresAtMs"));
+    assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
+  }
+
+  @Test
+  public void testWorkflowCompletionWithEntityContext() throws Exception {
+    // Create workflow request with resource URN
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+    actionRequestInfo.setResource(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+    actionRequestInfo.setResourceType("dataset");
+
+    when(mockActionWorkflowService.getActionRequestInfo(
+            any(OperationContext.class), eq(TEST_ACTION_REQUEST_URN)))
+        .thenReturn(actionRequestInfo);
+
+    // Mock EntityNameProvider responses for dataset URN
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+
+    // Setup EntityNameProvider mocks using reflection or by directly mocking the methods
+    // Note: Since EntityNameProvider is created internally, we need to mock SystemEntityClient
+    // responses
+    // that EntityNameProvider would use
+
+    ActionRequestStatus previousStatus = new ActionRequestStatus();
+    previousStatus.setStatus("PENDING");
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
+    newStatus.setResult(ACTION_REQUEST_RESULT_ACCEPTED);
+
+    Aspect<ActionRequestStatus> fromAspect = new Aspect<>(previousStatus, null);
+    Aspect<ActionRequestStatus> toAspect = new Aspect<>(newStatus, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestStatus",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    assertEquals(event.getCategory(), ChangeCategory.LIFECYCLE);
+    assertEquals(event.getOperation(), ChangeOperation.COMPLETED);
+
+    // Verify entity context parameters
+    Map<String, Object> parameters = event.getParameters();
+    assertEquals(parameters.get("entityUrn"), datasetUrn.toString());
+    assertEquals(parameters.get("entityType"), "dataset");
+    assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
+
+    // The entityName, qualifiedEntityName, and entityPlatformName will be present
+    // if EntityNameProvider returns non-null values (this depends on the mock setup)
+    assertTrue(parameters.containsKey("entityUrn"));
+  }
+
+  @Test
+  public void testWorkflowCompletionWithoutResource() throws Exception {
+    // Create workflow request without resource URN
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+    // Don't set resource
+
+    when(mockActionWorkflowService.getActionRequestInfo(
+            any(OperationContext.class), eq(TEST_ACTION_REQUEST_URN)))
+        .thenReturn(actionRequestInfo);
+
+    ActionRequestStatus previousStatus = new ActionRequestStatus();
+    previousStatus.setStatus("PENDING");
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
+    newStatus.setResult(ACTION_REQUEST_RESULT_ACCEPTED);
+
+    Aspect<ActionRequestStatus> fromAspect = new Aspect<>(previousStatus, null);
+    Aspect<ActionRequestStatus> toAspect = new Aspect<>(newStatus, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestStatus",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify that no entity context parameters are present when resource is not set
+    Map<String, Object> parameters = event.getParameters();
+    assertFalse(parameters.containsKey("entityUrn"));
+    assertFalse(parameters.containsKey("entityName"));
+    assertFalse(parameters.containsKey("entityType"));
+    assertFalse(parameters.containsKey("qualifiedEntityName"));
+    assertFalse(parameters.containsKey("entityPlatformName"));
+
+    // But other parameters should still be present
+    assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
+    assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
+  }
+
+  @Test
+  public void testWorkflowCompletionWithInvalidResource() throws Exception {
+    // Create workflow request with invalid resource URN
+    ActionRequestInfo actionRequestInfo = createTestWorkflowActionRequestInfo();
+    actionRequestInfo.setResource("invalid-urn-format");
+    actionRequestInfo.setResourceType("dataset");
+
+    when(mockActionWorkflowService.getActionRequestInfo(
+            any(OperationContext.class), eq(TEST_ACTION_REQUEST_URN)))
+        .thenReturn(actionRequestInfo);
+
+    ActionRequestStatus previousStatus = new ActionRequestStatus();
+    previousStatus.setStatus("PENDING");
+
+    ActionRequestStatus newStatus = new ActionRequestStatus();
+    newStatus.setStatus(ACTION_REQUEST_STATUS_COMPLETE);
+    newStatus.setResult(ACTION_REQUEST_RESULT_ACCEPTED);
+
+    Aspect<ActionRequestStatus> fromAspect = new Aspect<>(previousStatus, null);
+    Aspect<ActionRequestStatus> toAspect = new Aspect<>(newStatus, null);
+
+    AuditStamp auditStamp = new AuditStamp().setTime(TEST_TIMESTAMP).setActor(TEST_ACTOR_URN);
+
+    // Generate change events
+    List<ChangeEvent> changeEvents =
+        generator.getChangeEvents(
+            TEST_ACTION_REQUEST_URN,
+            "actionRequest",
+            "actionRequestStatus",
+            fromAspect,
+            toAspect,
+            auditStamp);
+
+    // Verify event is still generated but without entity context
+    assertEquals(changeEvents.size(), 1);
+    ChangeEvent event = changeEvents.get(0);
+
+    // Verify that no entity context parameters are present when resource URN is invalid
+    Map<String, Object> parameters = event.getParameters();
+    assertFalse(parameters.containsKey("entityUrn"));
+    assertFalse(parameters.containsKey("entityName"));
+    assertFalse(parameters.containsKey("entityType"));
+    assertFalse(parameters.containsKey("qualifiedEntityName"));
+    assertFalse(parameters.containsKey("entityPlatformName"));
+
+    // But other parameters should still be present
     assertEquals(parameters.get("actionRequestType"), ACTION_REQUEST_TYPE_WORKFLOW_FORM_REQUEST);
     assertEquals(parameters.get("result"), ACTION_REQUEST_RESULT_ACCEPTED);
   }

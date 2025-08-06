@@ -1,12 +1,12 @@
 package com.datahub.notification;
 
-import com.datahub.notification.provider.EntityNameProvider;
-import com.datahub.notification.provider.IdentityProvider;
 import com.datahub.notification.provider.SecretProvider;
 import com.datahub.notification.provider.SettingsProvider;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.integration.IntegrationsService;
+import com.linkedin.metadata.service.EntityNameProvider;
+import com.linkedin.metadata.service.IdentityProvider;
 import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Data;

@@ -21,6 +21,7 @@ import com.linkedin.actionworkflow.ActionWorkflowRequestStepState;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -41,6 +42,7 @@ public class WorkflowFormRequestChangeEventGeneratorTest {
   private UserService mockUserService;
   private OperationContext mockOperationContext;
   private ActionWorkflowService mockActionWorkflowService;
+  private SystemEntityClient mockSystemEntityClient;
 
   private static final Urn TEST_ACTION_REQUEST_URN =
       UrnUtils.getUrn("urn:li:actionRequest:test-request");
@@ -55,6 +57,7 @@ public class WorkflowFormRequestChangeEventGeneratorTest {
     mockUserService = mock(UserService.class);
     mockOperationContext = mock(OperationContext.class);
     mockActionWorkflowService = mock(ActionWorkflowService.class);
+    mockSystemEntityClient = mock(SystemEntityClient.class);
 
     // Mock user service to return user email
     when(mockUserService.getUserEmail(any(OperationContext.class), eq(TEST_ACTOR_URN)))
@@ -62,10 +65,14 @@ public class WorkflowFormRequestChangeEventGeneratorTest {
 
     // Create generators with workflow dependencies - they will delegate to workflow-specific logic
     infoGenerator =
-        new ActionRequestInfoChangeEventGenerator(mockUserService, mockOperationContext);
+        new ActionRequestInfoChangeEventGenerator(
+            mockUserService, mockOperationContext, mockSystemEntityClient);
     statusGenerator =
         new ActionRequestStatusChangeEventGenerator(
-            mockUserService, mockOperationContext, mockActionWorkflowService);
+            mockUserService,
+            mockOperationContext,
+            mockActionWorkflowService,
+            mockSystemEntityClient);
   }
 
   @Test

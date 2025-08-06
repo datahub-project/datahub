@@ -11,7 +11,9 @@ import com.linkedin.actionworkflow.ActionWorkflowFormRequest;
 import com.linkedin.actionworkflow.ActionWorkflowFormRequestField;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.ActionWorkflowService;
+import com.linkedin.metadata.service.EntityNameProvider;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -37,14 +39,18 @@ public class WorkflowFormRequestCompletionChangeEventGenerator
   private final UserService userService;
   private final OperationContext systemOperationContext;
   private final ActionWorkflowService actionWorkflowService;
+  private final EntityNameProvider entityNameProvider;
 
   public WorkflowFormRequestCompletionChangeEventGenerator(
       @Nonnull final UserService userService,
       @Nonnull final OperationContext systemOperationContext,
-      @Nonnull final ActionWorkflowService actionWorkflowService) {
+      @Nonnull final ActionWorkflowService actionWorkflowService,
+      @Nonnull final SystemEntityClient systemEntityClient) {
     this.userService = userService;
     this.systemOperationContext = systemOperationContext;
     this.actionWorkflowService = actionWorkflowService;
+    this.entityNameProvider =
+        systemEntityClient != null ? new EntityNameProvider(systemEntityClient) : null;
   }
 
   @Override
@@ -116,6 +122,52 @@ public class WorkflowFormRequestCompletionChangeEventGenerator
     // Add result information
     if (actionRequestStatus.hasResult()) {
       parameters.put("result", actionRequestStatus.getResult());
+    }
+
+    // Add entity context information if resource is available
+    if (actionRequestInfo.hasResource()) {
+      try {
+        Urn resourceUrn = Urn.createFromString(actionRequestInfo.getResource());
+        parameters.put("entityUrn", resourceUrn.toString());
+
+        String entityType = resourceUrn.getEntityType();
+
+        parameters.put("entityType", entityType);
+
+        // Get entity name
+        String entityName =
+            entityNameProvider != null
+                ? entityNameProvider.getName(systemOperationContext, resourceUrn)
+                : resourceUrn.toString();
+        if (entityName != null && !entityName.equals(resourceUrn.toString())) {
+          parameters.put("entityName", entityName);
+        }
+
+        // Get qualified entity name (if available)
+        String qualifiedEntityName =
+            entityNameProvider != null
+                ? entityNameProvider.getQualifiedName(systemOperationContext, resourceUrn)
+                : null;
+        if (qualifiedEntityName != null
+            && !qualifiedEntityName.equals(entityName)
+            && !qualifiedEntityName.equals(resourceUrn.toString())) {
+          parameters.put("qualifiedEntityName", qualifiedEntityName);
+        }
+
+        // Get platform name (if available)
+        String platformName =
+            entityNameProvider != null
+                ? entityNameProvider.getPlatformName(systemOperationContext, resourceUrn)
+                : null;
+        if (platformName != null) {
+          parameters.put("entityPlatformName", platformName);
+        }
+      } catch (Exception e) {
+        log.warn(
+            "Failed to extract entity information for resource: {}",
+            actionRequestInfo.getResource(),
+            e);
+      }
     }
 
     // Extract workflow request information from ActionRequestInfo

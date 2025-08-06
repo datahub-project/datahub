@@ -5,7 +5,6 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.notification.NotificationUtils.*;
 
 import com.datahub.notification.NotificationScenarioType;
-import com.datahub.notification.provider.EntityNameProvider;
 import com.datahub.notification.recipient.NotificationRecipientBuilders;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +33,7 @@ import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.EntityNameProvider;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeLog;

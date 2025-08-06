@@ -5,6 +5,7 @@ import static com.linkedin.metadata.AcrylConstants.*;
 import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.service.ActionWorkflowService;
 import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -35,11 +36,15 @@ public class ActionRequestStatusChangeEventGenerator
   public ActionRequestStatusChangeEventGenerator(
       @Nullable final UserService userService,
       @Nullable final OperationContext systemOperationContext,
-      @Nullable final ActionWorkflowService actionWorkflowService) {
+      @Nullable final ActionWorkflowService actionWorkflowService,
+      @Nullable final SystemEntityClient systemEntityClient) {
     this.workflowFormRequestCompletionChangeEventGenerator =
-        (userService != null && systemOperationContext != null && actionWorkflowService != null)
+        (userService != null
+                && systemOperationContext != null
+                && actionWorkflowService != null
+                && systemEntityClient != null)
             ? new WorkflowFormRequestCompletionChangeEventGenerator(
-                userService, systemOperationContext, actionWorkflowService)
+                userService, systemOperationContext, actionWorkflowService, systemEntityClient)
             : null;
   }
 
