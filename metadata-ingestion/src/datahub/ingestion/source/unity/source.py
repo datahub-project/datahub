@@ -1,3 +1,4 @@
+import itertools
 import logging
 import re
 import time
@@ -5,7 +6,10 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
 from datahub.api.entities.external.external_entities import PlatformResourceRepository
-from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
+from datahub.api.entities.external.unity_catalog_external_entites import (
+    UnityCatalogTag,
+    UnityCatalogTagKeyText,
+)
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -25,6 +29,7 @@ from datahub.emitter.mcp_builder import (
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
     add_dataset_to_container,
+    add_structured_properties_to_entity_wu,
     gen_containers,
 )
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
@@ -112,6 +117,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
+    ChangeTypeClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -124,12 +130,21 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    StructuredPropertyDefinitionClass,
     SubTypesClass,
     TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.metadata.urns import TagUrn
+from datahub.metadata.urns import (
+    ContainerUrn,
+    DatasetUrn,
+    DataTypeUrn,
+    EntityTypeUrn,
+    SchemaFieldUrn,
+    StructuredPropertyUrn,
+    TagUrn,
+)
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -467,6 +482,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.catalogs.dropped(catalog.id)
                 continue
 
+            if (
+                self.config.include_tags
+                and self.config.extract_tags_as_structured_properties
+            ):
+                yield from self.create_structured_property_templates(catalog)
+
             yield from self.gen_catalog_containers(catalog)
             yield from self.process_schemas(catalog)
 
@@ -541,22 +562,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if table_tags:
                     logger.debug(f"Table tags for {table.ref}: {table_tags}")
-                    attribution = MetadataAttribution(
-                        # source="unity-catalog",
-                        actor="urn:li:corpuser:datahub",
-                        time=int(time.time() * 1000),
-                    )
-                    tags = GlobalTags(
-                        tags=[
-                            TagAssociation(
-                                tag=tag.to_datahub_tag_urn().urn(),
-                                attribution=attribution,
-                            )
-                            for tag in table_tags
-                        ]
-                    )
+                    if self.config.extract_tags_as_structured_properties:
+                        yield from add_structured_properties_to_entity_wu(
+                            dataset_urn,
+                            self._format_tags_as_structured_properties(table_tags),
+                        )
+                    else:
+                        attribution = MetadataAttribution(
+                            # source="unity-catalog",
+                            actor="urn:li:corpuser:datahub",
+                            time=int(time.time() * 1000),
+                        )
+                        tags = GlobalTags(
+                            tags=[
+                                TagAssociation(
+                                    tag=tag.to_datahub_tag_urn().urn(),
+                                    attribution=attribution,
+                                )
+                                for tag in table_tags
+                            ]
+                        )
 
-                    yield from self.gen_platform_resources(table_tags)
+                        yield from self.gen_platform_resources(table_tags)
 
             except Exception as e:
                 logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
@@ -566,8 +593,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             view_props = self._create_view_property_aspect(table)
 
         sub_type = self._create_table_sub_type_aspect(table)
-        schema_metadata, platform_resources = self._create_schema_metadata_aspect(table)
-        yield from platform_resources
+        schema_metadata, schema_non_dataset_aspects = (
+            self._create_schema_metadata_aspect(dataset_urn, table)
+        )
+        yield from schema_non_dataset_aspects
 
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
@@ -779,8 +808,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 schema.catalog.name
             ).get(f"{schema.catalog.name}.{schema.name}", [])
             logger.debug(f"Schema tags for {schema.name}: {schema_tags}")
-            # Generate platform resources for schema tags
-            yield from self.gen_platform_resources(schema_tags)
+            if not self.config.extract_tags_as_structured_properties:
+                # Generate platform resources for schema tags
+                yield from self.gen_platform_resources(schema_tags)
 
         schema_container_key = self.gen_schema_key(schema)
         yield from gen_containers(
@@ -792,9 +822,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=schema.comment,
             owner_urn=self.get_owner_urn(schema.owner),
             external_url=f"{self.external_url_base}/{schema.catalog.name}/{schema.name}",
-            tags=[tag.to_datahub_tag_urn().name for tag in schema_tags]
-            if schema_tags
-            else None,
+            tags=(
+                [tag.to_datahub_tag_urn().name for tag in schema_tags]
+                if schema_tags and not self.config.extract_tags_as_structured_properties
+                else None
+            ),
+            structured_properties=(
+                self._format_tags_as_structured_properties(schema_tags)
+                if schema_tags and self.config.extract_tags_as_structured_properties
+                else None
+            ),
         )
 
     def gen_metastore_containers(
@@ -813,16 +850,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_url=self.external_url_base,
         )
 
+    def _format_tags_as_structured_properties(
+        self, tags: List[UnityCatalogTag]
+    ) -> Dict[StructuredPropertyUrn, str]:
+        for tag in tags:
+            logger.debug(
+                f"_format_tags_as_structured_properties {tag} {tag.value} {str(tag.value)} {bool(tag.value)}"
+            )
+        return {
+            self.tag_key_to_structured_property_urn(tag.key): str(tag.value)
+            for tag in tags
+            if str(tag.value)
+        }
+
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
         catalog_tags = []
         if self.config.include_tags:
-            catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(
-                catalog.name
-            ).get(catalog.name, [])
+            catalog_tags = self._get_catalog_tags(catalog.name)
             logger.debug(f"Schema tags for {catalog.name}: {catalog_tags}")
-            # Generate platform resources for schema tags
-            yield from self.gen_platform_resources(catalog_tags)
+            if not self.config.extract_tags_as_structured_properties:
+                # Generate platform resources for schema tags
+                yield from self.gen_platform_resources(catalog_tags)
 
         catalog_container_key = self.gen_catalog_key(catalog)
         yield from gen_containers(
@@ -838,9 +887,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
-            tags=[tag.to_datahub_tag_urn().name for tag in catalog_tags]
-            if catalog_tags
-            else None,
+            tags=(
+                [tag.to_datahub_tag_urn().name for tag in catalog_tags]
+                if catalog_tags
+                and not self.config.extract_tags_as_structured_properties
+                else None
+            ),
+            structured_properties=(
+                self._format_tags_as_structured_properties(catalog_tags)
+                if catalog_tags and self.config.extract_tags_as_structured_properties
+                else None
+            ),
         )
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
@@ -909,15 +966,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
         )
 
-    def _get_catalog_tags(
-        self, catalog: str, schema: str, table: str
-    ) -> List[UnityCatalogTag]:
+    def _get_catalog_tags(self, catalog: str) -> List[UnityCatalogTag]:
         all_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog)
         return all_tags.get(f"{catalog}", [])
 
-    def _get_schema_tags(
-        self, catalog: str, schema: str, table: str
-    ) -> List[UnityCatalogTag]:
+    def _get_schema_tags(self, catalog: str, schema: str) -> List[UnityCatalogTag]:
         all_tags = self.unity_catalog_api_proxy.get_schema_tags(catalog)
         return all_tags.get(f"{catalog}.{schema}", [])
 
@@ -1068,21 +1121,37 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
     def _create_schema_metadata_aspect(
-        self, table: Table
+        self, dataset_urn: str, table: Table
     ) -> Tuple[SchemaMetadataClass, Iterable[MetadataWorkUnit]]:
         schema_fields: List[SchemaFieldClass] = []
         unique_tags: Set[UnityCatalogTag] = set()
+        non_dataset_aspects: List[MetadataWorkUnit] = []
+
         for column in table.columns:
             tag_urns: Optional[List[TagUrn]] = None
             if self.config.include_tags:
                 column_tags = self._get_column_tags(
                     table.ref.catalog, table.ref.schema, table.ref.table, column.name
                 )
-                unique_tags.update(column_tags)
-                tag_urns = [tag.to_datahub_tag_urn() for tag in column_tags]
-            schema_fields.extend(self._create_schema_field(column, tag_urns))
+                if self.config.extract_tags_as_structured_properties:
+                    schema_field_urn = SchemaFieldUrn(dataset_urn, column.name).urn()
+                    non_dataset_aspects.extend(
+                        add_structured_properties_to_entity_wu(
+                            schema_field_urn,
+                            self._format_tags_as_structured_properties(column_tags),
+                        )
+                    )
+                else:
+                    unique_tags.update(column_tags)
+                    tag_urns = [tag.to_datahub_tag_urn() for tag in column_tags]
+            schema_fields.extend(self._create_schema_field(column, tags=tag_urns))
 
-        platform_resources = self.gen_platform_resources(list(unique_tags))
+        if (
+            self.config.include_tags
+            and not self.config.extract_tags_as_structured_properties
+        ):
+            non_dataset_aspects.extend(self.gen_platform_resources(list(unique_tags)))
+
         return (
             SchemaMetadataClass(
                 schemaName=table.id,
@@ -1092,7 +1161,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 version=0,
                 platformSchema=MySqlDDLClass(tableSchema=""),
             ),
-            platform_resources,
+            non_dataset_aspects,
         )
 
     @staticmethod
@@ -1240,3 +1309,51 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 ]
             ),
         ).as_workunit()
+
+    def tag_key_to_structured_property_urn(
+        self, tag_key: UnityCatalogTagKeyText
+    ) -> StructuredPropertyUrn:
+        return StructuredPropertyUrn(
+            "databricks."
+            + (f"{self.platform_instance_name}." if self.platform_instance_name else "")
+            + str(tag_key)
+        )
+
+    def create_structured_property_templates(
+        self, catalog: Catalog
+    ) -> Iterable[MetadataWorkUnit]:
+        catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog.id)
+        schema_tag = self.unity_catalog_api_proxy.get_schema_tags(catalog.id)
+        table_tags = self.unity_catalog_api_proxy.get_table_tags(catalog.id)
+        column_tags = self.unity_catalog_api_proxy.get_column_tags(catalog.id)
+
+        unique_tag_keys = set()
+        for tag in itertools.chain.from_iterable(
+            itertools.chain(
+                catalog_tags.values(),
+                schema_tag.values(),
+                table_tags.values(),
+                column_tags.values(),
+            )
+        ):
+            if str(tag.key) in unique_tag_keys:
+                continue
+            unique_tag_keys.add(str(tag.key))
+
+            urn = self.tag_key_to_structured_property_urn(tag.key)
+            aspect = StructuredPropertyDefinitionClass(
+                qualifiedName=urn.id,
+                displayName=str(tag.key.original),
+                valueType=DataTypeUrn("datahub.string").urn(),
+                entityTypes=[
+                    EntityTypeUrn(f"datahub.{ContainerUrn.ENTITY_TYPE}").urn(),
+                    EntityTypeUrn(f"datahub.{DatasetUrn.ENTITY_TYPE}").urn(),
+                    EntityTypeUrn(f"datahub.{SchemaFieldUrn.ENTITY_TYPE}").urn(),
+                ],
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn.urn(),
+                aspect=aspect,
+                changeType=ChangeTypeClass.CREATE,
+                headers={"If-None-Match": "*"},
+            ).as_workunit()
