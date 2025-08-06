@@ -2,15 +2,21 @@ package io.datahubproject.iceberg.catalog;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
-import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_ICEBERG_METADATA_ASPECT_NAME;
+import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.*;
 import static io.datahubproject.iceberg.catalog.Utils.*;
 import static org.apache.commons.lang3.StringUtils.capitalize;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.container.Container;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
@@ -18,23 +24,26 @@ import com.linkedin.dataset.ViewProperties;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.patch.builder.DatasetPropertiesPatchBuilder;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.schematron.converters.avro.AvroSchemaConverter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
-import org.apache.iceberg.Snapshot;
-import org.apache.iceberg.SnapshotSummary;
-import org.apache.iceberg.TableMetadata;
-import org.apache.iceberg.TableMetadataParser;
+import org.apache.iceberg.*;
 import org.apache.iceberg.avro.AvroSchemaUtil;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.AlreadyExistsException;
@@ -58,6 +67,8 @@ abstract class TableOrViewOpsDelegate<M> {
   private final FileIOFactory fileIOFactory;
   private volatile M currentMetadata = null;
   private volatile boolean shouldRefresh = true;
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   TableOrViewOpsDelegate(
       DataHubIcebergWarehouse warehouse,
@@ -177,6 +188,52 @@ abstract class TableOrViewOpsDelegate<M> {
       AvroSchemaConverter converter = AvroSchemaConverter.builder().build();
       SchemaMetadata schemaMetadata =
           converter.toDataHubSchema(avroSchema, false, false, platformUrn(), null);
+      // extend schema metadata with partition info
+      if (metadata.tableMetadata != null) {
+        PartitionSpec partitionSpec =
+            metadata.tableMetadata.spec(metadata.tableMetadata.defaultSpecId());
+        if (partitionSpec != null) {
+          HashMap<String, SchemaField> fieldIdToSchemaFieldMap = new HashMap<>();
+          for (SchemaField schemaField : schemaMetadata.getFields()) {
+            if (schemaField.hasJsonProps()) {
+              String jsonProps = schemaField.getJsonProps();
+              Map<String, Object> jsonPropsMap = null;
+              try {
+                // jsonProps (and its source in avro) can have string key/values. Iceberg
+                // spec for field-ids uses String key and integer values and these get
+                // stored in jsonProps. There may be other custom properties we do not
+                // process so using string key/value.
+                jsonPropsMap =
+                    OBJECT_MAPPER.readValue(jsonProps, new TypeReference<Map<String, Object>>() {});
+                Object fieldId = jsonPropsMap.get("field-id");
+                if (fieldId != null) {
+                  fieldIdToSchemaFieldMap.put(fieldId.toString(), schemaField);
+                }
+              } catch (JsonProcessingException e) {
+                // Lets not block table commit. This just means we wont have partition info
+                // populated in our metadata. The compute engine can continue to use IRC
+                // for this table.
+                log.error("Failed to process partitioning information for table {}", name(), e);
+              }
+            }
+          }
+          for (PartitionField field : partitionSpec.fields()) {
+            String fieldIdStr = String.valueOf(field.sourceId());
+            if (fieldIdToSchemaFieldMap.containsKey(fieldIdStr)) {
+              SchemaField datahubField = fieldIdToSchemaFieldMap.get(fieldIdStr);
+              datahubField.setIsPartitioningKey(true);
+            } else {
+              // This shouldn't really happen per the spec, but we are referring to a
+              // field id that was missing in the schema. Possible bug in schematron or
+              // iceberg metadata is corrupt
+              log.error(
+                  "Internal error: Could not find field-id {} in schema for table {}",
+                  fieldIdStr,
+                  name());
+            }
+          }
+        }
+      }
       datasetBatch.aspect(SCHEMA_METADATA_ASPECT_NAME, schemaMetadata);
     }
 
@@ -196,7 +253,6 @@ abstract class TableOrViewOpsDelegate<M> {
     }
 
     additionalMcps(metadata.metadata(), datasetBatch);
-
     try {
       AspectsBatch aspectsBatch = icebergBatch.asAspectsBatch();
       entityService.ingestProposal(operationContext, aspectsBatch, false);
@@ -210,22 +266,12 @@ abstract class TableOrViewOpsDelegate<M> {
       }
     }
 
-    DatasetProfile datasetProfile =
-        getDataSetProfile(metadata.metadata())
-            .setTimestampMillis(icebergBatch.getAuditStamp().getTime());
-
-    MetadataChangeProposal datasetProfileMcp =
-        new MetadataChangeProposal()
-            .setEntityUrn(datasetUrn)
-            .setEntityType(DATASET_ENTITY_NAME)
-            .setAspectName(DATASET_PROFILE_ASPECT_NAME)
-            .setAspect(serializeAspect(datasetProfile))
-            .setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(
-        operationContext, datasetProfileMcp, icebergBatch.getAuditStamp(), true);
+    additionalAsyncMcps(datasetUrn, metadata, icebergBatch.getAuditStamp());
   }
 
   protected abstract DatasetProfile getDataSetProfile(M metadata);
+
+  protected abstract StringMap getIcebergProperties(M metadata);
 
   FileIO io() {
     return io;
@@ -255,7 +301,70 @@ abstract class TableOrViewOpsDelegate<M> {
 
   abstract RuntimeException noSuchEntityException();
 
+  // Any additional MCPs that need to be stored in the same transaction.
   void additionalMcps(M metadata, IcebergBatch.EntityBatch datasetBatch) {}
+
+  // Useful properties in the metadata. They vary for table vs view.
+  abstract void addMetadataProperties(
+      DatasetPropertiesPatchBuilder patchBuilder, @Nonnull M metadata);
+
+  // Any additional MCPs that can be ingested asynchronously (and hence outside the iceberg commit
+  // path)
+  void additionalAsyncMcps(
+      DatasetUrn datasetUrn, MetadataWrapper<M> metadata, AuditStamp auditStamp) {
+    DatasetProfile datasetProfile =
+        getDataSetProfile(metadata.metadata()).setTimestampMillis(auditStamp.getTime());
+
+    MetadataChangeProposal datasetProfileMcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(datasetUrn)
+            .setEntityType(DATASET_ENTITY_NAME)
+            .setAspectName(DATASET_PROFILE_ASPECT_NAME)
+            .setAspect(serializeAspect(datasetProfile))
+            .setChangeType(ChangeType.UPSERT);
+    entityService.ingestProposal(operationContext, datasetProfileMcp, auditStamp, true);
+
+    StringMap newIcebergProperties = getIcebergProperties(metadata.metadata());
+    Set<String> deletedIcebergProperties = null;
+    RecordTemplate prevDatasetPropertiesData =
+        entityService.getLatestAspect(operationContext, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME);
+    if (prevDatasetPropertiesData != null) {
+      DatasetProperties prevPropertiesAspect =
+          new DatasetProperties(prevDatasetPropertiesData.data());
+      StringMap prevPropertiesMap = prevPropertiesAspect.getCustomProperties();
+      Set<String> prevIcebergProperties =
+          prevPropertiesMap.keySet().stream()
+              .filter(key -> key.startsWith(ICEBERG_PROPERTY_PREFIX))
+              .collect(Collectors.toSet());
+
+      deletedIcebergProperties =
+          prevIcebergProperties.stream()
+              .filter(key -> !newIcebergProperties.containsKey(key))
+              .collect(Collectors.toSet());
+    }
+    DatasetPropertiesPatchBuilder patchBuilder =
+        new DatasetPropertiesPatchBuilder().urn(datasetUrn);
+    if (deletedIcebergProperties != null) {
+      for (String deletedProperty : deletedIcebergProperties) {
+        patchBuilder.removeCustomProperty(deletedProperty);
+      }
+    }
+
+    // Some useful metadata fields added as properties.
+    // Properties vary for tables and views, hence subclass implements them.
+    addMetadataProperties(patchBuilder, metadata.metadata());
+
+    // TBLPROPERTIES set via DDL have 'iceberg:' prefix
+    for (String newProperty : newIcebergProperties.keySet()) {
+      patchBuilder.addCustomProperty(
+          ICEBERG_PROPERTY_PREFIX + newProperty, newIcebergProperties.get(newProperty));
+    }
+
+    if (deletedIcebergProperties != null || newIcebergProperties.size() > 0) {
+      MetadataChangeProposal datasetPropertiesMcp = patchBuilder.build();
+      entityService.ingestProposal(operationContext, datasetPropertiesMcp, auditStamp, true);
+    }
+  }
 }
 
 @Slf4j
@@ -326,6 +435,19 @@ class ViewOpsDelegate extends TableOrViewOpsDelegate<ViewMetadata> {
     datasetProfile.setColumnCount(columnCount);
     return datasetProfile;
   }
+
+  @Override
+  protected StringMap getIcebergProperties(ViewMetadata metadata) {
+    return new StringMap(metadata.properties());
+  }
+
+  @Override
+  void addMetadataProperties(
+      DatasetPropertiesPatchBuilder patchBuilder, @Nonnull ViewMetadata metadata) {
+    patchBuilder.addCustomProperty("location", metadata.location());
+    patchBuilder.addCustomProperty("format-version", String.valueOf(metadata.formatVersion()));
+    patchBuilder.addCustomProperty("view-uuid", metadata.uuid());
+  }
 }
 
 class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
@@ -384,6 +506,27 @@ class TableOpsDelegate extends TableOrViewOpsDelegate<TableMetadata> {
   @Override
   RuntimeException noSuchEntityException() {
     return new NoSuchTableException("No such table %s", name());
+  }
+
+  @Override
+  protected StringMap getIcebergProperties(TableMetadata metadata) {
+    return new StringMap(metadata.properties());
+  }
+
+  @Override
+  void addMetadataProperties(
+      DatasetPropertiesPatchBuilder patchBuilder, @Nonnull TableMetadata metadata) {
+    patchBuilder.addCustomProperty("location", metadata.location());
+    patchBuilder.addCustomProperty("format-version", String.valueOf(metadata.formatVersion()));
+    patchBuilder.addCustomProperty("table-uuid", metadata.uuid());
+    if (metadata.currentSnapshot() != null) {
+      patchBuilder.addCustomProperty(
+          "snapshot-id", String.valueOf(metadata.currentSnapshot().snapshotId()));
+      patchBuilder.addCustomProperty(
+          "sequence-number", String.valueOf(metadata.currentSnapshot().sequenceNumber()));
+      patchBuilder.addCustomProperty(
+          "manifest-list", metadata.currentSnapshot().manifestListLocation());
+    }
   }
 }
 
