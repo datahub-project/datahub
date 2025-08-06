@@ -241,6 +241,7 @@ export const SearchBarV2 = ({
                         clickOutsideWidth={width === '100%' ? '100%' : undefined}
                     >
                         <SearchBarInput
+                            defaultValue={initialQuery || undefined}
                             placeholder={placeholderText}
                             onSearch={onSearchHandler}
                             onFocus={onFocus}

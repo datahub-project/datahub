@@ -69,6 +69,7 @@ const SuffixWrapper = styled.div`
 `;
 
 interface Props {
+    defaultValue?: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch?: () => void;
     onFocus?: () => void;
@@ -90,6 +91,7 @@ interface Props {
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
         {
+            defaultValue,
             onChange,
             onSearch,
             onFocus,
@@ -146,6 +148,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
+                    defaultValue={defaultValue}
                     placeholder={placeholder}
                     onPressEnter={onSearch}
                     onKeyDown={onKeyDown}
