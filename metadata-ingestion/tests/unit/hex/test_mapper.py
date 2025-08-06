@@ -116,7 +116,7 @@ class TestMapper(unittest.TestCase):
         )
 
         project = Project(
-            id="uuid1",
+            id="01983d47-f48e-7006-b39a-4a68b169adf1",
             title="Test Project",
             description="A test project",
             created_at=self.created_at,
@@ -141,7 +141,8 @@ class TestMapper(unittest.TestCase):
         assert len(work_units) == 8
         assert all(
             isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            and wu.metadata.entityUrn
+            == "urn:li:dashboard:(hex,01983d47-f48e-7006-b39a-4a68b169adf1)"
             for wu in work_units
         )
 
@@ -158,10 +159,10 @@ class TestMapper(unittest.TestCase):
         assert dashboard_info_wus[0].metadata.aspect.description == "A test project"
         assert (
             dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/uuid1"
+            == "https://app.hex.tech/test-workspace/hex/01983d47-f48e-7006-b39a-4a68b169adf1"
         )
         assert dashboard_info_wus[0].metadata.aspect.customProperties == {
-            "id": "uuid1",
+            "id": "01983d47-f48e-7006-b39a-4a68b169adf1",
         }
 
         # check SubTypesClass
@@ -295,7 +296,8 @@ class TestMapper(unittest.TestCase):
                 wu.metadata,
                 (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
             )
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            and wu.metadata.entityUrn
+            == "urn:li:dashboard:(hex,01983d47-f48e-7006-b39a-4a68b169adf1)"
             for wu in work_units
         )
 
@@ -347,7 +349,7 @@ class TestMapper(unittest.TestCase):
         )
 
         component = Component(
-            id="uuid1",
+            id="01983d47-f48e-7006-b39a-4a68b169adf1",
             title="Test Component",
             description="A test component",
             created_at=self.created_at,
@@ -372,7 +374,8 @@ class TestMapper(unittest.TestCase):
         assert len(work_units) == 8
         assert all(
             isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            and wu.metadata.entityUrn
+            == "urn:li:dashboard:(hex,01983d47-f48e-7006-b39a-4a68b169adf1)"
             for wu in work_units
         )
 
@@ -389,9 +392,11 @@ class TestMapper(unittest.TestCase):
         assert dashboard_info_wus[0].metadata.aspect.description == "A test component"
         assert (
             dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/uuid1"
+            == "https://app.hex.tech/test-workspace/hex/01983d47-f48e-7006-b39a-4a68b169adf1"
         )
-        assert dashboard_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
+        assert dashboard_info_wus[0].metadata.aspect.customProperties == {
+            "id": "01983d47-f48e-7006-b39a-4a68b169adf1"
+        }
 
         # check SubTypesClass
 
@@ -523,7 +528,8 @@ class TestMapper(unittest.TestCase):
                 wu.metadata,
                 (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
             )
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            and wu.metadata.entityUrn
+            == "urn:li:dashboard:(hex,01983d47-f48e-7006-b39a-4a68b169adf1)"
             for wu in work_units
         )
 
@@ -850,7 +856,7 @@ class TestMapper(unittest.TestCase):
         )
 
         project = Project(
-            id="uuid1",
+            id="01983d47-f48e-7006-b39a-4a68b169adf1",
             title="Test Project With Lineage",
             description="A test project with upstream datasets",
             created_at=self.created_at,
