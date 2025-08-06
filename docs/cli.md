@@ -61,7 +61,6 @@ Commands:
   assertions    A group of commands to interact with the Assertion entity in DataHub.
   check         Helper commands for checking various aspects of DataHub.
   container     A group of commands to interact with containers in DataHub.
-  datacontract  A group of commands to interact with the DataContract entity in DataHub.
   dataproduct   A group of commands to interact with the DataProduct entity in DataHub.
   dataset       A group of commands to interact with the Dataset entity in DataHub.
   delete        Delete metadata from DataHub.
