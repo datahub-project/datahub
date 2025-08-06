@@ -95,7 +95,7 @@ TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
 TRACE_MAX_BACKOFF = 300.0  # Cap at 5 minutes
 TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 
-# The limit is 16mb. We will use a max of 15mb to have some space
+# The limit is 16,000,000 bytes. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
 INGEST_MAX_PAYLOAD_BYTES = int(
@@ -586,6 +586,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             "systemMetadata": system_metadata_obj,
         }
         payload = json.dumps(snapshot)
+        if len(payload) > INGEST_MAX_PAYLOAD_BYTES:
+            logger.warning(
+                f"MCE object has size {len(payload)} that exceeds the max payload size of {INGEST_MAX_PAYLOAD_BYTES}, "
+                "so this metadata will likely fail to be emitted."
+            )
 
         self._emit_generic(url, payload)
 
@@ -764,16 +769,24 @@ class DataHubRestEmitter(Closeable, Emitter):
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
 
         mcp_objs = [pre_json_transform(mcp.to_obj()) for mcp in mcps]
+        if len(mcp_objs) == 0:
+            return 0
 
         # As a safety mechanism, we need to make sure we don't exceed the max payload size for GMS.
         # If we will exceed the limit, we need to break it up into chunks.
-        mcp_obj_chunks: List[List[str]] = []
-        current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
+        mcp_obj_chunks: List[List[str]] = [[]]
+        current_chunk_size = 0
         for mcp_obj in mcp_objs:
+            mcp_identifier = f"{mcp_obj.get('entityUrn')}-{mcp_obj.get('aspectName')}"
             mcp_obj_size = len(json.dumps(mcp_obj))
             if _DATAHUB_EMITTER_TRACE:
                 logger.debug(
-                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+                    f"Iterating through object ({mcp_identifier}) with size {mcp_obj_size}"
+                )
+            if mcp_obj_size > INGEST_MAX_PAYLOAD_BYTES:
+                logger.warning(
+                    f"MCP object {mcp_identifier} has size {mcp_obj_size} that exceeds the max payload size of {INGEST_MAX_PAYLOAD_BYTES}, "
+                    "so this metadata will likely fail to be emitted."
                 )
 
             if (
@@ -786,7 +799,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
-        if len(mcp_obj_chunks) > 0:
+        if len(mcp_obj_chunks) > 1 or _DATAHUB_EMITTER_TRACE:
             logger.debug(
                 f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
             )

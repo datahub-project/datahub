@@ -2,8 +2,10 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getPlatformName } from '@app/entity/shared/utils';
+import { ContainerView } from '@app/lineage/manage/ContainerView';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -44,22 +46,27 @@ interface Props {
 export default function LineageEntityView({ entity, displaySearchResult }: Props) {
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
+    const { entityData } = useEntityData();
 
     const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
     const platformName = getPlatformName(genericProps);
+    const containers = entityData?.parentContainers?.containers;
+    const remainingContainers = containers?.slice(1);
+    const directContainer = containers ? containers[0] : null;
 
     return (
         <EntityWrapper shrinkPadding={displaySearchResult}>
             <PlatformContent removeMargin={displaySearchResult}>
-                {platformLogoUrl && (
-                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
-                )}
-                <span>{platformName}</span>
-                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
                 <span>
                     {capitalizeFirstLetterOnly(genericProps?.subTypes?.typeNames?.[0]) ||
                         entityRegistry.getEntityName(entity.type)}
                 </span>
+                {platformName && <StyledDivider type="vertical" data-testid="divider" />}
+                {platformLogoUrl && (
+                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
+                )}
+                <span>{platformName}</span>
+                <ContainerView remainingContainers={remainingContainers} directContainer={directContainer} />
             </PlatformContent>
             <EntityName shrinkSize={displaySearchResult}>
                 {entityRegistry.getDisplayName(entity.type, entity)}
