@@ -260,7 +260,7 @@ class PathSpec(ConfigModel):
     ) -> Union[None, parse.Result, parse.Match]:
         return self.compiled_folder_include.parse(path)
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def validate_no_double_stars(cls, values: Dict) -> Dict:
         if "include" not in values:
             return values
