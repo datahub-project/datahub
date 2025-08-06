@@ -25,6 +25,9 @@ from datahub.ingestion.source.hex.constants import (
     HEX_API_BASE_URL_DEFAULT,
     HEX_PLATFORM_NAME,
 )
+from datahub.ingestion.source.hex.hex_utils import (
+    hex_uuid_to_base62,
+)
 from datahub.ingestion.source.hex.model import (
     Analytics,
     Category,
@@ -116,13 +119,21 @@ class Mapper:
     def map_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
         dashboard_urn = self._get_dashboard_urn(name=project.id)
 
+        try:
+            external_url = f"{self._base_url}/{self._workspace_name}/app/{hex_uuid_to_base62(project.id)}"
+        except Exception as e:
+            logger.warning(
+                f"Failed getting external URL for Hex project {project.id}", exc_info=e
+            )
+            external_url = None
+
         dashboard_info = DashboardInfoClass(
             title=project.title,
             description=project.description or "",
             lastModified=self._change_audit_stamps(
                 created_at=project.created_at, last_edited_at=project.last_edited_at
             ),
-            externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{project.id}",
+            externalUrl=external_url,
             customProperties=dict(id=project.id),
             datasetEdges=self._dataset_edges(project.upstream_datasets),
             # TODO: support schema field upstream, maybe InputFields?
@@ -167,13 +178,22 @@ class Mapper:
     def map_component(self, component: Component) -> Iterable[MetadataWorkUnit]:
         dashboard_urn = self._get_dashboard_urn(name=component.id)
 
+        try:
+            external_url = f"{self._base_url}/{self._workspace_name}/component/{hex_uuid_to_base62(component.id)}"
+        except Exception as e:
+            logger.warning(
+                f"Failed getting external URL for Hex component {component.id}",
+                exc_info=e,
+            )
+            external_url = None
+
         dashboard_info = DashboardInfoClass(
             title=component.title,
             description=component.description or "",
             lastModified=self._change_audit_stamps(
                 created_at=component.created_at, last_edited_at=component.last_edited_at
             ),
-            externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{component.id}",
+            externalUrl=external_url,
             customProperties=dict(id=component.id),
         )
 

@@ -159,7 +159,7 @@ class TestMapper(unittest.TestCase):
         assert dashboard_info_wus[0].metadata.aspect.description == "A test project"
         assert (
             dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/01983d47-f48e-7006-b39a-4a68b169adf1"
+            == "https://app.hex.tech/test-workspace/app/030Z5O2bh7IIj0JGcCOiMj"
         )
         assert dashboard_info_wus[0].metadata.aspect.customProperties == {
             "id": "01983d47-f48e-7006-b39a-4a68b169adf1",
@@ -392,7 +392,7 @@ class TestMapper(unittest.TestCase):
         assert dashboard_info_wus[0].metadata.aspect.description == "A test component"
         assert (
             dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/01983d47-f48e-7006-b39a-4a68b169adf1"
+            == "https://app.hex.tech/test-workspace/component/030Z5O2bh7IIj0JGcCOiMj"
         )
         assert dashboard_info_wus[0].metadata.aspect.customProperties == {
             "id": "01983d47-f48e-7006-b39a-4a68b169adf1"
