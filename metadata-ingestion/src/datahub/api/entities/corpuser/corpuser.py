@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Callable, Iterable, List, Optional
 
 import pydantic
+from pydantic import Field
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -52,7 +53,7 @@ class CorpUser(ConfigModel):
     display_name: Optional[str] = None
     email: Optional[str] = None
     title: Optional[str] = None
-    manager_urn: Optional[str] = None
+    manager_urn: Optional[str] = Field(None, validate_default=True)
     department_id: Optional[int] = None
     department_name: Optional[str] = None
     first_name: Optional[str] = None

@@ -37,7 +37,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
 
     tag_key: str
     tag_value: Optional[str] = None
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
     catalog: Optional[str] = None
     exists_in_lake_formation: bool = False
     persisted: bool = False

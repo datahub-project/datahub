@@ -36,7 +36,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
 
     tag_key: str
     tag_value: Optional[str] = None
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
     exists_in_unity_catalog: bool = False
     persisted: bool = False
 
