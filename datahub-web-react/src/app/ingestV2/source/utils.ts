@@ -194,46 +194,15 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     return structuredReport;
 };
 
-// Ideally we should not have to hardcode this list.
-// We should be able to get this list from the entity registry.
-// Or the backend should have some API for this
-// We do have SEARCHABLE_ENTITY_TYPES in datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchUtils.java
-// But that is not the same as having search card in the UI
-// Also that is not returned by any API in a structured format
-const entitesWithoutSearchCard = [
-    'dataPlatform',
-    'role',
-    'dataHubPolicy',
-    'platformResource',
-    'dataHubIngestionSource',
-    'dataHubSecret',
-    'dataHubExecutionRequest',
-    'assertion',
-    'dataHubRetention',
-    'dataPlatformInstance',
-    'telemetry',
-    'dataHubAccessToken',
-    'test',
-    'dataHubUpgrade',
-    'inviteToken',
-    'schemaField',
-    'globalSettings',
-    'incident',
-    'dataHubRole',
-    'post',
-    'dataHubStepState',
-    'dataHubView',
-    'ownershipType',
-    'query',
-];
+export const getAspectsBySubtypes = (structuredReportObject: any, entityRegistry: EntityRegistry) => {
+    const searchEntityTypesInCamelCase = new Set(entityRegistry.getSearchEntityTypesAsCamelCase());
 
-export const getAspectsBySubtypes = (structuredReportObject: any) => {
     const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
     if (!aspectsBySubtypes) {
         return null;
     }
     Object.keys(aspectsBySubtypes).forEach((entityName) => {
-        if (entitesWithoutSearchCard.includes(entityName)) {
+        if (!searchEntityTypesInCamelCase.has(entityName)) {
             // We are doing this otherwise in the UI we will show a total number
             // On clicking view all the number will not match
             delete aspectsBySubtypes[entityName];
@@ -285,6 +254,7 @@ export const getAspectsBySubtypes = (structuredReportObject: any) => {
  */
 export const getEntitiesIngestedByTypeOrSubtype = (
     result: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
 ): EntityTypeCount[] | null => {
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
@@ -312,7 +282,7 @@ export const getEntitiesIngestedByTypeOrSubtype = (
          *     ...
          * }
          */
-        const entities = getAspectsBySubtypes(structuredReportObject);
+        const entities = getAspectsBySubtypes(structuredReportObject, entityRegistry);
         const entitiesIngestedByType: { [key: string]: number } = {};
         Object.entries(entities).forEach(([entityName, aspectsBySubtypes]) => {
             // Use the status aspect count instead of max count
@@ -348,8 +318,8 @@ export const getEntitiesIngestedByTypeOrSubtype = (
  * @param result - The result of the execution request.
  * @returns {number | null}
  */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
-    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result);
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>, entityRegistry: EntityRegistry) => {
+    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result, entityRegistry);
     if (!entityTypeCounts) {
         return null;
     }
@@ -357,12 +327,15 @@ export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
-export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+export const getOtherIngestionContents = (
+    executionResult: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+) => {
     const structuredReportObject = extractStructuredReportPOJO(executionResult);
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject);
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
@@ -428,12 +401,15 @@ export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequ
     return result;
 };
 
-export const getIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
+export const getIngestionContents = (
+    executionResult: Partial<ExecutionRequestResult>,
+    entityRegistry: EntityRegistry,
+) => {
     const structuredReportObject = extractStructuredReportPOJO(executionResult);
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject);
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
