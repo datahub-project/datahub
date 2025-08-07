@@ -481,7 +481,7 @@ plugins: Dict[str, Set[str]] = {
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
-    "json-schema": set(),
+    "json-schema": {"requests"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},
     "ldap": {"python-ldap>=2.4"},
