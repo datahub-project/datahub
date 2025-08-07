@@ -30,10 +30,14 @@ from databricks.sdk.service.sql import (
 from databricks.sdk.service.workspace import ObjectType
 from databricks.sql import connect
 from databricks.sql.types import Row
+from typing_extensions import assert_never
 
 from datahub._version import nice_version_name
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.unity.config import (
+    LineageDataSource,
+)
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
@@ -46,6 +50,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ExternalTableReference,
     Metastore,
     Notebook,
+    NotebookReference,
     Query,
     Schema,
     ServicePrincipal,
@@ -53,8 +58,13 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.file_backed_collections import FileBackedDict
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# It is enough to keep the cache size to 1, since we only process one catalog at a time
+# We need to change this if we want to support parallel processing of multiple catalogs
+_MAX_CONCURRENT_CATALOGS = 1
 
 
 @dataclasses.dataclass
@@ -91,6 +101,32 @@ class QueryFilterWithStatementTypes(QueryFilter):
         return v
 
 
+@dataclasses.dataclass
+class TableUpstream:
+    table_name: str
+    source_type: str
+    last_updated: Optional[datetime] = None
+
+
+@dataclasses.dataclass
+class ExternalUpstream:
+    path: str
+    source_type: str
+    last_updated: Optional[datetime] = None
+
+
+@dataclasses.dataclass
+class TableLineageInfo:
+    upstreams: List[TableUpstream] = dataclasses.field(default_factory=list)
+    external_upstreams: List[ExternalUpstream] = dataclasses.field(default_factory=list)
+    upstream_notebooks: List[NotebookReference] = dataclasses.field(
+        default_factory=list
+    )
+    downstream_notebooks: List[NotebookReference] = dataclasses.field(
+        default_factory=list
+    )
+
+
 class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     _workspace_client: WorkspaceClient
     _workspace_url: str
@@ -104,6 +140,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
+        lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url,
@@ -114,6 +151,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.warehouse_id = warehouse_id or ""
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
+        self.lineage_data_source = lineage_data_source
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
                 "https://", ""
@@ -293,16 +331,142 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
-    @cached(cachetools.FIFOCache(maxsize=100))
-    def get_catalog_column_lineage(self, catalog: str) -> Dict[str, Dict[str, dict]]:
-        """Get column lineage for all tables in a catalog."""
+    def _build_datetime_where_conditions(
+        self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
+    ) -> str:
+        """Build datetime filtering conditions for lineage queries."""
+        conditions = []
+        if start_time:
+            conditions.append(f"event_time >= '{start_time.isoformat()}'")
+        if end_time:
+            conditions.append(f"event_time <= '{end_time.isoformat()}'")
+        return " AND " + " AND ".join(conditions) if conditions else ""
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_table_lineage_via_system_tables(
+        self,
+        catalog: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> FileBackedDict[TableLineageInfo]:
+        """Get table lineage for all tables in a catalog using system tables."""
+        logger.info(f"Fetching table lineage for catalog: {catalog}")
+        try:
+            additional_where = self._build_datetime_where_conditions(
+                start_time, end_time
+            )
+
+            query = f"""
+                SELECT
+                    entity_type, entity_id,
+                    source_table_full_name, source_type,
+                    target_table_full_name, target_type,
+                    max(event_time) as last_updated
+                FROM system.access.table_lineage
+                WHERE
+                    (target_table_catalog = %s or source_table_catalog = %s)
+                    {additional_where}
+                GROUP BY
+                    entity_type, entity_id,
+                    source_table_full_name, source_type,
+                    target_table_full_name, target_type
+                """
+            rows = self._execute_sql_query(query, [catalog, catalog])
+
+            result_dict: FileBackedDict[TableLineageInfo] = FileBackedDict()
+            for row in rows:
+                entity_type = row["entity_type"]
+                entity_id = row["entity_id"]
+                source_full_name = row["source_table_full_name"]
+                target_full_name = row["target_table_full_name"]
+                source_type = row["source_type"]
+                last_updated = row["last_updated"]
+
+                # Initialize TableLineageInfo for both source and target tables if they're in our catalog
+                for table_name in [source_full_name, target_full_name]:
+                    if (
+                        table_name
+                        and table_name.startswith(f"{catalog}.")
+                        and table_name not in result_dict
+                    ):
+                        result_dict[table_name] = TableLineageInfo()
+
+                # Process upstream relationships (target table gets upstreams)
+                if target_full_name and target_full_name.startswith(f"{catalog}."):
+                    # Handle table upstreams
+                    if (
+                        source_type in ["TABLE", "VIEW"]
+                        and source_full_name != target_full_name
+                    ):
+                        upstream = TableUpstream(
+                            table_name=source_full_name,
+                            source_type=source_type,
+                            last_updated=last_updated,
+                        )
+                        result_dict[target_full_name].upstreams.append(upstream)
+
+                    # Handle external upstreams (PATH type)
+                    elif source_type == "PATH":
+                        external_upstream = ExternalUpstream(
+                            path=source_full_name,
+                            source_type=source_type,
+                            last_updated=last_updated,
+                        )
+                        result_dict[target_full_name].external_upstreams.append(
+                            external_upstream
+                        )
+
+                    # Handle upstream notebooks (notebook -> table)
+                    elif entity_type == "NOTEBOOK":
+                        notebook_ref = NotebookReference(
+                            id=entity_id,
+                            last_updated=last_updated,
+                        )
+                        result_dict[target_full_name].upstream_notebooks.append(
+                            notebook_ref
+                        )
+
+                # Process downstream relationships (source table gets downstream notebooks)
+                if (
+                    entity_type == "NOTEBOOK"
+                    and source_full_name
+                    and source_full_name.startswith(f"{catalog}.")
+                ):
+                    notebook_ref = NotebookReference(
+                        id=entity_id,
+                        last_updated=last_updated,
+                    )
+                    result_dict[source_full_name].downstream_notebooks.append(
+                        notebook_ref
+                    )
+
+            return result_dict
+        except Exception as e:
+            logger.warning(
+                f"Error getting table lineage for catalog {catalog}: {e}",
+                exc_info=True,
+            )
+            return FileBackedDict()
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_catalog_column_lineage_via_system_tables(
+        self,
+        catalog: str,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> FileBackedDict[Dict[str, dict]]:
+        """Get column lineage for all tables in a catalog using system tables."""
         logger.info(f"Fetching column lineage for catalog: {catalog}")
         try:
-            query = """
+            additional_where = self._build_datetime_where_conditions(
+                start_time, end_time
+            )
+
+            query = f"""
                 SELECT
                     source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
                     target_table_schema, target_table_name, target_column_name,
-                    max(event_time)
+                    max(event_time) as last_updated
                 FROM system.access.column_lineage
                 WHERE
                     target_table_catalog = %s
@@ -313,13 +477,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     AND source_table_schema IS NOT NULL
                     AND source_table_name IS NOT NULL
                     AND source_column_name IS NOT NULL
+                    {additional_where}
                 GROUP BY
-                    source_table_catalog, source_table_schema, source_table_name, source_column_name,  source_type,
+                    source_table_catalog, source_table_schema, source_table_name, source_column_name, source_type,
                     target_table_schema, target_table_name, target_column_name
                 """
-            rows = self._execute_sql_query(query, (catalog,))
+            rows = self._execute_sql_query(query, [catalog])
 
-            result_dict: Dict[str, Dict[str, dict]] = {}
+            result_dict: FileBackedDict[Dict[str, dict]] = FileBackedDict()
             for row in rows:
                 result_dict.setdefault(row["target_table_schema"], {}).setdefault(
                     row["target_table_name"], {}
@@ -330,6 +495,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         "schema_name": row["source_table_schema"],
                         "table_name": row["source_table_name"],
                         "name": row["source_column_name"],
+                        "last_updated": row["last_updated"],
                     }
                 )
 
@@ -339,9 +505,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 f"Error getting column lineage for catalog {catalog}: {e}",
                 exc_info=True,
             )
-            return {}
+            return FileBackedDict()
 
-    def list_lineages_by_table(
+    def list_lineages_by_table_via_http_api(
         self, table_name: str, include_entity_lineage: bool
     ) -> dict:
         """List table lineage by table name."""
@@ -355,7 +521,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             },
         )
 
-    def list_lineages_by_column(self, table_name: str, column_name: str) -> list:
+    def list_lineages_by_column_via_http_api(
+        self, table_name: str, column_name: str
+    ) -> list:
         """List column lineage by table name and column name."""
         logger.debug(f"Getting column lineage for {table_name}.{column_name}")
         try:
@@ -374,41 +542,144 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             return []
 
-    def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
+    def table_lineage(
+        self,
+        table: Table,
+        include_entity_lineage: bool,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> None:
         if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
             # Lineage is not available for Hive Metastore Tables.
             return None
-        # Lineage endpoint doesn't exists on 2.1 version
+
         try:
-            response: dict = self.list_lineages_by_table(
-                table_name=table.ref.qualified_table_name,
-                include_entity_lineage=include_entity_lineage,
-            )
+            # Determine lineage data source based on config
+            use_system_tables = False
+            if self.lineage_data_source == LineageDataSource.SYSTEM_TABLES:
+                use_system_tables = True
+            elif self.lineage_data_source == LineageDataSource.API:
+                use_system_tables = False
+            elif self.lineage_data_source == LineageDataSource.AUTO:
+                # Use the newer system tables if we have a SQL warehouse, otherwise fall back
+                # to the older (and slower) HTTP API.
+                use_system_tables = bool(self.warehouse_id)
+            else:
+                assert_never(self.lineage_data_source)
 
-            for item in response.get("upstreams") or []:
-                if "tableInfo" in item:
-                    table_ref = TableReference.create_from_lineage(
-                        item["tableInfo"], table.schema.catalog.metastore
-                    )
-                    if table_ref:
-                        table.upstreams[table_ref] = {}
-                elif "fileInfo" in item:
-                    external_ref = ExternalTableReference.create_from_lineage(
-                        item["fileInfo"]
-                    )
-                    if external_ref:
-                        table.external_upstreams.add(external_ref)
-
-                for notebook in item.get("notebookInfos") or []:
-                    table.upstream_notebooks.add(notebook["notebook_id"])
-
-            for item in response.get("downstreams") or []:
-                for notebook in item.get("notebookInfos") or []:
-                    table.downstream_notebooks.add(notebook["notebook_id"])
+            if use_system_tables:
+                self._process_system_table_lineage(table, start_time, end_time)
+            else:
+                self._process_table_lineage_via_http_api(table, include_entity_lineage)
         except Exception as e:
             logger.warning(
                 f"Error getting lineage on table {table.ref}: {e}", exc_info=True
             )
+
+    def _process_system_table_lineage(
+        self,
+        table: Table,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> None:
+        """Process table lineage using system.access.table_lineage table."""
+        catalog_lineage = self.get_catalog_table_lineage_via_system_tables(
+            table.ref.catalog, start_time, end_time
+        )
+        table_full_name = table.ref.qualified_table_name
+
+        lineage_info = catalog_lineage.get(table_full_name, TableLineageInfo())
+
+        # Process table upstreams
+        for upstream in lineage_info.upstreams:
+            upstream_table_name = upstream.table_name
+            # Parse catalog.schema.table format
+            parts = upstream_table_name.split(".")
+            if len(parts) == 3:
+                catalog_name, schema_name, table_name = parts[0], parts[1], parts[2]
+                table_ref = TableReference(
+                    metastore=table.schema.catalog.metastore.id
+                    if table.schema.catalog.metastore
+                    else None,
+                    catalog=catalog_name,
+                    schema=schema_name,
+                    table=table_name,
+                    last_updated=upstream.last_updated,
+                )
+                table.upstreams[table_ref] = {}
+            else:
+                logger.warning(
+                    f"Unexpected upstream table format: {upstream_table_name} for table {table_full_name}"
+                )
+                continue
+
+        # Process external upstreams
+        for external_upstream in lineage_info.external_upstreams:
+            external_ref = ExternalTableReference(
+                path=external_upstream.path,
+                has_permission=True,
+                name=None,
+                type=None,
+                storage_location=external_upstream.path,
+                last_updated=external_upstream.last_updated,
+            )
+            table.external_upstreams.add(external_ref)
+
+        # Process upstream notebook lineage
+        for notebook_ref in lineage_info.upstream_notebooks:
+            existing_ref = table.upstream_notebooks.get(notebook_ref.id)
+            if existing_ref is None or (
+                notebook_ref.last_updated
+                and existing_ref.last_updated
+                and notebook_ref.last_updated > existing_ref.last_updated
+            ):
+                table.upstream_notebooks[notebook_ref.id] = notebook_ref
+
+        # Process downstream notebook lineage
+        for notebook_ref in lineage_info.downstream_notebooks:
+            existing_ref = table.downstream_notebooks.get(notebook_ref.id)
+            if existing_ref is None or (
+                notebook_ref.last_updated
+                and existing_ref.last_updated
+                and notebook_ref.last_updated > existing_ref.last_updated
+            ):
+                table.downstream_notebooks[notebook_ref.id] = notebook_ref
+
+    def _process_table_lineage_via_http_api(
+        self, table: Table, include_entity_lineage: bool
+    ) -> None:
+        """Process table lineage using the HTTP API (legacy fallback)."""
+        response: dict = self.list_lineages_by_table_via_http_api(
+            table_name=table.ref.qualified_table_name,
+            include_entity_lineage=include_entity_lineage,
+        )
+
+        for item in response.get("upstreams") or []:
+            if "tableInfo" in item:
+                table_ref = TableReference.create_from_lineage(
+                    item["tableInfo"], table.schema.catalog.metastore
+                )
+                if table_ref:
+                    table.upstreams[table_ref] = {}
+            elif "fileInfo" in item:
+                external_ref = ExternalTableReference.create_from_lineage(
+                    item["fileInfo"]
+                )
+                if external_ref:
+                    table.external_upstreams.add(external_ref)
+
+            for notebook in item.get("notebookInfos") or []:
+                notebook_ref = NotebookReference(
+                    id=notebook["notebook_id"],
+                )
+                table.upstream_notebooks[notebook_ref.id] = notebook_ref
+
+        for item in response.get("downstreams") or []:
+            for notebook in item.get("notebookInfos") or []:
+                notebook_ref = NotebookReference(
+                    id=notebook["notebook_id"],
+                )
+                table.downstream_notebooks[notebook_ref.id] = notebook_ref
 
     def get_column_lineage(
         self,
@@ -416,13 +687,28 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         column_names: List[str],
         *,
         max_workers: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ) -> None:
         try:
-            # use the newer system tables if we have a SQL warehouse, otherwise fall back
-            # and use the older (and much slower) HTTP API.
-            if self.warehouse_id:
+            # Determine lineage data source based on config
+            use_system_tables = False
+            if self.lineage_data_source == LineageDataSource.SYSTEM_TABLES:
+                use_system_tables = True
+            elif self.lineage_data_source == LineageDataSource.API:
+                use_system_tables = False
+            elif self.lineage_data_source == LineageDataSource.AUTO:
+                # Use the newer system tables if we have a SQL warehouse, otherwise fall back
+                # to the older (and slower) HTTP API.
+                use_system_tables = bool(self.warehouse_id)
+            else:
+                assert_never(self.lineage_data_source)
+
+            if use_system_tables:
                 lineage = (
-                    self.get_catalog_column_lineage(table.ref.catalog)
+                    self.get_catalog_column_lineage_via_system_tables(
+                        table.ref.catalog, start_time, end_time
+                    )
                     .get(table.ref.schema, {})
                     .get(table.ref.table, {})
                 )
@@ -430,7 +716,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     futures = [
                         executor.submit(
-                            self.list_lineages_by_column,
+                            self.list_lineages_by_column_via_http_api,
                             table.ref.qualified_table_name,
                             column_name,
                         )
@@ -608,7 +894,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             logger.warning(f"Failed to execute SQL query: {e}")
             return []
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching schema tags for catalog: `{catalog}`")
@@ -631,7 +917,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_catalog_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
@@ -653,7 +939,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: `{catalog}`")
@@ -676,7 +962,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
-    @cached(cachetools.FIFOCache(maxsize=100))
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_column_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching column tags for catalog: `{catalog}`")
