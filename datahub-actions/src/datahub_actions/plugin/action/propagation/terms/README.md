@@ -25,30 +25,30 @@ The Glossary Term Propagation Action provides several configuration options:
 ```yaml
 name: "schemaField-glossary-term-propagation"
 source:
-   type: "kafka"
-   config:
-      connection:
-         bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
-         schema_registry_url: ${KAFKA_SCHEMAREGISTRY_URL}
-         # Dictionary of freeform consumer configs propagated to underlying Kafka Consumer
-         consumer_config:
-            security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-SSL}
-            ssl.ca.location: ${KAFKA_PROPERTIES_SSL_CA_LOCATION:-/path/to/ca.pem}
-            ssl.certificate.location: ${KAFKA_PROPERTIES_SSL_CERTIFICATE_LOCATION:-/path/to/cert.pem}
-            ssl.key.location: ${KAFKA_PROPERTIES_SSL_KEY_LOCATION:-/path/to/key.pem}
-            ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-dummy_password}
-      # Topic Routing - which topics to read from.
-      topic_routes:
-         mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
-         pe: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${KAFKA_SCHEMAREGISTRY_URL}
+      # Dictionary of freeform consumer configs propagated to underlying Kafka Consumer
+      consumer_config:
+        security.protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:-SSL}
+        ssl.ca.location: ${KAFKA_PROPERTIES_SSL_CA_LOCATION:-/path/to/ca.pem}
+        ssl.certificate.location: ${KAFKA_PROPERTIES_SSL_CERTIFICATE_LOCATION:-/path/to/cert.pem}
+        ssl.key.location: ${KAFKA_PROPERTIES_SSL_KEY_LOCATION:-/path/to/key.pem}
+        ssl.key.password: ${KAFKA_PROPERTIES_SSL_KEY_PASSWORD:-dummy_password}
+    # Topic Routing - which topics to read from.
+    topic_routes:
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
+      pe: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
 action:
-   type: "schema_field_glossary_term_propagation"
-   config:
-      allowed_terms:
-         - "urn:li:glossaryTerm:some-glossary"
+  type: "schema_field_glossary_term_propagation"
+  config:
+    allowed_terms:
+      - "urn:li:glossaryTerm:some-glossary"
 datahub:
-   server: ${DATAHUB_GMS_HOST}
-   token: ${DATAHUB_GMS_TOKEN}
+  server: ${DATAHUB_GMS_HOST}
+  token: ${DATAHUB_GMS_TOKEN}
 ```
 
 ## Caveats and Limitations
