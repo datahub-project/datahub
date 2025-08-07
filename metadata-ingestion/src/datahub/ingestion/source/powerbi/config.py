@@ -288,11 +288,23 @@ class PowerBiProfilingConfig(ConfigModel):
     )
 
 
+class PowerBiEnvironment(str, Enum):
+    """
+    PowerBI environment options
+    """
+    COMMERCIAL = "commercial"  # Commercial PowerBI environment
+    GOVERNMENT = "government"  # Government PowerBI environment
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
+    )
+    
+    environment: PowerBiEnvironment = pydantic.Field(
+        default=PowerBiEnvironment.COMMERCIAL,
+        description="PowerBI environment to connect to. Use 'government' for PowerBI Government Community Cloud (GCC)",
     )
 
     platform_urn: str = pydantic.Field(
