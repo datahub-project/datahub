@@ -17,7 +17,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.integrations.assertion.registry import ASSERTION_PLATFORMS
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,6 @@ def assertions() -> None:
 @assertions.command()
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: str) -> None:
     """Upsert (create or update) a set of assertions in DataHub."""
 
@@ -71,8 +69,6 @@ def upsert(file: str) -> None:
     default=[],
     help="Platform-specific extra key-value inputs in form key=value",
 )
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def compile(
     file: str, platform: str, output_to: Optional[str], extras: List[str]
 ) -> None:

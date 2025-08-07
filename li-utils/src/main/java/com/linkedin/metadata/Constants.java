@@ -18,7 +18,14 @@ public class Constants {
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
-  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
+  // Actor ID for unauthenticated requests
+  public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
+  // Unauthenticated requests (no valid credentials provided).
+  public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
+  // Unknown principal (identity exists but cannot be determined).
+  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN";
+  public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
+  public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
@@ -98,6 +105,7 @@ public class Constants {
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String APPLICATION_ENTITY_NAME = "application";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -370,6 +378,10 @@ public class Constants {
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
+  // Application
+  public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
+
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
@@ -453,6 +465,16 @@ public class Constants {
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
+  // Template
+  public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
+  public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageTemplateProperties";
+
+  // Module
+  public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
+  public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageModuleProperties";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
@@ -509,6 +531,10 @@ public class Constants {
   public static final String MDC_CHANGE_TYPE = "changeType";
 
   public static final String RESTLI_SUCCESS = "success";
+
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // EntityPrivilegesResolver
+  public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 
   private Constants() {}
 }

@@ -1,7 +1,9 @@
 import {
+    AppWindow,
     BookBookmark,
     Gear,
     Globe,
+    HardDrives,
     Plugs,
     Question,
     SignOut,
@@ -12,8 +14,10 @@ import {
     UserCircle,
 } from '@phosphor-icons/react';
 import React, { useContext, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarHeader from '@app/homeV2/layout/navBarRedesign/NavBarHeader';
@@ -26,13 +30,15 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useAppConfig } from '@app/useAppConfig';
+import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
+import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
+import { useIsHomePage } from '@src/app/shared/useIsHomePage';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
@@ -84,8 +90,11 @@ export const NavSidebar = () => {
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
+    const isHomePage = useIsHomePage();
+    const location = useLocation();
 
     const { isUserInitializing } = useContext(OnboardingContext);
+    const { triggerModalTour } = useOnboardingTour();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const logout = useGetLogoutHandler();
@@ -94,6 +103,10 @@ export const NavSidebar = () => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+    const showManageTags =
+        config?.featureFlags?.showManageTags &&
+        (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
+    const businessAttributesFlag = useBusinessAttributesFlag();
 
     const showDataSources =
         config.managedIngestionConfig.enabled &&
@@ -151,6 +164,25 @@ export const NavSidebar = () => {
                         icon: <Tag />,
                         selectedIcon: <Tag weight="fill" />,
                         link: PageRoutes.MANAGE_TAGS,
+                        isHidden: !showManageTags,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Business Attributes',
+                        key: 'businessAttributes',
+                        icon: <HardDrives />,
+                        selectedIcon: <HardDrives weight="fill" />,
+                        link: PageRoutes.BUSINESS_ATTRIBUTE,
+                        isHidden: !businessAttributesFlag,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Applications',
+                        key: 'applications',
+                        icon: <AppWindow />,
+                        selectedIcon: <AppWindow weight="fill" />,
+                        link: PageRoutes.MANAGE_APPLICATIONS,
+                        isHidden: !(appConfig.config.visualConfig.application?.showApplicationInNavigation ?? false),
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -230,7 +262,18 @@ export const NavSidebar = () => {
                         title: 'Product Tour',
                         description: 'Take a quick tour of this page',
                         key: 'helpProductTour',
-                        onClick: showOnboardingTour,
+                        onClick: () => {
+                            if (isHomePage) {
+                                triggerModalTour();
+                            } else {
+                                // Track Product Tour button click for non-home pages
+                                analytics.event({
+                                    type: EventType.ProductTourButtonClickEvent,
+                                    originPage: location.pathname,
+                                });
+                                showOnboardingTour();
+                            }
+                        },
                     },
                     {
                         type: NavBarMenuItemTypes.DropdownElement,

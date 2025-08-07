@@ -8,6 +8,7 @@ from typing import List
 import pytest
 
 from conftest import bin_pack_tasks
+from tests.cypress.timestamp_updater import TimestampUpdater
 from tests.setup.lineage.ingest_time_lineage import (
     get_time_lineage_urns,
     ingest_time_lineage,
@@ -117,6 +118,21 @@ for id_list in ONBOARDING_ID_LISTS:
     ONBOARDING_IDS.extend(id_list)
 
 
+def update_fixture_timestamps(cypress_test_data_dir: str) -> None:
+    """
+    Updates timestamps in fixture files before ingestion.
+
+    Args:
+        cypress_test_data_dir: Directory containing the test data files
+    """
+    timestamp_config: dict = {
+        # Add more files and their timestamp paths as needed
+    }
+
+    updater = TimestampUpdater(timestamp_config)
+    updater.update_all_configured_files(cypress_test_data_dir)
+
+
 def print_now():
     print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
 
@@ -129,6 +145,9 @@ def ingest_data(auth_session, graph_client):
         ONBOARDING_IDS,
         f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}",
     )
+
+    print("updating timestamps in fixture files")
+    update_fixture_timestamps(CYPRESS_TEST_DATA_DIR)
 
     print_now()
     print("ingesting test data")

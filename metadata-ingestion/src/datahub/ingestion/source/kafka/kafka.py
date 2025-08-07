@@ -241,8 +241,19 @@ _sample_cache = SampleCache()
 )
 @capability(
     SourceCapability.DATA_PROFILING,
-    "Optionally enabled via configuration.",
+    "Optionally enabled via configuration `profiling.enabled.`",
 )
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Not supported. If you use Kafka Connect, the kafka-connect source can generate lineage.",
+    supported=False,
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Not supported",
+    supported=False,
+)
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:

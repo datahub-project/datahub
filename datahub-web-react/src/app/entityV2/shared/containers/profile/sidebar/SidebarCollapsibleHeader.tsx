@@ -51,7 +51,7 @@ const Top = styled.div`
 const RightActions = styled.div`
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 8px;
 `;
 
 interface Props {

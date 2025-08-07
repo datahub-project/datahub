@@ -106,7 +106,56 @@
                 "type" : "string",
                 "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
                 "optional" : true
-              } ]
+              }, {
+                "name" : "aspectCreated",
+                "type" : {
+                  "type" : "record",
+                  "name" : "AuditStamp",
+                  "namespace" : "com.linkedin.common",
+                  "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+                  "fields" : [ {
+                    "name" : "time",
+                    "type" : {
+                      "type" : "typeref",
+                      "name" : "Time",
+                      "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+                      "ref" : "long"
+                    },
+                    "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                  }, {
+                    "name" : "actor",
+                    "type" : {
+                      "type" : "typeref",
+                      "name" : "Urn",
+                      "ref" : "string",
+                      "java" : {
+                        "class" : "com.linkedin.common.urn.Urn"
+                      }
+                    },
+                    "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+                  }, {
+                    "name" : "impersonator",
+                    "type" : "Urn",
+                    "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                    "optional" : true
+                  }, {
+                    "name" : "message",
+                    "type" : "string",
+                    "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+                    "optional" : true
+                  } ]
+                },
+                "doc" : "When the aspect was initially created and who created it, detected by version 0 -> 1 change",
+                "optional" : true
+              }, {
+                "name" : "aspectModified",
+                "type" : "com.linkedin.common.AuditStamp",
+                "doc" : "When the aspect was last modified and the actor that performed the modification",
+                "optional" : true
+              } ],
+              "Aspect" : {
+                "name" : "systemMetadata"
+              }
             }
           } ]
         }
@@ -380,42 +429,7 @@
         "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into various lifecycle stages, and who acted to move it into those lifecycle stages. The recommended best practice is to include this record in your record schema, and annotate its fields as @readOnly in your resource. See https://github.com/linkedin/rest.li/wiki/Validation-in-Rest.li#restli-validation-annotations",
         "fields" : [ {
           "name" : "created",
-          "type" : {
-            "type" : "record",
-            "name" : "AuditStamp",
-            "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
-            "fields" : [ {
-              "name" : "time",
-              "type" : {
-                "type" : "typeref",
-                "name" : "Time",
-                "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
-                "ref" : "long"
-              },
-              "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
-            }, {
-              "name" : "actor",
-              "type" : {
-                "type" : "typeref",
-                "name" : "Urn",
-                "ref" : "string",
-                "java" : {
-                  "class" : "com.linkedin.common.urn.Urn"
-                }
-              },
-              "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
-            }, {
-              "name" : "impersonator",
-              "type" : "Urn",
-              "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
-              "optional" : true
-            }, {
-              "name" : "message",
-              "type" : "string",
-              "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
-              "optional" : true
-            } ]
-          },
+          "type" : "AuditStamp",
           "doc" : "An AuditStamp corresponding to the creation of this resource/association/sub-resource. A value of 0 for time indicates missing data.",
           "default" : {
             "actor" : "urn:li:corpuser:unknown",
@@ -844,19 +858,23 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "PRD", "TST", "SIT", "SBX", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
       "EI" : "Designates early-integration fabrics",
       "NON_PROD" : "Designates non-production fabrics",
+      "PRD" : "Alternative Prod spelling",
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
       "RVW" : "Designates review fabrics",
       "SANDBOX" : "Designates sandbox fabrics",
+      "SBX" : "Alternative spelling for sandbox",
+      "SIT" : "System Integration Testing",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
+      "TST" : "Alternative Test spelling",
       "UAT" : "Designates user acceptance testing fabrics"
     }
   }, {
@@ -4360,7 +4378,7 @@
         }, {
           "name" : "limit",
           "type" : "int",
-          "default" : "10000"
+          "optional" : true
         }, {
           "name" : "latestValue",
           "type" : "boolean",

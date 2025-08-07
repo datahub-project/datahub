@@ -36,7 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
 
 logging.getLogger("lkml").setLevel(logging.INFO)
@@ -1006,6 +1006,46 @@ def test_special_liquid_variables():
         "prod_core.data.r_metric_summary_v2\n          ,\n          employee_income\n        FROM "
         "'source_table'\n    "
     )
+    assert actual_text == expected_text
+
+
+@freeze_time(FROZEN_TIME)
+def test_incremental_liquid_expression():
+    text: str = """SELECT 
+        user_id,
+        DATE(event_timestamp) as event_date,
+        COUNT(*) as daily_events,
+        SUM(revenue) as daily_revenue,
+        MAX(event_timestamp) as last_event_time
+      FROM warehouse.events.user_events
+      WHERE {% incrementcondition %} event_timestamp {% endincrementcondition %}
+        AND event_type IN ('purchase', 'signup', 'login')
+        AND user_id IS NOT NULL
+      GROUP BY 1, 2
+    """
+    input_liquid_variable: dict = {}
+
+    # Match template after resolution of liquid variables
+    actual_text = resolve_liquid_variable(
+        text=text,
+        liquid_variable=input_liquid_variable,
+        report=LookMLSourceReport(),
+        view_name="test",
+    )
+
+    expected_text: str = """SELECT 
+        user_id,
+        DATE(event_timestamp) as event_date,
+        COUNT(*) as daily_events,
+        SUM(revenue) as daily_revenue,
+        MAX(event_timestamp) as last_event_time
+      FROM warehouse.events.user_events
+      WHERE event_timestamp > '2023-01-01'
+        AND event_type IN ('purchase', 'signup', 'login')
+        AND user_id IS NOT NULL
+      GROUP BY 1, 2
+    """
+
     assert actual_text == expected_text
 
 

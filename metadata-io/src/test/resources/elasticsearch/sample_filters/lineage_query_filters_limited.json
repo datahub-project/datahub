@@ -3,7 +3,7 @@
     "should" : [
       {
         "bool" : {
-          "must" : [
+          "filter" : [
             {
               "terms" : {
                 "destination.urn" : [

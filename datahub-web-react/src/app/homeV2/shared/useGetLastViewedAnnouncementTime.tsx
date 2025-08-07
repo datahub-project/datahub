@@ -6,7 +6,7 @@ import { useBatchGetStepStatesQuery } from '@graphql/step.generated';
 export const useGetLastViewedAnnouncementTime = () => {
     const { user } = useUserContext();
     const finalStepId = `${user?.urn}-${LAST_VIEWED_ANNOUNCEMENT_TIME_STEP}`;
-    const { data, refetch } = useBatchGetStepStatesQuery({
+    const { data, refetch, loading } = useBatchGetStepStatesQuery({
         skip: !user?.urn,
         variables: { input: { ids: [finalStepId] } },
     });
@@ -16,5 +16,6 @@ export const useGetLastViewedAnnouncementTime = () => {
     return {
         time: (lastViewedAnnouncementTimeProperty?.value && Number(lastViewedAnnouncementTimeProperty?.value)) || null,
         refetch,
+        loading,
     };
 };

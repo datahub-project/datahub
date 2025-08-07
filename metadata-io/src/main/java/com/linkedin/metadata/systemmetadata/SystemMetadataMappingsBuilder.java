@@ -1,6 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;

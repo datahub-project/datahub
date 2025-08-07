@@ -12,13 +12,7 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.util.Pair;
-import java.util.AbstractMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.Builder;
@@ -48,8 +42,7 @@ public class ReindexConfig {
     Most index settings are default values and populated by Elastic. This list is an include list to determine which
     settings we care about when a difference is present.
   */
-  public static final List<String> SETTINGS_DYNAMIC =
-      ImmutableList.of("number_of_replicas", "refresh_interval");
+  public static final List<String> SETTINGS_DYNAMIC = ImmutableList.of("refresh_interval");
   // These setting require reindex
   public static final List<String> SETTINGS_STATIC = ImmutableList.of("number_of_shards");
   public static final List<String> SETTINGS =
@@ -68,14 +61,41 @@ public class ReindexConfig {
   private final String version;
 
   /* Calculated */
-  private final boolean requiresReindex;
-  private final boolean requiresApplySettings;
-  private final boolean requiresApplyMappings;
+  private boolean requiresReindex;
+  private boolean requiresApplySettings;
+  private boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
+
+  private void restrictedMethod() throws IllegalAccessException {
+    String allowed = "ReindexDebugStep";
+    if (!isCalledFromReindexDebugStep(allowed)) {
+      throw new IllegalAccessException("This method can only be called from " + allowed);
+    }
+  }
+
+  private boolean isCalledFromReindexDebugStep(String step) {
+    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+    return Arrays.stream(stackTrace)
+        .anyMatch(
+            element -> {
+              try {
+                return Class.forName(element.getClassName()).getSimpleName().equals(step);
+              } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+              }
+            });
+  }
+
+  public void forceReindex() throws IllegalAccessException {
+    restrictedMethod();
+    requiresReindex = true;
+    requiresApplyMappings = true;
+    requiresApplySettings = true;
+  }
 
   public static ReindexConfigBuilder builder() {
     return new CalculatedBuilder();
@@ -127,6 +147,9 @@ public class ReindexConfig {
     }
 
     private static TreeMap<String, Object> sortMap(Map<String, Object> input) {
+      if (input == null) {
+        return new TreeMap<>();
+      }
       return input.entrySet().stream()
           .collect(
               Collectors.toMap(
@@ -347,10 +370,18 @@ public class ReindexConfig {
       Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");
       return SETTINGS.stream()
           .allMatch(
-              settingKey ->
-                  Objects.equals(
-                      indexSettings.get(settingKey).toString(),
-                      super.currentSettings.get("index." + settingKey)));
+              settingKey -> {
+                Object targetValue = indexSettings.get(settingKey);
+                String currentValue = super.currentSettings.get("index." + settingKey);
+                // Handle null values properly
+                if (targetValue == null && currentValue == null) {
+                  return true;
+                }
+                if (targetValue == null || currentValue == null) {
+                  return false;
+                }
+                return Objects.equals(targetValue.toString(), currentValue);
+              });
     }
 
     private boolean isSettingsReindexRequired() {
@@ -361,10 +392,18 @@ public class ReindexConfig {
 
       if (SETTINGS_STATIC.stream()
           .anyMatch(
-              settingKey ->
-                  !Objects.equals(
-                      indexSettings.get(settingKey).toString(),
-                      super.currentSettings.get("index." + settingKey)))) {
+              settingKey -> {
+                Object targetValue = indexSettings.get(settingKey);
+                String currentValue = super.currentSettings.get("index." + settingKey);
+                // Handle null values properly
+                if (targetValue == null && currentValue == null) {
+                  return false;
+                }
+                if (targetValue == null || currentValue == null) {
+                  return true;
+                }
+                return !Objects.equals(targetValue.toString(), currentValue);
+              })) {
         return true;
       }
 
@@ -390,7 +429,8 @@ public class ReindexConfig {
           targetMappings.entrySet().stream()
               .filter(
                   entry ->
-                      ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
+                      entry.getValue() instanceof Map
+                          && ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
                           && ((Map<String, Object>) entry.getValue())
                               .get(TYPE)
                               .equals(ESUtils.OBJECT_FIELD_TYPE))
@@ -460,7 +500,16 @@ public class ReindexConfig {
           return false;
         }
       } else {
-        if (!newSettings.get(key).toString().equals(oldSettings.get(key))) {
+        String oldValue = oldSettings.get(key);
+        Object newValue = newSettings.get(key);
+        // Handle null values properly
+        if (newValue == null && oldValue == null) {
+          continue;
+        }
+        if (newValue == null || oldValue == null) {
+          return false;
+        }
+        if (!newValue.toString().equals(oldValue)) {
           return false;
         }
       }

@@ -9,7 +9,6 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.UsageQueryResult;
 import com.linkedin.datahub.graphql.types.usage.UsageQueryResultMapper;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.usage.UsageClient;
 import com.linkedin.usage.UsageTimeRange;
 import graphql.schema.DataFetcher;
@@ -49,7 +48,12 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
             return UsageQueryResultMapper.map(context, usageQueryResult);
           } catch (Exception e) {
             log.error(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);
-            MetricUtils.counter(this.getClass(), "usage_stats_dropped").inc();
+            context
+                .getOperationContext()
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(this.getClass(), "usage_stats_dropped", 1));
           }
 
           return UsageQueryResultMapper.EMPTY;

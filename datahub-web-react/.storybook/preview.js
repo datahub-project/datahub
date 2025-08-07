@@ -1,3 +1,4 @@
+import React from 'react';
 import './storybook-theme.css';
 // FYI: import of antd styles required to show components based on it correctly
 import 'antd/dist/antd.css';

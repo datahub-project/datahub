@@ -36,8 +36,6 @@ feature_table_properties = models.MLFeatureTablePropertiesClass(
 
 # MCP creation
 metadata_change_proposal = MetadataChangeProposalWrapper(
-    entityType="mlFeatureTable",
-    changeType=models.ChangeTypeClass.UPSERT,
     entityUrn=feature_table_urn,
     aspect=feature_table_properties,
 )

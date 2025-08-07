@@ -1,8 +1,9 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import LineageDisplay from '@app/lineageV2/LineageDisplay';
+import { useTrackLineageViewV2 } from '@app/lineageV2/LineageExplorer.hooks';
 import {
     EdgeId,
     FetchStatus,
@@ -17,7 +18,6 @@ import useShouldHideTransformations from '@app/lineageV2/settings/useShouldHideT
 import useShouldShowDataProcessInstances from '@app/lineageV2/settings/useShouldShowDataProcessInstances';
 import useShouldShowGhostEntities from '@app/lineageV2/settings/useShouldShowGhostEntities';
 import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -68,12 +68,7 @@ export default function LineageExplorer(props: Props) {
 
     const initialized = useInitializeNodes(context, urn, type);
 
-    const { setTabFullsize } = useContext(TabFullsizedContext);
-    useEffect(() => {
-        return () => {
-            setTabFullsize?.(false);
-        };
-    }, [setTabFullsize]);
+    useTrackLineageViewV2({ initialized, urn, type, adjacencyList, nodes, nodeVersion });
 
     return (
         <LineageNodesContext.Provider value={context}>

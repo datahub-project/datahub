@@ -1,5 +1,6 @@
 import { useApolloClient } from '@apollo/client';
 import React, { useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
@@ -36,10 +37,22 @@ export default function ManageDomainsPageV2() {
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const client = useApolloClient();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const location = useLocation();
+    const history = useHistory();
 
     useEffect(() => {
         setEntityData(null);
     }, [setEntityData]);
+
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+        const shouldCreate = searchParams.get('create') === 'true';
+        if (shouldCreate) {
+            setIsCreatingDomain(true);
+            searchParams.delete('create');
+            history.replace(`${location.pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`);
+        }
+    }, [location.search, location.pathname, history]);
 
     return (
         <PageWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>

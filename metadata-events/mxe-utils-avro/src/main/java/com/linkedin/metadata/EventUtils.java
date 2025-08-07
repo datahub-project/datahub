@@ -93,7 +93,7 @@ public class EventUtils {
   private static final Schema RENAMED_FMCP_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.FailedMetadataChangeProposal.SCHEMA$;
 
-  private static final Schema RENAMED_DUHE_AVRO_SCHEMA =
+  public static final Schema RENAMED_DUHE_AVRO_SCHEMA =
       com.linkedin.pegasus2avro.mxe.DataHubUpgradeHistoryEvent.SCHEMA$;
 
   private EventUtils() {

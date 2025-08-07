@@ -18,15 +18,15 @@ public class IngestionSchedulerFactory {
 
   @Autowired
   @Qualifier("configurationProvider")
-  private ConfigurationProvider _configProvider;
+  private ConfigurationProvider configProvider;
 
   @Value("${ingestion.scheduler.delayIntervalSeconds:45}") // Boot up ingestion source cache after
   // waiting 45 seconds for startup.
-  private Integer _delayIntervalSeconds;
+  private Integer delayIntervalSeconds;
 
-  @Value("${ingestion.scheduler.refreshIntervalSeconds:43200}") // By default, refresh ingestion
+  @Value("${ingestion.scheduler.refreshIntervalSeconds}") // By default, refresh ingestion
   // sources 2 times per day.
-  private Integer _refreshIntervalSeconds;
+  private Integer refreshIntervalSeconds;
 
   @Bean(name = "ingestionScheduler")
   @Scope("singleton")
@@ -37,8 +37,8 @@ public class IngestionSchedulerFactory {
     return new IngestionScheduler(
         systemOpContext,
         entityClient,
-        _configProvider.getIngestion(),
-        _delayIntervalSeconds,
-        _refreshIntervalSeconds);
+        configProvider.getIngestion(),
+        delayIntervalSeconds,
+        refreshIntervalSeconds);
   }
 }
