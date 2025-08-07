@@ -1,6 +1,6 @@
 import logging
 from functools import lru_cache
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -26,28 +26,32 @@ class UnityCatalogTagSyncContext(BaseModel):
     # it is intentionally empty
     platform_instance: Optional[str] = None
 
+    def __hash__(self) -> int:
+        """Make UnityCatalogTagSyncContext hashable for @lru_cache support."""
+        return hash(self.platform_instance)
+
 
 logger = logging.getLogger(__name__)
 
 
-# Simple in-memory cache for tag operations
-_urn_search_cache: Dict[str, Optional[Tuple[str, Optional[str], Optional[str], bool, bool]]] = {}
-_platform_resource_cache: Dict[str, Optional[Dict]] = {}
+def get_unity_catalog_tag_cache_info() -> Dict[str, Dict[str, int]]:
+    """Get cache statistics for Unity Catalog tag operations."""
+    search_cache_info = UnityCatalogTagPlatformResourceId.search_by_urn.cache_info()
+    datahub_cache_info = UnityCatalogTagPlatformResource.get_from_datahub.cache_info()
 
-
-def clear_unity_catalog_tag_cache() -> None:
-    """Clear the Unity Catalog tag caches. Should be called at the start of ingestion runs."""
-    global _urn_search_cache, _platform_resource_cache
-    _urn_search_cache.clear()
-    _platform_resource_cache.clear()
-    logger.info("Unity Catalog tag cache cleared")
-
-
-def get_cache_stats() -> Dict[str, int]:
-    """Get cache statistics for debugging."""
     return {
-        "urn_search_cache_size": len(_urn_search_cache),
-        "platform_resource_cache_size": len(_platform_resource_cache),
+        "search_by_urn_cache": {
+            "hits": search_cache_info.hits,
+            "misses": search_cache_info.misses,
+            "current_size": search_cache_info.currsize or 0,
+            "max_size": search_cache_info.maxsize or 0,
+        },
+        "get_from_datahub_cache": {
+            "hits": datahub_cache_info.hits,
+            "misses": datahub_cache_info.misses,
+            "current_size": datahub_cache_info.currsize or 0,
+            "max_size": datahub_cache_info.maxsize or 0,
+        },
     }
 
 
@@ -63,7 +67,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
     persisted: bool = False
 
     def __hash__(self) -> int:
-        return hash(self.to_platform_resource_key().id)
+        return hash((self.tag_key, self.tag_value, self.platform_instance))
 
     # this is a hack to make sure the property is a string and not private pydantic field
     @staticmethod
@@ -112,37 +116,18 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
 
     @classmethod
+    @lru_cache(maxsize=1000)
     def search_by_urn(
         cls,
         urn: str,
         platform_resource_repository: PlatformResourceRepository,
         tag_sync_context: UnityCatalogTagSyncContext,
     ) -> Optional["UnityCatalogTagPlatformResourceId"]:
-        """Search for existing platform resource by URN with simple caching."""
-        
-        # Create cache key
-        cache_key = f"{urn}:{tag_sync_context.platform_instance}"
-        
-        # Check cache first
-        if cache_key in _urn_search_cache:
-            cached_result = _urn_search_cache[cache_key]
-            if cached_result is not None:
-                logger.debug(f"Cache hit for URN search: {urn}")
-                tag_key, tag_value, platform_instance, exists, persisted = cached_result
-                return cls(
-                    tag_key=tag_key,
-                    tag_value=tag_value,
-                    platform_instance=platform_instance,
-                    exists_in_unity_catalog=exists,
-                    persisted=persisted
-                )
-            else:
-                logger.debug(f"Cache hit (None) for URN search: {urn}")
-                return None
+        """Search for existing platform resource by URN with LRU caching."""
+        logger.debug(
+            f"Searching for URN {urn} with platform instance {tag_sync_context.platform_instance}"
+        )
 
-        logger.debug(f"Cache miss for URN {urn}, querying ElasticSearch")
-        
-        # Perform actual ElasticSearch query
         mapped_tags = [
             t
             for t in platform_resource_repository.search_by_filter(
@@ -155,8 +140,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
                 )
             )
         ]
-        
-        result = None
+
         if len(mapped_tags) > 0:
             for platform_resource in mapped_tags:
                 if (
@@ -175,18 +159,9 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
                         unity_catalog_tag_id = unity_catalog_tag.id
                         unity_catalog_tag_id.exists_in_unity_catalog = True
                         unity_catalog_tag_id.persisted = True
-                        result = unity_catalog_tag_id
-                        break
-        
-        # Cache the result
-        if result:
-            cached_tuple = (result.tag_key, result.tag_value, result.platform_instance, 
-                          result.exists_in_unity_catalog, result.persisted)
-            _urn_search_cache[cache_key] = cached_tuple
-        else:
-            _urn_search_cache[cache_key] = None
-        
-        return result
+                        return unity_catalog_tag_id
+
+        return None
 
     @classmethod
     def from_datahub_urn(
@@ -213,7 +188,9 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
             if resource_key:
                 new_unity_catalog_tag_id.exists_in_unity_catalog = True
             return new_unity_catalog_tag_id
-        raise ValueError(f"Unable to create Unity Catalog tag ID from DataHub URN: {urn}")
+        raise ValueError(
+            f"Unable to create Unity Catalog tag ID from DataHub URN: {urn}"
+        )
 
     @classmethod
     def generate_tag_id(
@@ -264,35 +241,19 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
             value=self,
         )
 
-    @classmethod 
+    @classmethod
+    @lru_cache(maxsize=1000)
     def get_from_datahub(
         cls,
         unity_catalog_tag_id: UnityCatalogTagPlatformResourceId,
         platform_resource_repository: PlatformResourceRepository,
         managed_by_datahub: bool = False,
     ) -> "UnityCatalogTagPlatformResource":
-        """Get platform resource from DataHub with simple caching."""
-        
-        # Create cache key
-        cache_key = f"{unity_catalog_tag_id.tag_key}:{unity_catalog_tag_id.tag_value}:{unity_catalog_tag_id.platform_instance}"
-        
-        # Check cache first
-        if cache_key in _platform_resource_cache:
-            cached_dict = _platform_resource_cache[cache_key]
-            if cached_dict is not None:
-                logger.debug(f"Cache hit for platform resource: {cache_key}")
-                return cls(**cached_dict)
-            else:
-                logger.debug(f"Cache hit (default) for platform resource: {cache_key}")
-                return cls(
-                    id=unity_catalog_tag_id,
-                    datahub_urns=LinkedResourceSet(urns=[]),
-                    managed_by_datahub=managed_by_datahub,
-                    allowed_values=None,
-                )
-        
-        logger.debug(f"Cache miss for platform resource {cache_key}, querying ElasticSearch")
-        
+        """Get platform resource from DataHub with LRU caching."""
+        logger.debug(
+            f"Getting platform resource for tag {unity_catalog_tag_id.tag_key}:{unity_catalog_tag_id.tag_value}"
+        )
+
         platform_resources = [
             r
             for r in platform_resource_repository.search_by_filter(
@@ -308,39 +269,38 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
                 )
             )
         ]
-        
-        result = None
+
         if len(platform_resources) == 1:
             platform_resource: PlatformResource = platform_resources[0]
-            if platform_resource.resource_info and platform_resource.resource_info.value:
-                result = UnityCatalogTagPlatformResource(
+            if (
+                platform_resource.resource_info
+                and platform_resource.resource_info.value
+            ):
+                return UnityCatalogTagPlatformResource(
                     **platform_resource.resource_info.value.as_pydantic_object(
                         UnityCatalogTagPlatformResource
                     ).dict()
                 )
         else:
             for platform_resource in platform_resources:
-                if platform_resource.resource_info and platform_resource.resource_info.value:
+                if (
+                    platform_resource.resource_info
+                    and platform_resource.resource_info.value
+                ):
                     unity_catalog_tag = UnityCatalogTagPlatformResource(
                         **platform_resource.resource_info.value.as_pydantic_object(
                             UnityCatalogTagPlatformResource
                         ).dict()
                     )
-                    if unity_catalog_tag.id.platform_instance == unity_catalog_tag_id.platform_instance:
-                        result = unity_catalog_tag
-                        break
-        
-        if result is None:
-            result = cls(
-                id=unity_catalog_tag_id,
-                datahub_urns=LinkedResourceSet(urns=[]),
-                managed_by_datahub=managed_by_datahub,
-                allowed_values=None,
-            )
-            # Cache the default result as None to indicate no actual platform resource found
-            _platform_resource_cache[cache_key] = None
-        else:
-            # Cache the actual result
-            _platform_resource_cache[cache_key] = result.dict()
-        
-        return result
+                    if (
+                        unity_catalog_tag.id.platform_instance
+                        == unity_catalog_tag_id.platform_instance
+                    ):
+                        return unity_catalog_tag
+
+        return cls(
+            id=unity_catalog_tag_id,
+            datahub_urns=LinkedResourceSet(urns=[]),
+            managed_by_datahub=managed_by_datahub,
+            allowed_values=None,
+        )

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -61,3 +61,6 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_tables_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
+
+    # Tag cache statistics
+    tag_cache_info: Optional[Dict[str, Dict[str, int]]] = None

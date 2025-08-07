@@ -23,6 +23,10 @@ class PlatformResourceRepository:
         self.graph = graph
         self.cache: cachetools.TTLCache = cachetools.TTLCache(maxsize=1000, ttl=60 * 5)
 
+    def __hash__(self) -> int:
+        """Make PlatformResourceRepository hashable based on its identity for @lru_cache support."""
+        return hash(id(self))
+
     def search_by_filter(
         self, filter: ElasticDocumentQuery, add_to_cache: bool = True
     ) -> Iterable[PlatformResource]:
