@@ -48,7 +48,7 @@ export default function LinkModule(props: ModuleProps) {
             });
         }
     }
-
+    throw Error();
     return (
         <SmallModule {...props} onClick={goToLink}>
             <Container>
