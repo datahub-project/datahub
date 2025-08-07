@@ -325,7 +325,7 @@ class SnowflakeV2Config(
         "to ignore the temporary staging tables created by known ETL tools.",
     )
 
-    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
+    rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(  # type: ignore[pydantic-field]
         "upstreams_deny_pattern", "temporary_tables_pattern"
     )
 
