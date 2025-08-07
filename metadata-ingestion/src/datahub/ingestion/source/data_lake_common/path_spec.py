@@ -478,7 +478,8 @@ class PathSpec(ConfigModel):
         return glob_include
 
     @pydantic.root_validator(skip_on_failure=True)
-    def validate_path_spec(cls, values: Dict) -> Dict[str, Any]:
+    @staticmethod
+    def validate_path_spec(values: Dict) -> Dict[str, Any]:
         # validate that main fields are populated
         required_fields = ["include", "file_types", "default_extension"]
         for f in required_fields:

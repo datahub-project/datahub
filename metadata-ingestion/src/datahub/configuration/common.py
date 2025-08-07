@@ -95,7 +95,7 @@ else:
     HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class SupportedSources:
     sources: List[str]
 

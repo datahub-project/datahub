@@ -1,10 +1,13 @@
 import warnings
-from typing import Callable, Type, TypeVar
+from typing import TYPE_CHECKING, Callable, Type, TypeVar
 
 import pydantic
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.utilities.global_warning_util import add_global_warning
+
+if TYPE_CHECKING:
+    from pydantic.deprecated.class_validators import V1RootValidator
 
 _T = TypeVar("_T")
 
@@ -18,7 +21,7 @@ def pydantic_renamed_field(
     new_name: str,
     transform: Callable = _default_rename_transform,
     print_warning: bool = True,
-) -> classmethod:
+) -> "V1RootValidator":
     def _validate_field_rename(cls: Type, values: dict) -> dict:
         if old_name in values:
             if new_name in values:
