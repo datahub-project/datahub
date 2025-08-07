@@ -11,7 +11,7 @@ To support these scenarios, DataHub supports `PATCH` operations to perform targe
 
 :::note
 
-Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained [here](https://github.com/datahub-project/datahub/blob/9588440549f3d99965085e97b214a7dabc181ed2/entity-registry/src/main/java/com/linkedin/metadata/models/registry/template/AspectTemplateEngine.java#L24).
+Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained by the `SUPPORTED_TEMPLATES` constant [here](https://github.com/datahub-project/datahub/blob/master/entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java#L23).
 
 :::
 
@@ -104,10 +104,10 @@ The Java Patch builders are aspect-oriented and located in the [datahub-client](
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java show_path_as_comment }}
 ```
 
-### Add Data Job Lineage
+### Add & Remove Data Job Lineage
 
-```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DataJobLineageAdd.java show_path_as_comment }}
+```python
+{{ inline /metadata-ingestion/examples/library/patch_datajob_lineage.py show_path_as_comment }}
 ```
 
 </TabItem>
