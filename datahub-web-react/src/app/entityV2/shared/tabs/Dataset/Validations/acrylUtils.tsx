@@ -5,6 +5,8 @@ import * as moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
 
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
@@ -14,10 +16,6 @@ import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Datase
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
 import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
-
-export const SUCCESS_COLOR_HEX = '#52C41A';
-export const FAILURE_COLOR_HEX = '#F5222D';
-export const WARNING_COLOR_HEX = '#FA8C16';
 
 const StyledApiOutlined = styled(ApiOutlined)`
     && {

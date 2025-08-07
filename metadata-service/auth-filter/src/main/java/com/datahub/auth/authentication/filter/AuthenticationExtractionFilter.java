@@ -1,19 +1,18 @@
 package com.datahub.auth.authentication.filter;
 
 import static com.datahub.authentication.AuthenticationConstants.*;
+import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.AuthenticatorContext;
-import com.datahub.authentication.authenticator.AuthenticatorChain;
-import com.datahub.authentication.authenticator.DataHubSystemAuthenticator;
-import com.datahub.authentication.authenticator.HealthStatusAuthenticator;
-import com.datahub.authentication.authenticator.NoOpAuthenticator;
+import com.datahub.authentication.authenticator.*;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.plugins.PluginConstant;
 import com.datahub.plugins.auth.authentication.Authenticator;
@@ -31,7 +30,6 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import jakarta.inject.Named;
-import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,31 +37,42 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * A servlet {@link Filter} for authenticating requests inbound to the Metadata Service. This filter
- * is applied to the GraphQL Servlet, the Rest.li Servlet, and the Auth (token) Servlet.
+ * Phase 1 Authentication Filter - Authentication Extraction
+ *
+ * <p>This filter ALWAYS runs and NEVER fails. It attempts to extract authentication information
+ * from incoming requests and sets the appropriate authentication context:
+ *
+ * <p>- If valid authentication is found → Sets authenticated user context - If no/invalid
+ * authentication → Sets anonymous/guest context
+ *
+ * <p>This provides universal authentication context for all requests, enabling controllers to
+ * implement progressive disclosure based on user authorization levels.
+ *
+ * <p>Order: HIGHEST_PRECEDENCE - runs before all other authentication filters
  */
-@Component
 @Slf4j
-public class AuthenticationFilter extends OncePerRequestFilter {
+@Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
+public class AuthenticationExtractionFilter extends OncePerRequestFilter {
+
+  // Constants for anonymous authentication
+  private static final String ANONYMOUS_CREDENTIALS = "";
 
   @Autowired private ConfigurationProvider configurationProvider;
 
@@ -79,103 +88,11 @@ public class AuthenticationFilter extends OncePerRequestFilter {
   private boolean _logAuthenticatorExceptions;
 
   private AuthenticatorChain authenticatorChain;
-  private Set<String> excludedPathPatterns;
 
   @PostConstruct
   public void init() {
     buildAuthenticatorChain();
-    initializeExcludedPaths();
-    log.info("AuthenticationFilter initialized.");
-  }
-
-  private void initializeExcludedPaths() {
-    excludedPathPatterns = new HashSet<>();
-    String excludedPaths = configurationProvider.getAuthentication().getExcludedPaths();
-    if (StringUtils.hasText(excludedPaths)) {
-      excludedPathPatterns.addAll(
-          Arrays.stream(excludedPaths.split(","))
-              .map(String::trim)
-              .filter(path -> !path.isBlank())
-              .toList());
-    }
-  }
-
-  @Override
-  protected void doFilterInternal(
-      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-      throws ServletException, IOException {
-    AuthenticationRequest context = buildAuthContext(request);
-    try {
-      Authentication authentication =
-          Objects.requireNonNull(
-              this.authenticatorChain.authenticate(context, _logAuthenticatorExceptions));
-      // Successfully authenticated.
-      log.debug(
-          "Successfully authenticated request for Actor with type: {}, id: {}",
-          authentication.getActor().getType(),
-          authentication.getActor().getId());
-      AuthenticationContext.setAuthentication(authentication);
-      chain.doFilter(request, response);
-
-    } catch (AuthenticationExpiredException e) {
-      // For AuthenticationExpiredExceptions, terminate and provide that feedback to the user
-      log.debug(
-          "Failed to authenticate request. Unauthorized to perform this action due to expired auth.",
-          e);
-      response.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED,
-          "Unauthorized to perform this action due to expired auth.");
-      return;
-    } catch (AuthenticationException e) {
-      log.debug(
-          "Failed to authenticate request. Received an AuthenticationException from authenticator chain.",
-          e);
-      response.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
-      return;
-    } catch (Exception e) {
-      // Reject request
-      log.debug(
-          "Failed to authenticate request. Received an exception from the authenticator chain.", e);
-      response.sendError(
-          HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
-      return;
-    }
-
-    AuthenticationContext.remove();
-  }
-
-  @VisibleForTesting
-  @Override
-  public boolean shouldNotFilter(HttpServletRequest request) {
-    String path = request.getServletPath();
-    if (path == null) {
-      return false;
-    }
-
-    // Check if the path matches any of the excluded patterns
-    boolean shouldExclude =
-        excludedPathPatterns.stream()
-            .anyMatch(
-                pattern -> {
-                  if (pattern.endsWith("/*")) {
-                    // Handle wildcard patterns
-                    String basePattern = pattern.substring(0, pattern.length() - 2);
-                    return path.startsWith(basePattern);
-                  }
-                  return path.equals(pattern);
-                });
-
-    if (shouldExclude) {
-      log.debug("Skipping authentication for excluded path: {}", path);
-    }
-
-    return shouldExclude;
-  }
-
-  @Override
-  public void destroy() {
-    // Nothing
+    log.info("AuthenticationExtractionFilter initialized.");
   }
 
   /**
@@ -200,14 +117,14 @@ public class AuthenticationFilter extends OncePerRequestFilter {
                 ENTITY_SERVICE, this._entityService, TOKEN_SERVICE, this._tokenService));
 
     if (isAuthEnabled) {
-      log.info("Auth is enabled. Building authenticator chain...");
+      log.info("Auth is enabled. Building extraction authenticator chain...");
       this.registerNativeAuthenticator(
           authenticatorChain, authenticatorContext); // Register native authenticators
       this.registerPlugins(authenticatorChain); // Register plugin authenticators
     } else {
       // Authentication is not enabled. Populate authenticator chain with a purposely permissive
       // Authenticator.
-      log.info("Auth is disabled. Building no-op authenticator chain...");
+      log.info("Auth is disabled. Building no-op extraction authenticator chain...");
       final NoOpAuthenticator noOpAuthenticator = new NoOpAuthenticator();
       noOpAuthenticator.init(
           ImmutableMap.of(
@@ -218,12 +135,90 @@ public class AuthenticationFilter extends OncePerRequestFilter {
     }
   }
 
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+      throws ServletException, IOException {
+
+    // Build authentication context from request
+    AuthenticationRequest authRequest = buildAuthContext(request);
+    Authentication authentication = null;
+
+    try {
+      // Attempt to authenticate the request
+      authentication = authenticatorChain.authenticate(authRequest, _logAuthenticatorExceptions);
+
+      if (authentication != null) {
+        log.debug(
+            "Successfully extracted authentication for actor: {} (type: {})",
+            authentication.getActor().getId(),
+            authentication.getActor().getType());
+      }
+
+    } catch (AuthenticationExpiredException e) {
+      // Authentication token expired - log as info and handle gracefully
+      log.info("Authentication token expired, will set anonymous context: {}", e.getMessage());
+    } catch (Exception e) {
+      // Authentication failed - this is expected and handled gracefully
+      log.debug("Authentication extraction failed, will set anonymous context: {}", e.getMessage());
+    }
+
+    // Set authentication context - either authenticated user or anonymous
+    if (authentication != null) {
+      AuthenticationContext.setAuthentication(authentication);
+    } else {
+      // Set anonymous authentication context
+      Authentication anonymousAuth = createAnonymousAuthentication();
+      AuthenticationContext.setAuthentication(anonymousAuth);
+      log.debug("Set anonymous authentication context for unauthenticated request");
+    }
+
+    try {
+      // Always proceed to next filter/controller
+      chain.doFilter(request, response);
+    } finally {
+      // Clean up authentication context after request processing
+      AuthenticationContext.remove();
+    }
+  }
+
+  /**
+   * Creates an anonymous authentication context for unauthenticated requests. This allows
+   * controllers to detect unauthenticated users and provide appropriate responses.
+   *
+   * @return Anonymous authentication with USER actor type
+   */
+  private Authentication createAnonymousAuthentication() {
+    Actor anonymousActor = new Actor(ActorType.USER, ANONYMOUS_ACTOR_ID);
+    return new Authentication(anonymousActor, ANONYMOUS_CREDENTIALS, Collections.emptyMap());
+  }
+
+  /**
+   * Builds authentication request context from HTTP request. Extracts path info and headers needed
+   * for authentication.
+   *
+   * @param request HTTP servlet request
+   * @return AuthenticationRequest with request context
+   */
   private AuthenticationRequest buildAuthContext(HttpServletRequest request) {
     return new AuthenticationRequest(
         request.getServletPath(),
         request.getPathInfo(),
         Collections.list(request.getHeaderNames()).stream()
             .collect(Collectors.toMap(headerName -> headerName, request::getHeader)));
+  }
+
+  /**
+   * This filter should run for ALL requests - no exclusions. The AuthenticationEnforcementFilter
+   * will handle exclusions based on configuration.
+   *
+   * @param request HTTP servlet request
+   * @return false - never skip this filter
+   */
+  @VisibleForTesting
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) {
+    return false; // Always run this filter
   }
 
   private void registerPlugins(AuthenticatorChain authenticatorChain) {
@@ -320,9 +315,9 @@ public class AuthenticationFilter extends OncePerRequestFilter {
       log.debug(String.format("Found configs for Authenticator of type %s: %s ", type, configs));
 
       // Instantiate the Authenticator class.
-      Class<? extends Authenticator> clazz = null;
+      Class<?> clazz = null;
       try {
-        clazz = (Class<? extends Authenticator>) Class.forName(type);
+        clazz = Class.forName(type);
       } catch (ClassNotFoundException e) {
         throw new RuntimeException(
             String.format(
@@ -339,7 +334,8 @@ public class AuthenticationFilter extends OncePerRequestFilter {
 
       // Else construct an instance of the class, each class should have an empty constructor.
       try {
-        final Authenticator authenticator = clazz.newInstance();
+        final Authenticator authenticator =
+            (Authenticator) clazz.getDeclaredConstructor().newInstance();
         // Successfully created authenticator. Now init and register it.
         log.debug(String.format("Initializing Authenticator with name %s", type));
         if (authenticator instanceof HealthStatusAuthenticator) {

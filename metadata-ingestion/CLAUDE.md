@@ -71,6 +71,9 @@ pytest tests/path/to/file.py::TestClass::test_method  # Single test
 - **Structure**: Test files should mirror the source directory structure
 - **Framework**: Use pytest, not unittest
 - **Assertions**: Use `assert` statements, not `self.assertEqual()` or `self.assertIsNone()`
+  - Boolean: `assert func()` or `assert not func()`, not `assert func() is True/False`
+  - None: `assert result is None` (correct), not `assert result == None`
+  - Keep tests concise, avoid verbose repetitive patterns
 - **Classes**: Use regular classes, not `unittest.TestCase`
 - **Imports**: Import `pytest` in test files
 - **Naming**: Test files should be named `test_*.py`
