@@ -1,32 +1,32 @@
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 logger = logging.getLogger(__name__)
 
 
 def should_write_json_file(
-    output_path: Path, 
-    new_json_data: Dict[str, Any], 
-    file_description: str = "JSON file"
+    output_path: Path,
+    new_json_data: Dict[str, Any],
+    file_description: str = "JSON file",
 ) -> bool:
     """
     Check if a JSON file should be written by comparing content with existing file.
-    
+
     This function compares the new JSON data with existing file content, excluding
     the 'generated_at' field from comparison since it changes on every generation.
-    
+
     Args:
         output_path: Path to the output file
         new_json_data: The new JSON data to potentially write
         file_description: Description of the file for logging purposes
-        
+
     Returns:
         True if the file should be written, False if content is unchanged
     """
     write_file = True
-    
+
     if output_path.exists():
         try:
             with open(output_path, "r") as f:
@@ -45,5 +45,5 @@ def should_write_json_file(
                 write_file = False
         except Exception as e:
             logger.warning(f"Could not read existing {file_description}: {e}")
-    
-    return write_file 
+
+    return write_file

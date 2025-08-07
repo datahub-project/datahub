@@ -440,7 +440,14 @@ export interface HomePageRecommendationClickEvent extends BaseEvent {
 
 export interface VisualLineageViewEvent extends BaseEvent {
     type: EventType.VisualLineageViewEvent;
-    entityType?: EntityType;
+    entityType: EntityType;
+    numUpstreams: number;
+    numDownstreams: number;
+    hasColumnLevelLineage: boolean;
+    hasExpandableUpstreamsV2?: boolean;
+    hasExpandableDownstreamsV2?: boolean;
+    hasExpandableUpstreamsV3?: boolean;
+    hasExpandableDownstreamsV3?: boolean;
 }
 
 export interface VisualLineageExpandGraphEvent extends BaseEvent {
@@ -463,6 +470,9 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     page?: number;
     total: number;
     maxDegree?: string;
+    hasUserAppliedColumnFilter?: boolean;
+    /** Whether search is scoped to a specific schema field URN (from navigation) */
+    isSchemaFieldContext?: boolean;
 }
 
 export interface DownloadAsCsvEvent extends BaseEvent {
