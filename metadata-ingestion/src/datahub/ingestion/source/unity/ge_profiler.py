@@ -5,8 +5,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional
 
 from databricks.sdk.service.catalog import DataSourceFormat
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Connection
+from databricks.sql import connect
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -18,8 +17,6 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.unity.config import UnityCatalogGEProfilerConfig
 from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(init=False)
@@ -60,15 +57,13 @@ class UnityCatalogGEProfiler(GenericProfiler):
         # So there is no repeated logic between this class and source.py
 
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
-        # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
-        self.config.options.setdefault(
-            "max_overflow", self.profiling_config.max_workers
-        )
-
-        url = self.config.get_sql_alchemy_url()
-        engine = create_engine(url, **self.config.options)
-        conn = engine.connect()
+        # Use databricks-sql-connector directly instead of SQLAlchemy
+        # This follows the same pattern as the Unity Catalog proxy
+        sql_connection_params = {
+            "server_hostname": self.config.workspace_url.replace("https://", ""),
+            "http_path": f"/sql/1.0/warehouses/{self.config.warehouse_id}",
+            "access_token": self.config.token,
+        }
 
         profile_requests = []
         with ThreadPoolExecutor(
@@ -78,7 +73,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 executor.submit(
                     self.get_unity_profile_request,
                     UnityCatalogSQLGenericTable(table),
-                    conn,
+                    sql_connection_params,
                 )
                 for table in tables
             ]
@@ -110,7 +105,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
         return f"{db_name}.{schema_name}.{table_name}"
 
     def get_unity_profile_request(
-        self, table: UnityCatalogSQLGenericTable, conn: Connection
+        self, table: UnityCatalogSQLGenericTable, sql_connection_params: dict
     ) -> Optional[TableProfilerRequest]:
         # TODO: Reduce code duplication with get_profile_request
         skip_profiling = False
@@ -119,7 +114,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
         dataset_name = table.ref.qualified_table_name
         if table.is_delta_table:
             try:
-                table.size_in_bytes = _get_dataset_size_in_bytes(table, conn)
+                table.size_in_bytes = _get_dataset_size_in_bytes(table, sql_connection_params)
             except Exception as e:
                 self.report.warning(
                     title="Incomplete Dataset Profile",
@@ -162,7 +157,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
             # by looking at table.rows_count. For delta tables (a typical databricks table)
             # count(*) is an efficient query to compute row count.
             try:
-                table.rows_count = _get_dataset_row_count(table, conn)
+                table.rows_count = _get_dataset_row_count(table, sql_connection_params)
             except Exception as e:
                 self.report.warning(
                     title="Incomplete Dataset Profile",
@@ -185,38 +180,44 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
 
 def _get_dataset_size_in_bytes(
-    table: UnityCatalogSQLGenericTable, conn: Connection
+    table: UnityCatalogSQLGenericTable, sql_connection_params: dict
 ) -> Optional[int]:
-    name = ".".join(
-        conn.dialect.identifier_preparer.quote(c)
-        for c in [table.ref.catalog, table.ref.schema, table.ref.table]
-    )
-    # This query only works for delta table.
-    # Ref: https://docs.databricks.com/en/delta/table-details.html
-    # Note: Any change here should also update _get_dataset_row_count
-    row = conn.execute(f"DESCRIBE DETAIL {name}").fetchone()
-    if row is None:
+    try:
+        with connect(**sql_connection_params) as connection:
+            with connection.cursor() as cursor:
+                name = f"{table.ref.catalog}.{table.ref.schema}.{table.ref.table}"
+                # This query only works for delta table.
+                # Ref: https://docs.databricks.com/en/delta/table-details.html
+                # Note: Any change here should also update _get_dataset_row_count
+                cursor.execute(f"DESCRIBE DETAIL {name}")
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                else:
+                    try:
+                        return int(row[0])  # Assuming sizeInBytes is the first column
+                    except Exception:
+                        return None
+    except Exception:
         return None
-    else:
-        try:
-            return int(row._asdict()["sizeInBytes"])
-        except Exception:
-            return None
 
 
 def _get_dataset_row_count(
-    table: UnityCatalogSQLGenericTable, conn: Connection
+    table: UnityCatalogSQLGenericTable, sql_connection_params: dict
 ) -> Optional[int]:
-    name = ".".join(
-        conn.dialect.identifier_preparer.quote(c)
-        for c in [table.ref.catalog, table.ref.schema, table.ref.table]
-    )
-    # This query only works efficiently for delta table
-    row = conn.execute(f"select count(*) as numRows from {name}").fetchone()
-    if row is None:
+    try:
+        with connect(**sql_connection_params) as connection:
+            with connection.cursor() as cursor:
+                name = f"{table.ref.catalog}.{table.ref.schema}.{table.ref.table}"
+                # This query only works efficiently for delta table
+                cursor.execute(f"select count(*) as numRows from {name}")
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                else:
+                    try:
+                        return int(row[0])  # Assuming numRows is the first column
+                    except Exception:
+                        return None
+    except Exception:
         return None
-    else:
-        try:
-            return int(row._asdict()["numRows"])
-        except Exception:
-            return None
