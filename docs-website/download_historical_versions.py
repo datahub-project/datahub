@@ -2,7 +2,7 @@ import json
 import os
 import tarfile
 import time
-import urllib.request
+import requests
 import shutil
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -10,31 +10,30 @@ repo_url = "https://api.github.com/repos/datahub-project/static-assets"
 
 
 def download_file(url, destination):
-    with urllib.request.urlopen(url) as response:
-        with open(destination, "wb") as f:
-            while True:
-                chunk = response.read(8192)
-                if not chunk:
-                    break
-                f.write(chunk)
+    response = requests.get(url, stream=True)
+    response.raise_for_status()
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
 
 
 @retry(
     stop=stop_after_attempt(10),
     wait=wait_exponential(multiplier=1, min=1, max=30),
-    retry=retry_if_exception_type((urllib.error.HTTPError, urllib.error.URLError, Exception))
+    retry=retry_if_exception_type(Exception)
 )
 def fetch_urls(
     repo_url: str, folder_path: str, file_format: str, active_versions: list
 ):
     api_url = f"{repo_url}/contents/{folder_path}"
-    response = urllib.request.urlopen(api_url)
-    if response.status == 403 or (500 <= response.status < 600):
-        raise Exception(f"HTTP Error {response.status}: {response.reason}")
-    data = response.read().decode("utf-8")
+    response = requests.get(api_url)
+    if response.status_code == 403 or (500 <= response.status_code < 600):
+        raise Exception(f"HTTP Error {response.status_code}: {response.reason}")
+    response.raise_for_status()
+    data = response.json()
     urls = [
         file["download_url"]
-        for file in json.loads(data)
+        for file in data
         if file["name"].endswith(file_format) and any(version in file["name"] for version in active_versions)
     ]
     print(urls)
@@ -78,7 +77,7 @@ def download_versioned_docs(folder_path: str, destination_dir: str, file_format:
             print(f"Downloaded {filename} to {destination_dir}")
             if file_format == ".tar.gz":
                 extract_tar_file(destination_path)
-        except urllib.error.URLError as e:
+        except Exception as e:
             print(f"Error while downloading {filename}: {e}")
             continue
 
