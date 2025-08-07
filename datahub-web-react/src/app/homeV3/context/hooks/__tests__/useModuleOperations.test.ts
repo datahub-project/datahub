@@ -2423,6 +2423,7 @@ describe('useModuleOperations', () => {
                     templateWithSmallModules,
                     mockGlobalModuleToEdit.urn,
                     position,
+                    false,
                 );
 
                 // Should handle the size mismatch properly during replacement
