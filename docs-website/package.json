@@ -24,11 +24,11 @@
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",
-    "@docusaurus/core": "^2.4.1",
+    "@docusaurus/core": "^3.8.1",
     "@docusaurus/plugin-client-redirects": "2.4.3",
     "@docusaurus/plugin-content-docs": "2.4.1",
     "@docusaurus/plugin-ideal-image": "^2.4.1",
-    "@docusaurus/preset-classic": "^2.4.1",
+    "@docusaurus/preset-classic": "^3.8.1",
     "@markprompt/css": "^0.26.0",
     "@markprompt/react": "^0.40.5",
     "@octokit/plugin-retry": "^3.0.9",
