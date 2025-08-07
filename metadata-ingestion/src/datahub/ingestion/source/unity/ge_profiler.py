@@ -18,6 +18,8 @@ from datahub.ingestion.source.unity.config import UnityCatalogGEProfilerConfig
 from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(init=False)
 class UnityCatalogSQLGenericTable(BaseTable):
@@ -114,7 +116,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
         dataset_name = table.ref.qualified_table_name
         if table.is_delta_table:
             try:
-                table.size_in_bytes = _get_dataset_size_in_bytes(table, sql_connection_params)
+                table.size_in_bytes = _get_dataset_size_in_bytes(
+                    table, sql_connection_params
+                )
             except Exception as e:
                 self.report.warning(
                     title="Incomplete Dataset Profile",
@@ -183,21 +187,23 @@ def _get_dataset_size_in_bytes(
     table: UnityCatalogSQLGenericTable, sql_connection_params: dict
 ) -> Optional[int]:
     try:
-        with connect(**sql_connection_params) as connection:
-            with connection.cursor() as cursor:
-                name = f"{table.ref.catalog}.{table.ref.schema}.{table.ref.table}"
-                # This query only works for delta table.
-                # Ref: https://docs.databricks.com/en/delta/table-details.html
-                # Note: Any change here should also update _get_dataset_row_count
-                cursor.execute(f"DESCRIBE DETAIL {name}")
-                row = cursor.fetchone()
-                if row is None:
+        with (
+            connect(**sql_connection_params) as connection,
+            connection.cursor() as cursor,
+        ):
+            name = f"{table.ref.catalog}.{table.ref.schema}.{table.ref.table}"
+            # This query only works for delta table.
+            # Ref: https://docs.databricks.com/en/delta/table-details.html
+            # Note: Any change here should also update _get_dataset_row_count
+            cursor.execute(f"DESCRIBE DETAIL {name}")
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            else:
+                try:
+                    return int(row[0])  # Assuming sizeInBytes is the first column
+                except Exception:
                     return None
-                else:
-                    try:
-                        return int(row[0])  # Assuming sizeInBytes is the first column
-                    except Exception:
-                        return None
     except Exception:
         return None
 
@@ -206,18 +212,20 @@ def _get_dataset_row_count(
     table: UnityCatalogSQLGenericTable, sql_connection_params: dict
 ) -> Optional[int]:
     try:
-        with connect(**sql_connection_params) as connection:
-            with connection.cursor() as cursor:
-                name = f"{table.ref.catalog}.{table.ref.schema}.{table.ref.table}"
-                # This query only works efficiently for delta table
-                cursor.execute(f"select count(*) as numRows from {name}")
-                row = cursor.fetchone()
-                if row is None:
+        with (
+            connect(**sql_connection_params) as connection,
+            connection.cursor() as cursor,
+        ):
+            name = f"{table.ref.catalog}.{table.ref.schema}.{table.ref.table}"
+            # This query only works efficiently for delta table
+            cursor.execute(f"select count(*) as numRows from {name}")
+            row = cursor.fetchone()
+            if row is None:
+                return None
+            else:
+                try:
+                    return int(row[0])  # Assuming numRows is the first column
+                except Exception:
                     return None
-                else:
-                    try:
-                        return int(row[0])  # Assuming numRows is the first column
-                    except Exception:
-                        return None
     except Exception:
         return None
