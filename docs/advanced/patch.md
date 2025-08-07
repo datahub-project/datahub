@@ -11,7 +11,7 @@ To support these scenarios, DataHub supports `PATCH` operations to perform targe
 
 :::note
 
-Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained by the `SUPPORTED_TEMPLATES` constant [here](https://github.com/datahub-project/datahub/blob/master/entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java#L23).
+PATCH support is now supported generically via [OpenAPI](../api/openapi/openapi-usage-guide#generic-patching). Traditional PATCH support is only available for a selected set of aspects. The complete list of Aspects that are supported are maintained by the `SUPPORTED_TEMPLATES` constant [here](https://github.com/datahub-project/datahub/blob/master/entity-registry/src/main/java/com/linkedin/metadata/aspect/patch/template/AspectTemplateEngine.java#L23).
 
 :::
 
