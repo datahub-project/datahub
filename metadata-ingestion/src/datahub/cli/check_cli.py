@@ -1,10 +1,13 @@
 import dataclasses
 import json
 import logging
+import os
 import pathlib
 import pprint
 import shutil
+import sys
 import tempfile
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
@@ -514,10 +517,8 @@ def restore_indices(
     )
 
 
-@check.command()
-@upgrade.check_upgrade
-def get_kafka_consumer_offsets() -> None:
-    """Get Kafka consumer offsets from the DataHub API."""
+def get_kafka_consumer_offsets_data():
+    """Helper function to fetch and format Kafka consumer offset data."""
     graph = get_default_graph(ClientMode.CLI)
     result = graph.get_kafka_consumer_offsets()
 
@@ -555,7 +556,59 @@ def get_kafka_consumer_offsets() -> None:
                         ]
                     )
 
-    if table_data:
-        click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
-    else:
-        click.echo("No Kafka consumer offset data found.")
+    return table_data, headers
+
+
+def display_kafka_consumer_offsets_with_watch(watch: bool = False) -> None:
+    """Display Kafka consumer offsets, optionally in watch mode."""
+    try:
+        if watch:
+            # Clear screen function
+            def clear_screen():
+                os.system("cls" if os.name == "nt" else "clear")
+
+            click.echo(
+                "Starting Kafka consumer offsets monitoring (press Ctrl+C to stop)..."
+            )
+            time.sleep(1)
+
+            while True:
+                clear_screen()
+                table_data, headers = get_kafka_consumer_offsets_data()
+
+                # Add timestamp header
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                click.echo(f"Kafka Consumer Offsets - Last Updated: {timestamp}")
+                click.echo("=" * 80)
+
+                if table_data:
+                    click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+                else:
+                    click.echo("No Kafka consumer offset data found.")
+
+                click.echo("\nRefreshing every 10 seconds... (Press Ctrl+C to stop)")
+                time.sleep(10)
+        else:
+            # Original behavior - single execution
+            table_data, headers = get_kafka_consumer_offsets_data()
+
+            if table_data:
+                click.echo(tabulate(table_data, headers=headers, tablefmt="grid"))
+            else:
+                click.echo("No Kafka consumer offset data found.")
+
+    except KeyboardInterrupt:
+        click.echo("\n\nStopped monitoring Kafka consumer offsets.")
+        sys.exit(0)
+
+
+@check.command()
+@click.option(
+    "--watch",
+    is_flag=True,
+    help="Continuously refresh the table every 10 seconds",
+)
+@upgrade.check_upgrade
+def get_kafka_consumer_offsets(watch: bool) -> None:
+    """Get Kafka consumer offsets from the DataHub API."""
+    display_kafka_consumer_offsets_with_watch(watch)
