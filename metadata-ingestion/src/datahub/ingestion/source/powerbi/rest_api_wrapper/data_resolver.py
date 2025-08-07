@@ -70,12 +70,37 @@ class SessionWithTimeout(requests.Session):
 
 
 class DataResolverBase(ABC):
-    SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
-    MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
-    BASE_URL: str = f"{MY_ORG_URL}/groups"
-    ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
-    AUTHORITY: str = "https://login.microsoftonline.com/"
+    # PowerBI environment URLs
+    COMMERCIAL_URLS = {
+        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.com/"
+    }
+    
+    GOVERNMENT_URLS = {
+        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbigov.us/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.us/"
+    }
+    
     TOP: int = 1000
+    
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        tenant_id: str,
+        metadata_api_timeout: int,
+        environment: str = "commercial"
+    ):
+        self._environment = environment
+        self._urls = self.GOVERNMENT_URLS if environment == "government" else self.COMMERCIAL_URLS
+        
+        self.SCOPE = self._urls["SCOPE"]
+        self.MY_ORG_URL = self._urls["MY_ORG_URL"]
+        self.BASE_URL = f"{self.MY_ORG_URL}/groups"
+        self.ADMIN_BASE_URL = f"{self.MY_ORG_URL}/admin"
+        self.AUTHORITY = self._urls["AUTHORITY"]
 
     def __init__(
         self,
