@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SiblingsClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -372,6 +373,11 @@ class DBTCommonConfig(
         default=True,
         description="Whether to add database name to the table urn. "
         "Set to False to skip it for engines like AWS Athena where it's not required.",
+    )
+
+    dbt_is_primary_sibling: bool = Field(
+        default=True,
+        description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. When disabled, target platform nodes are treated as primary and DBT nodes as secondary.",
     )
 
     drop_duplicate_sources: bool = Field(
@@ -1445,6 +1451,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if view_prop_aspect:
                 aspects.append(view_prop_aspect)
 
+            if node.exists_in_target_platform:
+                sibling_aspect = self._create_sibling_aspect_for_dbt_entity(node)
+                if sibling_aspect:
+                    aspects.append(sibling_aspect)
+
             # Generate main MCE.
             if self.config.entities_enabled.can_emit_node_type(node.node_type):
                 # Subtype.
@@ -1609,6 +1620,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
                     ).as_workunit(is_primary_source=False)
+
+                    sibling_aspect = self._create_sibling_aspect_for_target_entity(
+                        node, upstream_dbt_urn
+                    )
+                    if sibling_aspect:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=node_datahub_urn,
+                            aspect=sibling_aspect,
+                        ).as_workunit()
 
     def extract_query_tag_aspects(
         self,
@@ -2133,6 +2153,54 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 for existing_term in existing_terms_class.terms:
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
+
+    def _create_sibling_aspect_for_dbt_entity(self, node: DBTNode) -> Optional[Any]:
+        """Create sibling aspect for dbt entity pointing to target platform entity."""
+
+        if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+            return None
+
+        # Only create explicit sibling relationships when needed
+        if not self.config.dbt_is_primary_sibling:
+            # When target platform should be primary
+            should_create_sibling = True
+            is_primary = False
+        else:
+            # Default case: dbt is primary, existing relationships are sufficient
+            return None
+
+        if not should_create_sibling:
+            return None
+
+        target_urn = node.get_urn(
+            self.config.target_platform,
+            self.config.env,
+            self.config.target_platform_instance,
+        )
+
+        return SiblingsClass(primary=is_primary, siblings=[target_urn])
+
+    def _create_sibling_aspect_for_target_entity(
+        self, node: DBTNode, dbt_urn: str
+    ) -> Optional[Any]:
+        """Create sibling aspect for target platform entity pointing to dbt entity."""
+
+        if not self.config.entities_enabled.can_emit_node_type(node.node_type):
+            return None
+
+        # Only create explicit sibling relationships when needed
+        if not self.config.dbt_is_primary_sibling:
+            # When target platform should be primary
+            should_create_sibling = True
+            is_primary = True
+        else:
+            # Default case: dbt is primary, existing relationships are sufficient
+            return None
+
+        if not should_create_sibling:
+            return None
+
+        return SiblingsClass(primary=is_primary, siblings=[dbt_urn])
 
     def get_report(self):
         return self.report
