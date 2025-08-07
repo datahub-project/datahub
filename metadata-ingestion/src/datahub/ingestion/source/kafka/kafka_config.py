@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import Field
+from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -8,12 +8,40 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+
+class ProfilerConfig(GEProfilingBaseConfig):
+    sample_size: PositiveInt = Field(
+        default=100,
+        description="Number of messages to sample for profiling",
+    )
+    max_sample_time_seconds: PositiveInt = Field(
+        default=60,
+        description="Maximum time to spend sampling messages in seconds",
+    )
+    sampling_strategy: str = Field(
+        default="latest",
+        description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
+    )
+    cache_sample_results: bool = Field(
+        default=True,
+        description="Whether to cache sample results between runs for the same topic",
+    )
+    cache_ttl_seconds: PositiveInt = Field(
+        default=3600,
+        description="How long to keep cached sample results in seconds",
+    )
+    batch_size: PositiveInt = Field(
+        default=20,
+        description="Number of messages to fetch in a single batch (for more efficient reading)",
+    )
 
 
 class KafkaSourceConfig(
@@ -75,4 +103,8 @@ class KafkaSourceConfig(
     external_url_base: Optional[str] = Field(
         default=None,
         description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
+    )
+    profiling: ProfilerConfig = Field(
+        default=ProfilerConfig(),
+        description="Settings for message sampling and profiling",
     )
