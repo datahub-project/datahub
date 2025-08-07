@@ -1240,9 +1240,19 @@ fragment datasetSchema on Dataset {
   }
 }
 
+fragment viewProperties on Dataset {
+    viewProperties {
+        materialized
+        logic
+        # formattedLogic
+        language
+    }
+}
+
 fragment entityDetails on Entity {
   ... on Dataset {
     ...datasetSchema
+    ...viewProperties
   }
   ... on StructuredPropertyEntity {
     ...structuredPropertyFields

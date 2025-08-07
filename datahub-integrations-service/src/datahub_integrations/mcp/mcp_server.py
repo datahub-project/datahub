@@ -19,6 +19,7 @@ import asyncer
 import jmespath
 from datahub.errors import ItemNotFoundError
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
@@ -109,6 +110,17 @@ def _inject_urls_for_urns(
                 new_item.update({k: v for k, v in item.items() if k != "urn"})
                 item.clear()
                 item.update(new_item)
+
+
+def _maybe_convert_to_schema_field_urn(urn: str, column: Optional[str]) -> str:
+    if column is not None:
+        maybe_dataset_urn = Urn.from_string(urn)
+        if not isinstance(maybe_dataset_urn, DatasetUrn):
+            raise ValueError(
+                f"Input urn should be a dataset urn if column is provided, but got {urn}."
+            )
+        urn = str(SchemaFieldUrn(maybe_dataset_urn, column))
+    return urn
 
 
 search_gql = (pathlib.Path(__file__).parent / "gql/search.gql").read_text()
@@ -265,13 +277,26 @@ def search(
     return _clean_gql_response(response)
 
 
-@mcp.tool(description="Use this tool to get the SQL queries associated with a dataset.")
+@mcp.tool(
+    description="Use this tool to get the SQL queries associated with a dataset or a dataset column."
+)
 @async_background
-def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> dict:
+def get_dataset_queries(
+    urn: str, column: Optional[str] = None, start: int = 0, count: int = 10
+) -> dict:
     client = get_datahub_client()
 
+    urn = _maybe_convert_to_schema_field_urn(urn, column)
+
+    entities_filter = FilterDsl.custom_filter(
+        field="entities", condition="EQUAL", values=[urn]
+    )
+    _, compiled_filters = compile_filters(entities_filter)
+
     # Set up variables for the query
-    variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
+    variables = {
+        "input": {"start": start, "count": count, "orFilters": compiled_filters}
+    }
 
     # Execute the GraphQL query
     result = _execute_graphql(
@@ -383,9 +408,13 @@ Use this tool to get upstream or downstream lineage for any entity, including da
 Set upstream to True for upstream lineage, False for downstream lineage."""
 )
 @async_background
-def get_lineage(urn: str, upstream: bool, max_hops: int = 1) -> dict:
+def get_lineage(
+    urn: str, column: Optional[str] = None, upstream: bool = True, max_hops: int = 1
+) -> dict:
     client = get_datahub_client()
     lineage_api = AssetLineageAPI(client._graph)
+
+    urn = _maybe_convert_to_schema_field_urn(urn, column)
     asset_lineage_directive = AssetLineageDirective(
         urn=urn, upstream=upstream, downstream=not upstream, max_hops=max_hops
     )
