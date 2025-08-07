@@ -1,4 +1,5 @@
 import { Icon, colors } from '@components';
+import { Typography } from 'antd';
 import styled from 'styled-components';
 
 import VectorBackground from '@images/homepage-vector.svg?react';
@@ -102,4 +103,18 @@ export const FloatingRightHeaderSection = styled.div`
     right: 0px;
     top: 0px;
     height: 100%;
+`;
+
+export const NameContainer = styled(Typography.Text)`
+    color: ${colors.gray[600]};
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 20px;
+`;
+
+export const DescriptionContainer = styled(Typography.Text)`
+    color: ${colors.gray[500]};
+    font-weight: 400;
+    font-size: 12px;
+    line-height: 20px;
 `;

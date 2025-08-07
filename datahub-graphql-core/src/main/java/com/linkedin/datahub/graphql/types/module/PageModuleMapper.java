@@ -7,14 +7,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.linkedin.datahub.graphql.generated.DataHubPageModule;
-import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.module.DataHubPageModuleProperties;
+import java.time.Instant;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -35,6 +35,8 @@ public class PageModuleMapper implements ModelMapper<EntityResponse, DataHubPage
 
     result.setUrn(entityResponse.getUrn().toString());
     result.setType(EntityType.DATAHUB_PAGE_MODULE);
+
+    setDefaultModule(result);
 
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataHubPageModule> mappingHelper = new MappingHelper<>(aspectMap, result);
@@ -80,5 +82,30 @@ public class PageModuleMapper implements ModelMapper<EntityResponse, DataHubPage
     }
 
     module.setProperties(properties);
+  }
+
+  /*
+   * In the case that a module is deleted and the references haven't been cleaned up yet (this process is async)
+   * set a default module to prevent APIs breaking. The UI queries for whether the entity exists and it will
+   * be filtered out.
+   */
+  private void setDefaultModule(final DataHubPageModule result) {
+    com.linkedin.datahub.graphql.generated.DataHubPageModuleProperties properties =
+        new com.linkedin.datahub.graphql.generated.DataHubPageModuleProperties();
+    properties.setName("");
+    properties.setType(DataHubPageModuleType.OWNED_ASSETS);
+    properties.setParams(new DataHubPageModuleParams());
+
+    DataHubPageModuleVisibility visibility = new DataHubPageModuleVisibility();
+    visibility.setScope(PageModuleScope.GLOBAL);
+    properties.setVisibility(visibility);
+
+    ResolvedAuditStamp auditStamp = new ResolvedAuditStamp();
+    auditStamp.setTime(Instant.now().toEpochMilli());
+    auditStamp.setActor(new CorpUser());
+    properties.setCreated(auditStamp);
+    properties.setLastModified(auditStamp);
+
+    result.setProperties(properties);
   }
 }
