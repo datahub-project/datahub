@@ -28,14 +28,14 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermsClass,
     MetadataAttributionClass,
-    MetadataChangeLogClass
+    MetadataChangeLogClass,
 )
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 from datahub_actions.action.action import Action
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
-from datahub_actions.plugin.action.mcl_utils import MCLProcessor
 from datahub_actions.pipeline.pipeline_context import PipelineContext
+from datahub_actions.plugin.action.mcl_utils import MCLProcessor
 from datahub_actions.plugin.action.propagation.propagation_utils import (
     DirectionType,
     PropagationConfig,
@@ -52,9 +52,7 @@ logger = logging.getLogger(__name__)
 
 
 class GlossaryTermPropagationDirective(PropagationDirective):
-    term_urn: str = Field(
-        description="Glossary term URN to be propagated."
-    )
+    term_urn: str = Field(description="Glossary term URN to be propagated.")
 
 
 class ColumnPropagationRelationships(ConfigEnum):
@@ -98,8 +96,9 @@ class GlossaryTermPropagationConfig(PropagationConfig):
 
     one_upstream: bool = Field(
         True,
-        description="allow propagation to downstream, only if downstream has only one upstream"
+        description="allow propagation to downstream, only if downstream has only one upstream",
     )
+
 
 class GlossaryTermPropagationAction(Action):
     def __init__(self, config: GlossaryTermPropagationConfig, ctx: PipelineContext):
@@ -138,36 +137,38 @@ class GlossaryTermPropagationAction(Action):
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "Action":
         action_config = GlossaryTermPropagationConfig.parse_obj(config_dict or {})
-        logger.info(f"Glossary Term Propagation Config action configured with {action_config}")
+        logger.info(
+            f"Glossary Term Propagation Config action configured with {action_config}"
+        )
         return cls(action_config, ctx)
 
     def _should_stop_propagation(
-            self, source_details: SourceDetails
+        self, source_details: SourceDetails
     ) -> Tuple[bool, str]:
         """
         Check if the propagation should be stopped based on the source details.
         Return result and reason.
         """
         if source_details.propagation_started_at and (
-                int(time.time() * 1000.0) - source_details.propagation_started_at
-                >= self.config.max_propagation_time_millis
+            int(time.time() * 1000.0) - source_details.propagation_started_at
+            >= self.config.max_propagation_time_millis
         ):
             return (True, "Propagation time exceeded.")
         if (
-                source_details.propagation_depth
-                and source_details.propagation_depth >= self.config.max_propagation_depth
+            source_details.propagation_depth
+            and source_details.propagation_depth >= self.config.max_propagation_depth
         ):
             return (True, "Propagation depth exceeded.")
         return False, ""
 
     def _get_propagation_relationships(
-            self, entity_type: str, source_details: Optional[SourceDetails]
+        self, entity_type: str, source_details: Optional[SourceDetails]
     ) -> List[Tuple[RelationshipType, DirectionType]]:
         possible_relationships = []
         if entity_type == "schemaField":
             if (source_details is not None) and (
-                    source_details.propagation_relationship
-                    and source_details.propagation_direction
+                source_details.propagation_relationship
+                and source_details.propagation_direction
             ):
                 restricted_relationship = source_details.propagation_relationship
                 restricted_direction = source_details.propagation_direction
@@ -185,11 +186,11 @@ class GlossaryTermPropagationAction(Action):
         return possible_relationships
 
     def process_schema_field_terms(
-            self,
-            entity_urn: str,
-            aspect_name: str,
-            aspect_value: GenericAspectClass,
-            previous_aspect_value: Optional[GenericAspectClass],
+        self,
+        entity_urn: str,
+        aspect_name: str,
+        aspect_value: GenericAspectClass,
+        previous_aspect_value: Optional[GenericAspectClass],
     ) -> Optional[GlossaryTermPropagationDirective]:
         """
         Process changes in the glossaryTerms aspect of schemaField entities.
@@ -201,15 +202,17 @@ class GlossaryTermPropagationAction(Action):
               time for propagation, then we stop propagation and don't return a directive.
         """
         if (
-                aspect_name != "glossaryTerms"
-                or guess_entity_type(entity_urn) != "schemaField"
+            aspect_name != "glossaryTerms"
+            or guess_entity_type(entity_urn) != "schemaField"
         ):
             # not a glossaryTerms aspect or not a schemaField entity
             return None
 
         logger.debug("Processing 'glossaryTerms' MCL")
         if self.config.columns_enabled:
-            current_terms: GlossaryTermsClass  = GlossaryTermsClass.from_obj(json.loads(aspect_value.value))
+            current_terms: GlossaryTermsClass = GlossaryTermsClass.from_obj(
+                json.loads(aspect_value.value)
+            )
             old_terms: GlossaryTermsClass = (
                 None
                 if previous_aspect_value is None
@@ -220,24 +223,25 @@ class GlossaryTermPropagationAction(Action):
 
             if current_terms.terms and len(current_terms.terms) > 0:
                 # get the most recently updated term with attribution
-                terms_with_attribution = [term for term in current_terms.terms if term.attribution]
+                terms_with_attribution = [
+                    term for term in current_terms.terms if term.attribution
+                ]
                 if not terms_with_attribution:
                     logger.warning(f"No terms with attribution found for {entity_urn}")
                     return None
 
-                current_term_instance: GlossaryTermAssociationClass  = sorted(
+                current_term_instance: GlossaryTermAssociationClass = sorted(
                     terms_with_attribution,
                     key=lambda x: x.attribution.time if x.attribution else 0,
                 )[-1]
 
                 assert current_term_instance.attribution
                 if (
-                        current_term_instance.attribution.source is None
-                        or current_term_instance.attribution.source
-                        != self.action_urn
+                    current_term_instance.attribution.source is None
+                    or current_term_instance.attribution.source != self.action_urn
                 ):
                     logger.warning(
-                        f"Term is not sourced by this action which is unexpected. Skipping propagation"
+                        "Term is not sourced by this action which is unexpected. Skipping propagation"
                     )
                     return None
 
@@ -268,7 +272,9 @@ class GlossaryTermPropagationAction(Action):
                 )
 
                 if not self._is_term_allowed(current_term_instance.urn):
-                    logger.info(f"Term {current_term_instance.urn} is not in the allowed terms list. Skipping propagation.")
+                    logger.info(
+                        f"Term {current_term_instance.urn} is not in the allowed terms list. Skipping propagation."
+                    )
                     return None
 
                 if old_terms is None or not old_terms.terms:
@@ -312,14 +318,21 @@ class GlossaryTermPropagationAction(Action):
                             ),
                             relationships=propagation_relationships,
                         )
-                    if len(current_terms.terms) < len(old_terms.terms) and len(old_terms.terms) - len(current_terms.terms) == 1:
+                    if (
+                        len(current_terms.terms) < len(old_terms.terms)
+                        and len(old_terms.terms) - len(current_terms.terms) == 1
+                    ):
                         operation = "REMOVE"
 
                         # Find the term that was removed
                         current_term_urns = {term.urn for term in current_terms.terms}
                         removed_term = next(
-                            (term for term in old_terms.terms if term.urn not in current_term_urns),
-                            None
+                            (
+                                term
+                                for term in old_terms.terms
+                                if term.urn not in current_term_urns
+                            ),
+                            None,
                         )
 
                         if removed_term:
@@ -328,12 +341,15 @@ class GlossaryTermPropagationAction(Action):
                                 if removed_term.attribution
                                 else {}
                             )
-                            source_details_parsed: SourceDetails = SourceDetails.parse_obj(
-                                source_details
+                            source_details_parsed: SourceDetails = (
+                                SourceDetails.parse_obj(source_details)
                             )
 
-                            propagation_relationships = self._get_propagation_relationships(
-                                entity_type="schemaField", source_details=source_details_parsed
+                            propagation_relationships = (
+                                self._get_propagation_relationships(
+                                    entity_type="schemaField",
+                                    source_details=source_details_parsed,
+                                )
                             )
                             origin_entity = (
                                 source_details_parsed.origin
@@ -362,9 +378,13 @@ class GlossaryTermPropagationAction(Action):
                 operation = "REMOVE"
 
                 # Get the most recently updated term with attribution from old terms
-                old_terms_with_attribution = [term for term in old_terms.terms if term.attribution]
+                old_terms_with_attribution = [
+                    term for term in old_terms.terms if term.attribution
+                ]
                 if not old_terms_with_attribution:
-                    logger.warning(f"No terms with attribution found in old terms for {entity_urn}")
+                    logger.warning(
+                        f"No terms with attribution found in old terms for {entity_urn}"
+                    )
                     return None
 
                 removed_term = sorted(
@@ -410,7 +430,7 @@ class GlossaryTermPropagationAction(Action):
         return None
 
     def should_propagate(
-            self, event: EventEnvelope
+        self, event: EventEnvelope
     ) -> Optional[GlossaryTermPropagationDirective]:
         if self.mcl_processor.is_mcl(event):
             return self.mcl_processor.process(event)
@@ -419,13 +439,13 @@ class GlossaryTermPropagationAction(Action):
             assert self.ctx.graph is not None
             semantic_event = event.event
             if (
-                    semantic_event.category == "GLOSSARY_TERM"
-                    and self.config is not None
-                    and self.config.enabled
+                semantic_event.category == "GLOSSARY_TERM"
+                and self.config is not None
+                and self.config.enabled
             ):
                 logger.debug("Processing EntityChangeEvent Glossary Term Change")
                 if self.config.columns_enabled and (
-                        semantic_event.entityType == "schemaField"
+                    semantic_event.entityType == "schemaField"
                 ):
                     if semantic_event.parameters:
                         parameters = semantic_event.parameters
@@ -449,7 +469,9 @@ class GlossaryTermPropagationAction(Action):
                     logger.debug(f"Semantic event {semantic_event}")
 
                     if not self._is_term_allowed(term_urn):
-                        logger.info(f"Term {term_urn} is not in the allowed terms list. Skipping propagation.")
+                        logger.info(
+                            f"Term {term_urn} is not in the allowed terms list. Skipping propagation."
+                        )
                         return None
 
                     return GlossaryTermPropagationDirective(
@@ -474,14 +496,13 @@ class GlossaryTermPropagationAction(Action):
         return None
 
     def _apply_term_to_entity(
-            self,
-            graph: AcrylDataHubGraph,
-            operation: str,
-            entity_urn: str,
-            term_urn: str,
-            context: SourceDetails,
+        self,
+        graph: AcrylDataHubGraph,
+        operation: str,
+        entity_urn: str,
+        term_urn: str,
+        context: SourceDetails,
     ) -> Optional[MetadataChangeProposalWrapper]:
-
         try:
             auditStamp = AuditStampClass(
                 time=int(time.time() * 1000.0), actor=self.actor_urn
@@ -584,8 +605,8 @@ class GlossaryTermPropagationAction(Action):
                                     "enabled"
                                 )
                             if (
-                                    term_propagation_config.get("columnPropagationEnabled")
-                                    is not None
+                                term_propagation_config.get("columnPropagationEnabled")
+                                is not None
                             ):
                                 logger.info(
                                     "Overwriting the column-level config using globalSettings"
@@ -620,7 +641,7 @@ class GlossaryTermPropagationAction(Action):
             self._rate_limited_emit_mcp(mcp)
 
     def act_async(
-            self, event: EventEnvelope
+        self, event: EventEnvelope
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
         Process the event asynchronously and return the change proposals
@@ -645,10 +666,12 @@ class GlossaryTermPropagationAction(Action):
             )
 
             if (
-                    term_propagation_directive is not None
-                    and term_propagation_directive.propagate
+                term_propagation_directive is not None
+                and term_propagation_directive.propagate
             ):
-                self._stats.increment_assets_processed(term_propagation_directive.entity)
+                self._stats.increment_assets_processed(
+                    term_propagation_directive.entity
+                )
                 context = SourceDetails(
                     origin=term_propagation_directive.origin,
                     via=term_propagation_directive.via,
@@ -660,13 +683,11 @@ class GlossaryTermPropagationAction(Action):
                 assert self.ctx.graph
 
                 lineage_downstream = (
-                                         RelationshipType.LINEAGE,
-                                         DirectionType.DOWN,
-                                     ) in term_propagation_directive.relationships
+                    RelationshipType.LINEAGE,
+                    DirectionType.DOWN,
+                ) in term_propagation_directive.relationships
 
-                logger.debug(
-                    f"Lineage Downstream: {lineage_downstream}"
-                )
+                logger.debug(f"Lineage Downstream: {lineage_downstream}")
 
                 if lineage_downstream:
                     yield from self._propagate_to_downstreams(
@@ -680,10 +701,10 @@ class GlossaryTermPropagationAction(Action):
             stats.end(event, success=False)
 
     def _only_one_upstream_field(
-            self,
-            graph: AcrylDataHubGraph,
-            downstream_field: str,
-            upstream_field: str,
+        self,
+        graph: AcrylDataHubGraph,
+        downstream_field: str,
+        upstream_field: str,
     ) -> bool:
         """
         Check if there is only one upstream field for the downstream field. If upstream_field is provided,
@@ -715,7 +736,9 @@ class GlossaryTermPropagationAction(Action):
         return result
 
     def _propagate_to_downstreams(
-            self, term_propagation_directive: GlossaryTermPropagationDirective, context: SourceDetails
+        self,
+        term_propagation_directive: GlossaryTermPropagationDirective,
+        context: SourceDetails,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
         Propagate the glossary term to downstream entities.
@@ -751,20 +774,22 @@ class GlossaryTermPropagationAction(Action):
                 propagate_term: bool = False
 
                 if parent_entity_type == "dataset":
-
                     if self.config.one_upstream is False:
                         propagate_term = True
 
-                    elif self.config.one_upstream is True and self._only_one_upstream_field(
+                    elif (
+                        self.config.one_upstream is True
+                        and self._only_one_upstream_field(
                             self.ctx.graph,
                             downstream_field=field,
                             upstream_field=entity_urn,
+                        )
                     ):
                         propagate_term = True
 
                     if (
-                            propagated_entities_this_hop_count
-                            >= self.config.max_propagation_fanout
+                        propagated_entities_this_hop_count
+                        >= self.config.max_propagation_fanout
                     ):
                         logger.warning(
                             f"Exceeded max propagation fanout of {self.config.max_propagation_fanout}. Skipping propagation to downstream {field}"
@@ -797,9 +822,7 @@ class GlossaryTermPropagationAction(Action):
                     resolved_terms.append(term)
 
             self.config.allowed_terms = resolved_terms
-            logger.info(
-                f"[Config] Will propagate terms {self.config.allowed_terms}"
-            )
+            logger.info(f"[Config] Will propagate terms {self.config.allowed_terms}")
 
     def _is_term_allowed(self, term_urn: str) -> bool:
         if not self.config.allowed_terms or len(self.config.allowed_terms) == 0:
