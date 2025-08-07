@@ -194,6 +194,53 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     return structuredReport;
 };
 
+// Ideally we should not have to hardcode this list.
+// We should be able to get this list from the entity registry.
+// Or the backend should have some API for this
+// We do have SEARCHABLE_ENTITY_TYPES in datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/search/SearchUtils.java
+// But that is not the same as having search card in the UI
+// Also that is not returned by any API in a structured format
+const entitesWithoutSearchCard = [
+    'dataPlatform',
+    'role',
+    'dataHubPolicy',
+    'platformResource',
+    'dataHubIngestionSource',
+    'dataHubSecret',
+    'dataHubExecutionRequest',
+    'assertion',
+    'dataHubRetention',
+    'dataPlatformInstance',
+    'telemetry',
+    'dataHubAccessToken',
+    'test',
+    'dataHubUpgrade',
+    'inviteToken',
+    'schemaField',
+    'globalSettings',
+    'incident',
+    'dataHubRole',
+    'post',
+    'dataHubStepState',
+    'dataHubView',
+    'ownershipType',
+];
+
+export const getAspectsBySubtypes = (structuredReportObject: any) => {
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    if (!aspectsBySubtypes) {
+        return null;
+    }
+    Object.keys(aspectsBySubtypes).forEach((entityName) => {
+        if (entitesWithoutSearchCard.includes(entityName)) {
+            // We are doing this otherwise in the UI we will show a total number
+            // On clicking view all the number will not match
+            delete aspectsBySubtypes[entityName];
+        }
+    });
+    return aspectsBySubtypes;
+};
+
 /** *
  * This function is used to get the entities ingested by type from the structured report.
  * It returns an array of objects with the entity type and the count of entities ingested.
@@ -264,11 +311,11 @@ export const getEntitiesIngestedByTypeOrSubtype = (
          *     ...
          * }
          */
-        const entities = structuredReportObject.source.report.aspects_by_subtypes;
+        const entities = getAspectsBySubtypes(structuredReportObject);
         const entitiesIngestedByType: { [key: string]: number } = {};
-        Object.entries(entities).forEach(([entityName, aspects_by_subtypes]) => {
+        Object.entries(entities).forEach(([entityName, aspectsBySubtypes]) => {
             // Use the status aspect count instead of max count
-            Object.entries(aspects_by_subtypes as any)?.forEach(([subtype, aspects]) => {
+            Object.entries(aspectsBySubtypes as any)?.forEach(([subtype, aspects]) => {
                 const statusCount = (aspects as any)?.status;
                 if (statusCount !== undefined) {
                     entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = statusCount;
@@ -314,7 +361,7 @@ export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequ
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject);
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
@@ -385,7 +432,7 @@ export const getIngestionContents = (executionResult: Partial<ExecutionRequestRe
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
+    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject);
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;

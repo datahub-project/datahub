@@ -14,6 +14,7 @@ import {
     buildOwnerEntities,
     capitalizeMonthsAndDays,
     formatTimezone,
+    getAspectsBySubtypes,
     getEntitiesIngestedByTypeOrSubtype,
     getIngestionContents,
     getOtherIngestionContents,
@@ -147,6 +148,236 @@ describe('getEntitiesIngestedByTypeOrSubtype', () => {
                 displayName: 'container',
             },
         ]);
+    });
+});
+
+describe('getAspectsBySubtypes', () => {
+    test('returns null when aspects_by_subtypes is not present', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    // Missing aspects_by_subtypes property
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when structured report object is null', () => {
+        const result = getAspectsBySubtypes(null);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when structured report object is undefined', () => {
+        const result = getAspectsBySubtypes(undefined);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when source is missing', () => {
+        const structuredReportObject = {
+            // Missing source property
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+        expect(result).toBeNull();
+    });
+
+    test('returns null when report is missing', () => {
+        const structuredReportObject = {
+            source: {
+                // Missing report property
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+        expect(result).toBeNull();
+    });
+
+    test('filters out entities without search card', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        // Entities that should be kept (not in entitesWithoutSearchCard list)
+                        dataset: {
+                            Table: {
+                                status: 100,
+                                schemaMetadata: 100,
+                            },
+                        },
+                        container: {
+                            Container: {
+                                status: 50,
+                                containerProperties: 50,
+                            },
+                        },
+                        dashboard: {
+                            Dashboard: {
+                                status: 25,
+                                dashboardInfo: 25,
+                            },
+                        },
+                        // Entities that should be filtered out (in entitesWithoutSearchCard list)
+                        dataPlatform: {
+                            Platform: {
+                                status: 10,
+                                platformProperties: 10,
+                            },
+                        },
+                        role: {
+                            Role: {
+                                status: 5,
+                                roleProperties: 5,
+                            },
+                        },
+                        dataHubPolicy: {
+                            Policy: {
+                                status: 3,
+                                policyProperties: 3,
+                            },
+                        },
+                        schemaField: {
+                            Field: {
+                                status: 200,
+                                fieldProperties: 200,
+                            },
+                        },
+                        assertion: {
+                            Assertion: {
+                                status: 15,
+                                assertionProperties: 15,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+
+        // Should only contain entities that are NOT in the entitesWithoutSearchCard list
+        expect(result).toEqual({
+            dataset: {
+                Table: {
+                    status: 100,
+                    schemaMetadata: 100,
+                },
+            },
+            container: {
+                Container: {
+                    status: 50,
+                    containerProperties: 50,
+                },
+            },
+            dashboard: {
+                Dashboard: {
+                    status: 25,
+                    dashboardInfo: 25,
+                },
+            },
+        });
+
+    });
+
+    test('returns all entities when none are in the filter list', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataset: {
+                            Table: {
+                                status: 100,
+                                schemaMetadata: 100,
+                            },
+                        },
+                        container: {
+                            Container: {
+                                status: 50,
+                                containerProperties: 50,
+                            },
+                        },
+                        dashboard: {
+                            Dashboard: {
+                                status: 25,
+                                dashboardInfo: 25,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+
+        expect(result).toEqual({
+            dataset: {
+                Table: {
+                    status: 100,
+                    schemaMetadata: 100,
+                },
+            },
+            container: {
+                Container: {
+                    status: 50,
+                    containerProperties: 50,
+                },
+            },
+            dashboard: {
+                Dashboard: {
+                    status: 25,
+                    dashboardInfo: 25,
+                },
+            },
+        });
+    });
+
+    test('returns empty object when all entities are filtered out', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {
+                        dataPlatform: {
+                            Platform: {
+                                status: 10,
+                                platformProperties: 10,
+                            },
+                        },
+                        role: {
+                            Role: {
+                                status: 5,
+                                roleProperties: 5,
+                            },
+                        },
+                        schemaField: {
+                            Field: {
+                                status: 200,
+                                fieldProperties: 200,
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+
+        expect(result).toEqual({});
+    });
+
+    test('handles empty aspects_by_subtypes object', () => {
+        const structuredReportObject = {
+            source: {
+                report: {
+                    aspects_by_subtypes: {},
+                },
+            },
+        };
+
+        const result = getAspectsBySubtypes(structuredReportObject);
+
+        expect(result).toEqual({});
     });
 });
 
