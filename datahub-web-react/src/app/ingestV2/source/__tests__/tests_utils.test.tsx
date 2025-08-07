@@ -278,7 +278,6 @@ describe('getAspectsBySubtypes', () => {
                 },
             },
         });
-
     });
 
     test('returns all entities when none are in the filter list', () => {
