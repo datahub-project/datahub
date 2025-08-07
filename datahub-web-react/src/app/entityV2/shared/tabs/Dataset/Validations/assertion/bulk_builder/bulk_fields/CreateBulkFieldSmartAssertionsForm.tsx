@@ -112,6 +112,7 @@ export const CreateBulkFieldSmartAssertionsForm = ({ entityUrn, columns, onSubmi
                 options={columns.map((column) => ({
                     value: column.path,
                     label: column.path,
+                    description: column.type,
                 }))}
                 values={selectedColumnsAndMetrics.map((column) => column.column.path)}
                 onUpdate={(values) => {

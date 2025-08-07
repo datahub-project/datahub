@@ -4,6 +4,8 @@ import styled from 'styled-components';
 
 import { SimpleSelect } from '@src/alchemy-components';
 
+import { SchemaFieldDataType } from '@types';
+
 const StyledFormItem = styled(Form.Item)<{ width: string }>`
     width: ${(props) => props.width};
     margin: 0;
@@ -12,7 +14,7 @@ const StyledFormItem = styled(Form.Item)<{ width: string }>`
 type Props = {
     selectedPath?: string;
     name: string;
-    fields: { path: string; nativeType: string }[];
+    fields: { path: string; nativeType: string; type: SchemaFieldDataType }[];
     onChange: (fieldValue: string) => void;
     width?: string;
     placeholder?: string;
@@ -35,6 +37,7 @@ export const AssertionDatasetFieldBuilder = ({
     const columnOptions = fields.map((f) => ({
         label: f.path,
         value: f.path,
+        description: f.type,
     }));
     return (
         <StyledFormItem
