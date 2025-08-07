@@ -30,9 +30,9 @@ interface StatsSectionsContextProps {
     sections: Record<SectionKeys, Section>;
     setSectionState: (key: SectionKeys, hasData: boolean, isLoading: boolean) => void;
     dataInfo: DataInfo;
-    statsEntity: Entity | undefined;
-    statsEntityUrn: string | undefined;
-    setStatsEntityUrn: React.Dispatch<React.SetStateAction<string | undefined>>;
+    statsEntity: Entity | undefined | null;
+    statsEntityUrn: string | undefined | null;
+    setStatsEntityUrn: React.Dispatch<React.SetStateAction<string | undefined | null>>;
     permissions: StatsPermissions;
     areSectionsOrdered: boolean;
     setAreSectionsOrdered: React.Dispatch<React.SetStateAction<boolean>>;
@@ -77,14 +77,14 @@ export const StatsSectionsContextProvider = ({ children }: Props) => {
     const [dataInfo, setDataInfo] = useState<DataInfo>(defaultDataInfo);
 
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const [statsEntityUrn, setStatsEntityUrn] = useState(getSiblingEntityWithStats(baseEntity));
+    const [statsEntityUrn, setStatsEntityUrn] = useState(baseEntity && getSiblingEntityWithStats(baseEntity));
     const [areSectionsOrdered, setAreSectionsOrdered] = useState<boolean>(false);
 
     const statsEntity: any =
-        baseEntity.dataset?.urn !== statsEntityUrn
-            ? baseEntity.dataset?.siblingsSearch?.searchResults?.find((res) => res.entity.urn === statsEntityUrn)
-                  ?.entity || baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity
-            : baseEntity.dataset;
+        baseEntity?.dataset?.urn !== statsEntityUrn
+            ? baseEntity?.dataset?.siblingsSearch?.searchResults?.find((res) => res.entity.urn === statsEntityUrn)
+                  ?.entity || baseEntity?.dataset?.siblingsSearch?.searchResults[0]?.entity
+            : baseEntity?.dataset;
 
     const { data, loading } = useGetTimeseriesCapabilities(statsEntityUrn);
 

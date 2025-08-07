@@ -31,7 +31,11 @@ export default function StatsTabRowCountGraph(): JSX.Element {
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
     const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading: dataLoading } = useRowCountData(statsEntityUrn, lookbackWindow, canViewDatasetProfile);
+    const { data, loading: dataLoading } = useRowCountData(
+        statsEntityUrn ?? undefined,
+        lookbackWindow,
+        canViewDatasetProfile,
+    );
 
     const loading = capabilitiesLoading || dataLoading;
 

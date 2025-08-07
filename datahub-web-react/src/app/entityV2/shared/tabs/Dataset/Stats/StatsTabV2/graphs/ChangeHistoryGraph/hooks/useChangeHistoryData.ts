@@ -71,7 +71,10 @@ function extractBuckets(operationsStats: OperationsQueryResult | undefined | nul
     }));
 }
 
-export default function useChangeHistoryData(urn: string | undefined, range: TimeRange | undefined): ResponseType {
+export default function useChangeHistoryData(
+    urn: string | undefined | null,
+    range: TimeRange | undefined,
+): ResponseType {
     // Required for the loading state to track if the lazy query has been called
     const [queryCalled, setQueryCalled] = useState(false);
     const [getOperationsStatsBuckets, { data, loading }] = useGetOperationsStatsBucketsLazyQuery({

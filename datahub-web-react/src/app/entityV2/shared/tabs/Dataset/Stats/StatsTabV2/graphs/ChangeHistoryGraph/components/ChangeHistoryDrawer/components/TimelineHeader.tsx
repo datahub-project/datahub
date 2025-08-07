@@ -44,7 +44,7 @@ export default function TimelineHeader({ day, numberOfChanges, loading }: Timeli
             ) : (
                 <Pill
                     label={`${abbreviateNumber(numberOfChanges)} ${pluralize(numberOfChanges, 'Change')}`}
-                    color="violet"
+                    color="primary"
                     size="xs"
                     clickable={false}
                 />

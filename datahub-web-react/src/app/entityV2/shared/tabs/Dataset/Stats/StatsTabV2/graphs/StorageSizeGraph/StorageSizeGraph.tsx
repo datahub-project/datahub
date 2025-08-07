@@ -37,7 +37,7 @@ export default function StorageSizeGraph() {
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
     const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading: dataLoading } = useStorageSizeData(statsEntityUrn, lookbackWindow);
+    const { data, loading: dataLoading } = useStorageSizeData(statsEntityUrn ?? undefined, lookbackWindow);
 
     const loading = capabilitiesLoading || dataLoading;
 

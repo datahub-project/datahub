@@ -17,7 +17,7 @@ export const useGetStatsData = () => {
     const { statsEntity, statsEntityUrn } = useStatsSectionsContext();
 
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
-    const isSiblingsMode = getIsSiblingsMode(baseEntity, isSeparateSiblingsMode);
+    const isSiblingsMode = baseEntity && getIsSiblingsMode(baseEntity, isSeparateSiblingsMode);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: statsEntityUrn as string },

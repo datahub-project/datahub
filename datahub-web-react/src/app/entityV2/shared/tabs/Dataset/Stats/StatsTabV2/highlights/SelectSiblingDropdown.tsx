@@ -8,8 +8,8 @@ import { Dataset } from '@src/types.generated';
 
 interface Props {
     baseEntity: Dataset;
-    selectedSiblingUrn: string | undefined;
-    setSelectedSiblingUrn: React.Dispatch<React.SetStateAction<string | undefined>>;
+    selectedSiblingUrn: string | undefined | null;
+    setSelectedSiblingUrn: React.Dispatch<React.SetStateAction<string | undefined | null>>;
 }
 
 const SelectSiblingDropdown = ({ baseEntity, selectedSiblingUrn, setSelectedSiblingUrn }: Props) => {
