@@ -17,7 +17,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
@@ -43,6 +42,7 @@ public class TimeseriesCapabilitiesResolver
   public CompletableFuture<TimeseriesCapabilitiesResult> get(DataFetchingEnvironment environment)
       throws Exception {
     final QueryContext context = environment.getContext();
+    final OperationContext opContext = context.getOperationContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
 
     return GraphQLConcurrencyUtils.supplyAsync(
@@ -59,7 +59,12 @@ public class TimeseriesCapabilitiesResolver
                 String.format(
                     "Failed to load timeseries capabilities for resource %s", resourceUrn),
                 e);
-            MetricUtils.counter(this.getClass(), "timeseries_capabilities_dropped").inc();
+            opContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(
+                            this.getClass(), "timeseries_capabilities_dropped", 1));
           }
           TimeseriesCapabilitiesResult result = new TimeseriesCapabilitiesResult();
           result.setAssetStats(assetStatsResult);

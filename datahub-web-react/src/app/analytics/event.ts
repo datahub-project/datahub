@@ -897,17 +897,6 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     uiLocation: 'preview' | 'more-options';
 }
 
-export interface FilterStatsPageEvent extends BaseEvent {
-    type: EventType.FilterStatsPage;
-    platform: string | null;
-}
-
-export interface FilterStatsChartLookBackEvent extends BaseEvent {
-    type: EventType.FilterStatsChartLookBack;
-    lookBackValue: string;
-    chartName: string;
-}
-
 export interface ClickUserProfileEvent extends BaseEvent {
     type: EventType.ClickUserProfile;
     location?: 'statsTabTopUsers'; // add more locations here
