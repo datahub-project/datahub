@@ -15,6 +15,7 @@ from acryl_datahub_cloud.sdk.subscription_client import (
     SubscriptionClient,
 )
 from datahub.emitter.mce_builder import make_ts_millis
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import (
     AssertionUrn,
@@ -398,7 +399,7 @@ def test_subscribe_with_no_assertion_creates_new_subscription(
 
     # Verify resolve.subscription was called to check for existing subscriptions
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
-        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn()
+        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn(), skip_cache=True
     )
 
     # Verify entities.upsert was called to create the subscription
@@ -476,12 +477,12 @@ def test_subscribe_with_no_assertion_updates_existing_subscription(
 
     # Verify resolve.subscription was called to check for existing subscriptions
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
-        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn()
+        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn(), skip_cache=True
     )
 
     # Verify entities.upsert was called to update the subscription
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
 
     # Get the subscription that was passed to upsert (should be the same existing_subscription object)
@@ -581,7 +582,7 @@ def test_subscribe_with_assertion_creates_new_subscription(
 
     # Verify resolve.subscription was called to check for existing subscriptions
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
-        entity_urn=test_dataset_urn.urn(), actor_urn=any_user_urn.urn()
+        entity_urn=test_dataset_urn.urn(), actor_urn=any_user_urn.urn(), skip_cache=True
     )
 
     # Verify entities.upsert was called to create the subscription
@@ -674,7 +675,7 @@ def test_subscribe_with_assertion_updates_existing_subscription(
 
     # Verify entities.upsert was called to update the subscription
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
 
     # Verify the merged entity change types
@@ -1181,7 +1182,7 @@ def test_unsubscribe_dataset_no_existing_subscription(
 
     # Verify resolve.subscription was called
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
-        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn()
+        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn(), skip_cache=True
     )
 
     # Verify no delete or upsert operations
@@ -1254,7 +1255,7 @@ def test_unsubscribe_dataset_remove_all_change_types_deletes_subscription(
 
     # Verify resolve.subscription was called
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
-        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn()
+        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn(), skip_cache=True
     )
 
     # Verify subscription was deleted (no change types remaining)
@@ -1307,12 +1308,12 @@ def test_unsubscribe_dataset_remove_specific_change_types_updates_subscription(
 
     # Verify resolve.subscription was called
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
-        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn()
+        entity_urn=any_dataset_urn.urn(), actor_urn=any_user_urn.urn(), skip_cache=True
     )
 
     # Verify subscription was updated (still has remaining change types)
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
     subscription_client.client.entities.delete.assert_not_called()  # type: ignore[attr-defined]
 
@@ -1403,7 +1404,7 @@ def test_unsubscribe_dataset_remove_nonexistent_change_types_no_change(
 
     # Verify subscription was updated (original change types remain)
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
     subscription_client.client.entities.delete.assert_not_called()  # type: ignore[attr-defined]
 
@@ -1453,7 +1454,7 @@ def test_unsubscribe_dataset_updates_audit_stamp(
 
     # Verify subscription was updated
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
 
     # Verify updatedOn audit stamp was set with correct timestamp and actor
@@ -1516,7 +1517,7 @@ def test_unsubscribe_assertion_removes_assertion_from_filters(
 
     # Verify subscription was updated (not deleted)
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
     subscription_client.client.entities.delete.assert_not_called()  # type: ignore[attr-defined]
 
@@ -1589,7 +1590,7 @@ def test_unsubscribe_assertion_specific_change_types(
 
     # Verify subscription was updated
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
 
     # Verify only ASSERTION_PASSED was removed, others remain
@@ -1713,7 +1714,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
 
     # Verify subscription was updated (no changes made)
     subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription, emit_mode=EmitMode.SYNC_WAIT
     )
 
     # Verify no changes were made to the subscription
@@ -1748,6 +1749,7 @@ def test_unsubscribe_with_string_subscriber_urn(
     subscription_client.client.resolve.subscription.assert_called_once_with(  # type: ignore[attr-defined]
         entity_urn=test_dataset_urn.urn(),
         actor_urn=user_urn_str,
+        skip_cache=True,
     )
 
 
