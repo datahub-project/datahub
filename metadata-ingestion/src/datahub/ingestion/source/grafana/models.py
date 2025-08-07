@@ -10,9 +10,8 @@ References:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.emitter.mcp_builder import ContainerKey
 
 # Grafana-specific type definitions for better type safety
@@ -103,14 +102,11 @@ class Dashboard(BaseModel):
 class Folder(BaseModel):
     """Represents a Grafana folder."""
 
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
     id: str
     title: str
     description: Optional[str] = ""
-
-    if PYDANTIC_VERSION_2:
-        from pydantic import ConfigDict
-
-        model_config = ConfigDict(coerce_numbers_to_str=True)  # type: ignore
 
 
 class FolderKey(ContainerKey):
