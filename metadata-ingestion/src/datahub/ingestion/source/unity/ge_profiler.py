@@ -66,6 +66,19 @@ class UnityCatalogGEProfiler(GenericProfiler):
             "max_overflow", self.profiling_config.max_workers
         )
 
+        # Ensure Databricks uses native SQL backend instead of Hive Thrift
+        if self.config.scheme.lower() == "databricks":
+            # Add connection arguments to force native SQL backend
+            if "connect_args" not in self.config.options:
+                self.config.options["connect_args"] = {}
+            
+            # Force native Databricks SQL backend for all operations
+            self.config.options["connect_args"]["_use_native_databricks_sql"] = True
+            
+            # Add timeout to prevent hanging connections
+            if "timeout" not in self.config.options["connect_args"]:
+                self.config.options["connect_args"]["timeout"] = 600
+
         url = self.config.get_sql_alchemy_url()
         engine = create_engine(url, **self.config.options)
         conn = engine.connect()

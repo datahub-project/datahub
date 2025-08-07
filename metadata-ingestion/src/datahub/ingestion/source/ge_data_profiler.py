@@ -1190,22 +1190,11 @@ class DatahubGEProfiler:
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
-
-        if IS_SQLALCHEMY_1_4:
-            # SQLAlchemy 1.4 added a statement "linter", which issues warnings about cartesian products in SELECT statements.
-            # Changelog: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-4737.
-            # Code: https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/sql/compiler.py#L549
-            #
-            # The query combiner does indeed produce queries with cartesian products, but they are
-            # safe because each "FROM" clause only returns one row, so the cartesian product
-            # is also always a single row. As such, we disable the linter here.
-
-            # Modified from https://github.com/sqlalchemy/sqlalchemy/blob/2f91dd79310657814ad28b6ef64f91fff7a007c9/lib/sqlalchemy/engine/create.py#L612
-            self.base_engine.dialect.compiler_linting &= (  # type: ignore[attr-defined]
-                ~sqlalchemy.sql.compiler.COLLECT_CARTESIAN_PRODUCTS  # type: ignore[attr-defined]
-            )
-
-        self.platform = platform
+        
+        # For Databricks, ensure we're using the native SQL backend
+        if platform.lower() == DATABRICKS:
+            # Validate and potentially reconfigure the engine for native SQL backend
+            _validate_databricks_native_connection(self.base_engine)
 
     @contextlib.contextmanager
     def _ge_context(self) -> Iterator[GEContext]:
@@ -1636,23 +1625,37 @@ def _validate_databricks_native_connection(engine: Engine) -> None:
 
 def _ensure_databricks_native_connection(conn: Connection) -> None:
     """
-    Ensures that the connection is using the native Databricks SQL connector.
-    This function should be called before any Databricks-specific operations.
+    Ensures that the Databricks connection uses the native SQL backend for all operations.
+    This prevents fallback to Hive Thrift which can cause connection issues in VPC environments.
     """
     if conn.dialect.name.lower() == DATABRICKS:
         _validate_databricks_native_connection(conn.engine)
-
+        
         # Additional validation for Databricks-specific connection parameters
         try:
-            # Test the connection with a simple query to ensure it's working
-            # This will help catch connection issues early
-            test_result = conn.execute(sa.text("SELECT 1")).scalar()
-            if test_result != 1:
-                logger.warning("Databricks connection test query failed")
+            # Force the connection to use native SQL backend for metadata operations
+            # This prevents the fallback to Hive Thrift for GET_COLUMNS operations
+            if hasattr(conn, 'connection') and hasattr(conn.connection, 'connection'):
+                # Access the underlying Databricks SQL connection
+                db_conn = conn.connection.connection
+                if hasattr(db_conn, '_use_native_databricks_sql'):
+                    # Ensure native SQL backend is enabled
+                    if not getattr(db_conn, '_use_native_databricks_sql', False):
+                        logger.warning(
+                            "Databricks connection is not configured to use native SQL backend. "
+                            "This may cause fallback to Hive Thrift for metadata operations."
+                        )
+                        
+                        # Try to set the native SQL backend flag
+                        try:
+                            setattr(db_conn, '_use_native_databricks_sql', True)
+                            logger.info("Forced Databricks connection to use native SQL backend")
+                        except Exception as e:
+                            logger.warning(f"Could not force native SQL backend: {e}")
+                            
         except Exception as e:
-            logger.error(f"Databricks connection test failed: {e}")
-            # Don't raise here, let the actual profiling operations handle the error
-            # This is just for validation and logging
+            logger.warning(f"Databricks connection validation failed: {e}")
+            # Continue with the query but log the warning
 
 
 def create_athena_temp_table(
@@ -1761,6 +1764,31 @@ def create_bigquery_temp_table(
         return bigquery_temp_table
     finally:
         raw_connection.close()
+
+
+def _create_databricks_native_engine(url: str, options: Dict[str, Any]) -> Engine:
+    """
+    Creates a Databricks SQLAlchemy engine that forces the use of native SQL backend.
+    This prevents fallback to Hive Thrift which can cause connection issues in VPC environments.
+    """
+    # Ensure connect_args exists
+    if "connect_args" not in options:
+        options["connect_args"] = {}
+    
+    # Force native Databricks SQL backend
+    options["connect_args"]["_use_native_databricks_sql"] = True
+    
+    # Add timeout to prevent hanging connections
+    if "timeout" not in options["connect_args"]:
+        options["connect_args"]["timeout"] = 600
+    
+    # Create engine with forced native backend
+    engine = create_engine(url, **options)
+    
+    # Validate that we're using the native backend
+    _validate_databricks_native_connection(engine)
+    
+    return engine
 
 
 def _get_columns_to_ignore_sampling(
