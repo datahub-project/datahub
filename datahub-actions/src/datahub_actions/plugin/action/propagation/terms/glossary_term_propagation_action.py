@@ -213,7 +213,7 @@ class GlossaryTermPropagationAction(Action):
             current_terms: GlossaryTermsClass = GlossaryTermsClass.from_obj(
                 json.loads(aspect_value.value)
             )
-            old_terms: GlossaryTermsClass = (
+            old_terms = (
                 None
                 if previous_aspect_value is None
                 else GlossaryTermsClass.from_obj(
@@ -341,8 +341,8 @@ class GlossaryTermPropagationAction(Action):
                                 if removed_term.attribution
                                 else {}
                             )
-                            source_details_parsed: SourceDetails = (
-                                SourceDetails.parse_obj(source_details)
+                            source_details_parsed = SourceDetails.parse_obj(
+                                source_details
                             )
 
                             propagation_relationships = (
@@ -397,9 +397,7 @@ class GlossaryTermPropagationAction(Action):
                     if removed_term.attribution
                     else {}
                 )
-                source_details_parsed: SourceDetails = SourceDetails.parse_obj(
-                    source_details
-                )
+                source_details_parsed = SourceDetails.parse_obj(source_details)
 
                 propagation_relationships = self._get_propagation_relationships(
                     entity_type="schemaField", source_details=source_details_parsed
