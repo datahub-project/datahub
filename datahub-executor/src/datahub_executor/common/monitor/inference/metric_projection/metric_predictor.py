@@ -62,7 +62,7 @@ class MetricPredictor:
     # Constants for sensitivity validation
     MIN_SENSITIVITY_LEVEL = 1
     MAX_SENSITIVITY_LEVEL = 10
-    BUFFER_FACTOR_MULTIPLIER = 1
+    BUFFER_FACTOR_MULTIPLIER = 0.25
 
     def __init__(self, user_config: Optional[Dict] = None):
         """

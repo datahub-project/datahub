@@ -405,6 +405,8 @@ Example exclusion windows:
         if assertion.assertion.field_assertion
         else None
     )
+    metric_floor_value = None
+    metric_ceiling_value = None
     if metric_type:
         metric_floor_value = get_metric_floor_value(metric_type.name)
         metric_ceiling_value = get_metric_ceiling_value(metric_type.name)
