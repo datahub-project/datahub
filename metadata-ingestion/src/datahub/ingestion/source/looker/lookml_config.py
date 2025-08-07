@@ -122,7 +122,7 @@ class LookMLSourceConfig(
         description="List of regex patterns for LookML views to include in the extraction.",
     )
     parse_table_names_from_sql: bool = Field(True, description="See note below.")
-    api: Optional[LookerAPIConfig]
+    api: Optional[LookerAPIConfig] = None
     project_name: Optional[str] = Field(
         None,
         description="Required if you don't specify the `api` section. The project name within which all the model "
