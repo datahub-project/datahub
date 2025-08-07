@@ -1,5 +1,6 @@
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Alert, Button, Modal, Typography } from 'antd';
+import { Modal } from '@components';
+import { Alert, Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -51,12 +52,8 @@ export const AccessTokenModal = ({ visible, onClose, accessToken, expiresInText 
     return (
         <Modal
             width={700}
-            title={
-                <Typography.Text>
-                    <b> New Personal Access Token</b>
-                </Typography.Text>
-            }
-            visible={visible}
+            title="New Personal Access Token"
+            open={visible}
             onCancel={onClose}
             footer={
                 <>

@@ -1,4 +1,4 @@
-import { Empty, Form, Modal, Select, message } from 'antd';
+import { Empty, Form, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
@@ -9,9 +9,8 @@ import ClickOutside from '@app/shared/ClickOutside';
 import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { getModalDomContainer } from '@src/utils/focus';
+import { Modal } from '@src/alchemy-components';
+import { getModalDomContainer } from '@utils/focus';
 
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
@@ -162,16 +161,20 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
             title={titleOverride || 'Set Domain'}
             open
             onCancel={onModalClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" color="gray" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button id="setDomainButton" disabled={selectedDomain === undefined} onClick={onOk}>
-                        Save
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onModalClose,
+                },
+                {
+                    text: 'Save',
+                    variant: 'filled',
+                    disabled: selectedDomain === undefined,
+                    onClick: onOk,
+                    id: 'setDomainButton',
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <Form component={false}>

@@ -1,4 +1,5 @@
-import { Button, Col, Modal, Table, Typography } from 'antd';
+import { Modal } from '@components';
+import { Button, Col, Table, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -73,7 +74,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle} visible={showModal} onCancel={onClose}>
+                <Modal width="100%" footer={null} title={profileModalTitle || ''} open={showModal} onCancel={onClose}>
                     <DataProfileView profile={selectedProfile} />
                 </Modal>
             )}
