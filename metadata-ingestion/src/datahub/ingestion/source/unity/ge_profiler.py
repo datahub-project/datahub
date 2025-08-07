@@ -71,10 +71,10 @@ class UnityCatalogGEProfiler(GenericProfiler):
             # Add connection arguments to force native SQL backend
             if "connect_args" not in self.config.options:
                 self.config.options["connect_args"] = {}
-            
+
             # Force native Databricks SQL backend for all operations
             self.config.options["connect_args"]["_use_native_databricks_sql"] = True
-            
+
             # Add timeout to prevent hanging connections
             if "timeout" not in self.config.options["connect_args"]:
                 self.config.options["connect_args"]["timeout"] = 600

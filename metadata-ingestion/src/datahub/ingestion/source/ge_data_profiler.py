@@ -45,6 +45,7 @@ from great_expectations.datasource.sqlalchemy_datasource import SqlAlchemyDataso
 from great_expectations.execution_engine.sqlalchemy_dialect import GXSqlDialect
 from great_expectations.profile.base import ProfilerDataType
 from great_expectations.profile.basic_dataset_profiler import BasicDatasetProfilerBase
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import ProgrammingError
 from typing_extensions import Concatenate, ParamSpec
@@ -76,7 +77,6 @@ from datahub.metadata.schema_classes import (
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.sqlalchemy_query_combiner import (
-    IS_SQLALCHEMY_1_4,
     SQLAlchemyQueryCombiner,
     get_query_columns,
 )
@@ -1190,7 +1190,7 @@ class DatahubGEProfiler:
         # make the threading code work correctly. As such, we need to make sure we've
         # got an engine here.
         self.base_engine = conn.engine
-        
+
         # For Databricks, ensure we're using the native SQL backend
         if platform.lower() == DATABRICKS:
             # Validate and potentially reconfigure the engine for native SQL backend
@@ -1630,29 +1630,31 @@ def _ensure_databricks_native_connection(conn: Connection) -> None:
     """
     if conn.dialect.name.lower() == DATABRICKS:
         _validate_databricks_native_connection(conn.engine)
-        
+
         # Additional validation for Databricks-specific connection parameters
         try:
             # Force the connection to use native SQL backend for metadata operations
             # This prevents the fallback to Hive Thrift for GET_COLUMNS operations
-            if hasattr(conn, 'connection') and hasattr(conn.connection, 'connection'):
+            if hasattr(conn, "connection") and hasattr(conn.connection, "connection"):
                 # Access the underlying Databricks SQL connection
                 db_conn = conn.connection.connection
-                if hasattr(db_conn, '_use_native_databricks_sql'):
+                if hasattr(db_conn, "_use_native_databricks_sql"):
                     # Ensure native SQL backend is enabled
-                    if not getattr(db_conn, '_use_native_databricks_sql', False):
+                    if not getattr(db_conn, "_use_native_databricks_sql", False):
                         logger.warning(
                             "Databricks connection is not configured to use native SQL backend. "
                             "This may cause fallback to Hive Thrift for metadata operations."
                         )
-                        
+
                         # Try to set the native SQL backend flag
                         try:
-                            setattr(db_conn, '_use_native_databricks_sql', True)
-                            logger.info("Forced Databricks connection to use native SQL backend")
+                            db_conn._use_native_databricks_sql = True
+                            logger.info(
+                                "Forced Databricks connection to use native SQL backend"
+                            )
                         except Exception as e:
                             logger.warning(f"Could not force native SQL backend: {e}")
-                            
+
         except Exception as e:
             logger.warning(f"Databricks connection validation failed: {e}")
             # Continue with the query but log the warning
@@ -1774,20 +1776,20 @@ def _create_databricks_native_engine(url: str, options: Dict[str, Any]) -> Engin
     # Ensure connect_args exists
     if "connect_args" not in options:
         options["connect_args"] = {}
-    
+
     # Force native Databricks SQL backend
     options["connect_args"]["_use_native_databricks_sql"] = True
-    
+
     # Add timeout to prevent hanging connections
     if "timeout" not in options["connect_args"]:
         options["connect_args"]["timeout"] = 600
-    
+
     # Create engine with forced native backend
     engine = create_engine(url, **options)
-    
+
     # Validate that we're using the native backend
     _validate_databricks_native_connection(engine)
-    
+
     return engine
 
 
