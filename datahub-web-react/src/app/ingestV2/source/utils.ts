@@ -224,6 +224,7 @@ const entitesWithoutSearchCard = [
     'dataHubStepState',
     'dataHubView',
     'ownershipType',
+    'query',
 ];
 
 export const getAspectsBySubtypes = (structuredReportObject: any) => {
