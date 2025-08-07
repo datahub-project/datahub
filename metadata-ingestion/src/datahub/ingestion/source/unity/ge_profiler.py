@@ -8,6 +8,13 @@ from databricks.sdk.service.catalog import DataSourceFormat
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Connection
 
+# Import databricks dialect to ensure it's registered with SQLAlchemy
+# This import is needed for SQLAlchemy to recognize the databricks+connector dialect
+try:
+    import databricks.sql  # noqa: F401
+except ImportError:
+    pass
+
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable
