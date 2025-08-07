@@ -663,12 +663,6 @@ def test_drop_duplicate_sources() -> None:
 def test_dbt_cloud_source_description_precedence() -> None:
     """
     Test that dbt Cloud source prioritizes table-level description over schema-level sourceDescription.
-
-    In dbt sources, there are two types of descriptions:
-    - description: table-level description (specific to the source table)
-    - sourceDescription: schema-level description (describes the overall source schema)
-
-    The table-level description should take precedence since it's more specific.
     """
 
     config = DBTCloudConfig(
