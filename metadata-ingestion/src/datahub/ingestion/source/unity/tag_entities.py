@@ -26,9 +26,8 @@ class UnityCatalogTagSyncContext(BaseModel):
     # it is intentionally empty
     platform_instance: Optional[str] = None
 
-    def __hash__(self) -> int:
-        """Make UnityCatalogTagSyncContext hashable for @lru_cache support."""
-        return hash(self.platform_instance)
+    class Config:
+        frozen = True  # Makes the model immutable and hashable
 
 
 logger = logging.getLogger(__name__)
