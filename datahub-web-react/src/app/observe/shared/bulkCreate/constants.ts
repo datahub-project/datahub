@@ -10,6 +10,7 @@ import {
     DatasetFreshnessSourceType,
     DatasetVolumeAssertionParametersInput,
     EntityType,
+    FabricType,
     FreshnessAssertionSchedule,
 } from '@types';
 
@@ -92,6 +93,19 @@ export const PREDICATE_PROPERTIES = [
         valueOptions: {
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
             mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'origin',
+        displayName: 'Environment',
+        description: 'The environment of an asset',
+        valueType: ValueTypeId.ENUM,
+        valueOptions: {
+            mode: SelectInputMode.MULTIPLE,
+            options: Object.values(FabricType).map((fabricType) => ({
+                id: fabricType,
+                displayName: fabricType,
+            })),
         },
     },
     {
