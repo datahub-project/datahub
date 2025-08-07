@@ -92,4 +92,9 @@ record SearchFlags {
     id: int
     max: int
   }
+  
+  /**   
+   * Selects the search algorithm mode. If unset, defaults to KEYWORD on the server.
+   */
+  searchMode: optional SearchMode
 }

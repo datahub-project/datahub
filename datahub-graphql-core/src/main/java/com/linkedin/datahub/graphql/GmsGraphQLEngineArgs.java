@@ -140,4 +140,5 @@ public class GmsGraphQLEngineArgs {
   MetadataTestClient metadataTestClient;
   AssertionMonitorsConfiguration assertionMonitorsConfiguration;
   UserService userService;
+  com.linkedin.metadata.search.SemanticSearchService semanticSearchService;
 }

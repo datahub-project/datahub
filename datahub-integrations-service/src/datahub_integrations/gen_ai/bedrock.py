@@ -83,9 +83,22 @@ class BedrockPromptMessage(pydantic.BaseModel):
 @serialized
 @functools.cache
 def get_bedrock_client() -> "BedrockRuntimeClient":
-    # Set up Bedrock client. The cache decorator ensures that this is a singleton,
-    # and the serialized decorator ensures that it is only initialized once
-    # even if called from multiple threads.
+    """
+    Get a singleton Bedrock client with appropriate authentication.
+
+    Authentication is determined in the following order:
+    1. Explicit credentials via BEDROCK_AWS_ACCESS_KEY_ID and BEDROCK_AWS_SECRET_ACCESS_KEY
+    2. AWS Profile via AWS_PROFILE (supports SSO profiles)
+    3. Default AWS credential chain (~/.aws/credentials, instance profile, etc.)
+
+    For local development with SSO:
+    - Run: aws sso login --profile your-profile-name
+    - Set: AWS_PROFILE=your-profile-name
+    - Optionally set: BEDROCK_AWS_REGION=us-west-2 (or your preferred region)
+
+    The cache decorator ensures that this is a singleton, and the serialized
+    decorator ensures that it is only initialized once even if called from multiple threads.
+    """
     # Increase the read and connect timeouts, since Bedrock can be slow.
     config = botocore.config.Config(
         read_timeout=300,
@@ -101,17 +114,30 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
         )
 
     if "BEDROCK_AWS_ACCESS_KEY_ID" in os.environ:
-        # For local development - if Bedrock-specific env vars are set, use them.
+        # Option 1: Explicit credentials for local development
         logger.info("Initializing Bedrock client from explicit env vars")
         boto3_session = boto3.Session(
             aws_access_key_id=os.environ["BEDROCK_AWS_ACCESS_KEY_ID"],
             aws_secret_access_key=os.environ["BEDROCK_AWS_SECRET_ACCESS_KEY"],
             region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2"),
         )
+    elif "AWS_PROFILE" in os.environ:
+        # Option 2: AWS Profile (great for local development with SSO)
+        profile_name = os.environ["AWS_PROFILE"]
+        logger.info(f"Initializing Bedrock client from AWS profile: {profile_name}")
+        boto3_session = boto3.Session(
+            profile_name=profile_name,
+            region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2"),
+        )
     else:
-        # By default, use the pod's instance profile.
-        logger.info("Initializing Bedrock client from instance profile")
-        boto3_session = boto3.Session()
+        # Option 3: Default - use instance profile or standard AWS credential chain
+        # This will check ~/.aws/credentials, EC2 instance profile, etc.
+        logger.info(
+            "Initializing Bedrock client from default credential chain (instance profile or AWS CLI)"
+        )
+        boto3_session = boto3.Session(
+            region_name=os.environ.get("BEDROCK_AWS_REGION", "us-west-2")
+        )
 
     return boto3_session.client("bedrock-runtime", config=config)  # type: ignore
 

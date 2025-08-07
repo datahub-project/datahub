@@ -1,0 +1,17 @@
+# SAAS-SPECIFIC: This GraphQL schema is part of the semantic search feature exclusive to DataHub SaaS.
+# It should NOT be merged back to the open-source DataHub repository.
+# Dependencies: Requires SemanticSearchService and embedding infrastructure.
+
+# Semantic Search endpoints for DataHub
+
+extend type Query {
+  """
+  Full text semantic search against a specific DataHub Entity Type
+  """
+  semanticSearch(input: SearchInput!): SearchResults
+
+  """
+  Semantic search across DataHub entities
+  """
+  semanticSearchAcrossEntities(input: SearchAcrossEntitiesInput!): SearchResults
+}

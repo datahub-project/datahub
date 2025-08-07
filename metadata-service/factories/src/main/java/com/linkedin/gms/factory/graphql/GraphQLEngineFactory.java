@@ -28,6 +28,7 @@ import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.integration.IntegrationsServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
+import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
@@ -97,6 +98,7 @@ import software.amazon.awssdk.services.sts.StsClient;
   SiblingGraphServiceFactory.class,
   TestEngineFactory.class,
   EntitySearchServiceFactory.class,
+  SemanticSearchServiceFactory.class,
   AssertionServiceFactory.class,
   ActionRequestFactory.class,
   ActionWorkflowServiceFactory.class,
@@ -296,6 +298,10 @@ public class GraphQLEngineFactory {
   @Qualifier("userService")
   private UserService userService;
 
+  @Autowired
+  @Qualifier("semanticSearchService")
+  private com.linkedin.metadata.search.SemanticSearchService _semanticSearchService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -379,6 +385,7 @@ public class GraphQLEngineFactory {
     args.setActionRequestService(actionRequestService);
     args.setActionWorkflowService(actionWorkflowService);
     args.setUserService(userService);
+    args.setSemanticSearchService(_semanticSearchService);
 
     // Saas Only
     try {

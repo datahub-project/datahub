@@ -115,6 +115,18 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   private EntitySearchService entitySearchService;
 
   @MockBean
+  @Qualifier("semanticSearchService")
+  private com.linkedin.metadata.search.SemanticSearchService semanticSearchService;
+
+  @MockBean
+  @Qualifier("cachingEntitySearchService")
+  private com.linkedin.metadata.search.client.CachingEntitySearchService cachingEntitySearchService;
+
+  @MockBean
+  @Qualifier("semanticEntitySearchService")
+  private com.linkedin.metadata.search.semantic.SemanticEntitySearch semanticEntitySearchService;
+
+  @MockBean
   @Qualifier("graphService")
   private GraphService graphService;
 
