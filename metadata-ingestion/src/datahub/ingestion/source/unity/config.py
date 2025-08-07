@@ -299,20 +299,22 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
-    scheme: str = DATABRICKS
+    scheme: str = "databricks+connector"
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
-        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
+        # Use native Databricks SQL connector format
+        # Format: databricks+connector://token:${DATABRICKS_TOKEN}@${DATABRICKS_SERVER_HOSTNAME}:443/${DATABRICKS_HTTP_PATH}
+        hostname = urlparse(self.workspace_url).netloc
+        http_path = f"/sql/1.0/warehouses/{self.warehouse_id}"
+        
+        # Build the native Databricks SQL connector URL
+        url = f"databricks+connector://token:{self.token}@{hostname}:443{http_path}"
+        
+        # Add catalog if specified
         if database:
-            uri_opts["catalog"] = database
-        return make_sqlalchemy_uri(
-            scheme=self.scheme,
-            username="token",
-            password=self.token,
-            at=urlparse(self.workspace_url).netloc,
-            db=database,
-            uri_opts=uri_opts,
-        )
+            url += f"?catalog={database}"
+            
+        return url
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
