@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { AssertionProfileFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileFooter';
 import { AssertionProfileHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeader';
 import { AssertionProfileHeaderLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/AssertionProfileHeaderLoading';
@@ -66,6 +67,7 @@ export const AssertionProfile = ({
     const editAllowed = canEditMonitor && canEditAssertion;
 
     const [selectedTab, setSelectedTab] = useState<string>(TabType.Summary);
+    const hasViewedNoteTabRef = useRef(false);
 
     const openAssertionNote = () => {
         setSelectedTab(TabType.Note);
@@ -80,6 +82,17 @@ export const AssertionProfile = ({
             fullRefetch().finally(() => {
                 setIsRefetchingForSettingsTab(false);
             });
+        }
+        if (selectedTab === TabType.Note) {
+            if (!hasViewedNoteTabRef.current) {
+                hasViewedNoteTabRef.current = true;
+                analytics.event({
+                    type: EventType.ViewAssertionNoteTabEvent,
+                    assertionUrn: assertion?.urn || '',
+                    entityUrn: entity?.urn || '',
+                    assertionType: assertion?.info?.type || '',
+                });
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTab]);

@@ -5,6 +5,8 @@ import styled from 'styled-components';
 
 import { Editor } from '@components/components/Editor/Editor';
 
+import analytics, { EventType } from '@app/analytics';
+
 import { useUpdateAssertionMetadataMutation } from '@graphql/assertion.generated';
 import { Assertion, Maybe } from '@types';
 
@@ -86,6 +88,13 @@ export const AssertionNoteTab = ({ loading, assertion, editAllowed }: Props) => 
             message.error('Encountered an unexpected error while updating assertion note');
             setIsEditing(true);
         }
+
+        analytics.event({
+            type: EventType.UpdateAssertionNoteEvent,
+            assertionUrn: assertion.urn,
+            entityUrn: assertion.monitor?.entity?.urn || '',
+            assertionType: assertion.info?.type || '',
+        });
     };
 
     return (

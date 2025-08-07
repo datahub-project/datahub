@@ -134,6 +134,8 @@ export enum EventType {
     UpdateAssertionMetadataEvent,
     StartAssertionMonitorEvent,
     StopAssertionMonitorEvent,
+    ViewAssertionNoteTabEvent,
+    UpdateAssertionNoteEvent,
     SlackIntegrationSuccessEvent,
     SlackIntegrationErrorEvent,
     SubscriptionCreateSuccessEvent,
@@ -822,6 +824,20 @@ export interface StopAssertionMonitorEvent extends BaseEvent {
     assertionType: string;
     assertionUrn: string;
     monitorUrn: string;
+}
+
+export interface ViewAssertionNoteTabEvent extends BaseEvent {
+    type: EventType.ViewAssertionNoteTabEvent;
+    assertionUrn: string;
+    entityUrn: string;
+    assertionType: string;
+}
+
+export interface UpdateAssertionNoteEvent extends BaseEvent {
+    type: EventType.UpdateAssertionNoteEvent;
+    assertionUrn: string;
+    entityUrn: string;
+    assertionType: string;
 }
 
 export interface ManuallyCreateLineageEvent extends BaseEvent {
@@ -1724,6 +1740,8 @@ export type Event =
     | UpdateAssertionMetadataEvent
     | StartAssertionMonitorEvent
     | StopAssertionMonitorEvent
+    | ViewAssertionNoteTabEvent
+    | UpdateAssertionNoteEvent
     | SlackIntegrationSuccessEvent
     | SlackIntegrationErrorEvent
     | SubscriptionCreateSuccessEvent
