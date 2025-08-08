@@ -252,7 +252,7 @@ class TimescaleDBSource(PostgresSource):
                         # Try to detect if this is Timescale Cloud
                         try:
                             cloud_result = conn.execute(
-                                "SELECT current_setting('timescaledb.license', true);"
+                                "SELECT current_setting('license', true);"
                             )
                             license_row = cloud_result.fetchone()
                             if (
@@ -490,23 +490,21 @@ class TimescaleDBSource(PostgresSource):
         if properties.customProperties is None:
             properties.customProperties = {}
 
-        properties.customProperties["timescaledb.version"] = (
-            self._get_timescaledb_version(inspector)
+        properties.customProperties["version"] = self._get_timescaledb_version(
+            inspector
         )
 
     def _add_hypertable_basic_info(
         self, properties: DatasetPropertiesClass, hypertable_info: HypertableInfo
     ) -> None:
         """Add basic hypertable information"""
-        properties.customProperties["timescaledb.num_dimensions"] = str(
+        properties.customProperties["num_dimensions"] = str(
             hypertable_info.num_dimensions
         )
-        properties.customProperties["timescaledb.num_chunks"] = str(
-            hypertable_info.num_chunks
-        )
+        properties.customProperties["num_chunks"] = str(hypertable_info.num_chunks)
 
         if hypertable_info.compression_state:
-            properties.customProperties["timescaledb.compression_state"] = (
+            properties.customProperties["compression_state"] = (
                 hypertable_info.compression_state
             )
 
@@ -515,12 +513,12 @@ class TimescaleDBSource(PostgresSource):
     ) -> None:
         """Add hypertable size and compression ratio"""
         if hypertable_info.compressed_heap_size is not None:
-            properties.customProperties["timescaledb.compressed_heap_size"] = str(
+            properties.customProperties["compressed_heap_size"] = str(
                 hypertable_info.compressed_heap_size
             )
 
         if hypertable_info.uncompressed_heap_size is not None:
-            properties.customProperties["timescaledb.uncompressed_heap_size"] = str(
+            properties.customProperties["uncompressed_heap_size"] = str(
                 hypertable_info.uncompressed_heap_size
             )
 
@@ -532,9 +530,7 @@ class TimescaleDBSource(PostgresSource):
                     hypertable_info.uncompressed_heap_size
                     / hypertable_info.compressed_heap_size
                 )
-                properties.customProperties["timescaledb.compression_ratio"] = (
-                    f"{ratio:.2f}x"
-                )
+                properties.customProperties["compression_ratio"] = f"{ratio:.2f}x"
 
     def _add_dimension_info(
         self, properties: DatasetPropertiesClass, dimensions: List[HypertableDimension]
@@ -544,16 +540,14 @@ class TimescaleDBSource(PostgresSource):
         space_dims = [d for d in dimensions if d.dimension_type == "Space"]
 
         if time_dims:
-            properties.customProperties["timescaledb.time_dimension"] = time_dims[
-                0
-            ].dimension_name
+            properties.customProperties["time_dimension"] = time_dims[0].dimension_name
             if time_dims[0].time_interval:
-                properties.customProperties["timescaledb.time_interval"] = time_dims[
+                properties.customProperties["time_interval"] = time_dims[
                     0
                 ].time_interval
 
         if space_dims:
-            properties.customProperties["timescaledb.space_dimensions"] = ", ".join(
+            properties.customProperties["space_dimensions"] = ", ".join(
                 [d.dimension_name for d in space_dims]
             )
 
@@ -561,15 +555,15 @@ class TimescaleDBSource(PostgresSource):
         self, properties: DatasetPropertiesClass, compression: CompressionSettings
     ) -> None:
         """Add compression settings"""
-        properties.customProperties["timescaledb.compression_enabled"] = str(
+        properties.customProperties["compression_enabled"] = str(
             compression.compression_enabled
         )
         if compression.compress_orderby:
-            properties.customProperties["timescaledb.compress_orderby"] = (
+            properties.customProperties["compress_orderby"] = (
                 compression.compress_orderby
             )
         if compression.compress_segmentby:
-            properties.customProperties["timescaledb.compress_segmentby"] = (
+            properties.customProperties["compress_segmentby"] = (
                 compression.compress_segmentby
             )
 
@@ -579,11 +573,9 @@ class TimescaleDBSource(PostgresSource):
         """Add chunk statistics"""
         if chunks:
             compressed_chunks = len([c for c in chunks if c.is_compressed])
-            properties.customProperties["timescaledb.total_chunks"] = str(len(chunks))
-            properties.customProperties["timescaledb.compressed_chunks"] = str(
-                compressed_chunks
-            )
-            properties.customProperties["timescaledb.uncompressed_chunks"] = str(
+            properties.customProperties["total_chunks"] = str(len(chunks))
+            properties.customProperties["compressed_chunks"] = str(compressed_chunks)
+            properties.customProperties["uncompressed_chunks"] = str(
                 len(chunks) - compressed_chunks
             )
 
@@ -639,8 +631,7 @@ class TimescaleDBSource(PostgresSource):
 
                         # Add hypertable tags if applicable
                         if (
-                            properties.customProperties.get("timescaledb.is_hypertable")
-                            == "True"
+                            properties.customProperties.get("is_hypertable") == "True"
                             and self.config.add_table_tags
                         ):
                             hypertable_tags = self._create_hypertable_tags()
@@ -660,7 +651,7 @@ class TimescaleDBSource(PostgresSource):
         self._add_timescaledb_base_properties(properties, inspector)
 
         is_hypertable = self._is_hypertable(inspector, schema, table)
-        properties.customProperties["timescaledb.is_hypertable"] = str(is_hypertable)
+        properties.customProperties["is_hypertable"] = str(is_hypertable)
 
         if is_hypertable:
             hypertable_info = self._get_hypertable_info(inspector, schema, table)
@@ -698,13 +689,13 @@ class TimescaleDBSource(PostgresSource):
             name=dataset_name,
             description=f"TimescaleDB Continuous Aggregate: {cagg.view_name}",
             customProperties={
-                "timescaledb.type": "continuous_aggregate",
-                "timescaledb.materialized_only": str(cagg.materialized_only),
-                "timescaledb.finalized": str(cagg.finalized),
-                "timescaledb.owner": cagg.view_owner,
-                "timescaledb.definition": cagg.view_definition[:1000]
+                "type": "continuous_aggregate",
+                "materialized_only": str(cagg.materialized_only),
+                "finalized": str(cagg.finalized),
+                "owner": cagg.view_owner,
+                "definition": cagg.view_definition[:1000]
                 + ("..." if len(cagg.view_definition) > 1000 else ""),
-                "timescaledb.version": self._get_timescaledb_version(inspector),
+                "version": self._get_timescaledb_version(inspector),
             },
         )
 
