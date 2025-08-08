@@ -4,4 +4,5 @@ export interface InfiniteScrollListProps<T> {
     pageSize?: number;
     emptyState?: React.ReactNode;
     totalItemCount?: number;
+    showLoader?: boolean;
 }

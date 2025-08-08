@@ -35,10 +35,11 @@ const AssetCollectionModule = (props: ModuleProps) => {
     const fetchEntities = useCallback(
         async (start: number, count: number): Promise<Entity[]> => {
             if (assetUrns.length === 0) return [];
+            // urn slicing is done at the front-end to maintain the order of assets to show with pagination
             const urnSlice = assetUrns.slice(start, start + count);
             const result = await refetch({
                 input: {
-                    start: 0,
+                    start: 0, // Using start as 0 every time because sliced urns are sent
                     count: urnSlice.length,
                     query: '*',
                     filters: [{ field: 'urn', values: urnSlice }],
