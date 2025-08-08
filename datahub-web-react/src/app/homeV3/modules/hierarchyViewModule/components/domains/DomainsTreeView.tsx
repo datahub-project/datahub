@@ -55,7 +55,6 @@ export default function DomainsTreeView({ assetUrns, shouldShowRelatedEntities, 
         });
     }, []);
 
-    throw Error();
     return (
         <Wrapper>
             <ChildrenLoaderProvider onLoadFinished={onLoadFinished}>

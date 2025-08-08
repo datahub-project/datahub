@@ -15,7 +15,7 @@ export default function LargeModuleFallback({ moduleProps, fallbackProps }: Prop
         <LargeModule {...moduleProps}>
             <EmptyContent
                 title="Oops!"
-                description="Something didn't go as planned. Our team has been notified of this error and is working on a resolution. Try refreshing."
+                description="Something didn't go according to plan with this module. Try refreshing or contacting your DataHub Administrator"
                 icon="ExclamationMark"
                 linkText="Refresh"
                 linkIcon="ArrowsClockwise"
