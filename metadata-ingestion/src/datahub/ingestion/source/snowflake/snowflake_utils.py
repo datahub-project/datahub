@@ -6,7 +6,7 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
-from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.emitter.mcp_builder import DatabaseKey, DataProductKey, SchemaKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.snowflake.constants import (
     SNOWFLAKE_REGION_CLOUD_REGION_MAPPING,
@@ -297,6 +297,22 @@ class SnowflakeIdentifierBuilder:
             platform_instance=self.identifier_config.platform_instance,
             env=self.identifier_config.env,
         )
+
+    def gen_marketplace_data_product_key(
+        self, listing_global_name: str
+    ) -> DataProductKey:
+        """Generate a data product key for marketplace listings"""
+        return DataProductKey(
+            platform="snowflake-marketplace",
+            name=self.snowflake_identifier(listing_global_name),
+            instance=self.identifier_config.platform_instance,
+            env=self.identifier_config.env,
+        )
+
+    def gen_marketplace_data_product_urn(self, listing_global_name: str) -> str:
+        """Generate a data product URN for marketplace listings"""
+        key = self.gen_marketplace_data_product_key(listing_global_name)
+        return key.as_urn()
 
     def get_dataset_identifier_from_qualified_name(self, qualified_name: str) -> str:
         return self.snowflake_identifier(

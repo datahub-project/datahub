@@ -49,6 +49,9 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
 )
+from datahub.ingestion.source.snowflake.snowflake_marketplace import (
+    SnowflakeMarketplaceHandler,
+)
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
 from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
@@ -537,6 +540,20 @@ class SnowflakeV2Source(
             yield from SnowflakeSharesHandler(
                 self.config, self.report
             ).get_shares_workunits(databases)
+
+        if (
+            self.config.marketplace.include_marketplace_listings
+            or self.config.marketplace.include_marketplace_purchases
+            or self.config.marketplace.include_marketplace_usage
+        ):
+            with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
+                marketplace_handler = SnowflakeMarketplaceHandler(
+                    config=self.config,
+                    report=self.report,
+                    connection=self.connection,
+                    identifiers=self.identifiers,
+                )
+                yield from marketplace_handler.get_marketplace_workunits()
 
         discovered_tables: List[str] = [
             self.identifiers.get_dataset_identifier(table_name, schema.name, db.name)
