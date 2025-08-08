@@ -1,4 +1,4 @@
-const learCardDropdownContent = [
+const learnCardDropdownContent = [
         {
             title: "Weekly Demo",
             iconImage: "/img/icon-join-slack.png",
@@ -26,4 +26,4 @@ const learCardDropdownContent = [
         }
     ]
 
-export default learCardDropdownContent
+export default learnCardDropdownContent
