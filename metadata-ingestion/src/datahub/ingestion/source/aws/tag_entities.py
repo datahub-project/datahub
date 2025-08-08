@@ -268,7 +268,7 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
                     ),
                     (
                         PlatformResourceSearchFields.PRIMARY_KEY,
-                        f"{lake_formation_tag_id.tag_key}/{lake_formation_tag_id.tag_value}",
+                        lake_formation_tag_id.to_platform_resource_key().primary_key,
                     ),
                 )
             )

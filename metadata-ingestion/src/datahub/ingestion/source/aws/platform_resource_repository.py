@@ -30,13 +30,6 @@ class GluePlatformResourceRepository(PlatformResourceRepository):
 
         return LakeFormationTagPlatformResource
 
-    def build_primary_key(self, entity_id: Any) -> str:
-        """Build the primary key for Lake Formation tag search."""
-        tag_value = entity_id.tag_value if entity_id.tag_value is not None else "None"
-        if entity_id.catalog:
-            return f"{entity_id.catalog}.{entity_id.tag_key}:{tag_value}"
-        return f"{entity_id.tag_key}:{tag_value}"
-
     def create_default_entity(self, entity_id: Any, managed_by_datahub: bool) -> Any:
         """Create a default Lake Formation tag entity when none found in DataHub."""
         # Import locally to avoid circular dependency

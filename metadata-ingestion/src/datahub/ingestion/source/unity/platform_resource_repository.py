@@ -30,11 +30,6 @@ class UnityCatalogPlatformResourceRepository(PlatformResourceRepository):
 
         return UnityCatalogTagPlatformResource
 
-    def build_primary_key(self, entity_id: Any) -> str:
-        """Build the primary key for Unity Catalog tag search."""
-        tag_value = entity_id.tag_value if entity_id.tag_value is not None else "None"
-        return f"{entity_id.tag_key}/{tag_value}"
-
     def create_default_entity(self, entity_id: Any, managed_by_datahub: bool) -> Any:
         """Create a default Unity Catalog tag entity when none found in DataHub."""
         # Import locally to avoid circular dependency

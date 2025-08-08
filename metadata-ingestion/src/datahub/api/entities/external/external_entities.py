@@ -90,18 +90,6 @@ class PlatformResourceRepository(ABC):
         pass
 
     @abstractmethod
-    def build_primary_key(self, entity_id: "ExternalEntityId") -> str:
-        """Build the primary key for platform resource search.
-
-        Args:
-            entity_id: The external entity ID
-
-        Returns:
-            Primary key string for search
-        """
-        pass
-
-    @abstractmethod
     def create_default_entity(
         self, entity_id: "ExternalEntityId", managed_by_datahub: bool
     ) -> Any:
@@ -220,7 +208,7 @@ class PlatformResourceRepository(ABC):
         Returns:
             External entity if found or created
         """
-        primary_key = self.build_primary_key(entity_id)
+        primary_key = entity_id.to_platform_resource_key().primary_key
         platform_instance = entity_id.platform_instance
         cache_key = f"{self.get_resource_type()}:{primary_key}:{platform_instance}"
 
@@ -337,10 +325,6 @@ class GenericPlatformResourceRepository(PlatformResourceRepository):
     def get_entity_class(self) -> type:
         # Return a generic Pydantic model class
         return GenericPlatformResource
-
-    def build_primary_key(self, entity_id: "ExternalEntityId") -> str:
-        # Basic implementation - use the platform resource key's ID
-        return entity_id.to_platform_resource_key().id
 
     def create_default_entity(
         self, entity_id: "ExternalEntityId", managed_by_datahub: bool

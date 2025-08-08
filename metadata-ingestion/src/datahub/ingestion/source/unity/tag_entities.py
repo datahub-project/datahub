@@ -53,7 +53,9 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         return PlatformResourceKey(
             platform="databricks",
             resource_type=str(UnityCatalogTagPlatformResourceId._RESOURCE_TYPE()),
-            primary_key=f"{self.tag_key}:{self.tag_value}",
+            primary_key=f"{self.tag_key}:{self.tag_value}"
+            if self.tag_value
+            else self.tag_key,
             platform_instance=self.platform_instance,
         )
 
