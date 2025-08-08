@@ -618,9 +618,12 @@ class TimescaleDBSource(PostgresSource):
                 table_names = inspector.get_table_names(schema)
                 for table in table_names:
                     # Generate TimescaleDB metadata MCP for this table
+                    dataset_name = self.get_identifier(
+                        schema=schema, entity=table, inspector=inspector
+                    )
                     dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
                         platform=self.get_platform(),
-                        name=table,
+                        name=dataset_name,
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                     )
@@ -652,7 +655,7 @@ class TimescaleDBSource(PostgresSource):
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[DatasetPropertiesClass]:
         """Create TimescaleDB-specific dataset properties"""
-        properties = DatasetPropertiesClass(customProperties={})
+        properties = DatasetPropertiesClass(name=table, customProperties={})
 
         self._add_timescaledb_base_properties(properties, inspector)
 
@@ -688,8 +691,11 @@ class TimescaleDBSource(PostgresSource):
         self, cagg: ContinuousAggregateInfo, inspector: Inspector
     ) -> DatasetPropertiesClass:
         """Create properties for continuous aggregate"""
+        dataset_name = self.get_identifier(
+            schema=cagg.view_schema, entity=cagg.view_name, inspector=inspector
+        )
         return DatasetPropertiesClass(
-            name=cagg.view_name,
+            name=dataset_name,
             description=f"TimescaleDB Continuous Aggregate: {cagg.view_name}",
             customProperties={
                 "timescaledb.type": "continuous_aggregate",
