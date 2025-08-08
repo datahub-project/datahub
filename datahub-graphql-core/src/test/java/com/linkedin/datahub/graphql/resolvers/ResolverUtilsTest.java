@@ -3,8 +3,13 @@ package com.linkedin.datahub.graphql.resolvers;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertFalse;
+import static org.testng.AssertJUnit.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
@@ -13,6 +18,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.query.filter.Condition;
@@ -22,6 +28,7 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -103,5 +110,85 @@ public class ResolverUtilsTest {
       assertEquals(conjunctiveCriterion.getAnd().contains(ownersCriterion), true);
       assertEquals(conjunctiveCriterion.getAnd().contains(urnsCriterion), true);
     }
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceTrue_entityExists() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    when(mockEntityClient.exists(mockOpContext, testUrn)).thenReturn(true);
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.TRUE);
+
+    assertTrue(result);
+    verify(mockEntityClient).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceTrue_entityDoesNotExist()
+      throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    when(mockEntityClient.exists(mockOpContext, testUrn)).thenReturn(false);
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.TRUE);
+
+    assertFalse(result);
+    verify(mockEntityClient).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceFalse() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.FALSE);
+
+    assertTrue(result);
+    // Should not call exists() when checkForExistence is false
+    verify(mockEntityClient, Mockito.never()).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_checkForExistenceNull() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    boolean result = filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, null);
+
+    assertTrue(result);
+    // Should not call exists() when checkForExistence is null
+    verify(mockEntityClient, Mockito.never()).exists(mockOpContext, testUrn);
+  }
+
+  @Test
+  public void testFilterEntitiesForExistence_exceptionThrown() throws Exception {
+    final OperationContext mockOpContext = mock(OperationContext.class);
+    final EntityClient mockEntityClient = mock(EntityClient.class);
+    final Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testDataset,PROD)");
+
+    doThrow(new RuntimeException("Test exception"))
+        .when(mockEntityClient)
+        .exists(mockOpContext, testUrn);
+
+    boolean result =
+        filterEntitiesForExistence(mockOpContext, testUrn, mockEntityClient, Boolean.TRUE);
+
+    assertFalse(result);
+    verify(mockEntityClient).exists(mockOpContext, testUrn);
   }
 }

@@ -1184,7 +1184,7 @@ class TableauSiteSource:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.project_name}",
+                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
                     )
                     project.parent_id = None
 
