@@ -19,6 +19,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.unity.config import UnityCatalogGEProfilerConfig
 from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.groupby import groupby_unsorted
 
 logger = logging.getLogger(__name__)
 
@@ -90,70 +91,73 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow  # noqa: E501
         self.config.options.setdefault(
             "max_overflow", self.profiling_config.max_workers
         )
 
-        # Group tables by catalog to create connections for each catalog
-        tables_by_catalog = {}
-        for table in tables:
-            catalog = table.ref.catalog
-            if catalog not in tables_by_catalog:
-                tables_by_catalog[catalog] = []
-            tables_by_catalog[catalog].append(table)
+        # Group tables by catalog using the groupby_unsorted utility
+        tables_by_catalog = groupby_unsorted(tables, lambda table: table.ref.catalog)
 
         # Process each catalog separately to ensure proper database context
-        for catalog, catalog_tables in tables_by_catalog.items():
-            # Create connection for this specific catalog
-            url = self.config.get_sql_alchemy_url(database=catalog)
-            engine = create_engine(url, **self.config.options)
-            conn = engine.connect()
+        for catalog, catalog_tables in tables_by_catalog:
+            yield from self._get_workunits_for_catalog(catalog, list(catalog_tables))
 
-            profile_requests = []
-            with ThreadPoolExecutor(
-                max_workers=self.profiling_config.max_workers
-            ) as executor:
-                futures = [
-                    executor.submit(
-                        self.get_unity_profile_request,
-                        UnityCatalogSQLGenericTable(table),
-                        conn,
+    def _get_workunits_for_catalog(
+        self, catalog: str, catalog_tables: List[Table]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Helper method to generate workunits for tables in a specific catalog"""
+        # Create connection for this specific catalog
+        url = self.config.get_sql_alchemy_url(database=catalog)
+        engine = create_engine(url, **self.config.options)
+        conn = engine.connect()
+
+        profile_requests = []
+        with ThreadPoolExecutor(
+            max_workers=self.profiling_config.max_workers
+        ) as executor:
+            futures = [
+                executor.submit(
+                    self.get_unity_profile_request,
+                    UnityCatalogSQLGenericTable(table),
+                    conn,
+                )
+                for table in catalog_tables
+            ]
+
+            try:
+                for i, completed in enumerate(
+                    as_completed(
+                        futures, timeout=self.profiling_config.max_wait_secs
                     )
-                    for table in catalog_tables
-                ]
-
-                try:
-                    for i, completed in enumerate(
-                        as_completed(
-                            futures, timeout=self.profiling_config.max_wait_secs
+                ):
+                    profile_request = completed.result()
+                    if profile_request is not None:
+                        profile_requests.append(profile_request)
+                    if i > 0 and i % 100 == 0:
+                        logger.info(
+                            f"Finished table-level profiling for {i} tables "
+                            f"in catalog {catalog}"
                         )
-                    ):
-                        profile_request = completed.result()
-                        if profile_request is not None:
-                            profile_requests.append(profile_request)
-                        if i > 0 and i % 100 == 0:
-                            logger.info(
-                                f"Finished table-level profiling for {i} tables in catalog {catalog}"
-                            )
-                except (TimeoutError, concurrent.futures.TimeoutError):
-                    logger.warning(
-                        f"Timed out waiting to complete table-level profiling for catalog {catalog}."
-                    )
+            except (TimeoutError, concurrent.futures.TimeoutError):
+                logger.warning(
+                    f"Timed out waiting to complete table-level profiling "
+                    f"for catalog {catalog}."
+                )
 
-            conn.close()
+        conn.close()
 
-            if len(profile_requests) == 0:
-                continue
+        if len(profile_requests) == 0:
+            return
 
-            # Generate profile workunits for this catalog specifically
-            yield from self.generate_profile_workunits(
-                profile_requests,
-                max_workers=self.config.profiling.max_workers,
-                db_name=catalog,  # Pass the catalog as db_name
-                platform=self.platform,
-                profiler_args=self.get_profile_args(),
-            )
+        # Generate profile workunits for this catalog specifically
+        yield from self.generate_profile_workunits(
+            profile_requests,
+            max_workers=self.config.profiling.max_workers,
+            db_name=catalog,  # Pass the catalog as db_name
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         # Note: unused... ideally should share logic with TableReference
@@ -208,9 +212,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
             return None
 
         if profile_table_level_only and table.is_delta_table:
-            # For requests with profile_table_level_only set, dataset profile is generated
-            # by looking at table.rows_count. For delta tables (a typical databricks table)
-            # count(*) is an efficient query to compute row count.
+            # For requests with profile_table_level_only set, dataset profile is
+            # generated by looking at table.rows_count. For delta tables (a typical
+            # databricks table) count(*) is an efficient query to compute row count.
             try:
                 table.rows_count = _get_dataset_row_count(table, conn)
             except Exception as e:
@@ -230,7 +234,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
             table=table,
             pretty_name=dataset_name,
             batch_kwargs=dict(
-                schema=table.ref.schema, table=table.name, catalog=table.ref.catalog
+                catalog=table.ref.catalog, schema=table.ref.schema, table=table.name
             ),
             profile_table_level_only=profile_table_level_only,
         )
