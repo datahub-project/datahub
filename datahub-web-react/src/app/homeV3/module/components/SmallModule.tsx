@@ -15,6 +15,7 @@ export const DragIcon = styled(Icon)<{ isDragging: boolean }>`
     left: 0px;
     top: 50%;
     transform: translateY(-50%);
+    height: 80%;
 `;
 
 const ContainerWithHover = styled.div`
@@ -33,15 +34,15 @@ const ContainerWithHover = styled.div`
     }
 `;
 
-const Content = styled.div`
+const Content = styled.div<{ $clickable?: boolean }>`
     margin: 16px 32px 16px 16px;
     position: relative;
+
+    ${({ $clickable }) => $clickable && `cursor: pointer;`}
 `;
 
-const StyledModuleContainer = styled(ModuleContainer)<{ clickable?: boolean }>`
+const StyledModuleContainer = styled(ModuleContainer)`
     max-height: 64px;
-
-    ${({ clickable }) => clickable && `cursor: pointer;`}
 `;
 
 interface Props extends ModuleProps {
@@ -65,13 +66,7 @@ export default function SmallModule({
     });
 
     return (
-        <StyledModuleContainer
-            clickable={!!onClick}
-            onClick={onClick}
-            ref={setNodeRef}
-            {...attributes}
-            data-testId={dataTestId}
-        >
+        <StyledModuleContainer ref={setNodeRef} {...attributes} data-testId={dataTestId}>
             <ContainerWithHover>
                 <DragIcon
                     {...listeners}
@@ -81,7 +76,9 @@ export default function SmallModule({
                     source="phosphor"
                     isDragging={isDragging}
                 />
-                <Content>{children}</Content>
+                <Content $clickable={!!onClick} onClick={onClick}>
+                    {children}
+                </Content>
                 <FloatingRightHeaderSection>
                     <ModuleMenu module={module} position={position} />
                 </FloatingRightHeaderSection>

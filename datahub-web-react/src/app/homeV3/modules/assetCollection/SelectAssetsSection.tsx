@@ -26,6 +26,14 @@ const ItemDetailsContainer = styled.div`
 
 const ResultsContainer = styled.div`
     margin: 0 -16px 0 -8px;
+    position: relative;
+    max-height: 300px;
+    padding-right: 8px;
+`;
+
+const ScrollableResultsContainer = styled.div`
+    max-height: inherit;
+    overflow-y: auto;
 `;
 
 type Props = {
@@ -80,6 +88,7 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 key={entity.urn}
                 customDetailsRenderer={customDetailsRenderer}
                 moduleType={DataHubPageModuleType.AssetCollection}
+                padding="8px 0 8px 8px"
                 navigateOnlyOnNameClick
             />
         ));
@@ -98,7 +107,9 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 appliedFilters={appliedFilters}
                 updateFieldFilters={updateFieldFilters}
             />
-            <ResultsContainer data-testid="select-assets-search-results">{content}</ResultsContainer>
+            <ResultsContainer>
+                <ScrollableResultsContainer data-testid="select-assets-search-results">{content}</ScrollableResultsContainer>
+            </ResultsContainer>
         </AssetsSection>
     );
 };

@@ -10,12 +10,15 @@ import { ModulePositionInput } from '@app/homeV3/template/types';
 import { PageModuleFragment } from '@graphql/template.generated';
 
 const StyledIcon = styled(Icon)`
+    height: 100%;
     :hover {
         cursor: pointer;
     }
 ` as typeof Icon;
 
-const DropdownWrapper = styled.div``;
+const DropdownWrapper = styled.div`
+    height: 100%;
+`;
 
 const StyledDropdownContainer = styled.div`
     .ant-dropdown-menu {
@@ -62,7 +65,7 @@ export default function ModuleMenu({ module, position }: Props) {
                 label: (
                     <>
                         {!canEdit ? (
-                            <Tooltip title="You can not edit Default widgets" data-testid="edit-module-tooltip">
+                            <Tooltip title="Default modules are not editable">
                                 <Text color="gray" colorLevel={300}>
                                     Edit
                                 </Text>
