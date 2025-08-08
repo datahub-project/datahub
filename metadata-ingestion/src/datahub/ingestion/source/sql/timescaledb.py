@@ -683,12 +683,7 @@ class TimescaleDBSource(PostgresSource):
                 ),
             ).as_workunit()
 
-            # Add container relationship (DataJob belongs to the DataFlow)
-            yield MetadataChangeProposalWrapper(
-                entityUrn=job_urn, aspect=ContainerClass(container=flow_urn)
-            ).as_workunit()
-
-            # Add browse paths for the job
+            # Add container relationship (DataJob belongs to the schema container)
             database_container_key = gen_database_key(
                 database=database,
                 platform=self.get_platform(),
@@ -706,6 +701,12 @@ class TimescaleDBSource(PostgresSource):
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
+                aspect=ContainerClass(container=schema_container_key.as_urn()),
+            ).as_workunit()
+
+            # Add browse paths for the job
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
                 aspect=BrowsePathsV2Class(
                     path=[
                         BrowsePathEntryClass(
@@ -718,11 +719,6 @@ class TimescaleDBSource(PostgresSource):
                         ),
                     ]
                 ),
-            ).as_workunit()
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=job_urn,
-                aspect=ContainerClass(container=schema_container_key.as_urn()),
             ).as_workunit()
 
             # Add lineage if job is associated with a hypertable or continuous aggregate
