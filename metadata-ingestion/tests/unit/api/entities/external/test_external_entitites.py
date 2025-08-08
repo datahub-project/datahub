@@ -303,9 +303,7 @@ class TestLinkedResourceSet:
             == 1
         )
 
-    def test_add_new_urn_object(
-        self, empty_resource_set: LinkedResourceSet
-    ) -> None:
+    def test_add_new_urn_object(self, empty_resource_set: LinkedResourceSet) -> None:
         """Test adding a new URN as Urn object."""
         empty_resource_set.urns = [
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
@@ -330,9 +328,7 @@ class TestLinkedResourceSet:
             == 1
         )
 
-    def test_add_duplicate_urn(
-        self, empty_resource_set: LinkedResourceSet
-    ) -> None:
+    def test_add_duplicate_urn(self, empty_resource_set: LinkedResourceSet) -> None:
         """Test adding a duplicate URN."""
         empty_resource_set.urns = [
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
@@ -351,9 +347,7 @@ class TestLinkedResourceSet:
             == 1
         )
 
-    def test_add_conflicting_urn(
-        self, empty_resource_set: LinkedResourceSet
-    ) -> None:
+    def test_add_conflicting_urn(self, empty_resource_set: LinkedResourceSet) -> None:
         """Test adding a conflicting URN raises ValueError."""
         empty_resource_set.urns = [
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
@@ -503,7 +497,7 @@ class TestExternalEntityId:
 
 class MockExternalEntityId(BaseModel, ExternalEntityId):
     """Concrete implementation of ExternalEntityId for testing."""
-    
+
     primary_key: str
     platform_instance: Optional[str] = None
 
@@ -576,7 +570,9 @@ class TestGenericPlatformResource:
         assert isinstance(platform_resource, PlatformResource)
         assert platform_resource.id == external_entity_id.to_platform_resource_key().id
         assert platform_resource.resource_info is not None
-        assert platform_resource.resource_info.secondary_keys == []  # Empty URNs should result in empty secondary_keys
+        assert (
+            platform_resource.resource_info.secondary_keys == []
+        )  # Empty URNs should result in empty secondary_keys
 
     def test_config_allows_arbitrary_types(
         self, external_entity_id: MockExternalEntityId
@@ -654,7 +650,9 @@ class TestPlatformResourceRepositoryAdvanced:
         self, mock_search: Mock, repository: GenericPlatformResourceRepository
     ) -> None:
         """Test get_entity_from_datahub with cache hit."""
-        entity_id = MockExternalEntityId(primary_key="test-key", platform_instance="test-instance")
+        entity_id = MockExternalEntityId(
+            primary_key="test-key", platform_instance="test-instance"
+        )
         cache_key = "GenericPlatformResource:test-key:test-instance"
         expected_result = GenericPlatformResource(
             id=entity_id,
@@ -678,7 +676,9 @@ class TestPlatformResourceRepositoryAdvanced:
         self, mock_search: Mock, repository: GenericPlatformResourceRepository
     ) -> None:
         """Test get_entity_from_datahub creates default entity when not found."""
-        entity_id = MockExternalEntityId(primary_key="test-key", platform_instance="test-instance")
+        entity_id = MockExternalEntityId(
+            primary_key="test-key", platform_instance="test-instance"
+        )
         mock_search.return_value = []
 
         result = repository.get_entity_from_datahub(entity_id, True)
