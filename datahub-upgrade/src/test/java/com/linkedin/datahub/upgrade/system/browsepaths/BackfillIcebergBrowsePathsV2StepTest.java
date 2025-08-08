@@ -193,21 +193,13 @@ public class BackfillIcebergBrowsePathsV2StepTest {
             eq(mockOpContext), eq(containerUrn), eq(Constants.BROWSE_PATHS_V2_ASPECT_NAME)))
         .thenReturn(null);
 
-    // Use reflection to access private method
-    java.lang.reflect.Method method =
-        BackfillIcebergBrowsePathsV2Step.class.getDeclaredMethod(
-            "ingestBrowsePathsV2ForContainer",
-            OperationContext.class,
-            Urn.class,
-            com.linkedin.common.AuditStamp.class);
-    method.setAccessible(true);
-
+    // Use package-scoped method directly
     com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    method.invoke(step, mockOpContext, containerUrn, auditStamp);
+    step.ingestBrowsePathsV2ForContainer(mockOpContext, containerUrn, auditStamp);
 
     // Verify that a proposal was ingested
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
@@ -241,21 +233,13 @@ public class BackfillIcebergBrowsePathsV2StepTest {
             eq(mockOpContext), eq(datasetUrn), eq(Constants.CONTAINER_ASPECT_NAME)))
         .thenReturn(mockContainerAspect);
 
-    // Use reflection to access private method
-    java.lang.reflect.Method method =
-        BackfillIcebergBrowsePathsV2Step.class.getDeclaredMethod(
-            "ingestBrowsePathsV2ForDataset",
-            OperationContext.class,
-            Urn.class,
-            com.linkedin.common.AuditStamp.class);
-    method.setAccessible(true);
-
+    // Use package-scoped method directly
     com.linkedin.common.AuditStamp auditStamp =
         new com.linkedin.common.AuditStamp()
             .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR))
             .setTime(System.currentTimeMillis());
 
-    method.invoke(step, mockOpContext, datasetUrn, auditStamp);
+    step.ingestBrowsePathsV2ForDataset(mockOpContext, datasetUrn, auditStamp);
 
     // Verify that a proposal was ingested
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
@@ -276,13 +260,8 @@ public class BackfillIcebergBrowsePathsV2StepTest {
     String namespaceUrnPrefix = "urn:li:container:iceberg__test_wh_0";
     String[] levels = {"default", "ns0"};
 
-    // Use reflection to access private method
-    java.lang.reflect.Method method =
-        BackfillIcebergBrowsePathsV2Step.class.getDeclaredMethod(
-            "addBrowsePathsForContainer", String.class, String[].class, BrowsePathEntryArray.class);
-    method.setAccessible(true);
-
-    method.invoke(step, namespaceUrnPrefix, levels, browsePathsArray);
+    // Use package-scoped method directly
+    step.addBrowsePathsForContainer(namespaceUrnPrefix, levels, browsePathsArray);
 
     assertEquals(browsePathsArray.size(), 2);
 
