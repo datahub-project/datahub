@@ -130,7 +130,7 @@ gs://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # ta
 
 **Notes**
 
-- {table} represents folder for which dataset will be created.
+- `{table}` represents folder for which dataset will be created.
 - include path must end with (_._ or \*.[ext]) to represent leaf level.
 - if \*.[ext] is provided then only files with specified type will be scanned.
 - /\*/ represents single folder.
@@ -140,7 +140,7 @@ gs://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # ta
 - all folder levels need to be specified in include. Only exclude path can have \*\* like matching.
 - exclude path cannot have named variables ( {} ).
 - Folder names should not contain {, }, \*, / in their names.
-- {folder} is reserved for internal working. please do not use in named variables.
+- `{folder}` is reserved for internal working. please do not use in named variables.
 
 If you would like to write a more complicated function for resolving file names, then a {transformer} would be a good fit.
 

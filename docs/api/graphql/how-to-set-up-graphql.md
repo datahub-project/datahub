@@ -55,7 +55,7 @@ shown below.
 <p align="center">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql_link.png"/>
 </p>
-![graphiql_link.png](../../../../../Desktop/datahub_graphiql_link.png)
+
 </TabItem>
 <TabItem value="DataHubCloud" label="DataHub Cloud">
 <p align="center">

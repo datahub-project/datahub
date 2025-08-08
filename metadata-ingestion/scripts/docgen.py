@@ -151,6 +151,41 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
         lambda x: f"[{x.group(1)}]: {new_url(x.group(2), path)}",
         new_content,
     )
+
+    # Handle variable placeholders that should be wrapped in backticks
+    # This prevents MDX from interpreting them as JSX expressions
+    def wrap_variable_placeholders(match):
+        placeholder = match.group(0)
+        # Skip if it's already wrapped in backticks
+        if match.group(0).startswith('`') and match.group(0).endswith('`'):
+            return match.group(0)
+        # Skip if it's part of a code block
+        if '```' in match.group(0):
+            return match.group(0)
+        # Wrap in backticks
+        return f"`{placeholder}`"
+
+    # General pattern to match any content within curly brackets
+    # This will capture {anything} including {folder}, {table}, {partition[0]}, etc.
+    new_content = re.sub(r'\{[^}]+\}', wrap_variable_placeholders, new_content)
+
+    # Handle variable placeholders in URLs that should be wrapped in backticks
+    # This prevents MDX from interpreting them as HTML tags
+    def wrap_url_variable_placeholders(match):
+        placeholder = match.group(0)
+        # Skip if it's already wrapped in backticks
+        if match.group(0).startswith('`') and match.group(0).endswith('`'):
+            return match.group(0)
+        # Skip if it's part of a code block
+        if '```' in match.group(0):
+            return match.group(0)
+        # Wrap in backticks
+        return f"`{placeholder}`"
+
+    # Pattern to match variable placeholders in URLs (like <workspace_name>)
+    # This will capture <anything> including <workspace_name>, <table>, etc.
+    new_content = re.sub(r'<[^>]+>', wrap_url_variable_placeholders, new_content)
+
     return new_content
 
 
@@ -427,10 +462,10 @@ def generate(  # noqa: C901
                 )
                 f.write("\n")
                 f.write("<table>\n")
-                f.write("<tr>")
+                f.write("<tr>\n")
                 for col_header in ["Source Module", "Documentation"]:
-                    f.write(f"<td>{col_header}</td>")
-                f.write("</tr>")
+                    f.write(f"<td>{col_header}</td>\n")
+                f.write("</tr>\n")
 
                 # Sort plugins in the platform.
                 # It's a dict, so we need to recreate it.

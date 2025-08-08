@@ -130,7 +130,9 @@ curl --location --request POST 'localhost:8080/openapi/entities/v1/?createEntity
 If the entity doesn't exist the response will be identical to the previous example. In the case where the entity already exists,
 the following error will occur.
 
+```
 > 422 ValidationExceptionCollection{EntityAspect:(urn:li:dataset:(urn:li:dataPlatform:platform,testSchemaIngest,PROD),schemaMetadata) Exceptions: [com.linkedin.metadata.aspect.plugins.validation.AspectValidationException: Cannot perform CREATE if not exists since the entity key already exists.]}
+```
 
 ##### GET
 

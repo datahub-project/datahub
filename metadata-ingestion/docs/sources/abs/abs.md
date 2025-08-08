@@ -11,7 +11,7 @@ Refer to [example 5](#example-5---advanced---either-individual-file-or-folder-of
 **Additional points to note**
 
 - Folder names should not contain {, }, \*, / in their names.
-- Named variable {folder} is reserved for internal working. please do not use in named variables.
+- Named variable `{folder}` is reserved for internal working. please do not use in named variables.
 
 ### Path Specs - Examples
 
