@@ -55,13 +55,22 @@ def loaded_hive_metastore(hive_metastore_runner):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.parametrize(
     "mode,use_catalog_subtype,use_dataset_pascalcase_subtype,include_catalog_name_in_ids,simplify_nested_field_paths,"
-    "test_suffix",
+    "use_schema_field_v2,test_suffix",
     [
-        ("hive", False, False, False, False, "_1"),
-        ("presto-on-hive", True, True, False, False, "_2"),
-        ("hive", False, False, True, False, "_3"),
-        ("presto-on-hive", True, True, True, False, "_4"),
-        ("hive", False, False, False, True, "_5"),
+        ("hive", False, False, False, False, False, "_1"),
+        ("presto-on-hive", True, True, False, False, False, "_2"),
+        ("hive", False, False, True, False, False, "_3"),
+        ("presto-on-hive", True, True, True, False, False, "_4"),
+        ("hive", False, False, False, True, False, "_5"),
+        (
+            "hive",
+            True,
+            True,
+            False,
+            False,
+            True,
+            "_6",
+        ),  # Test with use_schema_field_v2=True
     ],
 )
 def test_hive_metastore_ingest(
@@ -75,6 +84,7 @@ def test_hive_metastore_ingest(
     use_dataset_pascalcase_subtype,
     include_catalog_name_in_ids,
     simplify_nested_field_paths,
+    use_schema_field_v2,
     test_suffix,
 ):
     # Run the metadata ingestion pipeline.
@@ -101,6 +111,7 @@ def test_hive_metastore_ingest(
                     "use_catalog_subtype": use_catalog_subtype,
                     "use_dataset_pascalcase_subtype": use_dataset_pascalcase_subtype,
                     "simplify_nested_field_paths": simplify_nested_field_paths,
+                    "use_schema_field_v2": use_schema_field_v2,
                 },
             },
             "sink": {
