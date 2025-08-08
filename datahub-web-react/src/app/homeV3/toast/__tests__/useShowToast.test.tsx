@@ -51,7 +51,7 @@ describe('useShowToast', () => {
         expect(config.style).toMatchObject({
             backgroundColor: expect.any(String),
             borderRadius: expect.any(Number),
-            width: expect.any(Number),
+            width: expect.any(String),
             padding: expect.any(String),
             right: expect.any(Number),
             bottom: expect.any(Number),
