@@ -15,7 +15,7 @@ source:
     #     sslmode: require
 
     # TimescaleDB-specific options
-    include_jobs: true # Include TimescaleDB background jobs as DataJob entities
+    include_background_jobs: true # Include TimescaleDB background jobs (policies, maintenance) as DataJob entities
     tag_hypertables: true # Tag hypertable columns and add dataset-level tags
 
     # Optional: Filter patterns
@@ -57,7 +57,7 @@ source:
 #         sslmode: require
 #
 #     # TimescaleDB-specific options
-#     include_jobs: true
+#     include_background_jobs: true
 #     tag_hypertables: true
 
 sink:
@@ -82,7 +82,7 @@ source:
         sslrootcert: /path/to/ca-cert.pem
 
     # TimescaleDB-specific features
-    include_jobs: true # Extract background jobs (compression, retention, etc.)
+    include_background_jobs: true # Extract background jobs (compression, retention, etc.)
     tag_hypertables: true # Add hypertable tags and properties
 
     # Schema and table filtering

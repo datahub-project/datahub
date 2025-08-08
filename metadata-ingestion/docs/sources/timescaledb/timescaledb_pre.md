@@ -143,3 +143,31 @@ The `SELECT` privilege is required to:
    - Check if user has access to TimescaleDB metadata views
 
 For more detailed connection information for TimescaleDB connectivity, see the [official Tiger Cloud integration guide](https://docs.tigerdata.com/integrations/latest/find-connection-details/).
+
+## Configuration Options
+
+The TimescaleDB connector extends PostgreSQL with these additional options:
+
+- `emit_timescaledb_metadata`: Include TimescaleDB-specific metadata
+- `tag_hypertables`: Add 'hypertable' tag to hypertables
+- `tag_continuous_aggregates`: Add 'continuous_aggregate' tag to continuous aggregates
+- `include_background_jobs`: Include TimescaleDB background jobs (policies, maintenance) as DataJob entities
+
+### Background Jobs vs User-Defined Procedures
+
+TimescaleDB has two types of executable procedures:
+
+1. **User-Defined Stored Procedures**: Custom procedures created by users for business logic
+
+   - Always included as DataJob entities (when `include_stored_procedures` is enabled)
+   - Represent intentional, user-controlled data processing
+
+2. **Background Jobs**: System-managed automated tasks like:
+   - Continuous aggregate refresh policies
+   - Data compression policies
+   - Data retention policies
+   - Chunk reordering policies
+   - Only included when `include_background_jobs: true`
+   - Represent automated system maintenance
+
+This separation helps distinguish between intentional data processing jobs and automated system maintenance.

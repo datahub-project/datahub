@@ -10,7 +10,7 @@ source:
     emit_timescaledb_metadata: true
     tag_hypertables: true
     tag_continuous_aggregates: true
-    include_jobs: false  # Jobs tested separately
+    include_background_jobs: false  # Jobs tested separately
 
     # Include tables and views
     include_tables: true

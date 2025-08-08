@@ -7,7 +7,7 @@ source:
     database: tsdb
 
     # Enable job extraction
-    include_jobs: true
+    include_background_jobs: true
     job_pattern:
       allow:
         - ".*"
