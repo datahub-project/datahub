@@ -47,6 +47,14 @@ from datahub.metadata.schema_classes import (
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def safe_get_from_row(row: Any, key: str, default: Any = None) -> Any:
+    """Safely get a value from SQLAlchemy Row, handling missing columns"""
+    try:
+        return row[key]
+    except (KeyError, AttributeError):
+        return default
+
+
 class HypertableDimension(BaseModel):
     """Represents a TimescaleDB hypertable dimension"""
 
@@ -84,19 +92,21 @@ class Hypertable(BaseModel):
     def from_db_row(cls, row: Any) -> "Hypertable":
         """Create a Hypertable from database row"""
         dimensions = []
-        if row.get("dimensions"):
-            for dim_data in row["dimensions"]:
+        dimensions_data = safe_get_from_row(row, "dimensions")
+        if dimensions_data:
+            for dim_data in dimensions_data:
                 dimensions.append(HypertableDimension(**dim_data))
 
         retention_policy = None
-        if row.get("retention_policy"):
-            retention_policy = RetentionPolicy(**row["retention_policy"])
+        retention_data = safe_get_from_row(row, "retention_policy")
+        if retention_data:
+            retention_policy = RetentionPolicy(**retention_data)
 
         return cls(
-            name=row["hypertable_name"],
-            num_dimensions=row.get("num_dimensions", 0),
-            num_chunks=row.get("num_chunks", 0),
-            compression_enabled=row.get("compression_enabled", False),
+            name=safe_get_from_row(row, "hypertable_name", ""),
+            num_dimensions=safe_get_from_row(row, "num_dimensions", 0),
+            num_chunks=safe_get_from_row(row, "num_chunks", 0),
+            compression_enabled=safe_get_from_row(row, "compression_enabled", False),
             dimensions=dimensions,
             retention_policy=retention_policy,
         )
@@ -117,16 +127,17 @@ class ContinuousAggregate(BaseModel):
     def from_db_row(cls, row: Any) -> "ContinuousAggregate":
         """Create a ContinuousAggregate from database row"""
         refresh_policy = None
-        if row.get("refresh_policy"):
-            refresh_policy = RefreshPolicy(**row["refresh_policy"])
+        refresh_data = safe_get_from_row(row, "refresh_policy")
+        if refresh_data:
+            refresh_policy = RefreshPolicy(**refresh_data)
 
         return cls(
-            name=row["view_name"],
-            materialized_only=row.get("materialized_only", False),
-            compression_enabled=row.get("compression_enabled", False),
-            hypertable_schema=row.get("hypertable_schema"),
-            hypertable_name=row.get("hypertable_name"),
-            view_definition=row.get("view_definition"),
+            name=safe_get_from_row(row, "view_name", ""),
+            materialized_only=safe_get_from_row(row, "materialized_only", False),
+            compression_enabled=safe_get_from_row(row, "compression_enabled", False),
+            hypertable_schema=safe_get_from_row(row, "hypertable_schema", ""),
+            hypertable_name=safe_get_from_row(row, "hypertable_name", ""),
+            view_definition=safe_get_from_row(row, "view_definition", ""),
             refresh_policy=refresh_policy,
         )
 
@@ -153,20 +164,20 @@ class TimescaleDBJob(BaseModel):
     def from_db_row(cls, row: Any) -> "TimescaleDBJob":
         """Create a TimescaleDBJob from database row"""
         return cls(
-            job_id=row["job_id"],
-            application_name=row.get("application_name"),
-            schedule_interval=row.get("schedule_interval"),
-            max_runtime=row.get("max_runtime"),
-            max_retries=row.get("max_retries", 0),
-            retry_period=row.get("retry_period"),
-            proc_schema=row.get("proc_schema"),
-            proc_name=row.get("proc_name"),
-            scheduled=row.get("scheduled", False),
-            fixed_schedule=row.get("fixed_schedule", False),
-            initial_start=row.get("initial_start"),
-            config=row.get("config"),
-            hypertable_schema=row.get("hypertable_schema"),
-            hypertable_name=row.get("hypertable_name"),
+            job_id=safe_get_from_row(row, "job_id", 0),
+            application_name=safe_get_from_row(row, "application_name"),
+            schedule_interval=safe_get_from_row(row, "schedule_interval"),
+            max_runtime=safe_get_from_row(row, "max_runtime"),
+            max_retries=safe_get_from_row(row, "max_retries", 0),
+            retry_period=safe_get_from_row(row, "retry_period"),
+            proc_schema=safe_get_from_row(row, "proc_schema"),
+            proc_name=safe_get_from_row(row, "proc_name"),
+            scheduled=safe_get_from_row(row, "scheduled", False),
+            fixed_schedule=safe_get_from_row(row, "fixed_schedule", False),
+            initial_start=safe_get_from_row(row, "initial_start"),
+            config=safe_get_from_row(row, "config"),
+            hypertable_schema=safe_get_from_row(row, "hypertable_schema"),
+            hypertable_name=safe_get_from_row(row, "hypertable_name"),
         )
 
     def get_display_name(self) -> str:
