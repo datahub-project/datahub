@@ -1108,7 +1108,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         Optimized helper to get or create a Unity Catalog tag platform resource.
         This eliminates the duplicate search by skipping the from_tag method which was
         doing a redundant search before get_from_datahub.
-        No circular dependencies since source.py imports both modules.
         """
         # Create the platform resource ID directly without the from_tag search
         platform_resource_id = UnityCatalogTagPlatformResourceId(
