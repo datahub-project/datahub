@@ -83,33 +83,50 @@ class UnityCatalogGEProfiler(GenericProfiler):
         # So there is no repeated logic between this class and source.py
 
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
-        url = self.config.get_sql_alchemy_url()
-        engine = create_engine(url, **self.config.options)
+        # Group tables by catalog so each catalog gets a catalog-specific connection.
+        tables_by_catalog: dict = {}
+        for table in tables:
+            catalog = table.ref.catalog
+            if catalog not in tables_by_catalog:
+                tables_by_catalog[catalog] = []
+            tables_by_catalog[catalog].append(table)
 
         profile_requests = []
-        with ThreadPoolExecutor(
-            max_workers=self.profiling_config.max_workers
-        ) as executor:
-            futures = [
-                executor.submit(
-                    self.get_unity_profile_request,
-                    UnityCatalogSQLGenericTable(table),
-                    engine,
-                )
-                for table in tables
-            ]
 
-            try:
-                for i, completed in enumerate(
-                    as_completed(futures, timeout=self.profiling_config.max_wait_secs)
-                ):
-                    profile_request = completed.result()
-                    if profile_request is not None:
-                        profile_requests.append(profile_request)
-                    if i > 0 and i % 100 == 0:
-                        logger.info(f"Finished table-level profiling for {i} tables")
-            except (TimeoutError, concurrent.futures.TimeoutError):
-                logger.warning("Timed out waiting to complete table-level profiling.")
+        # Process each catalog separately to ensure proper database context.
+        for catalog, catalog_tables in tables_by_catalog.items():
+            url = self.config.get_sql_alchemy_url(database=catalog)
+            engine = create_engine(url, **self.config.options)
+
+            with ThreadPoolExecutor(
+                max_workers=self.profiling_config.max_workers
+            ) as executor:
+                futures = [
+                    executor.submit(
+                        self.get_unity_profile_request,
+                        UnityCatalogSQLGenericTable(table),
+                        engine,
+                    )
+                    for table in catalog_tables
+                ]
+
+                try:
+                    for i, completed in enumerate(
+                        as_completed(
+                            futures, timeout=self.profiling_config.max_wait_secs
+                        )
+                    ):
+                        profile_request = completed.result()
+                        if profile_request is not None:
+                            profile_requests.append(profile_request)
+                        if i > 0 and i % 100 == 0:
+                            logger.info(
+                                f"Finished table-level profiling for {i} tables in catalog {catalog}"
+                            )
+                except (TimeoutError, concurrent.futures.TimeoutError):
+                    logger.warning(
+                        f"Timed out waiting to complete table-level profiling for catalog {catalog}."
+                    )
 
         if len(profile_requests) == 0:
             return
@@ -196,7 +213,11 @@ class UnityCatalogGEProfiler(GenericProfiler):
             return TableProfilerRequest(
                 table=table,
                 pretty_name=dataset_name,
-                batch_kwargs=dict(schema=table.ref.schema, table=table.name),
+                batch_kwargs=dict(
+                    catalog=table.ref.catalog,
+                    schema=table.ref.schema,
+                    table=table.name,
+                ),
                 profile_table_level_only=profile_table_level_only,
             )
 
