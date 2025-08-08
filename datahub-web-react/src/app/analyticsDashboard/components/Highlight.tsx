@@ -12,14 +12,11 @@ type Props = {
 };
 
 const HighlightCard = styled(Card)`
-    width: 160px;
-    height: 160px;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
     line-height: 0;
-    margin: 10px;
     box-shadow: ${(props) => props.theme.styles['box-shadow']};
 `;
 
