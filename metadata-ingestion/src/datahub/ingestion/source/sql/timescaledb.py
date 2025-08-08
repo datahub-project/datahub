@@ -25,6 +25,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    FlowContainerSubTypes,
+    JobContainerSubTypes,
+)
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -521,7 +526,12 @@ class TimescaleDBSource(PostgresSource):
             # Update subtype
             subtype_workunit = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=["Hypertable", "Table"]),
+                aspect=SubTypesClass(
+                    typeNames=[
+                        DatasetSubTypes.TIMESCALEDB_HYPERTABLE,
+                        DatasetSubTypes.TABLE,
+                    ]
+                ),
             ).as_workunit()
             yield subtype_workunit
 
@@ -570,7 +580,12 @@ class TimescaleDBSource(PostgresSource):
             # Update subtype
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
-                aspect=SubTypesClass(typeNames=["Continuous Aggregate", "View"]),
+                aspect=SubTypesClass(
+                    typeNames=[
+                        DatasetSubTypes.TIMESCALEDB_CONTINUOUS_AGGREGATE,
+                        DatasetSubTypes.VIEW,
+                    ]
+                ),
             ).as_workunit()
 
             # Update properties to indicate it's materialized
@@ -652,7 +667,9 @@ class TimescaleDBSource(PostgresSource):
             # Add subtype for the job
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
-                aspect=SubTypesClass(typeNames=["Timescale DB Background Job"]),
+                aspect=SubTypesClass(
+                    typeNames=[JobContainerSubTypes.TIMESCALEDB_BACKGROUND_JOB]
+                ),
             ).as_workunit()
 
             # Add container relationship (DataJob belongs to the DataFlow)
@@ -914,7 +931,9 @@ class TimescaleDBSource(PostgresSource):
         # Add subtype
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
-            aspect=SubTypesClass(typeNames=["TimescaleDB Background Jobs"]),
+            aspect=SubTypesClass(
+                typeNames=[FlowContainerSubTypes.TIMESCALEDB_BACKGROUND_JOBS]
+            ),
         ).as_workunit()
 
         # Add browse paths
