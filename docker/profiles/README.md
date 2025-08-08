@@ -19,7 +19,7 @@ Alternatively, you can use the gradle tasks defined in `docker/build.gradle`:
 ```bash
 # Run from the project root
 ./gradlew quickstart          # Uses the 'quickstart' profile
-./gradlew quickstartDebug     # Uses the 'debug' profile  
+./gradlew quickstartDebug     # Uses the 'debug' profile
 ./gradlew quickstartCypress   # Uses the 'debug' profile with custom project name 'dh-cypress'
 ```
 
