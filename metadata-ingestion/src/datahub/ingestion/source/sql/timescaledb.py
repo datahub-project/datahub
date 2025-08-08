@@ -1,12 +1,15 @@
+import json
 import logging
-from typing import Any, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-from pydantic import BaseModel
-from pydantic.fields import Field
+from pydantic import Field
+from sqlalchemy import text
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_tag_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -18,8 +21,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
@@ -29,205 +34,57 @@ from datahub.metadata.schema_classes import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-# TimescaleDB specific queries
-HYPERTABLE_QUERY = """
-SELECT 
-    h.schema_name,
-    h.table_name,
-    h.num_dimensions,
-    h.num_chunks,
-    h.compression_state,
-    h.compressed_heap_size,
-    h.uncompressed_heap_size,
-    h.tablespaces
-FROM timescaledb_information.hypertables h
-WHERE h.schema_name = %s AND h.table_name = %s;
-"""
-
-HYPERTABLE_DIMENSIONS_QUERY = """
-SELECT 
-    d.dimension_name,
-    d.dimension_type,
-    d.time_interval,
-    d.integer_interval,
-    d.num_partitions
-FROM timescaledb_information.dimensions d
-WHERE d.schema_name = %s AND d.table_name = %s
-ORDER BY d.dimension_number;
-"""
-
-CONTINUOUS_AGGREGATES_QUERY = """
-SELECT 
-    ca.view_name,
-    ca.view_schema,
-    ca.view_owner,
-    ca.materialized_only,
-    ca.view_definition,
-    ca.finalized
-FROM timescaledb_information.continuous_aggregates ca
-WHERE ca.view_schema = %s;
-"""
-
-COMPRESSION_SETTINGS_QUERY = """
-SELECT 
-    cs.schema_name,
-    cs.table_name,
-    cs.compression_enabled,
-    cs.compress_orderby,
-    cs.compress_segmentby
-FROM timescaledb_information.compression_settings cs
-WHERE cs.schema_name = %s AND cs.table_name = %s;
-"""
-
-CHUNKS_QUERY = """
-SELECT 
-    c.chunk_schema,
-    c.chunk_name,
-    c.table_name,
-    c.schema_name,
-    c.is_compressed,
-    c.chunk_tablespace,
-    c.data_nodes
-FROM timescaledb_information.chunks c
-WHERE c.schema_name = %s AND c.table_name = %s
-ORDER BY c.chunk_name;
-"""
-
-
-class HypertableInfo(BaseModel):
-    schema_name: str
-    table_name: str
-    num_dimensions: int
-    num_chunks: int
-    compression_state: Optional[str]
-    compressed_heap_size: Optional[int]
-    uncompressed_heap_size: Optional[int]
-    tablespaces: Optional[str]
-
-
-class HypertableDimension(BaseModel):
-    dimension_name: str
-    dimension_type: str
-    time_interval: Optional[str]
-    integer_interval: Optional[int]
-    num_partitions: Optional[int]
-
-
-class ContinuousAggregateInfo(BaseModel):
-    view_name: str
-    view_schema: str
-    view_owner: str
-    materialized_only: bool
-    view_definition: str
-    finalized: bool
-
-
-class CompressionSettings(BaseModel):
-    schema_name: str
-    table_name: str
-    compression_enabled: bool
-    compress_orderby: Optional[str]
-    compress_segmentby: Optional[str]
-
-
-class ChunkInfo(BaseModel):
-    chunk_schema: str
-    chunk_name: str
-    table_name: str
-    schema_name: str
-    is_compressed: bool
-    chunk_tablespace: Optional[str]
-    data_nodes: Optional[str]
-
 
 class TimescaleDBConfig(PostgresConfig):
-    """
-    TimescaleDB-specific configuration with sensible defaults for time-series workloads.
-    Provides full control over TimescaleDB features without inheriting potentially
-    irrelevant PostgreSQL-specific configurations.
-    """
+    """Configuration for TimescaleDB connector"""
 
-    # Stored procedures - less common in time-series use cases, disabled by default
-    include_stored_procedures: bool = Field(
-        default=False,
-        description=(
-            "Include stored procedures. Note: While supported, time-series workloads "
-            "typically prefer continuous aggregates over stored procedures."
-        ),
-    )
-
-    # TimescaleDB-specific features
-    include_hypertables: bool = Field(
+    emit_timescaledb_metadata: bool = Field(
         default=True,
-        description="Extract hypertable metadata (dimensions, chunks, compression).",
+        description="Emit TimescaleDB-specific metadata as custom properties",
     )
-    include_continuous_aggregates: bool = Field(
+
+    tag_hypertables: bool = Field(
+        default=True, description="Add 'hypertable' tag to hypertables"
+    )
+
+    tag_continuous_aggregates: bool = Field(
         default=True,
-        description="Extract continuous aggregates as special dataset types.",
-    )
-    include_chunks: bool = Field(
-        default=False,
-        description="Extract chunk metadata. Can be verbose - use with caution on large deployments.",
-    )
-    include_compression_info: bool = Field(
-        default=True, description="Extract compression settings and ratios."
-    )
-    continuous_aggregate_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="Filter continuous aggregates to include.",
-    )
-    max_chunks_per_hypertable: int = Field(
-        default=50,  # Conservative default
-        description="Max chunks to analyze per hypertable. -1 for unlimited.",
-    )
-
-    # Environment and performance settings
-    skip_timescaledb_internal_schemas: bool = Field(
-        default=True,
-        description="Auto-skip TimescaleDB internal schemas (_timescaledb_*, etc).",
-    )
-    skip_cloud_unavailable_features: bool = Field(
-        default=True,
-        description="Skip features not available in cloud environments vs failing.",
-    )
-
-    # Time-series specific analysis
-    add_table_tags: bool = Field(
-        default=False,
-        description="Detect and tag time-series patterns and hypertables.",
+        description="Add 'continuous_aggregate' tag to continuous aggregates",
     )
 
 
-@platform_name("TimescaleDB")
+@platform_name("TimescaleDB", id="timescaledb")
 @config_class(TimescaleDBConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled for continuous aggregates via column-level lineage",
+)
 class TimescaleDBSource(PostgresSource):
     """
-    TimescaleDB connector that extends PostgreSQL functionality with time-series specific features.
+    TimescaleDB source that extends PostgreSQL source with:
+    - Continuous aggregates with column-level lineage (handled as views)
+    - Hypertable metadata and dimensions
+    - Compression policies and settings
+    - Data retention policies
+    - Chunk information
 
-    Key differences from PostgreSQL:
-    - Hypertable metadata extraction
-    - Continuous aggregate handling
-    - Compression analysis
-    - Chunk management insights
-    - Time-series optimized defaults
-    - Automatic filtering of TimescaleDB internals
-
-    Inherits PostgreSQL core functionality while adding TimescaleDB-specific implementation.
+    This connector leverages the parent PostgreSQL source's infrastructure:
+    - Tables and views are discovered through standard PostgreSQL introspection
+    - Continuous aggregates appear as views and are processed by the parent's view logic
+    - We enhance these with TimescaleDB-specific metadata
     """
 
     config: TimescaleDBConfig
+    _timescaledb_metadata_cache: Dict[str, Dict[str, Any]]
 
     def __init__(self, config: TimescaleDBConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-
-        # Store original TimescaleDB config for TimescaleDB-specific features
-        self.config = config
-        self._timescaledb_version: Optional[str] = None
-        self._detected_internal_schemas: Optional[List[str]] = None
+        self._timescaledb_metadata_cache = {}
 
     def get_platform(self):
         return "timescaledb"
@@ -237,509 +94,383 @@ class TimescaleDBSource(PostgresSource):
         config = TimescaleDBConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
-    def _get_timescaledb_version(self, inspector: Inspector) -> str:
-        """Get TimescaleDB version and detect environment"""
-        if self._timescaledb_version is None:
-            try:
-                with inspector.engine.connect() as conn:
-                    result = conn.execute(
-                        "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb';"
-                    )
-                    row = result.fetchone()
-                    if row:
-                        self._timescaledb_version = row[0]
+    def add_information_for_schema(self, inspector: Inspector, schema: str) -> None:
+        """
+        Called before processing each schema. Cache TimescaleDB metadata.
+        This is called by the parent class before processing tables/views.
+        """
+        super().add_information_for_schema(inspector, schema)
 
-                        # Try to detect if this is Timescale Cloud
-                        try:
-                            cloud_result = conn.execute(
-                                "SELECT current_setting('timescaledb.license', true);"
-                            )
-                            license_row = cloud_result.fetchone()
-                            if (
-                                license_row
-                                and "timescale" in str(license_row[0]).lower()
-                            ):
-                                self._timescaledb_version += " (Cloud)"
-                        except Exception:
-                            pass
-                    else:
-                        self._timescaledb_version = "unknown"
-                        logger.warning(
-                            "TimescaleDB extension not found. This may not be a TimescaleDB instance."
-                        )
-            except Exception as e:
-                logger.warning(f"Failed to get TimescaleDB version: {e}")
-                self._timescaledb_version = "unknown"
-        return self._timescaledb_version
+        if not self._is_timescaledb_enabled(inspector):
+            return
 
-    def _is_timescaledb_available(self, inspector: Inspector) -> bool:
-        """Check if TimescaleDB is available and properly installed"""
-        version = self._get_timescaledb_version(inspector)
-        return version not in ["not_installed", "unknown"]
+        # Cache all TimescaleDB metadata for this schema
+        db_name = self.get_db_name(inspector)
+        cache_key = f"{db_name}.{schema}"
 
-    def _get_timescaledb_internal_schemas_from_db(
-        self, inspector: Inspector
-    ) -> List[str]:
-        """Dynamically detect TimescaleDB internal schemas from the database"""
+        if cache_key not in self._timescaledb_metadata_cache:
+            self._timescaledb_metadata_cache[cache_key] = {
+                "hypertables": self._get_hypertables(inspector, schema),
+                "continuous_aggregates": self._get_continuous_aggregates(
+                    inspector, schema
+                ),
+            }
+
+    def _is_timescaledb_enabled(self, inspector: Inspector) -> bool:
+        """Check if TimescaleDB extension is installed"""
         try:
             with inspector.engine.connect() as conn:
-                result = conn.execute("""
-                    SELECT schema_name 
-                    FROM information_schema.schemata 
-                    WHERE schema_name LIKE '_timescaledb%' 
-                       OR schema_name LIKE 'timescaledb_%'
-                       OR schema_name = 'timescaledb_information'
-                    ORDER BY schema_name
-                """)
-                return [row[0] for row in result]
+                result = conn.execute(
+                    text("SELECT 1 FROM pg_extension WHERE extname = 'timescaledb'")
+                )
+                return result.rowcount > 0
         except Exception as e:
-            logger.debug(
-                f"Could not dynamically detect TimescaleDB internal schemas: {e}"
-            )
-            return []
-
-    def _is_timescaledb_internal_schema(self, schema_name: str) -> bool:
-        """Check if a schema is a TimescaleDB internal schema"""
-        internal_prefixes = [
-            "_timescaledb_",
-            "timescaledb_information",
-            "timescaledb_experimental",
-            "timescaledb_catalog",
-        ]
-
-        return any(
-            schema_name.startswith(prefix) or schema_name == prefix
-            for prefix in internal_prefixes
-        )
-
-    def _should_skip_schema(self, schema_name: str, inspector: Inspector) -> bool:
-        """TimescaleDB-aware schema filtering"""
-        # First check parent class schema pattern
-        if not self.config.schema_pattern.allowed(schema_name):
-            return True
-
-        # Then check TimescaleDB internal schema auto-skip
-        if self.config.skip_timescaledb_internal_schemas:
-            if self._is_timescaledb_internal_schema(schema_name):
-                self.report.report_dropped(
-                    f"schema:{schema_name} (TimescaleDB internal)"
-                )
-                return True
-
-            # Dynamic detection (cached)
-            if self._detected_internal_schemas is None:
-                self._detected_internal_schemas = (
-                    self._get_timescaledb_internal_schemas_from_db(inspector)
-                )
-                if self._detected_internal_schemas:
-                    logger.info(
-                        f"Auto-detected {len(self._detected_internal_schemas)} TimescaleDB internal schemas"
-                    )
-
-            if schema_name in (self._detected_internal_schemas or []):
-                self.report.report_dropped(
-                    f"schema:{schema_name} (TimescaleDB internal - detected)"
-                )
-                return True
-
-        return False
-
-    def get_schema_names(self, inspector: Inspector) -> List[str]:
-        """Override to apply TimescaleDB-specific schema filtering"""
-        all_schemas = inspector.get_schema_names()
-
-        filtered_schemas = []
-        for schema in all_schemas:
-            if not self._should_skip_schema(schema, inspector):
-                filtered_schemas.append(schema)
-
-        logger.info(
-            f"Schema discovery: {len(all_schemas)} total → {len(filtered_schemas)} after TimescaleDB filtering"
-        )
-        return filtered_schemas
-
-    def _safe_execute_timescaledb_query(
-        self, inspector: Inspector, query: str, params: List[str], operation_name: str
-    ) -> Optional[Any]:
-        """Safely execute TimescaleDB queries with cloud compatibility"""
-        try:
-            with inspector.engine.connect() as conn:
-                return conn.execute(query, params)
-        except Exception as e:
-            if self.config.skip_cloud_unavailable_features:
-                logger.warning(
-                    f"Skipping {operation_name} (may not be available in this environment): {e}"
-                )
-                return None
-            else:
-                raise e
-
-    def _is_hypertable(self, inspector: Inspector, schema: str, table: str) -> bool:
-        """Check if a table is a TimescaleDB hypertable"""
-        result = self._safe_execute_timescaledb_query(
-            inspector,
-            "SELECT 1 FROM timescaledb_information.hypertables WHERE schema_name = %s AND table_name = %s LIMIT 1;",
-            [schema, table],
-            "hypertable detection",
-        )
-        if result is None:
+            logger.debug(f"Could not check for TimescaleDB extension: {e}")
             return False
-        return result.fetchone() is not None
 
-    def _get_hypertable_info(
+    def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[HypertableInfo]:
-        """Get hypertable metadata"""
-        if not self.config.include_hypertables:
-            return None
-
-        result = self._safe_execute_timescaledb_query(
-            inspector, HYPERTABLE_QUERY, [schema, table], "hypertable info extraction"
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        """
+        Override to add TimescaleDB-specific properties to tables.
+        Called for both tables and views by the parent class.
+        """
+        description, properties, location_urn = super().get_table_properties(
+            inspector, schema, table
         )
-        if result is None:
-            return None
 
-        row = result.fetchone()
-        if row:
-            return HypertableInfo(**dict(row))
-        return None
+        if not self.config.emit_timescaledb_metadata:
+            return description, properties, location_urn
 
-    def _get_hypertable_dimensions(
+        # Get cached metadata
+        db_name = self.get_db_name(inspector)
+        cache_key = f"{db_name}.{schema}"
+        metadata = self._timescaledb_metadata_cache.get(cache_key, {})
+
+        # Check if this is a hypertable
+        hypertables = metadata.get("hypertables", {})
+        if table in hypertables:
+            ht_info = hypertables[table]
+            properties["is_hypertable"] = "true"
+            properties["timescale_num_dimensions"] = str(
+                ht_info.get("num_dimensions", 0)
+            )
+            properties["timescale_num_chunks"] = str(ht_info.get("num_chunks", 0))
+            properties["timescale_compression_enabled"] = str(
+                ht_info.get("compression_enabled", False)
+            )
+
+            # Add dimension information
+            for i, dim in enumerate(ht_info.get("dimensions", [])):
+                prefix = f"timescale_dimension_{i}"
+                properties[f"{prefix}_column"] = dim["column_name"]
+                properties[f"{prefix}_type"] = dim["column_type"]
+                if dim.get("time_interval"):
+                    properties[f"{prefix}_interval"] = dim["time_interval"]
+
+            # Add retention policy if exists
+            retention = ht_info.get("retention_policy", {})
+            if retention.get("drop_after"):
+                properties["timescale_retention_period"] = retention["drop_after"]
+
+        # Check if this is a continuous aggregate (view)
+        continuous_aggregates = metadata.get("continuous_aggregates", {})
+        if table in continuous_aggregates:
+            cagg_info = continuous_aggregates[table]
+            properties["is_continuous_aggregate"] = "true"
+            properties["timescale_materialized_only"] = str(
+                cagg_info.get("materialized_only", False)
+            )
+            properties["timescale_compression_enabled"] = str(
+                cagg_info.get("compression_enabled", False)
+            )
+            properties["timescale_source_hypertable"] = (
+                f"{cagg_info.get('hypertable_schema', schema)}.{cagg_info.get('hypertable_name', '')}"
+            )
+
+            # Add refresh policy if exists
+            refresh = cagg_info.get("refresh_policy", {})
+            if refresh.get("schedule_interval"):
+                properties["timescale_refresh_interval"] = str(
+                    refresh["schedule_interval"]
+                )
+            if refresh.get("config"):
+                config = refresh["config"]
+                # Handle both dict and JSON string formats
+                if isinstance(config, str):
+                    try:
+                        config = json.loads(config)
+                    except json.JSONDecodeError:
+                        config = {}
+                if isinstance(config, dict):
+                    if "start_offset" in config:
+                        properties["timescale_refresh_start_offset"] = str(
+                            config["start_offset"]
+                        )
+                    if "end_offset" in config:
+                        properties["timescale_refresh_end_offset"] = str(
+                            config["end_offset"]
+                        )
+
+        return description, properties, location_urn
+
+    def get_extra_tags(
         self, inspector: Inspector, schema: str, table: str
-    ) -> List[HypertableDimension]:
-        """Get hypertable dimensions"""
-        result = self._safe_execute_timescaledb_query(
-            inspector,
-            HYPERTABLE_DIMENSIONS_QUERY,
-            [schema, table],
-            "hypertable dimensions",
+    ) -> Optional[Dict[str, List[str]]]:
+        """
+        Override to add TimescaleDB-specific tags.
+        Returns tags per column as expected by parent class.
+        """
+        tags = super().get_extra_tags(inspector, schema, table) or {}
+
+        # Get cached metadata
+        db_name = self.get_db_name(inspector)
+        cache_key = f"{db_name}.{schema}"
+        metadata = self._timescaledb_metadata_cache.get(cache_key, {})
+
+        # Add hypertable tags
+        if self.config.tag_hypertables:
+            hypertables = metadata.get("hypertables", {})
+            if table in hypertables:
+                # Get columns to tag all of them
+                try:
+                    columns = inspector.get_columns(table, schema)
+                    for column in columns:
+                        col_name = column["name"]
+                        if col_name not in tags:
+                            tags[col_name] = []
+                        tags[col_name].append("hypertable")
+                except Exception as e:
+                    logger.debug(f"Could not get columns for tagging: {e}")
+
+        # Add continuous aggregate tags
+        if self.config.tag_continuous_aggregates:
+            continuous_aggregates = metadata.get("continuous_aggregates", {})
+            if table in continuous_aggregates:
+                try:
+                    columns = inspector.get_columns(table, schema)
+                    for column in columns:
+                        col_name = column["name"]
+                        if col_name not in tags:
+                            tags[col_name] = []
+                        tags[col_name].append("continuous_aggregate")
+                except Exception as e:
+                    logger.debug(f"Could not get columns for tagging: {e}")
+
+        return tags if tags else None
+
+    def _process_table(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        table: str,
+        sql_config: SQLCommonConfig,
+        data_reader: Optional[DataReader],
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        Override to add TimescaleDB-specific subtypes.
+        Let parent handle all standard processing.
+        """
+        # First, yield all standard table processing from parent
+        yield from super()._process_table(
+            dataset_name, inspector, schema, table, sql_config, data_reader
         )
-        if result is None:
-            return []
 
-        return [HypertableDimension(**dict(row)) for row in result]
+        # Then add TimescaleDB-specific enhancements
+        db_name = self.get_db_name(inspector)
+        cache_key = f"{db_name}.{schema}"
+        metadata = self._timescaledb_metadata_cache.get(cache_key, {})
 
-    def _get_compression_settings(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[CompressionSettings]:
-        """Get compression settings for a hypertable"""
-        if not self.config.include_compression_info:
-            return None
+        # Add hypertable subtype and dataset-level tag
+        hypertables = metadata.get("hypertables", {})
+        if table in hypertables:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.get_platform(),
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
 
-        result = self._safe_execute_timescaledb_query(
-            inspector,
-            COMPRESSION_SETTINGS_QUERY,
-            [schema, table],
-            "compression settings",
+            # Update subtype
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(typeNames=["Hypertable", "Table"]),
+            ).as_workunit()
+
+            # Add dataset-level tag
+            if self.config.tag_hypertables:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(
+                        tags=[TagAssociationClass(tag=make_tag_urn("hypertable"))]
+                    ),
+                ).as_workunit()
+
+    def _process_view(
+        self,
+        dataset_name: str,
+        inspector: Inspector,
+        schema: str,
+        view: str,
+        sql_config: SQLCommonConfig,
+    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        """
+        Override to add TimescaleDB-specific subtypes for continuous aggregates.
+        Let parent handle all standard view processing including lineage.
+        """
+        # First, yield all standard view processing from parent
+        # This includes view lineage if enabled
+        yield from super()._process_view(
+            dataset_name, inspector, schema, view, sql_config
         )
-        if result is None:
-            return None
 
-        row = result.fetchone()
-        return CompressionSettings(**dict(row)) if row else None
+        # Then add TimescaleDB-specific enhancements
+        db_name = self.get_db_name(inspector)
+        cache_key = f"{db_name}.{schema}"
+        metadata = self._timescaledb_metadata_cache.get(cache_key, {})
 
-    def _get_chunk_info(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> List[ChunkInfo]:
-        """Get chunk information for a hypertable"""
-        if not self.config.include_chunks:
-            return []
+        # Add continuous aggregate subtype and dataset-level tag
+        continuous_aggregates = metadata.get("continuous_aggregates", {})
+        if view in continuous_aggregates:
+            dataset_urn = make_dataset_urn_with_platform_instance(
+                self.get_platform(),
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
 
-        query = CHUNKS_QUERY
-        if self.config.max_chunks_per_hypertable > 0:
-            query += f" LIMIT {self.config.max_chunks_per_hypertable}"
+            # Update subtype
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=SubTypesClass(typeNames=["Continuous Aggregate", "View"]),
+            ).as_workunit()
 
-        result = self._safe_execute_timescaledb_query(
-            inspector, query, [schema, table], "chunk information"
-        )
-        if result is None:
-            return []
+            # Update properties to indicate it's materialized
+            # Note: Most properties are already added in get_table_properties
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetPropertiesClass(
+                    customProperties={
+                        "materialized": "true",
+                        "timescale_continuous_aggregate": "true",
+                    }
+                ),
+            ).as_workunit()
 
-        return [ChunkInfo(**dict(row)) for row in result]
+            # Add dataset-level tag
+            if self.config.tag_continuous_aggregates:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=GlobalTagsClass(
+                        tags=[
+                            TagAssociationClass(
+                                tag=make_tag_urn("continuous_aggregate")
+                            )
+                        ]
+                    ),
+                ).as_workunit()
+
+    def _get_hypertables(self, inspector: Inspector, schema: str) -> Dict[str, Dict]:
+        """Get all hypertables in a schema with their metadata"""
+        hypertables = {}
+
+        query = """
+        SELECT 
+            ht.table_name,
+            ht.num_dimensions,
+            ht.num_chunks,
+            ht.compression_enabled,
+            (
+                SELECT json_agg(json_build_object(
+                    'column_name', d.column_name,
+                    'column_type', d.column_type,
+                    'time_interval', d.time_interval::text,
+                    'integer_interval', d.integer_interval,
+                    'num_partitions', d.num_partitions
+                ))
+                FROM timescaledb_information.dimensions d
+                WHERE d.hypertable_schema = ht.schema_name 
+                    AND d.hypertable_name = ht.table_name
+            ) as dimensions,
+            (
+                SELECT json_build_object('drop_after', j.config->>'drop_after')
+                FROM timescaledb_information.jobs j
+                WHERE j.hypertable_schema = ht.schema_name
+                    AND j.hypertable_name = ht.table_name
+                    AND j.proc_name = 'policy_retention'
+                LIMIT 1
+            ) as retention_policy
+        FROM timescaledb_information.hypertables ht
+        WHERE ht.schema_name = :schema
+        """
+
+        try:
+            with inspector.engine.connect() as conn:
+                result = conn.execute(text(query), {"schema": schema})
+                for row in result:
+                    hypertables[row["table_name"]] = {
+                        "num_dimensions": row["num_dimensions"],
+                        "num_chunks": row["num_chunks"],
+                        "compression_enabled": row["compression_enabled"],
+                        "dimensions": row["dimensions"] or [],
+                        "retention_policy": row["retention_policy"] or {},
+                    }
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get hypertables",
+                message=f"Could not fetch hypertable information for schema {schema}",
+                exc=e,
+            )
+
+        return hypertables
 
     def _get_continuous_aggregates(
         self, inspector: Inspector, schema: str
-    ) -> List[ContinuousAggregateInfo]:
-        """Get continuous aggregates for a schema"""
-        if not self.config.include_continuous_aggregates:
-            return []
+    ) -> Dict[str, Dict]:
+        """Get all continuous aggregates in a schema with their metadata"""
+        continuous_aggregates = {}
 
-        result = self._safe_execute_timescaledb_query(
-            inspector, CONTINUOUS_AGGREGATES_QUERY, [schema], "continuous aggregates"
-        )
-        if result is None:
-            return []
-
-        caggs = []
-        for row in result:
-            cagg_info = ContinuousAggregateInfo(**dict(row))
-            cagg_qualified_name = f"{schema}.{cagg_info.view_name}"
-
-            if self.config.continuous_aggregate_pattern.allowed(cagg_qualified_name):
-                caggs.append(cagg_info)
-            else:
-                self.report.report_dropped(cagg_qualified_name)
-
-        return caggs
-
-    # Property addition methods (same as before)
-    def _add_timescaledb_base_properties(
-        self, properties: DatasetPropertiesClass, inspector: Inspector
-    ) -> None:
-        """Add base TimescaleDB properties"""
-        if properties.customProperties is None:
-            properties.customProperties = {}
-
-        properties.customProperties["version"] = self._get_timescaledb_version(
-            inspector
-        )
-
-    def _add_hypertable_basic_info(
-        self, properties: DatasetPropertiesClass, hypertable_info: HypertableInfo
-    ) -> None:
-        """Add basic hypertable information"""
-        properties.customProperties["num_dimensions"] = str(
-            hypertable_info.num_dimensions
-        )
-        properties.customProperties["num_chunks"] = str(hypertable_info.num_chunks)
-
-        if hypertable_info.compression_state:
-            properties.customProperties["compression_state"] = (
-                hypertable_info.compression_state
-            )
-
-    def _add_hypertable_size_info(
-        self, properties: DatasetPropertiesClass, hypertable_info: HypertableInfo
-    ) -> None:
-        """Add hypertable size and compression ratio"""
-        if hypertable_info.compressed_heap_size is not None:
-            properties.customProperties["compressed_heap_size"] = str(
-                hypertable_info.compressed_heap_size
-            )
-
-        if hypertable_info.uncompressed_heap_size is not None:
-            properties.customProperties["uncompressed_heap_size"] = str(
-                hypertable_info.uncompressed_heap_size
-            )
-
-            if (
-                hypertable_info.compressed_heap_size
-                and hypertable_info.compressed_heap_size > 0
-            ):
-                ratio = (
-                    hypertable_info.uncompressed_heap_size
-                    / hypertable_info.compressed_heap_size
+        query = """
+        SELECT 
+            ca.view_name,
+            ca.materialized_only,
+            ca.compression_enabled,
+            ca.hypertable_schema,
+            ca.hypertable_name,
+            ca.view_definition,
+            (
+                SELECT json_build_object(
+                    'schedule_interval', j.schedule_interval::text,
+                    'config', j.config
                 )
-                properties.customProperties["compression_ratio"] = f"{ratio:.2f}x"
+                FROM timescaledb_information.jobs j
+                WHERE j.hypertable_schema = ca.materialization_hypertable_schema
+                    AND j.hypertable_name = ca.materialization_hypertable_name
+                    AND j.proc_name = 'policy_refresh_continuous_aggregate'
+                LIMIT 1
+            ) as refresh_policy
+        FROM timescaledb_information.continuous_aggregates ca
+        WHERE ca.view_schema = :schema
+        """
 
-    def _add_dimension_info(
-        self, properties: DatasetPropertiesClass, dimensions: List[HypertableDimension]
-    ) -> None:
-        """Add dimension information"""
-        time_dims = [d for d in dimensions if d.dimension_type == "Time"]
-        space_dims = [d for d in dimensions if d.dimension_type == "Space"]
-
-        if time_dims:
-            properties.customProperties["time_dimension"] = time_dims[0].dimension_name
-            if time_dims[0].time_interval:
-                properties.customProperties["time_interval"] = time_dims[
-                    0
-                ].time_interval
-
-        if space_dims:
-            properties.customProperties["space_dimensions"] = ", ".join(
-                [d.dimension_name for d in space_dims]
-            )
-
-    def _add_compression_info(
-        self, properties: DatasetPropertiesClass, compression: CompressionSettings
-    ) -> None:
-        """Add compression settings"""
-        properties.customProperties["compression_enabled"] = str(
-            compression.compression_enabled
-        )
-        if compression.compress_orderby:
-            properties.customProperties["compress_orderby"] = (
-                compression.compress_orderby
-            )
-        if compression.compress_segmentby:
-            properties.customProperties["compress_segmentby"] = (
-                compression.compress_segmentby
-            )
-
-    def _add_chunk_info(
-        self, properties: DatasetPropertiesClass, chunks: List[ChunkInfo]
-    ) -> None:
-        """Add chunk statistics"""
-        if chunks:
-            compressed_chunks = len([c for c in chunks if c.is_compressed])
-            properties.customProperties["total_chunks"] = str(len(chunks))
-            properties.customProperties["compressed_chunks"] = str(compressed_chunks)
-            properties.customProperties["uncompressed_chunks"] = str(
-                len(chunks) - compressed_chunks
-            )
-
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        """Generate all workunits including TimescaleDB-specific metadata"""
-        # First get all PostgreSQL base metadata
-        yield from super().get_workunits_internal()
-
-        # Then add TimescaleDB-specific metadata
-        for inspector in self.get_inspectors():
-            yield from self._get_timescaledb_metadata_workunits(inspector)
-
-    def _get_timescaledb_metadata_workunits(
-        self, inspector: Inspector
-    ) -> Iterable[MetadataWorkUnit]:
-        """Generate TimescaleDB-specific metadata workunits"""
-        # Add TimescaleDB properties to existing datasets
-        yield from self._get_hypertable_metadata_workunits(inspector)
-
-        # Add continuous aggregates as new datasets
-        if self.config.include_continuous_aggregates:
-            yield from self._get_continuous_aggregate_workunits(inspector)
-
-    def _get_hypertable_metadata_workunits(
-        self, inspector: Inspector
-    ) -> Iterable[MetadataWorkUnit]:
-        """Add TimescaleDB metadata to existing table datasets"""
         try:
-            schemas = self.get_schema_names(inspector)
-
-            for schema in schemas:
-                table_names = inspector.get_table_names(schema)
-                for table in table_names:
-                    # Generate TimescaleDB metadata MCP for this table
-                    dataset_name = self.get_identifier(
-                        schema=schema, entity=table, inspector=inspector
-                    )
-                    dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
-                        platform=self.get_platform(),
-                        name=dataset_name,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-
-                    # Create TimescaleDB-specific properties
-                    properties = self._create_timescaledb_dataset_properties(
-                        inspector, schema, table
-                    )
-                    if properties and properties.customProperties:
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=dataset_urn, aspect=properties
-                        ).as_workunit()
-
-                        # Add hypertable tags if applicable
-                        if (
-                            properties.customProperties.get("is_hypertable") == "True"
-                            and self.config.add_table_tags
-                        ):
-                            hypertable_tags = self._create_hypertable_tags()
-                            yield MetadataChangeProposalWrapper(
-                                entityUrn=dataset_urn, aspect=hypertable_tags
-                            ).as_workunit()
-
+            with inspector.engine.connect() as conn:
+                result = conn.execute(text(query), {"schema": schema})
+                for row in result:
+                    continuous_aggregates[row["view_name"]] = {
+                        "materialized_only": row["materialized_only"],
+                        "compression_enabled": row["compression_enabled"],
+                        "hypertable_schema": row["hypertable_schema"],
+                        "hypertable_name": row["hypertable_name"],
+                        "view_definition": row["view_definition"],
+                        "refresh_policy": row["refresh_policy"] or {},
+                    }
         except Exception as e:
-            logger.warning(f"Failed to generate TimescaleDB metadata workunits: {e}")
+            self.report.warning(
+                title="Failed to get continuous aggregates",
+                message=f"Could not fetch continuous aggregate information for schema {schema}",
+                exc=e,
+            )
 
-    def _create_timescaledb_dataset_properties(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[DatasetPropertiesClass]:
-        """Create TimescaleDB-specific dataset properties"""
-        properties = DatasetPropertiesClass(name=table, customProperties={})
-
-        self._add_timescaledb_base_properties(properties, inspector)
-
-        is_hypertable = self._is_hypertable(inspector, schema, table)
-        properties.customProperties["is_hypertable"] = str(is_hypertable)
-
-        if is_hypertable:
-            hypertable_info = self._get_hypertable_info(inspector, schema, table)
-            if hypertable_info:
-                self._add_hypertable_basic_info(properties, hypertable_info)
-                self._add_hypertable_size_info(properties, hypertable_info)
-
-            dimensions = self._get_hypertable_dimensions(inspector, schema, table)
-            if dimensions:
-                self._add_dimension_info(properties, dimensions)
-
-            compression = self._get_compression_settings(inspector, schema, table)
-            if compression:
-                self._add_compression_info(properties, compression)
-
-            if self.config.include_chunks:
-                chunks = self._get_chunk_info(inspector, schema, table)
-                self._add_chunk_info(properties, chunks)
-
-        return properties if properties.customProperties else None
-
-    def _create_hypertable_tags(self) -> GlobalTagsClass:
-        """Create tags for hypertables"""
-        tag_urn = mce_builder.make_tag_urn("timescale:Hypertable")
-        return GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
-
-    def _create_continuous_aggregate_properties(
-        self, cagg: ContinuousAggregateInfo, inspector: Inspector
-    ) -> DatasetPropertiesClass:
-        """Create properties for continuous aggregate"""
-        dataset_name = self.get_identifier(
-            schema=cagg.view_schema, entity=cagg.view_name, inspector=inspector
-        )
-        return DatasetPropertiesClass(
-            name=dataset_name,
-            description=f"TimescaleDB Continuous Aggregate: {cagg.view_name}",
-            customProperties={
-                "type": "continuous_aggregate",
-                "materialized_only": str(cagg.materialized_only),
-                "finalized": str(cagg.finalized),
-                "owner": cagg.view_owner,
-                "definition": cagg.view_definition,
-                "version": self._get_timescaledb_version(inspector),
-            },
-        )
-
-    def _get_continuous_aggregate_workunits(
-        self, inspector: Inspector
-    ) -> Iterable[MetadataWorkUnit]:
-        """Generate workunits for continuous aggregates"""
-        try:
-            schemas = self.get_schema_names(inspector)
-
-            for schema in schemas:
-                caggs = self._get_continuous_aggregates(inspector, schema)
-                for cagg in caggs:
-                    yield from self._generate_cagg_mcp_workunits(cagg, inspector)
-
-        except Exception as e:
-            logger.warning(f"Failed to generate continuous aggregate workunits: {e}")
-
-    def _generate_cagg_mcp_workunits(
-        self, cagg: ContinuousAggregateInfo, inspector: Inspector
-    ) -> Iterable[MetadataWorkUnit]:
-        """Generate MCP workunits for a continuous aggregate"""
-        dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
-            platform=self.get_platform(),
-            name=cagg.view_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
-
-        # Dataset properties
-        properties = self._create_continuous_aggregate_properties(cagg, inspector)
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=properties
-        ).as_workunit()
-
-        # Dataset subtypes
-        subtypes = SubTypesClass(typeNames=["Continuous Aggregate", "View"])
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=subtypes
-        ).as_workunit()
-
-        # Tags
-        if self.config.add_table_tags:
-            tag_urn = mce_builder.make_tag_urn("timescaledb:ContinuousAggregate")
-            tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn, aspect=tags
-            ).as_workunit()
+        return continuous_aggregates
