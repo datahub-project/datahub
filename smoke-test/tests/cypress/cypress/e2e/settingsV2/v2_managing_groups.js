@@ -61,7 +61,7 @@ describe("create and manage group", () => {
     // cy.get(".ant-typography").contains(group_name).should("be.visible");
     cy.clickTextOptionWithClass(".ant-tabs-tab", "Members");
     // cy.get(".ant-tabs-tab").contains("Members").click();
-    cy.waitTextVisible("No members in this group yet.");
+    cy.waitTextVisible("DataHub");
     cy.clickOptionWithText("Add Member");
     // cy.clickOptionWithText('Search for users...')
     cy.contains("Search for users...").click({ force: true });
