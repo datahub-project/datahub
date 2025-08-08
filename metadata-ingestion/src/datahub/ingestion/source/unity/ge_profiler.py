@@ -91,7 +91,7 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow  # noqa: E501
+        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         self.config.options.setdefault(
             "max_overflow", self.profiling_config.max_workers
         )
