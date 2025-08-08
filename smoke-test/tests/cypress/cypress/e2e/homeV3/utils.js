@@ -1,6 +1,6 @@
 import { hasOperationName } from "../utils";
 
-export const setThemeV2AndHomePageRedesignFlags = (isOn) => {
+export function setThemeV2AndHomePageRedesignFlags(isOn) {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
@@ -11,69 +11,68 @@ export const setThemeV2AndHomePageRedesignFlags = (isOn) => {
       });
     }
   });
-};
+}
 
-export const clickFirstAddModuleButton = () => {
+export function clickFirstAddModuleButton() {
   cy.getWithTestId("add-button-container").first().realHover();
   cy.getWithTestId("add-module-button").first().should("be.visible").click();
-};
+}
 
-export const clickLastAddModuleButton = () => {
+export function clickLastAddModuleButton() {
   cy.getWithTestId("add-button-container").last().realHover();
   cy.getWithTestId("add-module-button").last().should("be.visible").click();
-};
+}
 
-export const shouldShowDefaultTemplate = () => {
+export function shouldShowDefaultTemplate() {
   cy.getWithTestId("your-assets-module").should("exist");
   cy.getWithTestId("domains-module").should("exist");
   cy.getWithTestId("edit-home-page-settings").click();
   cy.getWithTestId("reset-to-organization-default").should("not.exist");
-};
+}
 
-export const shouldBeOnPersonalTemplate = () => {
-  cy.getWithTestId("edit-home-page-settings").click();
+export function shouldBeOnPersonalTemplate() {
+  cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("reset-to-organization-default").should("exist");
-};
+  cy.getWithTestId("edit-home-page-settings").click({ force: true });
+}
 
-export const resetToOrgDefault = () => {
-  cy.getWithTestId("edit-home-page-settings").click();
-  cy.getWithTestId("reset-to-organization-default")
-    .should("be.visible")
-    .click();
+export function resetToOrgDefault() {
+  cy.getWithTestId("edit-home-page-settings").click({ force: true });
+  cy.getWithTestId("reset-to-organization-default").click();
   cy.getWithTestId("modal-confirm-button").should("be.visible").click();
-};
+}
 
-export const startEditingDefaultTemplate = () => {
-  cy.getWithTestId("edit-home-page-settings").click();
+export function startEditingDefaultTemplate() {
+  cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("edit-organization-default").should("be.visible").click();
   cy.getWithTestId("editing-default-template-bar").should("be.visible");
-};
+}
 
-export const finishEditingDefaultTemplate = () => {
+export function finishEditingDefaultTemplate() {
   cy.getWithTestId("finish-editing-default-template").click();
   cy.getWithTestId("editing-default-template-bar").should("not.exist");
-};
+}
 
-export const addYourAssetsModule = () => {
+export function addYourAssetsModule() {
   clickFirstAddModuleButton();
   cy.getWithTestId("add-your-assets-module").click();
-};
+}
 
-export const addDomainsModule = () => {
+export function addDomainsModule() {
   clickFirstAddModuleButton();
   cy.getWithTestId("add-domains-module").click();
-};
+}
 
-export const removeFirstModuleWithTestId = (testId) => {
+export function removeFirstModuleWithTestId(testId) {
   cy.getWithTestId(testId)
     .first()
     .within(() => {
       cy.getWithTestId("module-options").click();
     });
   cy.getWithTestId("remove-module").click();
-};
+}
 
-export const createAssetCollectionModule = (name) => {
+export function createAssetCollectionModule(name) {
   clickFirstAddModuleButton();
   cy.getWithTestId("add-asset-collection-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
@@ -83,34 +82,34 @@ export const createAssetCollectionModule = (name) => {
   cy.getWithTestId("asset-selection-checkbox").eq(1).click({ force: true });
   cy.getWithTestId("selected-assets-list").children().should("have.length", 2);
   cy.getWithTestId("create-update-module-button").click();
-};
+}
 
-export const createHierarchyModule = (name) => {
+export function createHierarchyModule(name) {
   clickFirstAddModuleButton();
   cy.getWithTestId("add-hierarchy-module").click();
   cy.getWithTestId("hierarchy-module-name").should("be.visible").type(name);
   cy.getWithTestId("hierarchy-module-nodes").should("exist");
   cy.getWithTestId("hierarchy-selection-checkbox").eq(0).click({ force: true });
   cy.getWithTestId("create-update-module-button").click();
-};
+}
 
-export const createLinkModule = (name, url) => {
+export function createLinkModule(name, url) {
   clickLastAddModuleButton();
   cy.getWithTestId("add-link-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
   cy.getWithTestId("link-url").should("be.visible").type(url);
   cy.getWithTestId("create-update-module-button").click();
-};
+}
 
-export const createDocumentationModule = (name, text) => {
+export function createDocumentationModule(name, text) {
   clickFirstAddModuleButton();
   cy.getWithTestId("add-documentation-module").click();
   cy.getWithTestId("module-name").should("be.visible").type(name);
   cy.getWithTestId("rich-text-documentation").should("be.visible").type(text);
   cy.getWithTestId("create-update-module-button").click();
-};
+}
 
-export const editAssetCollectionModule = (updatedName) => {
+export function editAssetCollectionModule(updatedName) {
   cy.getWithTestId("asset-collection-module")
     .should("be.visible")
     .within(() => {
@@ -129,10 +128,31 @@ export const editAssetCollectionModule = (updatedName) => {
 
   cy.getWithTestId("selected-assets-list").children().should("have.length", 3);
   cy.getWithTestId("create-update-module-button").click();
-};
+}
 
-export const addFirstHomeDefaultModule = () => {
+export function addFirstHomeDefaultModule() {
   clickFirstAddModuleButton();
   cy.getWithTestId("home-default-modules").trigger("mouseover");
-  cy.getWithTestId("home-default-submenu-option").first().click();
-};
+  cy.getWithTestId("home-default-submenu-option")
+    .first()
+    .click({ force: true });
+}
+
+export function expectModulesOrder(firstId, secondId) {
+  cy.get(`[data-testid="${firstId}"], [data-testid="${secondId}"]`).then(
+    ($els) => {
+      expect($els[0].dataset.testid).to.eq(firstId);
+    },
+  );
+}
+
+export function dragAndDropModuleToNewRow(moduleId) {
+  cy.get(`[data-testid="${moduleId}"] [data-testid="large-module-drag-handle"]`)
+    .realMouseDown({ button: "left", position: "center" })
+    .realMouseMove(0, 10, { position: "center" })
+    .wait(200);
+  cy.getWithTestId("new-row-drop-zone")
+    .last()
+    .realMouseMove(0, 0, { position: "center" })
+    .realMouseUp();
+}

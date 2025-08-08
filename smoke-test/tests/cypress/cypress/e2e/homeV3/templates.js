@@ -1,5 +1,6 @@
 import {
   addYourAssetsModule,
+  createAssetCollectionModule,
   finishEditingDefaultTemplate,
   removeFirstModuleWithTestId,
   resetToOrgDefault,
@@ -12,7 +13,7 @@ import {
 describe("home page templates", () => {
   beforeEach(() => {
     setThemeV2AndHomePageRedesignFlags(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit("/");
     cy.skipIntroducePage();
   });
@@ -30,6 +31,20 @@ describe("home page templates", () => {
     addYourAssetsModule();
     cy.getWithTestId("your-assets-module").should("have.length", 2);
     shouldBeOnPersonalTemplate();
+    resetToOrgDefault();
+  });
+
+  it("create personal template, then log back in to check the updated template", () => {
+    addYourAssetsModule();
+    createAssetCollectionModule("Collection Module");
+    shouldBeOnPersonalTemplate();
+    cy.logoutV2();
+    cy.login();
+    cy.visit("/");
+    cy.getWithTestId("your-assets-module").should("have.length", 2);
+    cy.getWithTestId("asset-collection-module").should("be.visible");
+
+    // Clean-up
     resetToOrgDefault();
   });
 

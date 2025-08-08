@@ -6,7 +6,9 @@ import {
   createDocumentationModule,
   createHierarchyModule,
   createLinkModule,
+  dragAndDropModuleToNewRow,
   editAssetCollectionModule,
+  expectModulesOrder,
   finishEditingDefaultTemplate,
   removeFirstModuleWithTestId,
   resetToOrgDefault,
@@ -17,7 +19,7 @@ import {
 describe("home page modules", () => {
   beforeEach(() => {
     setThemeV2AndHomePageRedesignFlags(true);
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit("/");
     cy.skipIntroducePage();
   });
@@ -157,6 +159,15 @@ describe("home page modules", () => {
     startEditingDefaultTemplate();
     removeFirstModuleWithTestId("asset-collection-module");
     finishEditingDefaultTemplate();
+    resetToOrgDefault();
+  });
+
+  it("reorder module with drag-and-drop", () => {
+    expectModulesOrder("your-assets-module", "domains-module");
+    dragAndDropModuleToNewRow("your-assets-module");
+    expectModulesOrder("domains-module", "your-assets-module");
+
+    // Clean-up
     resetToOrgDefault();
   });
 });

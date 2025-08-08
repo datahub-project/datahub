@@ -97,7 +97,12 @@ function LargeModule({
     return (
         <ModuleContainer $height="316px" ref={setNodeRef} data-testId={dataTestId}>
             <ModuleHeader>
-                <DragHandle {...listeners} {...attributes} $isDragging={isDragging}>
+                <DragHandle
+                    {...listeners}
+                    {...attributes}
+                    $isDragging={isDragging}
+                    data-testid="large-module-drag-handle"
+                >
                     <DragIcon
                         {...listeners}
                         size="lg"
