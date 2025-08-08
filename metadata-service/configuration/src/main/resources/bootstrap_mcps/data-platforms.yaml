@@ -787,3 +787,13 @@
     displayName: Grafana
     type: OTHERS
     logoUrl: "/assets/platforms/grafana.png"
+- entityUrn: urn:li:dataPlatform:timescaledb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: timescaledb
+    displayName: TimescaleDB
+    type: OTHERS
+    logoUrl: "/assets/platforms/timescaledblogo.png"

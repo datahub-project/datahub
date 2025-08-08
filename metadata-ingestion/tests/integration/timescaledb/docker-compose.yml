@@ -1,0 +1,22 @@
+# docker-compose.yml
+services:
+  test-timescaledb:
+    container_name: "test-timescaledb"
+    hostname: timescaledb
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      POSTGRES_USER: "tsdbuser"
+      POSTGRES_PASSWORD: "tsdbpass"
+      POSTGRES_DB: "tsdb"
+    ports:
+      - '5432:5432'
+    volumes:
+      - ./setup:/setup
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/01-setup.sql
+      - ./setup/timescale-setup.sql:/docker-entrypoint-initdb.d/02-timescale-setup.sql
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb
+      - -c
+      - timescaledb.telemetry_level=off

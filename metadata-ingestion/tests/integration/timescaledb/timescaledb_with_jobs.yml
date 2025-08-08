@@ -1,0 +1,31 @@
+source:
+  type: timescaledb
+  config:
+    username: tsdbuser
+    password: tsdbpass
+    host_port: localhost:5432
+    database: tsdb
+
+    # Enable job extraction
+    include_jobs: true
+    job_pattern:
+      allow:
+        - ".*"
+
+    emit_timescaledb_metadata: true
+    tag_hypertables: true
+    tag_continuous_aggregates: true
+
+    include_tables: true
+    include_views: true
+    include_view_lineage: true
+    include_view_column_lineage: true
+
+    schema_pattern:
+      allow:
+        - public
+
+sink:
+  type: file
+  config:
+    filename: "./timescaledb_jobs_mces.json"

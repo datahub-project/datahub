@@ -1,0 +1,33 @@
+source:
+  type: timescaledb
+  config:
+    username: tsdbuser
+    password: tsdbpass
+    host_port: localhost:5432
+    # No database specified - will ingest all databases
+
+    emit_timescaledb_metadata: true
+    tag_hypertables: true
+    tag_continuous_aggregates: true
+
+    include_tables: true
+    include_views: true
+
+    # Database filtering
+    database_pattern:
+      allow:
+        - tsdb
+        - tsdb_secondary
+      deny:
+        - postgres
+        - template0
+        - template1
+
+    schema_pattern:
+      allow:
+        - public
+
+sink:
+  type: file
+  config:
+    filename: "./timescaledb_all_db_mces.json"

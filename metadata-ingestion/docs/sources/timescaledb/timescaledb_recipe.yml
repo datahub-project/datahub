@@ -1,0 +1,143 @@
+source:
+  type: timescaledb
+  config:
+    # Coordinates
+    host_port: localhost:5432
+    database: timescaledb
+
+    # Credentials
+    username: datahub_user
+    password: your_secure_password
+
+    # Optional: SSL configuration (recommended for production)
+    # options:
+    #   connect_args:
+    #     sslmode: require
+
+    # TimescaleDB-specific options
+    include_jobs: true # Include TimescaleDB background jobs as DataJob entities
+    tag_hypertables: true # Tag hypertable columns and add dataset-level tags
+
+    # Optional: Filter patterns
+    # schema_pattern:
+    #   allow: ["public", "analytics"]
+    #   deny: ["information_schema", "_timescaledb_*"]
+
+    # table_pattern:
+    #   allow: ["sensor_*", "metrics_*"]
+    #   deny: ["temp_*", "test_*"]
+
+    # Optional: Profiling configuration
+    # profiling:
+    #   enabled: true
+    #   profile_table_level_only: false
+    #   max_number_of_fields_to_profile: 20
+    #   profile_if_updated_since_days: 7
+
+    # Optional: Lineage extraction
+    # include_view_lineage: true
+    # include_table_lineage: false
+
+# Example configuration for Tiger Cloud (Managed TimescaleDB)
+# source:
+#   type: timescaledb
+#   config:
+#     # Tiger Cloud connection details
+#     # Get these from https://docs.tigerdata.com/integrations/latest/find-connection-details/
+#     host_port: your-instance.tiger.cloud:5432
+#     database: your_database_name
+#
+#     # Tiger Cloud credentials
+#     username: your_username
+#     password: your_password
+#
+#     # SSL is required for Tiger Cloud
+#     options:
+#       connect_args:
+#         sslmode: require
+#
+#     # TimescaleDB-specific options
+#     include_jobs: true
+#     tag_hypertables: true
+
+sink:
+  # sink configs
+
+---
+# Advanced configuration example with all TimescaleDB features
+source:
+  type: timescaledb
+  config:
+    host_port: timescaledb.example.com:5432
+    database: production_metrics
+    username: datahub_readonly
+    password: ${TIMESCALEDB_PASSWORD}
+
+    # SSL configuration
+    options:
+      connect_args:
+        sslmode: require
+        sslcert: /path/to/client-cert.pem
+        sslkey: /path/to/client-key.pem
+        sslrootcert: /path/to/ca-cert.pem
+
+    # TimescaleDB-specific features
+    include_jobs: true # Extract background jobs (compression, retention, etc.)
+    tag_hypertables: true # Add hypertable tags and properties
+
+    # Schema and table filtering
+    schema_pattern:
+      allow: ["public", "analytics", "monitoring"]
+      deny: ["_timescaledb_*", "information_schema"]
+
+    table_pattern:
+      allow: ["sensor_data", "metrics_*", "*_hourly", "*_daily"]
+      deny: ["temp_*", "staging_*", "test_*"]
+
+    # Profiling configuration
+    profiling:
+      enabled: true
+      profile_table_level_only: false # Profile individual columns
+      max_number_of_fields_to_profile: 50
+      profile_if_updated_since_days: 1 # Only profile recently updated tables
+      profile_external_urls: false
+
+      # Profiling queries
+      turn_off_expensive_profiling_metrics: false
+      profile_if_table_too_large: true
+      max_table_size_for_profiling: 5000000 # 5M rows
+
+      # Field-level profiling
+      include_field_null_count: true
+      include_field_distinct_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      include_field_sample_values: true
+
+    # Lineage extraction
+    include_view_lineage: true # Extract view lineage (including continuous aggregates)
+    include_table_lineage: false # Table-to-table lineage (if available)
+
+    # Performance and reliability
+    stateful_ingestion:
+      enabled: true # Enable incremental ingestion
+      ignore_old_state: false
+      ignore_new_state: false
+
+    # Platform and environment
+    platform_instance: production
+    env: PROD
+
+    # Additional metadata
+    domain: "urn:li:domain:TimeSeries" # Assign to a specific domain
+
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080
