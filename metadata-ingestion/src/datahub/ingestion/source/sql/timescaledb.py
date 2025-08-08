@@ -6,7 +6,9 @@ from pydantic import Field
 from sqlalchemy import text
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
+    make_data_job_urn,
     make_dataset_urn_with_platform_instance,
     make_tag_urn,
 )
@@ -26,8 +28,11 @@ from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataJobInputOutputClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
+    StatusClass,
     SubTypesClass,
     TagAssociationClass,
 )
@@ -52,6 +57,16 @@ class TimescaleDBConfig(PostgresConfig):
         description="Add 'continuous_aggregate' tag to continuous aggregates",
     )
 
+    include_jobs: bool = Field(
+        default=False,
+        description="Include TimescaleDB background jobs as DataJob entities",
+    )
+
+    job_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for TimescaleDB jobs to filter in ingestion",
+    )
+
 
 @platform_name("TimescaleDB", id="timescaledb")
 @config_class(TimescaleDBConfig)
@@ -71,6 +86,7 @@ class TimescaleDBSource(PostgresSource):
     - Hypertable metadata and dimensions
     - Compression policies and settings
     - Data retention policies
+    - Background jobs as DataJob entities
     - Chunk information
 
     This connector leverages the parent PostgreSQL source's infrastructure:
@@ -114,7 +130,29 @@ class TimescaleDBSource(PostgresSource):
                 "continuous_aggregates": self._get_continuous_aggregates(
                     inspector, schema
                 ),
+                "jobs": self._get_jobs(inspector, schema)
+                if self.config.include_jobs
+                else {},
             }
+
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        """Override to add TimescaleDB jobs after standard processing"""
+
+        # First yield all standard PostgreSQL workunits
+        yield from super().get_schema_level_workunits(
+            inspector=inspector,
+            schema=schema,
+            database=database,
+        )
+
+        # Then add TimescaleDB jobs if configured
+        if self.config.include_jobs and self._is_timescaledb_enabled(inspector):
+            yield from self._process_timescaledb_jobs(inspector, schema, database)
 
     def _is_timescaledb_enabled(self, inspector: Inspector) -> bool:
         """Check if TimescaleDB extension is installed"""
@@ -371,13 +409,120 @@ class TimescaleDBSource(PostgresSource):
                     ),
                 ).as_workunit()
 
+    def _process_timescaledb_jobs(
+        self, inspector: Inspector, schema: str, database: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process TimescaleDB jobs and emit them as DataJob entities"""
+
+        db_name = self.get_db_name(inspector)
+        cache_key = f"{db_name}.{schema}"
+        metadata = self._timescaledb_metadata_cache.get(cache_key, {})
+        jobs = metadata.get("jobs", {})
+
+        for job_id, job_info in jobs.items():
+            job_name = f"{schema}.job_{job_id}_{job_info['proc_name']}"
+            job_urn = make_data_job_urn(
+                orchestrator="timescaledb",
+                flow_id=f"{database}.{schema}",
+                job_id=str(job_id),
+                cluster=self.config.env,
+            )
+
+            # Create job info
+            custom_properties = {
+                "job_id": str(job_id),
+                "application_name": job_info.get("application_name", ""),
+                "schedule_interval": str(job_info.get("schedule_interval", "")),
+                "max_runtime": str(job_info.get("max_runtime", "")),
+                "max_retries": str(job_info.get("max_retries", 0)),
+                "retry_period": str(job_info.get("retry_period", "")),
+                "proc_schema": job_info.get("proc_schema", ""),
+                "proc_name": job_info.get("proc_name", ""),
+                "scheduled": str(job_info.get("scheduled", False)),
+                "fixed_schedule": str(job_info.get("fixed_schedule", False)),
+                "initial_start": str(job_info.get("initial_start", "")),
+                "timezone": job_info.get("timezone", ""),
+            }
+
+            # Add config if present
+            if job_info.get("config"):
+                config = job_info["config"]
+                if isinstance(config, str):
+                    custom_properties["config"] = config
+                elif isinstance(config, dict):
+                    custom_properties["config"] = json.dumps(config)
+
+            # Add hypertable info if present
+            if job_info.get("hypertable_schema") and job_info.get("hypertable_name"):
+                custom_properties["hypertable"] = (
+                    f"{job_info['hypertable_schema']}.{job_info['hypertable_name']}"
+                )
+
+            # Emit job info
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn,
+                aspect=DataJobInfoClass(
+                    name=job_name,
+                    type="TIMESCALEDB_JOB",
+                    description=f"TimescaleDB {job_info['proc_name']} job",
+                    customProperties=custom_properties,
+                ),
+            ).as_workunit()
+
+            # Add job status
+            yield MetadataChangeProposalWrapper(
+                entityUrn=job_urn, aspect=StatusClass(removed=False)
+            ).as_workunit()
+
+            # Add lineage if job is associated with a hypertable or continuous aggregate
+            inputs = []
+            outputs = []
+
+            if job_info.get("hypertable_schema") and job_info.get("hypertable_name"):
+                dataset_urn = make_dataset_urn_with_platform_instance(
+                    self.get_platform(),
+                    self.get_identifier(
+                        schema=job_info["hypertable_schema"],
+                        entity=job_info["hypertable_name"],
+                        inspector=inspector,
+                    ),
+                    self.config.platform_instance,
+                    self.config.env,
+                )
+
+                # Determine if it's input or output based on job type
+                if "refresh" in job_info["proc_name"]:
+                    outputs.append(dataset_urn)
+                elif (
+                    "retention" in job_info["proc_name"]
+                    or "compression" in job_info["proc_name"]
+                ):
+                    inputs.append(dataset_urn)
+                    outputs.append(
+                        dataset_urn
+                    )  # Also output since it modifies the table
+                else:
+                    # Default to both for unknown job types
+                    inputs.append(dataset_urn)
+                    outputs.append(dataset_urn)
+
+            if inputs or outputs:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=job_urn,
+                    aspect=DataJobInputOutputClass(
+                        inputDatasets=inputs,
+                        outputDatasets=outputs,
+                        inputDatajobs=[],
+                    ),
+                ).as_workunit()
+
     def _get_hypertables(self, inspector: Inspector, schema: str) -> Dict[str, Dict]:
         """Get all hypertables in a schema with their metadata"""
         hypertables = {}
 
         query = """
         SELECT 
-            ht.table_name,
+            ht.hypertable_name,
             ht.num_dimensions,
             ht.num_chunks,
             ht.compression_enabled,
@@ -390,26 +535,26 @@ class TimescaleDBSource(PostgresSource):
                     'num_partitions', d.num_partitions
                 ))
                 FROM timescaledb_information.dimensions d
-                WHERE d.hypertable_schema = ht.schema_name 
-                    AND d.hypertable_name = ht.table_name
+                WHERE d.hypertable_schema = ht.hypertable_schema 
+                    AND d.hypertable_name = ht.hypertable_name
             ) as dimensions,
             (
                 SELECT json_build_object('drop_after', j.config->>'drop_after')
                 FROM timescaledb_information.jobs j
-                WHERE j.hypertable_schema = ht.schema_name
-                    AND j.hypertable_name = ht.table_name
+                WHERE j.hypertable_schema = ht.hypertable_schema
+                    AND j.hypertable_name = ht.hypertable_name
                     AND j.proc_name = 'policy_retention'
                 LIMIT 1
             ) as retention_policy
         FROM timescaledb_information.hypertables ht
-        WHERE ht.schema_name = :schema
+        WHERE ht.hypertable_schema = :schema
         """
 
         try:
             with inspector.engine.connect() as conn:
                 result = conn.execute(text(query), {"schema": schema})
                 for row in result:
-                    hypertables[row["table_name"]] = {
+                    hypertables[row["hypertable_name"]] = {
                         "num_dimensions": row["num_dimensions"],
                         "num_chunks": row["num_chunks"],
                         "compression_enabled": row["compression_enabled"],
@@ -474,3 +619,65 @@ class TimescaleDBSource(PostgresSource):
             )
 
         return continuous_aggregates
+
+    def _get_jobs(self, inspector: Inspector, schema: str) -> Dict[int, Dict]:
+        """Get all TimescaleDB jobs for a schema"""
+        jobs = {}
+
+        query = """
+        SELECT 
+            j.job_id,
+            j.application_name,
+            j.schedule_interval,
+            j.max_runtime,
+            j.max_retries,
+            j.retry_period,
+            j.proc_schema,
+            j.proc_name,
+            j.scheduled,
+            j.fixed_schedule,
+            j.initial_start,
+            j.timezone,
+            j.config,
+            j.hypertable_schema,
+            j.hypertable_name
+        FROM timescaledb_information.jobs j
+        WHERE (j.hypertable_schema = :schema OR j.proc_schema = :schema)
+        """
+
+        try:
+            with inspector.engine.connect() as conn:
+                result = conn.execute(text(query), {"schema": schema})
+                for row in result:
+                    job_id = row["job_id"]
+                    job_name = f"{schema}.job_{job_id}_{row['proc_name']}"
+
+                    # Check if job matches pattern
+                    if not self.config.job_pattern.allowed(job_name):
+                        self.report.report_dropped(job_name)
+                        continue
+
+                    jobs[job_id] = {
+                        "application_name": row["application_name"],
+                        "schedule_interval": row["schedule_interval"],
+                        "max_runtime": row["max_runtime"],
+                        "max_retries": row["max_retries"],
+                        "retry_period": row["retry_period"],
+                        "proc_schema": row["proc_schema"],
+                        "proc_name": row["proc_name"],
+                        "scheduled": row["scheduled"],
+                        "fixed_schedule": row["fixed_schedule"],
+                        "initial_start": row["initial_start"],
+                        "timezone": row["timezone"],
+                        "config": row["config"],
+                        "hypertable_schema": row["hypertable_schema"],
+                        "hypertable_name": row["hypertable_name"],
+                    }
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get jobs",
+                message=f"Could not fetch job information for schema {schema}",
+                exc=e,
+            )
+
+        return jobs
