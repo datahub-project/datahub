@@ -7,7 +7,7 @@ import React from 'react';
 const notificationStyles = {
     backgroundColor: colors.blue[0],
     borderRadius: 8,
-    width: 475,
+    width: 'max-content',
     padding: '8px 4px',
     right: 50,
     bottom: -8,

@@ -86,7 +86,7 @@ export const EditorContainer = styled.div`
 
         a {
             font-weight: 500;
-            color: ${colors.violet[500]};
+            color: ${colors.primary[500]};
         }
 
         li {
