@@ -11,6 +11,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.container.Container;
@@ -250,6 +251,10 @@ abstract class TableOrViewOpsDelegate<M> {
 
       SubTypes subTypes = new SubTypes().setTypeNames(new StringArray(capitalize(type())));
       datasetBatch.aspect(SUB_TYPES_ASPECT_NAME, subTypes);
+
+      BrowsePathsV2 browsePaths =
+          Utils.browsePathsForContainer(platformInstance(), tableIdentifier.namespace().levels());
+      datasetBatch.aspect(BROWSE_PATHS_V2_ASPECT_NAME, browsePaths);
     }
 
     additionalMcps(metadata.metadata(), datasetBatch);
@@ -265,7 +270,9 @@ abstract class TableOrViewOpsDelegate<M> {
         throw new CommitFailedException("Cannot commit to %s %s: stale metadata", type(), name());
       }
     }
-
+    // TODO: Should move this part into a background thread to enable adding potentially more
+    // expensive computations
+    // in this step, so that transactions are not held up.
     additionalAsyncMcps(datasetUrn, metadata, icebergBatch.getAuditStamp());
   }
 
@@ -312,6 +319,17 @@ abstract class TableOrViewOpsDelegate<M> {
   // path)
   void additionalAsyncMcps(
       DatasetUrn datasetUrn, MetadataWrapper<M> metadata, AuditStamp auditStamp) {
+    MetadataChangeProposal datasetProfileMcp =
+        getDatasetProfileMcp(datasetUrn, metadata, auditStamp);
+    entityService.ingestProposal(operationContext, datasetProfileMcp, auditStamp, true);
+
+    MetadataChangeProposal datasetPropertiesMcp =
+        getDatasetProperties(datasetUrn, metadata, auditStamp);
+    entityService.ingestProposal(operationContext, datasetPropertiesMcp, auditStamp, true);
+  }
+
+  private MetadataChangeProposal getDatasetProfileMcp(
+      DatasetUrn datasetUrn, MetadataWrapper<M> metadata, AuditStamp auditStamp) {
     DatasetProfile datasetProfile =
         getDataSetProfile(metadata.metadata()).setTimestampMillis(auditStamp.getTime());
 
@@ -322,8 +340,11 @@ abstract class TableOrViewOpsDelegate<M> {
             .setAspectName(DATASET_PROFILE_ASPECT_NAME)
             .setAspect(serializeAspect(datasetProfile))
             .setChangeType(ChangeType.UPSERT);
-    entityService.ingestProposal(operationContext, datasetProfileMcp, auditStamp, true);
+    return datasetProfileMcp;
+  }
 
+  private MetadataChangeProposal getDatasetProperties(
+      DatasetUrn datasetUrn, MetadataWrapper<M> metadata, AuditStamp auditStamp) {
     StringMap newIcebergProperties = getIcebergProperties(metadata.metadata());
     Set<String> deletedIcebergProperties = null;
     RecordTemplate prevDatasetPropertiesData =
@@ -359,11 +380,7 @@ abstract class TableOrViewOpsDelegate<M> {
       patchBuilder.addCustomProperty(
           ICEBERG_PROPERTY_PREFIX + newProperty, newIcebergProperties.get(newProperty));
     }
-
-    if (deletedIcebergProperties != null || newIcebergProperties.size() > 0) {
-      MetadataChangeProposal datasetPropertiesMcp = patchBuilder.build();
-      entityService.ingestProposal(operationContext, datasetPropertiesMcp, auditStamp, true);
-    }
+    return patchBuilder.build();
   }
 }
 
