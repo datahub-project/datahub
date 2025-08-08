@@ -5,6 +5,7 @@ import static com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect;
 import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.DATASET_ICEBERG_METADATA_ASPECT_NAME;
 import static io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse.ICEBERG_PROPERTY_PREFIX;
 import static io.datahubproject.iceberg.catalog.Utils.containerUrn;
+import static io.datahubproject.iceberg.catalog.Utils.platformInstanceUrn;
 import static io.datahubproject.iceberg.catalog.Utils.platformUrn;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -12,9 +13,13 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePathEntry;
+import com.linkedin.common.BrowsePathEntryArray;
+import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DatasetUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.container.Container;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
@@ -185,6 +190,18 @@ public class ViewOpsDelegateTest {
             eq(SUB_TYPES_ASPECT_NAME), eq(new SubTypes().setTypeNames(new StringArray("View"))));
     verify(entityBatch).platformInstance(eq(catalogName));
     verify(entityBatch).aspect(eq(VIEW_PROPERTIES_ASPECT_NAME), eq(viewProperties));
+
+    // verify browse paths v2
+    BrowsePathsV2 expectedBrowsePaths = new BrowsePathsV2();
+    BrowsePathEntryArray browsePathEntryArray = new BrowsePathEntryArray();
+    Urn platformInstanceUrn = platformInstanceUrn(catalogName);
+    browsePathEntryArray.add(
+        new BrowsePathEntry().setId(platformInstanceUrn.toString()).setUrn(platformInstanceUrn));
+    Urn containerUrn = containerUrn(catalogName, new String[] {"db"});
+    browsePathEntryArray.add(
+        new BrowsePathEntry().setId(containerUrn.toString()).setUrn(containerUrn));
+    expectedBrowsePaths.setPath(browsePathEntryArray);
+    verify(entityBatch).aspect(eq(BROWSE_PATHS_V2_ASPECT_NAME), eq(expectedBrowsePaths));
 
     verifyDatasetProfile();
 
@@ -371,13 +388,22 @@ public class ViewOpsDelegateTest {
   }
 
   private void verifyDatasetProfile() {
-    ArgumentCaptor<MetadataChangeProposal> datasetProfileMcpCaptor =
+    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(mockEntityService)
-        .ingestProposal(
-            same(mockOperationContext), datasetProfileMcpCaptor.capture(), any(), eq(true));
-    assertEquals(
-        datasetProfileMcpCaptor.getValue().getAspect(), serializeAspect(stubDatasetProfile));
+    verify(mockEntityService, times(2))
+        .ingestProposal(same(mockOperationContext), mcpCaptor.capture(), any(), eq(true));
+
+    // Verify that one of the calls is for dataset profile
+    List<MetadataChangeProposal> capturedMcps = mcpCaptor.getAllValues();
+    boolean foundDatasetProfile = false;
+    for (MetadataChangeProposal mcp : capturedMcps) {
+      if (DATASET_PROFILE_ASPECT_NAME.equals(mcp.getAspectName())) {
+        assertEquals(mcp.getAspect(), serializeAspect(stubDatasetProfile));
+        foundDatasetProfile = true;
+        break;
+      }
+    }
+    assertTrue(foundDatasetProfile, "Dataset profile MCP not found in captured calls");
   }
 
   @Test(

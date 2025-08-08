@@ -143,7 +143,7 @@ public class SsoManager {
                 ssoSettingsJsonStr),
             e);
       }
-    } else {
+    } else if (_provider != null && !_provider.configs().isOidcEnabled()) {
       // Clear the SSO Provider since no SSO is enabled.
       clearSsoProvider();
     }

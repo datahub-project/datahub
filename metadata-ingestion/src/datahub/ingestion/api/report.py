@@ -186,7 +186,15 @@ class ExamplesReport(Report, Closeable):
     aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
+    # This counts existence of aspects for each entity/subtype
+    # This is used for the UI to calculate %age of entities with the aspect
     aspects_by_subtypes: Dict[str, Dict[str, Dict[str, int]]] = field(
+        default_factory=lambda: defaultdict(
+            lambda: defaultdict(lambda: defaultdict(int))
+        )
+    )
+    # This counts all aspects for each entity/subtype
+    aspects_by_subtypes_full_count: Dict[str, Dict[str, Dict[str, int]]] = field(
         default_factory=lambda: defaultdict(
             lambda: defaultdict(lambda: defaultdict(int))
         )
@@ -399,6 +407,9 @@ class ExamplesReport(Report, Closeable):
         entity_subtype_aspect_counts: Dict[str, Dict[str, Dict[str, int]]] = (
             defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         )
+        entity_subtype_aspect_counts_exist: Dict[str, Dict[str, Dict[str, int]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
+        )
         for row in self._file_based_dict.sql_query(query):
             entity_type = row["entityType"]
             sub_type = row["subTypes"]
@@ -410,15 +421,23 @@ class ExamplesReport(Report, Closeable):
                 entity_subtype_aspect_counts[entity_type][sub_type][aspect] += (
                     aspect_count * count
                 )
+                entity_subtype_aspect_counts_exist[entity_type][sub_type][aspect] += (
+                    count
+                )
 
         self.aspects.clear()
         self.aspects_by_subtypes.clear()
-        _aspects_seen: Set[str] = set()
+        self.aspects_by_subtypes_full_count.clear()
         for entity_type, subtype_counts in entity_subtype_aspect_counts.items():
             for sub_type, aspect_counts in subtype_counts.items():
                 for aspect, count in aspect_counts.items():
                     self.aspects[entity_type][aspect] += count
-                    _aspects_seen.add(aspect)
+                self.aspects_by_subtypes_full_count[entity_type][sub_type] = dict(
+                    aspect_counts
+                )
+
+        for entity_type, subtype_counts in entity_subtype_aspect_counts_exist.items():
+            for sub_type, aspect_counts in subtype_counts.items():
                 self.aspects_by_subtypes[entity_type][sub_type] = dict(aspect_counts)
 
         self.samples.clear()
