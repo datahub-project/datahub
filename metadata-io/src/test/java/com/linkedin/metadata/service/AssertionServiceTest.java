@@ -1679,6 +1679,110 @@ public class AssertionServiceTest {
     Assert.assertNull(actualEvent);
   }
 
+  @Test
+  public void testGetAssertionRunEvent() throws Exception {
+    // Test data and mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    long testTimestamp = 1234567890L;
+    AssertionRunEvent expectedRunEvent =
+        new AssertionRunEvent()
+            .setTimestampMillis(testTimestamp)
+            .setRunId(String.valueOf(testTimestamp))
+            .setAssertionUrn(TEST_ASSERTION_URN)
+            .setAsserteeUrn(TEST_DATASET_URN)
+            .setStatus(AssertionRunStatus.COMPLETE)
+            .setResult(new AssertionResult().setType(AssertionResultType.SUCCESS));
+
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ASSERTION_ENTITY_NAME),
+                Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.eq(testTimestamp),
+                Mockito.eq(testTimestamp),
+                Mockito.eq(1),
+                Mockito.eq(null)))
+        .thenReturn(
+            ImmutableList.of(
+                new com.linkedin.metadata.aspect.EnvelopedAspect()
+                    .setAspect(GenericRecordUtils.serializeAspect(expectedRunEvent))));
+
+    final AssertionService service =
+        new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
+
+    // Test method
+    final AssertionRunEvent actualEvent =
+        service.getAssertionRunEvent(opContext, TEST_ASSERTION_URN, testTimestamp);
+
+    // Assert results are equal - check individual fields
+    Assert.assertNotNull(actualEvent);
+    Assert.assertEquals(actualEvent.getTimestampMillis(), expectedRunEvent.getTimestampMillis());
+    Assert.assertEquals(actualEvent.getRunId(), expectedRunEvent.getRunId());
+    Assert.assertEquals(actualEvent.getAssertionUrn(), expectedRunEvent.getAssertionUrn());
+    Assert.assertEquals(actualEvent.getAsserteeUrn(), expectedRunEvent.getAsserteeUrn());
+    Assert.assertEquals(actualEvent.getStatus(), expectedRunEvent.getStatus());
+    Assert.assertEquals(actualEvent.getResult(), expectedRunEvent.getResult());
+
+    // Verify that the method was called with the correct parameters (both start and end timestamps)
+    Mockito.verify(mockClient, times(1))
+        .getTimeseriesAspectValues(
+            Mockito.any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN.toString()),
+            Mockito.eq(ASSERTION_ENTITY_NAME),
+            Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+            Mockito.eq(testTimestamp),
+            Mockito.eq(testTimestamp),
+            Mockito.eq(1),
+            Mockito.eq(null));
+  }
+
+  @Test
+  public void testGetAssertionRunEventNotFound() throws Exception {
+    // Test data and mocks
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    GraphClient mockGraphClient = mock(GraphClient.class);
+
+    long testTimestamp = 1234567890L;
+
+    // Mock the client to return empty list (no events found)
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                Mockito.any(OperationContext.class),
+                Mockito.eq(TEST_ASSERTION_URN.toString()),
+                Mockito.eq(ASSERTION_ENTITY_NAME),
+                Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+                Mockito.eq(testTimestamp),
+                Mockito.eq(testTimestamp),
+                Mockito.eq(1),
+                Mockito.eq(null)))
+        .thenReturn(Collections.emptyList());
+
+    final AssertionService service =
+        new AssertionService(mockClient, mockGraphClient, mock(OpenApiClient.class), objectMapper);
+
+    // Test method
+    final AssertionRunEvent actualEvent =
+        service.getAssertionRunEvent(opContext, TEST_ASSERTION_URN, testTimestamp);
+
+    // Assert that null is returned when no events are found
+    Assert.assertNull(actualEvent);
+
+    // Verify that the method was called with the correct parameters
+    Mockito.verify(mockClient, times(1))
+        .getTimeseriesAspectValues(
+            Mockito.any(OperationContext.class),
+            Mockito.eq(TEST_ASSERTION_URN.toString()),
+            Mockito.eq(ASSERTION_ENTITY_NAME),
+            Mockito.eq(ASSERTION_RUN_EVENT_ASPECT_NAME),
+            Mockito.eq(testTimestamp),
+            Mockito.eq(testTimestamp),
+            Mockito.eq(1),
+            Mockito.eq(null));
+  }
+
   private static SystemEntityClient createMockEntityClient() throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
 

@@ -483,7 +483,7 @@ public class AssertionService extends BaseService {
               Constants.ASSERTION_ENTITY_NAME,
               Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
               timestampMillis,
-              null,
+              timestampMillis,
               1,
               null);
       if (aspects != null && !aspects.isEmpty()) {
