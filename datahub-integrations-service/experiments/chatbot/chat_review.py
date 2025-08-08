@@ -13,16 +13,16 @@ from mlflow import entities as mlflow_entities
 from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 from datahub_integrations.chat.chat_history import ChatHistory
-from datahub_integrations.experimentation.chatbot import (
+from datahub_integrations.experimentation.chatbot.chatbot import (
     Prompt,
     prompts,
     update_prompt_guidelines,
 )
-from datahub_integrations.experimentation.judge import (
+from datahub_integrations.experimentation.chatbot.judge import (
     LLMJudgeResponse,
     chatbot_llm_judge_evaluation,
 )
-from datahub_integrations.experimentation.st_chat_history import st_chat_history
+from datahub_integrations.experimentation.chatbot.st_chat_history import st_chat_history
 
 st.set_page_config(layout="wide")
 

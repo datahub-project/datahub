@@ -2,6 +2,9 @@
 .envrc
 slack_details.json
 graph_credentials.json
+deployment_details.json
+eval_set.json
+eval_set_guidelines.yaml
 data-state/
 junit.*.xml
 generated/

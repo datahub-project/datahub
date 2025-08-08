@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 from datahub_integrations.chat.chat_history import ChatHistory, ToolCallRequest
-from datahub_integrations.experimentation.link_eval import (
+from datahub_integrations.experimentation.chatbot.link_eval import (
     extract_datahub_links_from_response,
     extract_urns_from_history,
 )

@@ -11,7 +11,7 @@ from loguru import logger
 from mlflow.entities import Run
 from mlflow.metrics import MetricValue
 
-from datahub_integrations.experimentation.judge import (
+from datahub_integrations.experimentation.chatbot.judge import (
     CHATBOT_AI_JUDGE_MODEL,
     BedrockModel,
     LLMJudgeResponse,

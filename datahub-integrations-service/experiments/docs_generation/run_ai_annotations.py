@@ -1,11 +1,7 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
 import functools
-import glob
-import json
-import os
-import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Union
 
 import asyncer
 import mlflow
@@ -13,293 +9,39 @@ import mlflow.bedrock
 import mlflow.metrics
 import numpy as np
 import pandas as pd
-import tenacity
 import typer
-from eval_common import (
-    METRICS_CONFIG,
-    AIJudgeVerdict,
-    HumanGuidelines,
-    JudgedMetricValue,
-    get_ai_annotation_run_name,
-    get_human_guidelines,
-    get_overall_score,
-)
 from loguru import logger
 from mlflow.entities import Run
 from mlflow.metrics import MetricValue
-from mlflow_common import get_run_or_fail
-from pydantic import BaseModel
-from run_prompt_experiment import has_table_description_metric, has_valid_links_metric
 
-from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
-    call_bedrock_llm,
+from datahub_integrations.experimentation.docs_generation.eval_common import (
+    METRICS_CONFIG,
+    JudgedMetricValue,
+    docs_generation_experiments_dir,
+    get_ai_annotation_run_name,
+    get_human_guidelines,
+    get_overall_score,
+    to_entity_info_model,
+    to_entity_info_model_json,
+)
+from datahub_integrations.experimentation.docs_generation.llm_judge import (
+    AI_JUDGE_MODEL,
+    llm_judge_common_eval_fn,
+)
+from datahub_integrations.experimentation.docs_generation.metrics import (
+    has_table_description_metric_fn,
+    has_valid_links_metric_fn,
+)
+from datahub_integrations.experimentation.docs_generation.mlflow_common import (
+    EXPERIMENT_NAME,
+    get_run_or_fail,
 )
 from datahub_integrations.gen_ai.description_context import (
-    ColumnMetadataInfo,
     ExtractedTableInfo,
-    TableInfo,
-    transform_table_info_for_llm,
 )
-from datahub_integrations.gen_ai.description_v3 import LARGE_TABLE_THRESHOLD
 
 assert AI_EXPERIMENTATION_INITIALIZED
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
-mlflow.bedrock.autolog()
-AI_JUDGE_MODEL = BedrockModel.CLAUDE_4_SONNET
-
-
-class FewShotExample(BaseModel):
-    table_info: TableInfo
-    column_infos: Dict[str, ColumnMetadataInfo]
-    description: str
-    ai_judge_verdict: "AIJudgeVerdict"
-
-    def pretty_example(self) -> str:
-        return f"""\
-Provided Information:
-Table Info:
-{json.dumps(self.table_info.model_dump(exclude_none=True), indent=4)}
-Column Infos:
-{json.dumps({k: v.model_dump(exclude_none=True) for k, v in self.column_infos.items()}, indent=4)}
-
-Generated Description To Evaluate:
-{self.description}
-
-Output:
-{json.dumps(self.ai_judge_verdict.model_dump(exclude_none=True, by_alias=True), indent=4)}
-"""
-
-
-@functools.cache
-def build_few_shot_examples(limit: int = 3) -> List[FewShotExample]:
-    """
-    Build few-shot examples for the AI judge by loading examples from JSON files.
-
-    Args:
-        run_name: The name of the run (not used in this implementation)
-        limit: Maximum number of examples to return
-
-    Returns:
-        List of FewShotExample objects
-    """
-
-    examples = []
-    # Find all ai_judge_examples_*.json files
-    example_files = glob.glob("ai_judge_examples_*.json")
-
-    for file_path in example_files[:limit]:
-        try:
-            with open(file_path, "r") as f:
-                example_data = json.load(f)
-
-            # Parse the example data into a FewShotExample
-            example = FewShotExample.model_validate(example_data)
-            examples.append(example)
-
-        except Exception as e:
-            logger.warning(f"Error loading example from {file_path}: {e}")
-            continue
-
-    return examples
-
-
-LLM_JUDGE_PROMPT = """
-You are a judge who is tasked with evaluating the quality of auto-generated table description. The description should be based on facts in provided information. You will be given generated table description and facts available about the table. You need to evaluate the quality of the description with respect the pre-defined metrics. Note that you need to provide one or two line reasoning for your evaluation and  "Pass" or "Fail" result for each metric. The reasoning should be concise and to the point and directly point to improvements in description.
-
-Metrics:
-{metric_definitions}
-
-Provide your output in the JSON format:
-
-{response_format}
-
-NOTE:
-- Include all metric evaluations in the output. The metric values should be strictly either "Pass" or "Fail" and nothing else.
-- For Pass value, justification should include critical aspects that can be improved in description. Include concrete improvements that can be made to the description with reference to provided metric definition and provided information.
-- For Fail value, justification should include critical aspects that led to failure of the metric.
-- Make sure to not include any special characters (like quotes) in the reasoning string.
-- Note that description may contain mention to table in form [table_name](datahub urn). This urn may be used to determine data platform, database and schema of table when evaluating metrics.
-{examples}
-
-
-Now your turn
-{table_level_guidelines}
-Input:
-
-Provided Information:
-Table Info:
-{table_info}
-Column Infos:
-{column_infos}
-
-Generated Description To Evaluate:
-{table_description}
-
-Output: """
-
-# Additional Evaluation Notes from Human Annotations:
-# - we probably need to give it some instructions on how interpet dbt siblings stuff
-# - consistency in the output format - use headings or not, multiple vs single paragraph, etc
-# - Description should not explain why the table is fact table or dimension table.
-# - Do we exclude empty lineage arrays from provided information?
-# - Change schema field urns to column name, table name
-# - Looker explores and dashboards are mentioned as tables due to absence of the downstream subtypes.
-# - Urn Links are probably not behaving correctly on UI
-
-
-def parse_llm_judge_output(text: str) -> AIJudgeVerdict:
-    metrics = AIJudgeVerdict()
-    match = re.search(r"\{[^}]*\}", text, re.DOTALL)
-    if match:
-        try:
-            return AIJudgeVerdict.model_validate_json(text)
-
-        except (SyntaxError, ValueError) as e:
-            try:
-                fixed_text = try_fix_text_for_error(text, e)
-                return AIJudgeVerdict.model_validate_json(fixed_text)
-            except (SyntaxError, ValueError):
-                logger.warning(f"Dictionary can not be parsed. Text:{text}, Error: {e}")
-
-    else:
-        logger.warning("No dictionary found in the text.")
-        return metrics
-
-
-@tenacity.retry(stop=tenacity.stop_after_attempt(2))
-def try_fix_text_for_error(text: str, e: Exception) -> str:
-    fix_prompt = """
-            The following is the text that was returned from the LLM:
-            {text}
-            Please fix below python error in order to return a valid JSON object.
-            Return only the valid JSON object and no other text.
-            The output `text` should work when converted to dict using python command `json.loads(text)`
-            Error:
-            {e}
-            Output:
-            """.format(text=text, e=e)
-    fixed_text = call_bedrock_llm(
-        prompt=fix_prompt, model=AI_JUDGE_MODEL, max_tokens=2048
-    )
-    if not fixed_text.startswith("{"):
-        json_start_idx = fixed_text.index("{")
-        fixed_text = fixed_text[json_start_idx:]
-    json.loads(
-        fixed_text
-    )  # this will raise an error if the text is not a valid JSON object
-    return fixed_text
-
-
-@functools.cache
-@mlflow.trace(name="llm_judge_common_eval_fn", span_type="function")
-def llm_judge_common_eval_fn(
-    table_description: Optional[str],
-    entity_info_str: str,
-    table_metric_guidelines_str: Optional[str],
-) -> AIJudgeVerdict:
-    metrics = AIJudgeVerdict()
-    metric_alias_map = {
-        metric.name: metric.name_for_ai_annotation() for metric in METRICS_CONFIG
-    }
-
-    metric_definitions, response_format = gen_dynamic_metric_contents()
-
-    if table_description is None:
-        return metrics
-
-    try:
-        entity_info = ExtractedTableInfo.model_validate_json(entity_info_str)
-        mlflow.update_current_trace(tags={"tag": "ai_judge", "urn": entity_info.urn})
-
-        table_info, column_infos = transform_table_info_for_llm(entity_info)
-        try:
-            examples = build_few_shot_examples()
-            examples_str = "Examples:\n" + "\n".join(
-                [example.pretty_example() for example in examples]
-            )
-        except Exception as e:
-            logger.warning(f"Error building few shot examples: {e}")
-            examples_str = ""
-
-        table_metric_guidelines: Optional[HumanGuidelines] = None
-        if table_metric_guidelines_str is not None:
-            table_metric_guidelines = HumanGuidelines.model_validate_json(
-                table_metric_guidelines_str
-            )
-        if table_metric_guidelines is None or not table_metric_guidelines.guidelines:
-            table_level_guidelines = ""
-        else:
-            metric_guidelines = "\n".join(
-                [
-                    f"""Metric {metric_alias_map[metric]}:
-{guidelines}"""
-                    for metric, guidelines in table_metric_guidelines.guidelines.items()
-                    if guidelines
-                ]
-            )
-            table_level_guidelines = f"""\
-Here are additional guidelines for evaluating description for this table. These guidelines take precedence over provided information as well as generic metric guidelines.
-Strictly follow these metric specific guidelines and Fail the metric if the description does not meet the guidelines.
-Table Level Guidelines:
-{metric_guidelines}"""
-
-        judge_prompt = LLM_JUDGE_PROMPT.format(
-            metric_definitions=metric_definitions,
-            response_format=response_format,
-            examples=examples_str,
-            table_description=table_description,
-            table_info=json.dumps(table_info.model_dump(exclude_none=True), indent=4),
-            column_infos=json.dumps(
-                {
-                    k: v.model_dump(
-                        exclude_none=True,
-                        include={"column_name", "description"}
-                        if len(column_infos) > LARGE_TABLE_THRESHOLD
-                        else None,
-                    )
-                    for k, v in column_infos.items()
-                },
-                indent=4,
-            ),
-            table_level_guidelines=table_level_guidelines,
-        )
-
-        judge_verdict = call_bedrock_llm(
-            prompt=judge_prompt, model=AI_JUDGE_MODEL, max_tokens=2048
-        )
-        metrics = parse_llm_judge_output(judge_verdict)
-    except Exception as e:
-        if isinstance(e, tenacity.RetryError):
-            e = e.last_attempt.result()
-        logger.error(f"Error evaluating metric: {e}")
-
-    return metrics
-
-
-def gen_dynamic_metric_contents() -> Tuple[str, str]:
-    metric_definitions = "\n".join(
-        [
-            f"""Metric {metric.name_for_ai_annotation()}:
-{metric.definition}
-"""
-            for metric in METRICS_CONFIG
-        ]
-    )
-
-    response_format = json.dumps(
-        {
-            metric.name_for_ai_annotation(): {
-                "reasoning": "reasoning for the value",
-                "value": "Pass or Fail",
-            }
-            for metric in METRICS_CONFIG
-        },
-        indent=2,
-    )
-
-    return metric_definitions, response_format
 
 
 def custom_eval_fn_metric(
@@ -358,16 +100,21 @@ async def eval_metrics(
 def eval_metric_value_ai_judge(
     metric: str,
     prediction: str,
-    target: Dict[str, Any],  # urn or entity info dict
+    target: Union[str, Dict[str, Any], ExtractedTableInfo],  # urn or entity info dict
 ) -> Optional[JudgedMetricValue]:
     human_guidelines = get_human_guidelines()
     human_guidelines_str: Optional[str] = None
-    if target["urn"] in human_guidelines:
-        human_guidelines_str = human_guidelines[target["urn"]].model_dump_json()
+    entity_info_model = to_entity_info_model(target)
+    if entity_info_model.urn in human_guidelines:
+        human_guidelines_str = human_guidelines[entity_info_model.urn].model_dump_json()
     else:
         human_guidelines_str = None
     judged_metric = getattr(
-        llm_judge_common_eval_fn(prediction, json.dumps(target), human_guidelines_str),
+        llm_judge_common_eval_fn(
+            prediction,
+            to_entity_info_model_json(entity_info_model),
+            human_guidelines_str,
+        ),
         metric,
     )
 
@@ -380,14 +127,17 @@ def overall_score_eval_fn(predictions: pd.Series, targets: pd.Series) -> MetricV
     judged_scores: List[int] = []
     human_guidelines = get_human_guidelines()
     for prediction, target in zip(predictions, targets, strict=False):
+        entity_info_model = to_entity_info_model(target)
         table_human_guidelines_str: Optional[str] = None
-        if target["urn"] in human_guidelines:
+        if entity_info_model.urn in human_guidelines:
             table_human_guidelines_str = human_guidelines[
-                target["urn"]
+                entity_info_model.urn
             ].model_dump_json()
         judged_metric = get_overall_score(
             llm_judge_common_eval_fn(
-                prediction, json.dumps(target), table_human_guidelines_str
+                prediction,
+                to_entity_info_model_json(entity_info_model),
+                table_human_guidelines_str,
             )
         )
         if judged_metric is not None:
@@ -440,8 +190,16 @@ metric_overall_score = make_overall_score_metric()
 ai_metrics = [
     *[make_custom_metric(metric.name) for metric in METRICS_CONFIG],
     metric_overall_score,
-    has_table_description_metric,
-    has_valid_links_metric,
+    mlflow.metrics.make_metric(
+        eval_fn=has_table_description_metric_fn,
+        name="has_table_description",
+        greater_is_better=True,
+    ),
+    mlflow.metrics.make_metric(
+        eval_fn=has_valid_links_metric_fn,
+        name="has_valid_links",
+        greater_is_better=True,
+    ),
 ]
 
 
@@ -467,8 +225,14 @@ def run_ai_annotations_experiment(
         description=run_description,
     ):
         # log current file as artifact
-        mlflow.log_artifact("./run_ai_annotations.py")
-        mlflow.log_artifact("./eval_config/eval_set_guidelines.yaml")
+        mlflow.log_artifact(
+            str(docs_generation_experiments_dir / "run_ai_annotations.py")
+        )
+        mlflow.log_artifact(
+            str(
+                docs_generation_experiments_dir / "eval_config/eval_set_guidelines.yaml"
+            )
+        )
         mlflow.set_tag("evaluation_type", "ai_judge")
         mlflow.log_params(
             {

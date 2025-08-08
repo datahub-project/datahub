@@ -13,6 +13,11 @@ from pydantic import (
     field_validator,
 )
 
+from datahub_integrations.app import ROOT_DIR
+from datahub_integrations.gen_ai.description_context import ExtractedTableInfo
+
+docs_generation_experiments_dir = ROOT_DIR / "experiments/docs_generation"
+
 
 class MetricScoringCriteria(BaseModel):
     possible_values: list[str]
@@ -120,12 +125,14 @@ def get_original_expt_run_name(run_name: str) -> str:
 
 
 METRICS_CONFIG = get_metric_configs_from_config(
-    load_eval_config("eval_config/metrics_config.yaml")
+    load_eval_config(
+        str(docs_generation_experiments_dir / "eval_config/metrics_config.yaml")
+    )
 )
 METRIC_NAMES = [metric.name for metric in METRICS_CONFIG]
 
 
-AIJudgeVerdict = create_model(
+AIJudgeVerdict = create_model(  # type: ignore[call-overload]
     "AIJudgeVerdict",
     __config__=ConfigDict(
         populate_by_name=True,
@@ -146,7 +153,7 @@ AIJudgeVerdict = create_model(
     },
 )
 
-HumanJudgeVerdict = create_model(
+HumanJudgeVerdict = create_model(  # type: ignore[call-overload]
     "HumanJudgeVerdict",
     **{
         metric_name: (Optional[JudgedMetricValue], None) for metric_name in METRIC_NAMES
@@ -155,7 +162,7 @@ HumanJudgeVerdict = create_model(
 
 
 def get_overall_score(
-    verdict: Union["AIJudgeVerdict", "HumanJudgeVerdict"],
+    verdict: Union["AIJudgeVerdict", "HumanJudgeVerdict"],  # type: ignore
 ) -> Optional[IntegerMetricValue]:
     # Overall score is the sum of all the metrics that are passed (True = 1, False = 0)
     # In future, we can add weights to each metric and calculate the overall score
@@ -181,7 +188,9 @@ def get_overall_score(
 
 
 def get_human_guidelines() -> Dict[str, HumanGuidelines]:
-    guidelines = load_eval_config("eval_config/eval_set_guidelines.yaml")
+    guidelines = load_eval_config(
+        str(docs_generation_experiments_dir / "eval_config/eval_set_guidelines.yaml")
+    )
     guidelines_dict = {
         entry["urn"]: HumanGuidelines.model_validate(entry)
         for entry in guidelines["config"]
@@ -195,7 +204,9 @@ _update_guidelines_lock = threading.Lock()
 
 def update_table_guidelines(table_metric_guidelines: HumanGuidelines) -> None:
     with _update_guidelines_lock:
-        guidelines_path = "eval_config/eval_set_guidelines.yaml"
+        guidelines_path = str(
+            docs_generation_experiments_dir / "eval_config/eval_set_guidelines.yaml"
+        )
         guidelines = load_eval_config(guidelines_path)
         guidelines_dict = {
             entry["urn"]: HumanGuidelines.model_validate(entry)
@@ -207,12 +218,31 @@ def update_table_guidelines(table_metric_guidelines: HumanGuidelines) -> None:
             yaml.dump({"config": [g.model_dump() for g in guidelines_dict.values()]}, f)
 
 
-def update_guidelines_file(guidelines_dict: Dict[str, HumanGuidelines]) -> None:
-    with _update_guidelines_lock:
-        guidelines_path = "eval_config/eval_set_guidelines.yaml"
-        with open(guidelines_path, "w") as f:
-            yaml.dump({"config": list(guidelines_dict.values())}, f)
-
-
 def get_deployment_details() -> List[Dict[str, str]]:
-    return json.load(open("eval_config/deployment_details.json"))
+    return json.load(
+        open(
+            str(docs_generation_experiments_dir / "eval_config/deployment_details.json")
+        )
+    )
+
+
+def to_entity_info_model(
+    data: Union[str, Dict[str, Any], ExtractedTableInfo],
+) -> ExtractedTableInfo:
+    if isinstance(data, ExtractedTableInfo):
+        return data
+    if isinstance(data, str):
+        return ExtractedTableInfo.model_validate_json(data)
+    else:
+        return ExtractedTableInfo.model_validate(data)
+
+
+def to_entity_info_model_json(
+    data: Union[str, Dict[str, Any], ExtractedTableInfo],
+) -> str:
+    if isinstance(data, str):
+        return data
+    elif isinstance(data, dict):
+        return json.dumps(data)
+    else:
+        return data.model_dump_json(exclude_none=True)

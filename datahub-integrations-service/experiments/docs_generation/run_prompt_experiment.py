@@ -3,7 +3,6 @@ from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INIT
 import json
 import os
 import pathlib
-import re
 import tempfile
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -15,18 +14,28 @@ import pandas as pd
 import typer
 from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
-from mlflow.metrics import MetricValue
 
-import datahub_integrations.gen_ai as gen_ai_module
-from datahub_integrations.chat.linkify import urn_regex
+from datahub_integrations.experimentation.docs_generation.eval_common import (
+    docs_generation_experiments_dir,
+    to_entity_info_model,
+)
+from datahub_integrations.experimentation.docs_generation.metrics import (
+    has_table_description_metric_fn,
+    has_valid_links_metric_fn,
+)
+from datahub_integrations.experimentation.docs_generation.mlflow_common import (
+    EXPERIMENT_NAME,
+)
 from datahub_integrations.experimentation.utils import execute_notebook_save_as_html
-from datahub_integrations.gen_ai.description_context import transform_table_info_for_llm
+from datahub_integrations.gen_ai import description_context, description_v3
+from datahub_integrations.gen_ai.description_context import (
+    transform_table_info_for_llm,
+)
 from datahub_integrations.gen_ai.description_v3 import (
     ANYIO_THREAD_COUNT,
     CURRENT_MODEL,
     MAX_COLUMNS_PER_BATCH,
     EntityDescriptionResult,
-    ExtractedTableInfo,
     generate_entity_descriptions_for_urn_eval_v3,
 )
 
@@ -40,9 +49,7 @@ BATCH_SIZE = 5  # Number of files to process concurrently
 def generate_entity_descriptions_for_urn_eval_wrapper(
     data: Dict[str, Any],
 ) -> EntityDescriptionResult:
-    extracted_entity_info = ExtractedTableInfo.model_validate(
-        data["extracted_entity_info"]
-    )
+    extracted_entity_info = to_entity_info_model(data["extracted_entity_info"])
     mlflow.update_current_trace(
         tags={"urn": data["urn"], "deployment": data["deployment"]}
     )
@@ -66,7 +73,7 @@ def process_single_file(
                 result = EntityDescriptionResult(
                     table_description=None,
                     column_descriptions=None,
-                    extracted_entity_info=ExtractedTableInfo.model_validate(
+                    extracted_entity_info=to_entity_info_model(
                         data["extracted_entity_info"]
                     ),
                     failure_reason=str(e),
@@ -97,7 +104,9 @@ def process_single_file(
             "deployment": data["deployment"],
             "description": result.table_description,
             "generation_time": generation_time,
-            "entity_info": result.extracted_entity_info.model_dump(exclude_none=True),
+            "entity_info": result.extracted_entity_info.model_dump_json(
+                exclude_none=True
+            ),
             "has_schema": len(result.extracted_entity_info.column_names) > 0,
             "has_upstreams": (
                 len(result.extracted_entity_info.table_upstream_lineage_info) > 0
@@ -185,156 +194,6 @@ async def process_files(
     return table_descriptions, column_descriptions
 
 
-def has_table_description_metric_fn(
-    predictions: pd.Series, targets: pd.Series
-) -> MetricValue:
-    scores = [
-        (desc is not None and desc != "")
-        for desc, target in zip(predictions, targets, strict=False)
-    ]
-    return mlflow.metrics.MetricValue(
-        scores=scores,
-        aggregate_results={
-            "pass_percentage": 100
-            * len(list(filter(lambda x: x, scores)))
-            / len(scores),
-            "total_count": len(scores),
-        },
-    )
-
-
-def extract_valid_links(entity_info: Dict[str, Any]) -> List[Tuple[str, str]]:
-    """
-    Extract all valid links (table_name, URN) from entity_info that can be referenced in descriptions.
-    These include:
-    1. The table itself (table_name, urn)
-    2. Upstream tables (upstream_table_name, upstream_table_urn)
-    3. Downstream tables (downstream_table_name, downstream_table_urn)
-
-    Args:
-        entity_info: Dictionary containing entity information including lineage
-
-    Returns:
-        List of tuples containing (table_name, urn) that can be referenced in descriptions
-    """
-    valid_links = set()
-
-    # Add the table itself
-    if entity_info.get("urn") and entity_info.get("table_name"):
-        valid_links.add((entity_info["table_name"], entity_info["urn"]))
-
-    # Extract upstream table info
-    if entity_info.get("table_upstream_lineage_info"):
-        for upstream in entity_info["table_upstream_lineage_info"]:
-            if upstream.get("upstream_table_urn") and upstream.get(
-                "upstream_table_name"
-            ):
-                valid_links.add(
-                    (upstream["upstream_table_name"], upstream["upstream_table_urn"])
-                )
-                if upstream.get("upstream_table_description"):
-                    for name, link in extract_links(
-                        upstream["upstream_table_description"]
-                    ):
-                        valid_links.add((name, link))
-
-    # Extract downstream table info
-    if entity_info.get("table_downstream_lineage_info"):
-        for downstream in entity_info["table_downstream_lineage_info"]:
-            if downstream.get("downstream_table_urn") and downstream.get(
-                "downstream_table_name"
-            ):
-                valid_links.add(
-                    (
-                        downstream["downstream_table_name"],
-                        downstream["downstream_table_urn"],
-                    )
-                )
-                if downstream.get("downstream_table_description"):
-                    for name, link in extract_links(
-                        downstream["downstream_table_description"]
-                    ):
-                        valid_links.add((name, link))
-
-    return list(valid_links)
-
-
-def is_valid_link(text: str, url: str, valid_links: List[Tuple[str, str]]) -> bool:
-    """Check if a link is valid according to our criteria."""
-    if not text.startswith("@"):
-        return False
-
-    # Check if there's a matching urn. DataHub UI automatically
-    # fixes display name
-    return any(urn == url for _, urn in valid_links)
-
-
-def extract_links(description: str) -> List[Tuple[str, str]]:
-    """Extract all markdown links from text as (text, url) tuples."""
-    if not description:
-        return []
-    # Match markdown links [text](url) where url can contain parentheses
-    pattern = rf"\[([^\]]+)\]\(({urn_regex})\)"
-    return re.findall(pattern, description)
-
-
-def has_valid_links_metric_fn(
-    predictions: pd.Series, targets: pd.Series
-) -> MetricValue:
-    """
-    Evaluate the validity of links in table descriptions.
-    A valid link should:
-    1. Be in markdown format [text](url)
-    2. Have text starting with @
-    3. Have url that exists in the entity_info's valid links
-    4. Have text that matches the table name (without the @ prefix)
-
-    Returns a MetricValue with:
-    - scores: List of booleans indicating if each description has valid links
-    - aggregate_results: Dictionary with pass_percentage and total_count
-    """
-
-    scores = []
-    justifications = []
-    for desc, target in zip(predictions, targets, strict=False):
-        if not desc:
-            scores.append(False)
-            justifications.append(None)
-            continue
-
-        # Extract valid links from entity_info
-        valid_links = extract_valid_links(target)
-
-        links = extract_links(desc)
-        if not links:
-            scores.append(True)  # No links is considered valid
-            justifications.append(None)
-            continue
-
-        # Check if all links are valid
-        invalid_links = [
-            (text, url)
-            for text, url in links
-            if not is_valid_link(text, url, valid_links)
-        ]
-
-        scores.append(len(invalid_links) == 0)
-        justifications.append(
-            f"Invalid links: {invalid_links}" if len(invalid_links) > 0 else None
-        )
-
-    return mlflow.metrics.MetricValue(
-        scores=scores,
-        justifications=justifications,
-        aggregate_results={
-            "pass_percentage": 100
-            * len(list(filter(lambda x: x, scores)))
-            / len(scores),
-            "total_count": len(scores),
-        },
-    )
-
-
 def log_generation_time_metrics(table_descriptions_df: pd.DataFrame) -> None:
     """Log generation time metrics to MLflow."""
     table_descriptions_df = table_descriptions_df[
@@ -347,31 +206,20 @@ def log_generation_time_metrics(table_descriptions_df: pd.DataFrame) -> None:
         mlflow.log_metric("generation_time_avg", generation_times.mean())
 
 
-# TODO: move these and dependent metrics to mlflow_common.py and /or eval_common.py
-has_table_description_metric = mlflow.metrics.make_metric(
-    eval_fn=has_table_description_metric_fn,
-    name="has_table_description",
-    greater_is_better=True,
-)
-
-has_valid_links_metric = mlflow.metrics.make_metric(
-    eval_fn=has_valid_links_metric_fn,
-    name="has_valid_links",
-    greater_is_better=True,
-)
-
-
 def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) -> None:
     logger.info(f"Running experiment with {len(files)} files")
-    if not run_description:
-        run_description = input("Enter run description: ")
+    # if not run_description:
+    #    run_description = input("Enter run description: ")
     with (
         mlflow.start_run(description=run_description),
         tempfile.TemporaryDirectory() as tempdir,
     ):
         # log current file as artifact or model
-        mlflow.log_artifact("./run_prompt_experiment.py")
-        mlflow.log_artifact(str(pathlib.Path(gen_ai_module.__file__).parent))
+        mlflow.log_artifact(
+            str(docs_generation_experiments_dir / "run_prompt_experiment.py")
+        )
+        mlflow.log_artifact(str(description_v3.__file__))
+        mlflow.log_artifact(str(description_context.__file__))
         artifact_temp_path = setup_artifact_directory(tempdir)
         table_descriptions, column_descriptions = asyncer.syncify(
             process_files, raise_sync_error=False
@@ -395,8 +243,16 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
             evaluators="default",
             targets="entity_info",
             extra_metrics=[
-                has_table_description_metric,
-                has_valid_links_metric,
+                mlflow.metrics.make_metric(
+                    eval_fn=has_table_description_metric_fn,
+                    name="has_table_description",
+                    greater_is_better=True,
+                ),
+                mlflow.metrics.make_metric(
+                    eval_fn=has_valid_links_metric_fn,
+                    name="has_valid_links",
+                    greater_is_better=True,
+                ),
                 # *ai_metrics
             ],
         )
@@ -422,12 +278,11 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
 
         # Log generation time metrics
         log_generation_time_metrics(table_descriptions_df)
-        current_dir = pathlib.Path().resolve()
         active_run = mlflow.active_run()
         assert active_run is not None
         try:
             html_path = execute_notebook_save_as_html(
-                current_dir / "analyze_experiment_run.ipynb",
+                docs_generation_experiments_dir / "analyze_experiment_run.ipynb",
                 pathlib.Path(tempdir),
                 {"RUN_NAME": active_run.info.run_name},
             )
@@ -480,16 +335,10 @@ def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
 
 
 def run_prompt_experiment(run_description: Optional[str] = None) -> None:
-    current_dir = pathlib.Path().resolve()
-    logger.info(f"eval directory: {current_dir}")
-    logger.info(f"parent directory: {current_dir.parent}")
-    logger.info(f"eval data directory: {current_dir / 'eval_data'}")
+    logger.info(f"eval data directory: {docs_generation_experiments_dir / 'eval_data'}")
 
-    EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
     mlflow.set_experiment(EXPERIMENT_NAME)
-    mlflow.bedrock.autolog()
-    mlflow.config.enable_async_logging()
-    eval_data_path = current_dir / "eval_data"
+    eval_data_path = docs_generation_experiments_dir / "eval_data"
     eval_files = []
 
     for file in list(eval_data_path.glob("*.json")):
@@ -498,7 +347,7 @@ def run_prompt_experiment(run_description: Optional[str] = None) -> None:
             # if len(data["extracted_entity_info"]["column_names"]) <= LARGE_TABLE_THRESHOLD:
             #    continue
             eval_files.append(file)
-            logger.info(f"Added file: {file} for urn {data['urn']}")
+            logger.debug(f"Added file: {file} for urn {data['urn']}")
     # NOTE: modify generate_entity_descriptions_for_urn_eval_wrapper to change prompt
     # or any other inputs for prompt engineering experiments
 

@@ -11,25 +11,25 @@ import pandas as pd
 import seaborn as sns
 import typer
 from datahub.ingestion.api.report_helpers import format_datetime_relative
-from eval_common import (
+from pydantic import BaseModel, Field
+from run_ai_annotations import run_ai_annotations_experiment
+
+from datahub_integrations.experimentation.docs_generation.eval_common import (
     METRIC_NAMES,
     get_ai_annotation_run_name,
     get_ai_judge_eval_run_name,
     get_human_annotation_run_name,
 )
-from mlflow_common import (
+from datahub_integrations.experimentation.docs_generation.mlflow_common import (
+    EXPERIMENT_NAME,
     get_ai_eval_result_or_none,
     get_human_eval_result_or_none,
     get_run_or_fail,
 )
-from pydantic import BaseModel, Field
-from run_ai_annotations import run_ai_annotations_experiment
 
 assert AI_EXPERIMENTATION_INITIALIZED
 
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
-mlflow.bedrock.autolog()
 
 
 class MetricEvaluation(BaseModel):
@@ -241,8 +241,14 @@ def eval_ai_judge_accuracy(
     metric_evaluations: Dict[str, MetricEvaluation] = {}
 
     for metric_name in METRIC_NAMES:
-        evaluation = evaluate_metric(human_eval_results, ai_eval_results, metric_name)
-        metric_evaluations[metric_name] = evaluation
+        if (
+            f"{metric_name}/score" in human_eval_results.columns
+            and f"{metric_name}/score" in ai_eval_results.columns
+        ):
+            evaluation = evaluate_metric(
+                human_eval_results, ai_eval_results, metric_name
+            )
+            metric_evaluations[metric_name] = evaluation
 
     # Create summary DataFrame
     summary_df = pd.DataFrame(
@@ -317,6 +323,8 @@ def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True) -> No
         # Log metrics
         eval_df_idx = evaluation_output.summary_df.set_index("metric")
         for metric_name in METRIC_NAMES:
+            if metric_name not in eval_df_idx.index:
+                continue
             mlflow.log_metric(
                 f"{metric_name}_match_percentage",
                 eval_df_idx.loc[metric_name]["match_percentage"],

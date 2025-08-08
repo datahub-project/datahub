@@ -1,14 +1,18 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
 import argparse
-import os
 
 import mlflow
 import mlflow.entities
 import pandas as pd
 import streamlit as st
-from eval_common import METRIC_NAMES, METRICS_CONFIG
-from mlflow_common import (
+
+from datahub_integrations.experimentation.docs_generation.eval_common import (
+    METRIC_NAMES,
+    METRICS_CONFIG,
+)
+from datahub_integrations.experimentation.docs_generation.mlflow_common import (
+    EXPERIMENT_NAME,
     get_ai_eval_result_or_none,
     get_run_or_fail,
     load_eval_table,
@@ -19,15 +23,20 @@ assert AI_EXPERIMENTATION_INITIALIZED
 # Create an argument parser
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--run-name-1", type=str, required=True, help="First MLflow run name to compare"
+    "--run-name-1",
+    type=str,
+    required=True,
+    help="First MLflow run name to compare, already annotated with AI",
 )
 parser.add_argument(
-    "--run-name-2", type=str, required=True, help="Second MLflow run name to compare"
+    "--run-name-2",
+    type=str,
+    required=True,
+    help="Second MLflow run name to compare, already annotated with AI",
 )
 
 # Parse the command-line arguments
 args = parser.parse_args()
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 # Access the run_ids
@@ -77,6 +86,12 @@ def init_session_state() -> None:
         st.session_state.table_data = {}
         for _, row in eval_results1.iterrows():
             urn = row["urn"]
+            # Keep only common URNS
+            if (
+                urn not in ai_eval_results1_indexed.index
+                or urn not in ai_eval_results2_indexed.index
+            ):
+                continue
             st.session_state.table_data[urn] = {
                 "description_run1": row["description"],
                 "description_run2": eval_results2.loc[
@@ -151,6 +166,7 @@ current_table = table_names[table_index]
 st.info(
     get_additional_info_for_table(current_table),
 )
+
 
 # Create fixed containers for descriptions and metrics
 columns = st.columns([1, 1])

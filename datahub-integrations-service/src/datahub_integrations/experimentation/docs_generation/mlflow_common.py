@@ -1,21 +1,21 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
 import functools
-import os
 from typing import Optional
 
 import mlflow
 import pandas as pd
-from eval_common import (
+from loguru import logger
+from mlflow.entities import Run
+
+from datahub_integrations.experimentation.docs_generation.eval_common import (
     METRIC_NAMES,
     get_ai_annotation_run_name,
     get_human_annotation_run_name,
 )
-from loguru import logger
-from mlflow.entities import Run
 
 assert AI_EXPERIMENTATION_INITIALIZED
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME", "docs_generation")
+EXPERIMENT_NAME = "docs_generation"
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 
@@ -72,7 +72,8 @@ def get_ai_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
             run_ids=[ai_run.info.run_id],
         )
         return table
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Error getting AI eval results: {e}")
         logger.info(f"AI Annotations Run for {run_name} not found")
 
     return None
@@ -84,7 +85,8 @@ def get_human_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
         human_run = get_run_or_fail(human_run_name)
         logger.info(f"Human eval run id: {human_run.info.run_id}")
         return get_human_evals(human_run.info.run_id)
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Error getting human eval results: {e}")
         logger.warning(f"Human Annotations Run for {run_name} not found")
     return None
 

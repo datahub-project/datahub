@@ -1,4 +1,6 @@
-from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+from datahub_integrations.experimentation.ai_init import (
+    AI_EXPERIMENTATION_INITIALIZED,
+)
 
 import fnmatch
 import pathlib
@@ -25,16 +27,16 @@ from datahub_integrations.chat.chat_session import (
     ChatSession,
     NextMessage,
 )
-from datahub_integrations.experimentation.chatbot import (
+from datahub_integrations.experimentation.chatbot.chatbot import (
     Prompt,
     prompts as all_prompts,
     prompts_file,
 )
-from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
-from datahub_integrations.experimentation.link_eval import (
+from datahub_integrations.experimentation.chatbot.link_eval import (
     extract_datahub_links_from_response,
     extract_urns_from_history,
 )
+from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
 from datahub_integrations.experimentation.utils import execute_notebook_save_as_html
 from datahub_integrations.gen_ai.description_v3 import ANYIO_THREAD_COUNT
 from datahub_integrations.mcp.mcp_server import mcp

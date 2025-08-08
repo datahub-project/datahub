@@ -2,8 +2,6 @@ from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INIT
 
 import argparse
 import functools
-import json
-import os
 from typing import Any, Dict, List, Optional
 
 import mlflow
@@ -12,7 +10,10 @@ import mlflow.metrics
 import numpy as np
 import pandas as pd
 import streamlit as st
-from eval_common import (
+from loguru import logger
+from mlflow.metrics import MetricValue
+
+from datahub_integrations.experimentation.docs_generation.eval_common import (
     METRIC_NAMES,
     METRICS_CONFIG,
     AIJudgeVerdict,
@@ -23,21 +24,22 @@ from eval_common import (
     get_human_annotation_run_name,
     get_human_guidelines,
     get_overall_score,
+    to_entity_info_model,
+    to_entity_info_model_json,
     update_table_guidelines,
 )
-from loguru import logger
-from mlflow.metrics import MetricValue
-from mlflow_common import (
+from datahub_integrations.experimentation.docs_generation.llm_judge import (
+    llm_judge_common_eval_fn,
+)
+from datahub_integrations.experimentation.docs_generation.mlflow_common import (
+    EXPERIMENT_NAME,
     get_ai_eval_result_or_none,
     get_human_eval_result_or_none,
     get_latest_human_eval_result_or_none,
     get_run_or_fail,
     load_eval_table,
 )
-from run_ai_annotations import llm_judge_common_eval_fn
-
 from datahub_integrations.gen_ai.description_context import (
-    ExtractedTableInfo,
     transform_table_info_for_llm,
 )
 
@@ -50,7 +52,6 @@ parser.add_argument(
 
 # Parse the command-line arguments
 args = parser.parse_args()
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 # Access the run_id
@@ -267,14 +268,12 @@ def log_mlflow_run_with_human_annotations(annotations: Dict[str, Any]) -> None:
         return verdict
 
     def custom_eval_fn_metric(
-        metric: str, predictions: List[str], targets: List[str]
+        metric: str, predictions: pd.Series, targets: pd.Series
     ) -> MetricValue:
         scores = []
         justifications = []
         for prediction, target in zip(predictions, targets, strict=False):
-            judged_metric = getattr(
-                common_eval_fn(prediction, json.dumps(target)), metric
-            )
+            judged_metric = getattr(common_eval_fn(prediction, target), metric)
             if judged_metric is not None:
                 scores.append(judged_metric.bool_value())
                 justifications.append(judged_metric.guidelines)
@@ -300,9 +299,7 @@ def log_mlflow_run_with_human_annotations(annotations: Dict[str, Any]) -> None:
         scores: List[int] = []
         justifications: List[Optional[str]] = []
         for prediction, target in zip(predictions, targets, strict=False):
-            judged_metric = get_overall_score(
-                common_eval_fn(prediction, json.dumps(target))
-            )
+            judged_metric = get_overall_score(common_eval_fn(prediction, target))
             if judged_metric is not None and judged_metric.value is not None:
                 scores.append(judged_metric.value)
                 justifications.append(judged_metric.reasoning)
@@ -425,7 +422,9 @@ def run_ai_judge(metric_name: str) -> None:
     ):
         llm_judge_verdict = llm_judge_common_eval_fn(
             st.session_state.table_data[current_table]["description"],
-            json.dumps(st.session_state.table_data[current_table]["data"]),
+            to_entity_info_model_json(
+                st.session_state.table_data[current_table]["data"]
+            ),
             table_metric_guidelines.model_dump_json(),
         )
 
@@ -552,9 +551,7 @@ with b2:
     st.button("**Skip and Go to Next**", key="skip_and_next1", on_click=skip_table)
 
 with st.expander("**Table Info and Column Infos**", expanded=True):
-    info = ExtractedTableInfo.model_validate(
-        st.session_state.table_data[current_table]["data"]
-    )
+    info = to_entity_info_model(st.session_state.table_data[current_table]["data"])
     table_info, column_info = transform_table_info_for_llm(info)
     st.json(table_info.model_dump(exclude_none=True), expanded=False)
     st.json(

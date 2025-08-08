@@ -1,16 +1,18 @@
-import os
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 from typing import Optional
 
-import dotenv
+from datahub_integrations.experimentation.docs_generation.mlflow_common import (
+    EXPERIMENT_NAME,
+)
 
-dotenv.load_dotenv(".env")
+assert AI_EXPERIMENTATION_INITIALIZED
 
 import mlflow
 import mlflow.metrics
 from loguru import logger
 
 mlflow.get_tracking_uri()
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 EXPT_RUN_NAME = "initial_run"
