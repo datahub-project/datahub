@@ -304,7 +304,7 @@ class TestLinkedResourceSet:
         )
 
     def test_add_new_urn_object(
-        self, empty_resource_set: LinkedResourceSet, mock_urn: Mock
+        self, empty_resource_set: LinkedResourceSet
     ) -> None:
         """Test adding a new URN as Urn object."""
         empty_resource_set.urns = [
@@ -331,7 +331,7 @@ class TestLinkedResourceSet:
         )
 
     def test_add_duplicate_urn(
-        self, empty_resource_set: LinkedResourceSet, mock_urn: Mock
+        self, empty_resource_set: LinkedResourceSet
     ) -> None:
         """Test adding a duplicate URN."""
         empty_resource_set.urns = [
@@ -352,7 +352,7 @@ class TestLinkedResourceSet:
         )
 
     def test_add_conflicting_urn(
-        self, empty_resource_set: LinkedResourceSet, mock_urn: Mock
+        self, empty_resource_set: LinkedResourceSet
     ) -> None:
         """Test adding a conflicting URN raises ValueError."""
         empty_resource_set.urns = [

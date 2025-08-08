@@ -193,7 +193,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
                 # Mark that this tag exists in Lake Formation
                 new_tag_id.exists_in_lake_formation = True
             return new_tag_id
-        raise ValueError(f"Unable to create SnowflakeTagId from DataHub URN: {urn}")
+        raise ValueError(f"Unable to create LakeFormationTagId from DataHub URN: {urn}")
 
     @classmethod
     def generate_tag_id(
