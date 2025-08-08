@@ -22,7 +22,9 @@ from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    GlobalTagsClass,
     SubTypesClass,
+    TagAssociationClass,
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -184,24 +186,15 @@ class TimescaleDBConfig(PostgresConfig):
         default=True,
         description="Auto-skip TimescaleDB internal schemas (_timescaledb_*, etc).",
     )
-    timescaledb_cloud_optimizations: bool = Field(
-        default=False, description="Enable Timescale Cloud-specific optimizations."
-    )
     skip_cloud_unavailable_features: bool = Field(
         default=True,
         description="Skip features not available in cloud environments vs failing.",
     )
 
     # Time-series specific analysis
-    detect_time_series_patterns: bool = Field(
-        default=True,
-        description="Detect and tag time-series patterns in regular tables.",
-    )
-    include_retention_policies: bool = Field(
-        default=True, description="Extract data retention policy information."
-    )
-    analyze_chunk_intervals: bool = Field(
-        default=True, description="Analyze and report on chunk time intervals."
+    add_table_tags: bool = Field(
+        default=False,
+        description="Detect and tag time-series patterns and hypertables.",
     )
 
 
@@ -278,6 +271,11 @@ class TimescaleDBSource(PostgresSource):
                 logger.warning(f"Failed to get TimescaleDB version: {e}")
                 self._timescaledb_version = "unknown"
         return self._timescaledb_version
+
+    def _is_timescaledb_available(self, inspector: Inspector) -> bool:
+        """Check if TimescaleDB is available and properly installed"""
+        version = self._get_timescaledb_version(inspector)
+        return version not in ["not_installed", "unknown"]
 
     def _get_timescaledb_internal_schemas_from_db(
         self, inspector: Inspector
@@ -620,12 +618,9 @@ class TimescaleDBSource(PostgresSource):
                 table_names = inspector.get_table_names(schema)
                 for table in table_names:
                     # Generate TimescaleDB metadata MCP for this table
-                    dataset_name = self.get_identifier(
-                        schema=schema, entity=table, inspector=inspector
-                    )
                     dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
                         platform=self.get_platform(),
-                        name=dataset_name,
+                        name=table,
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                     )
@@ -638,6 +633,17 @@ class TimescaleDBSource(PostgresSource):
                         yield MetadataChangeProposalWrapper(
                             entityUrn=dataset_urn, aspect=properties
                         ).as_workunit()
+
+                        # Add hypertable tags if applicable
+                        if (
+                            properties.customProperties.get("timescaledb.is_hypertable")
+                            == "True"
+                            and self.config.add_table_tags
+                        ):
+                            hypertable_tags = self._create_hypertable_tags()
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=dataset_urn, aspect=hypertable_tags
+                            ).as_workunit()
 
         except Exception as e:
             logger.warning(f"Failed to generate TimescaleDB metadata workunits: {e}")
@@ -672,6 +678,11 @@ class TimescaleDBSource(PostgresSource):
                 self._add_chunk_info(properties, chunks)
 
         return properties if properties.customProperties else None
+
+    def _create_hypertable_tags(self) -> GlobalTagsClass:
+        """Create tags for hypertables"""
+        tag_urn = mce_builder.make_tag_urn("timescale:Hypertable")
+        return GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
 
     def _create_continuous_aggregate_properties(
         self, cagg: ContinuousAggregateInfo, inspector: Inspector
@@ -710,12 +721,9 @@ class TimescaleDBSource(PostgresSource):
         self, cagg: ContinuousAggregateInfo, inspector: Inspector
     ) -> Iterable[MetadataWorkUnit]:
         """Generate MCP workunits for a continuous aggregate"""
-        dataset_name = self.get_identifier(
-            schema=cagg.view_schema, entity=cagg.view_name, inspector=inspector
-        )
         dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
             platform=self.get_platform(),
-            name=dataset_name,
+            name=cagg.view_name,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
@@ -731,3 +739,11 @@ class TimescaleDBSource(PostgresSource):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=subtypes
         ).as_workunit()
+
+        # Tags
+        if self.config.add_table_tags:
+            tag_urn = mce_builder.make_tag_urn("timescaledb:ContinuousAggregate")
+            tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn, aspect=tags
+            ).as_workunit()
