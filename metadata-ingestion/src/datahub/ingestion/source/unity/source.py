@@ -1098,28 +1098,49 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
         )
 
+    def get_or_create_from_unity_tag(
+        self,
+        unity_tag: UnityCatalogTag,
+        platform_instance: Optional[str],
+        managed_by_datahub: bool = False,
+    ) -> UnityCatalogTagPlatformResource:
+        """
+        Optimized helper to get or create a Unity Catalog tag platform resource.
+        This eliminates the duplicate search by skipping the from_tag method which was
+        doing a redundant search before get_from_datahub.
+        No circular dependencies since source.py imports both modules.
+        """
+        # Create the platform resource ID directly without the from_tag search
+        platform_resource_id = UnityCatalogTagPlatformResourceId(
+            tag_key=unity_tag.key.raw_text,
+            tag_value=unity_tag.value.raw_text if unity_tag.value is not None else None,
+            platform_instance=platform_instance,
+            exists_in_unity_catalog=True,  # We got it from Unity Catalog
+            persisted=False,
+        )
+
+        # Use the repository's get_entity_from_datahub method which handles
+        # searching and caching internally - this is the ONLY search we need
+        return UnityCatalogTagPlatformResource.get_from_datahub(
+            platform_resource_id,
+            self.platform_resource_repository,
+            managed_by_datahub,
+        )
+
     def gen_platform_resources(
         self, tags: List[UnityCatalogTag]
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             for tag in tags:
                 try:
-                    # Create ID directly without redundant search - get_from_datahub will handle the lookup
-                    platform_resource_id = UnityCatalogTagPlatformResourceId(
-                        tag_key=tag.key.raw_text,
-                        tag_value=tag.value.raw_text if tag.value is not None else None,
-                        platform_instance=self.platform_instance_name,
-                        exists_in_unity_catalog=True,  # Assume true since we got it from Unity Catalog
-                        persisted=False,  # Will be set by get_from_datahub if found in DataHub
+                    # Use optimized helper method that combines ID creation and entity retrieval
+                    unity_catalog_tag = self.get_or_create_from_unity_tag(
+                        tag,
+                        self.platform_instance_name,
+                        managed_by_datahub=False,
                     )
-                    logger.debug(f"Created platform resource {platform_resource_id}")
-
-                    unity_catalog_tag = (
-                        UnityCatalogTagPlatformResource.get_from_datahub(
-                            platform_resource_id,
-                            self.platform_resource_repository,
-                            False,
-                        )
+                    logger.debug(
+                        f"Retrieved/created platform resource for tag {tag.key.raw_text}"
                     )
                     if (
                         tag.to_datahub_tag_urn().urn()

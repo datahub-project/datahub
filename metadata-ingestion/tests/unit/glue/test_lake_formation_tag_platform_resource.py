@@ -69,7 +69,6 @@ class TestLakeFormationTagPlatformResourceId:
         assert resource_id.exists_in_lake_formation is True
         assert resource_id.persisted is True
 
-
     def test_resource_type_method(self) -> None:
         """Test _RESOURCE_TYPE static method."""
         assert (

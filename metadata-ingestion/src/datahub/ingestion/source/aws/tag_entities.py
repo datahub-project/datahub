@@ -46,7 +46,6 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     exists_in_lake_formation: bool = False
     persisted: bool = False
 
-
     # this is a hack to make sure the property is a string and not private pydantic field
     @staticmethod
     def _RESOURCE_TYPE() -> str:
@@ -296,4 +295,3 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
             managed_by_datahub=managed_by_datahub,
             allowed_values=None,
         )
-

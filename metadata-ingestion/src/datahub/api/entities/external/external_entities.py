@@ -33,17 +33,21 @@ class PlatformResourceRepository(ABC):
 
     def __init__(self, graph: DataHubGraph):
         self.graph = graph
-        # Separate caches for different operations with their own statistics
-        self.search_urn_cache = cachetools.LRUCache(maxsize=PlatformResourceRepository.CACHE_SIZE)
-        self.get_entity_cache = cachetools.LRUCache(maxsize=PlatformResourceRepository.CACHE_SIZE)
-        
-        # Statistics tracking for search_entity_by_urn cache
-        self.search_urn_cache_hits = 0
-        self.search_urn_cache_misses = 0
-        
-        # Statistics tracking for get_entity_from_datahub cache
-        self.get_entity_cache_hits = 0
-        self.get_entity_cache_misses = 0
+        # Two main caches for different data types
+        self.entity_id_cache: cachetools.LRUCache = cachetools.LRUCache(
+            maxsize=PlatformResourceRepository.CACHE_SIZE
+        )
+        self.entity_object_cache: cachetools.LRUCache = cachetools.LRUCache(
+            maxsize=PlatformResourceRepository.CACHE_SIZE
+        )
+
+        # Statistics tracking for entity ID cache (URN searches)
+        self.entity_id_cache_hits = 0
+        self.entity_id_cache_misses = 0
+
+        # Statistics tracking for entity object cache (full entities)
+        self.entity_object_cache_hits = 0
+        self.entity_object_cache_misses = 0
 
     def search_by_filter(
         self, query: ElasticDocumentQuery, add_to_cache: bool = True
@@ -51,21 +55,21 @@ class PlatformResourceRepository(ABC):
         results = PlatformResource.search_by_filters(self.graph, query)
         for platform_resource in results:
             if add_to_cache:
-                # Add to get_entity_cache for general platform resource caching
-                self.get_entity_cache[platform_resource.id] = platform_resource
+                # Add to entity object cache (can store any type of object)
+                self.entity_object_cache[platform_resource.id] = platform_resource
             yield platform_resource
 
     def create(self, platform_resource: PlatformResource) -> None:
         platform_resource.to_datahub(self.graph)
-        self.get_entity_cache[platform_resource.id] = platform_resource
+        self.entity_object_cache[platform_resource.id] = platform_resource
 
     def get(self, key: PlatformResourceKey) -> Optional[PlatformResource]:
-        return self.get_entity_cache.get(key.id)
+        return self.entity_object_cache.get(key.id)
 
     def delete(self, key: PlatformResourceKey) -> None:
         self.graph.delete_entity(urn=PlatformResourceUrn(key.id).urn(), hard=True)
-        if key.id in self.get_entity_cache:
-            del self.get_entity_cache[key.id]
+        if key.id in self.entity_object_cache:
+            del self.entity_object_cache[key.id]
 
     @abstractmethod
     def get_resource_type(self) -> str:
@@ -154,13 +158,13 @@ class PlatformResourceRepository(ABC):
         cache_key = f"search_urn:{self.get_resource_type()}:{urn}:{platform_instance}"
 
         # Check cache first
-        if cache_key in self.search_urn_cache:
-            cached_result = self.search_urn_cache[cache_key]
-            self.search_urn_cache_hits += 1
+        if cache_key in self.entity_id_cache:
+            cached_result = self.entity_id_cache[cache_key]
+            self.entity_id_cache_hits += 1
             logger.debug(f"Cache hit for URN search: {cache_key}")
             return cached_result
 
-        self.search_urn_cache_misses += 1
+        self.entity_id_cache_misses += 1
         logger.debug(
             f"Cache miss for URN {urn} with platform instance {platform_instance}"
         )
@@ -201,7 +205,7 @@ class PlatformResourceRepository(ABC):
                         break
 
         # Cache the result (even if None)
-        self.search_urn_cache[cache_key] = result
+        self.entity_id_cache[cache_key] = result
         return result
 
     def get_entity_from_datahub(
@@ -218,19 +222,17 @@ class PlatformResourceRepository(ABC):
         """
         primary_key = self.build_primary_key(entity_id)
         platform_instance = entity_id.platform_instance
-        cache_key = (
-            f"get_entity:{self.get_resource_type()}:{primary_key}:{platform_instance}"
-        )
+        cache_key = f"{self.get_resource_type()}:{primary_key}:{platform_instance}"
 
         # Check cache first
-        cached_result = self.get_entity_cache.get(cache_key)
+        cached_result = self.entity_object_cache.get(cache_key)
         if cached_result is not None:
-            self.get_entity_cache_hits += 1
-            logger.debug(f"Cache hit for entity get: {cache_key}")
+            self.entity_object_cache_hits += 1
+            logger.debug(f"Cache hit for get_entity_from_datahub: {cache_key}")
             return cached_result
 
-        self.get_entity_cache_misses += 1
-        logger.debug(f"Cache miss for entity {entity_id}")
+        self.entity_object_cache_misses += 1
+        logger.debug(f"Cache miss for get_entity_from_datahub {entity_id}")
 
         platform_resources = [
             r
@@ -263,7 +265,7 @@ class PlatformResourceRepository(ABC):
                         entity_class
                     ).dict()  # type: ignore[attr-defined]
                 )
-        else:
+        elif len(platform_resources) > 1:
             # Handle multiple matches - find the one with matching platform instance
             target_platform_instance = entity_id.platform_instance
             for platform_resource in platform_resources:
@@ -284,7 +286,7 @@ class PlatformResourceRepository(ABC):
             result = self.create_default_entity(entity_id, managed_by_datahub)
 
         # Cache the result
-        self.get_entity_cache[cache_key] = result
+        self.entity_object_cache[cache_key] = result
         return result
 
     def get_entity_cache_info(self) -> Dict[str, Dict[str, int]]:
@@ -300,16 +302,16 @@ class PlatformResourceRepository(ABC):
         # Return separate statistics for each cache
         return {
             "search_by_urn_cache": {
-                "hits": self.search_urn_cache_hits,
-                "misses": self.search_urn_cache_misses,
-                "current_size": len(self.search_urn_cache),
-                "max_size": int(self.search_urn_cache.maxsize),
+                "hits": self.entity_id_cache_hits,
+                "misses": self.entity_id_cache_misses,
+                "current_size": len(self.entity_id_cache),
+                "max_size": int(self.entity_id_cache.maxsize),
             },
             "get_from_datahub_cache": {
-                "hits": self.get_entity_cache_hits,
-                "misses": self.get_entity_cache_misses,
-                "current_size": len(self.get_entity_cache),
-                "max_size": int(self.get_entity_cache.maxsize),
+                "hits": self.entity_object_cache_hits,
+                "misses": self.entity_object_cache_misses,
+                "current_size": len(self.entity_object_cache),
+                "max_size": int(self.entity_object_cache.maxsize),
             },
         }
 
@@ -317,39 +319,45 @@ class PlatformResourceRepository(ABC):
 class GenericPlatformResourceRepository(PlatformResourceRepository):
     """
     Generic implementation of PlatformResourceRepository that provides basic functionality.
-    
+
     This implementation should only be used when no specific platform implementation is available
     and basic repository functionality is needed. It uses default implementations that may not
     be optimal for specific platforms.
     """
-    
-    def __init__(self, graph: DataHubGraph, resource_type: str = "GenericPlatformResource"):
+
+    def __init__(
+        self, graph: DataHubGraph, resource_type: str = "GenericPlatformResource"
+    ):
         super().__init__(graph)
         self._resource_type = resource_type
-        
+
     def get_resource_type(self) -> str:
         return self._resource_type
-        
+
     def get_entity_class(self) -> type:
         # Return a generic Pydantic model class
         return GenericPlatformResource
-        
+
     def build_primary_key(self, entity_id: "ExternalEntityId") -> str:
         # Basic implementation - use the platform resource key's ID
         return entity_id.to_platform_resource_key().id
-        
-    def create_default_entity(self, entity_id: "ExternalEntityId", managed_by_datahub: bool) -> Any:
-        # Return a GenericPlatformResource instance  
+
+    def create_default_entity(
+        self, entity_id: "ExternalEntityId", managed_by_datahub: bool
+    ) -> Any:
+        # Return a GenericPlatformResource instance
         return GenericPlatformResource(
             id=entity_id,
             datahub_urns=LinkedResourceSet(urns=[]),
-            managed_by_datahub=managed_by_datahub
+            managed_by_datahub=managed_by_datahub,
         )
-        
+
     def extract_platform_instance(self, sync_context: SyncContext) -> Optional[str]:
         return sync_context.platform_instance
-        
-    def configure_entity_for_return(self, entity_id: "ExternalEntityId") -> "ExternalEntityId":
+
+    def configure_entity_for_return(
+        self, entity_id: "ExternalEntityId"
+    ) -> "ExternalEntityId":
         # No specific configuration needed for generic implementation
         return entity_id
 
@@ -359,7 +367,7 @@ class ExternalEntityId:
     ExternalEntityId is a unique
     identifier for an ExternalEntity.
     """
-    
+
     platform_instance: Optional[str] = None
 
     @abstractmethod
@@ -553,23 +561,23 @@ class ExternalSystem:
 
 class GenericPlatformResource(BaseModel, ExternalEntity):
     """Generic platform resource that works with any platform when no specific implementation exists."""
-    
+
     id: ExternalEntityId
     datahub_urns: LinkedResourceSet = LinkedResourceSet(urns=[])
     managed_by_datahub: bool = False
-    
+
     class Config:
         arbitrary_types_allowed = True
-    
+
     def get_id(self) -> ExternalEntityId:
         return self.id
-    
+
     def is_managed_by_datahub(self) -> bool:
         return self.managed_by_datahub
-    
+
     def datahub_linked_resources(self) -> LinkedResourceSet:
         return self.datahub_urns
-    
+
     def as_platform_resource(self) -> PlatformResource:
         return PlatformResource.create(
             key=self.id.to_platform_resource_key(),

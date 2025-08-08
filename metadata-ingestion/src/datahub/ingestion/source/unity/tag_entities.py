@@ -44,7 +44,6 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
     exists_in_unity_catalog: bool = False
     persisted: bool = False
 
-
     # this is a hack to make sure the property is a string and not private pydantic field
     @staticmethod
     def _RESOURCE_TYPE() -> str:

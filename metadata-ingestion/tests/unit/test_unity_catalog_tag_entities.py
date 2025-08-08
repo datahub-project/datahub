@@ -1,5 +1,3 @@
-import pytest
-
 from datahub.api.entities.external.external_entities import LinkedResourceSet
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.ingestion.source.unity.tag_entities import (
@@ -30,7 +28,10 @@ class TestUnityCatalogTagPlatformResourceId:
         assert tag_id.tag_key == "env"
         assert tag_id.tag_value == "prod"
         assert tag_id.platform_instance == "test"
-        assert UnityCatalogTagPlatformResourceId._RESOURCE_TYPE() == "UnityCatalogTagPlatformResource"
+        assert (
+            UnityCatalogTagPlatformResourceId._RESOURCE_TYPE()
+            == "UnityCatalogTagPlatformResource"
+        )
 
     def test_equality(self):
         """Test equality for resource IDs."""
@@ -50,7 +51,9 @@ class TestUnityCatalogTagPlatformResourceId:
     def test_platform_resource_key_conversion(self):
         """Test conversion to platform resource key."""
         tag_id = UnityCatalogTagPlatformResourceId(
-            tag_key="environment", tag_value="production", platform_instance="workspace1"
+            tag_key="environment",
+            tag_value="production",
+            platform_instance="workspace1",
         )
 
         key = tag_id.to_platform_resource_key()
@@ -115,9 +118,14 @@ class TestUnityCatalogTagPlatformResource:
         platform_resource = resource.as_platform_resource()
 
         assert platform_resource.resource_info is not None
-        assert platform_resource.resource_info.resource_type == "UnityCatalogTagPlatformResource"
+        assert (
+            platform_resource.resource_info.resource_type
+            == "UnityCatalogTagPlatformResource"
+        )
         assert platform_resource.resource_info.primary_key == "team:data"
-        assert platform_resource.resource_info.secondary_keys == ["urn:li:tag:team:data"]
+        assert platform_resource.resource_info.secondary_keys == [
+            "urn:li:tag:team:data"
+        ]
 
 
 class TestIntegrationScenario:
@@ -151,6 +159,11 @@ class TestIntegrationScenario:
         stored_resource = platform_resource.as_platform_resource()
 
         assert stored_resource.resource_info is not None
-        assert stored_resource.resource_info.resource_type == "UnityCatalogTagPlatformResource"
+        assert (
+            stored_resource.resource_info.resource_type
+            == "UnityCatalogTagPlatformResource"
+        )
         assert stored_resource.resource_info.primary_key == "environment:production"
-        assert stored_resource.resource_info.secondary_keys == ["urn:li:tag:environment:production"]
+        assert stored_resource.resource_info.secondary_keys == [
+            "urn:li:tag:environment:production"
+        ]

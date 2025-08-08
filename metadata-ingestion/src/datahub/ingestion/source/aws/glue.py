@@ -357,7 +357,9 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
-        self.platform_resource_repository: Optional[GenericPlatformResourceRepository] = None
+        self.platform_resource_repository: Optional[
+            GenericPlatformResourceRepository
+        ] = None
         if self.ctx.graph:
             self.platform_resource_repository = GenericPlatformResourceRepository(
                 self.ctx.graph, "LakeFormationTagPlatformResource"
