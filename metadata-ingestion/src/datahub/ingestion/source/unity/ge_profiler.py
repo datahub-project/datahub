@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Union
 
 from databricks.sdk.service.catalog import DataSourceFormat
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Connection, Engine
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -82,6 +83,34 @@ class UnityCatalogGEProfiler(GenericProfiler):
         # TODO: Consider passing dataset urn builder directly
         # So there is no repeated logic between this class and source.py
 
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> "DatahubGEProfiler":
+        """Override to use catalog-specific connections for Unity Catalog profiling"""
+        logger.debug(
+            f"Getting profiler instance for Unity Catalog with db_name={db_name}"
+        )
+
+        # Use the catalog-specific URL if db_name is provided
+        if db_name:
+            url = self.config.get_sql_alchemy_url(database=db_name)
+        else:
+            url = self.config.get_sql_alchemy_url()
+
+        logger.debug(f"sql_alchemy_url={url}")
+
+        engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        return DatahubGEProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
+
     def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
         # Group tables by catalog so each catalog gets a catalog-specific connection.
         tables_by_catalog: dict = {}
@@ -91,13 +120,12 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 tables_by_catalog[catalog] = []
             tables_by_catalog[catalog].append(table)
 
-        profile_requests = []
-
         # Process each catalog separately to ensure proper database context.
         for catalog, catalog_tables in tables_by_catalog.items():
             url = self.config.get_sql_alchemy_url(database=catalog)
             engine = create_engine(url, **self.config.options)
 
+            profile_requests = []
             with ThreadPoolExecutor(
                 max_workers=self.profiling_config.max_workers
             ) as executor:
@@ -128,15 +156,17 @@ class UnityCatalogGEProfiler(GenericProfiler):
                         f"Timed out waiting to complete table-level profiling for catalog {catalog}."
                     )
 
-        if len(profile_requests) == 0:
-            return
+            if len(profile_requests) == 0:
+                continue
 
-        yield from self.generate_profile_workunits(
-            profile_requests,
-            max_workers=self.config.profiling.max_workers,
-            platform=self.platform,
-            profiler_args=self.get_profile_args(),
-        )
+            # Generate profile workunits for this catalog specifically
+            yield from self.generate_profile_workunits(
+                profile_requests,
+                max_workers=self.config.profiling.max_workers,
+                db_name=catalog,  # Pass the catalog as db_name
+                platform=self.platform,
+                profiler_args=self.get_profile_args(),
+            )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         # Note: unused... ideally should share logic with TableReference
