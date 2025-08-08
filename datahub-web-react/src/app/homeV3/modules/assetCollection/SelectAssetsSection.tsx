@@ -108,7 +108,9 @@ const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props)
                 updateFieldFilters={updateFieldFilters}
             />
             <ResultsContainer>
-                <ScrollableResultsContainer data-testid="select-assets-search-results">{content}</ScrollableResultsContainer>
+                <ScrollableResultsContainer data-testid="select-assets-search-results">
+                    {content}
+                </ScrollableResultsContainer>
             </ResultsContainer>
         </AssetsSection>
     );
