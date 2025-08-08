@@ -154,7 +154,6 @@ information like tokens.
 - Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
 
 - Configuring DataHub authentication token
-
   - Add below config in cluster spark config.
 
     ```text
@@ -162,7 +161,6 @@ information like tokens.
     ```
 
   - Alternatively, Databricks secrets can be used to secure token.
-
     - Create secret using Databricks CLI.
 
       ```sh
@@ -219,6 +217,7 @@ information like tokens.
 | spark.datahub.s3.filename                                        |          |                         | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                                                 |
 | spark.datahub.log.mcps                                           |          | true                    | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                                          |
 | spark.datahub.legacyLineageCleanup.enabled                       |          | false                   | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.                             |
+| spark.datahub.captureColumnLevelLineage                          |          | true                    | Set this to false to disable column-level lineage capture for improved performance on large datasets.                                                                                                        |
 | spark.datahub.capture_spark_plan                                 |          | false                   | Set this to true to capture the Spark plan. By default, it is disabled.                                                                                                                                      |
 | spark.datahub.metadata.dataset.enableEnhancedMergeIntoExtraction |          | false                   | Set this to true to enable enhanced table name extraction for Delta Lake MERGE INTO commands. This improves lineage tracking by including the target table name in the job name. By default, it is disabled. |
 
@@ -431,7 +430,6 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.17
 
 - _Major changes_:
-
   - Finegrained lineage is emitted on the DataJob and not on the emitted Datasets. This is the correct behaviour which was not correct earlier. This causes earlier emitted finegrained lineages won't be overwritten by the new ones.
     You can remove the old lineages by setting `spark.datahub.legacyLineageCleanup.enabled=true`. Make sure you have the latest server if you enable with patch support. (this was introduced since 0.2.17-rc5)
 
