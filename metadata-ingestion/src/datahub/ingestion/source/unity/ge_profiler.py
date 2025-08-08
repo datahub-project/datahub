@@ -66,34 +66,54 @@ class UnityCatalogGEProfiler(GenericProfiler):
             "max_overflow", self.profiling_config.max_workers
         )
 
-        url = self.config.get_sql_alchemy_url()
-        engine = create_engine(url, **self.config.options)
-        conn = engine.connect()
+        # Group tables by catalog to create connections for each catalog
+        tables_by_catalog = {}
+        for table in tables:
+            catalog = table.ref.catalog
+            if catalog not in tables_by_catalog:
+                tables_by_catalog[catalog] = []
+            tables_by_catalog[catalog].append(table)
 
         profile_requests = []
-        with ThreadPoolExecutor(
-            max_workers=self.profiling_config.max_workers
-        ) as executor:
-            futures = [
-                executor.submit(
-                    self.get_unity_profile_request,
-                    UnityCatalogSQLGenericTable(table),
-                    conn,
-                )
-                for table in tables
-            ]
 
-            try:
-                for i, completed in enumerate(
-                    as_completed(futures, timeout=self.profiling_config.max_wait_secs)
-                ):
-                    profile_request = completed.result()
-                    if profile_request is not None:
-                        profile_requests.append(profile_request)
-                    if i > 0 and i % 100 == 0:
-                        logger.info(f"Finished table-level profiling for {i} tables")
-            except (TimeoutError, concurrent.futures.TimeoutError):
-                logger.warning("Timed out waiting to complete table-level profiling.")
+        # Process each catalog separately to ensure proper database context
+        for catalog, catalog_tables in tables_by_catalog.items():
+            # Create connection for this specific catalog
+            url = self.config.get_sql_alchemy_url(database=catalog)
+            engine = create_engine(url, **self.config.options)
+            conn = engine.connect()
+
+            with ThreadPoolExecutor(
+                max_workers=self.profiling_config.max_workers
+            ) as executor:
+                futures = [
+                    executor.submit(
+                        self.get_unity_profile_request,
+                        UnityCatalogSQLGenericTable(table),
+                        conn,
+                    )
+                    for table in catalog_tables
+                ]
+
+                try:
+                    for i, completed in enumerate(
+                        as_completed(
+                            futures, timeout=self.profiling_config.max_wait_secs
+                        )
+                    ):
+                        profile_request = completed.result()
+                        if profile_request is not None:
+                            profile_requests.append(profile_request)
+                        if i > 0 and i % 100 == 0:
+                            logger.info(
+                                f"Finished table-level profiling for {i} tables in catalog {catalog}"
+                            )
+                except (TimeoutError, concurrent.futures.TimeoutError):
+                    logger.warning(
+                        f"Timed out waiting to complete table-level profiling for catalog {catalog}."
+                    )
+
+            conn.close()
 
         if len(profile_requests) == 0:
             return
@@ -179,7 +199,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
         return TableProfilerRequest(
             table=table,
             pretty_name=dataset_name,
-            batch_kwargs=dict(schema=table.ref.schema, table=table.name),
+            batch_kwargs=dict(
+                schema=table.ref.schema, table=table.name, catalog=table.ref.catalog
+            ),
             profile_table_level_only=profile_table_level_only,
         )
 
