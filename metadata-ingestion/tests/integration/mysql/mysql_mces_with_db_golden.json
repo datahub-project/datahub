@@ -107,6 +107,188 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {},
+                        "name": "customer_stats",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "northwind.customer_stats",
+                        "platform": "urn:li:dataPlatform:mysql",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "id",
+                                "nullable": false,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": true
+                            },
+                            {
+                                "fieldPath": "company",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "VARCHAR(50)",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "total_orders",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "INTEGER",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "last_order_date",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATETIME",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "creation_time",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATETIME",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:sales"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customers,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -387,6 +569,18 @@
                                 "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "order_date",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                    }
+                                },
+                                "nativeDataType": "DATETIME",
+                                "recursive": false,
+                                "isPartOfKey": false
                             }
                         ],
                         "foreignKeys": [
@@ -461,6 +655,56 @@
                     "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 5,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "company",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "total_orders",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "last_order_date",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "creation_time",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                }
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -614,7 +858,7 @@
                 "type": "FULL_TABLE"
             },
             "rowCount": 0,
-            "columnCount": 3,
+            "columnCount": 4,
             "fieldProfiles": [
                 {
                     "fieldPath": "id",
@@ -628,6 +872,11 @@
                 },
                 {
                     "fieldPath": "customer_id",
+                    "uniqueCount": 0,
+                    "nullCount": 0
+                },
+                {
+                    "fieldPath": "order_date",
                     "uniqueCount": 0,
                     "nullCount": 0
                 }
