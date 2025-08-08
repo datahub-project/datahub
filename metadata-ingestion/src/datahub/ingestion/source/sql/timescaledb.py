@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
 
 from pydantic import Field
 from sqlalchemy import text
@@ -251,51 +251,6 @@ class TimescaleDBSource(PostgresSource):
                         )
 
         return description, properties, location_urn
-
-    def get_extra_tags(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[Dict[str, List[str]]]:
-        """
-        Override to add TimescaleDB-specific tags.
-        Returns tags per column as expected by parent class.
-        """
-        tags = super().get_extra_tags(inspector, schema, table) or {}
-
-        # Get cached metadata
-        db_name = self.get_db_name(inspector)
-        cache_key = f"{db_name}.{schema}"
-        metadata = self._timescaledb_metadata_cache.get(cache_key, {})
-
-        # Add hypertable tags
-        if self.config.tag_hypertables:
-            hypertables = metadata.get("hypertables", {})
-            if table in hypertables:
-                # Get columns to tag all of them
-                try:
-                    columns = inspector.get_columns(table, schema)
-                    for column in columns:
-                        col_name = column["name"]
-                        if col_name not in tags:
-                            tags[col_name] = []
-                        tags[col_name].append("hypertable")
-                except Exception as e:
-                    logger.debug(f"Could not get columns for tagging: {e}")
-
-        # Add continuous aggregate tags
-        if self.config.tag_continuous_aggregates:
-            continuous_aggregates = metadata.get("continuous_aggregates", {})
-            if table in continuous_aggregates:
-                try:
-                    columns = inspector.get_columns(table, schema)
-                    for column in columns:
-                        col_name = column["name"]
-                        if col_name not in tags:
-                            tags[col_name] = []
-                        tags[col_name].append("continuous_aggregate")
-                except Exception as e:
-                    logger.debug(f"Could not get columns for tagging: {e}")
-
-        return tags if tags else None
 
     def _process_table(
         self,
@@ -624,6 +579,7 @@ class TimescaleDBSource(PostgresSource):
         """Get all TimescaleDB jobs for a schema"""
         jobs = {}
 
+        # Note: timezone column is not available in all TimescaleDB versions
         query = """
         SELECT 
             j.job_id,
@@ -637,7 +593,6 @@ class TimescaleDBSource(PostgresSource):
             j.scheduled,
             j.fixed_schedule,
             j.initial_start,
-            j.timezone,
             j.config,
             j.hypertable_schema,
             j.hypertable_name
@@ -668,7 +623,6 @@ class TimescaleDBSource(PostgresSource):
                         "scheduled": row["scheduled"],
                         "fixed_schedule": row["fixed_schedule"],
                         "initial_start": row["initial_start"],
-                        "timezone": row["timezone"],
                         "config": row["config"],
                         "hypertable_schema": row["hypertable_schema"],
                         "hypertable_name": row["hypertable_name"],
