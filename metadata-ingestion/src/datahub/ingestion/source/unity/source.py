@@ -4,7 +4,6 @@ import time
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
-from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
     UNKNOWN_USER,
@@ -76,6 +75,9 @@ from datahub.ingestion.source.unity.ge_profiler import UnityCatalogGEProfiler
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
+)
+from datahub.ingestion.source.unity.platform_resource_repository import (
+    UnityCatalogPlatformResourceRepository,
 )
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
@@ -188,7 +190,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: Optional[SchemaResolver] = None
-    platform_resource_repository: Optional[PlatformResourceRepository] = None
+    platform_resource_repository: Optional[UnityCatalogPlatformResourceRepository] = (
+        None
+    )
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -240,9 +244,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
         if self.ctx.graph:
-            self.platform_resource_repository = PlatformResourceRepository(
+            self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
                 self.ctx.graph
             )
+        else:
+            self.platform_resource_repository = None
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -377,9 +383,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     raise ValueError("Unknown profiling config method")
 
         # Collect cache statistics if tag processing was enabled
-        if self.config.include_tags:
+        if self.config.include_tags and self.platform_resource_repository:
             try:
-                self.report.tag_cache_info = get_unity_catalog_tag_cache_info()
+                self.report.tag_cache_info = get_unity_catalog_tag_cache_info(
+                    self.platform_resource_repository
+                )
                 logger.info(
                     f"Unity Catalog tag cache statistics: {self.report.tag_cache_info}"
                 )
@@ -1096,10 +1104,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if self.ctx.graph and self.platform_resource_repository:
             for tag in tags:
                 try:
-                    platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
+                    # Create ID directly without redundant search - get_from_datahub will handle the lookup
+                    platform_resource_id = UnityCatalogTagPlatformResourceId(
+                        tag_key=tag.key.raw_text,
+                        tag_value=tag.value.raw_text if tag.value is not None else None,
                         platform_instance=self.platform_instance_name,
-                        platform_resource_repository=self.platform_resource_repository,
-                        tag=tag,
+                        exists_in_unity_catalog=True,  # Assume true since we got it from Unity Catalog
+                        persisted=False,  # Will be set by get_from_datahub if found in DataHub
                     )
                     logger.debug(f"Created platform resource {platform_resource_id}")
 

@@ -1,6 +1,5 @@
 import logging
-from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -8,17 +7,14 @@ from datahub.api.entities.external.external_entities import (
     ExternalEntity,
     ExternalEntityId,
     LinkedResourceSet,
-    PlatformResourceRepository,
 )
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
-    PlatformResourceSearchFields,
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import TagUrn
-from datahub.utilities.search_utils import ElasticDocumentQuery
 from datahub.utilities.urns.urn import Urn
 
 
@@ -26,32 +22,15 @@ class UnityCatalogTagSyncContext(BaseModel):
     # it is intentionally empty
     platform_instance: Optional[str] = None
 
-    class Config:
-        frozen = True  # Makes the model immutable and hashable
-
 
 logger = logging.getLogger(__name__)
 
 
-def get_unity_catalog_tag_cache_info() -> Dict[str, Dict[str, int]]:
+def get_unity_catalog_tag_cache_info(
+    platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
+) -> Dict[str, Dict[str, int]]:
     """Get cache statistics for Unity Catalog tag operations."""
-    search_cache_info = UnityCatalogTagPlatformResourceId.search_by_urn.cache_info()
-    datahub_cache_info = UnityCatalogTagPlatformResource.get_from_datahub.cache_info()
-
-    return {
-        "search_by_urn_cache": {
-            "hits": search_cache_info.hits,
-            "misses": search_cache_info.misses,
-            "current_size": search_cache_info.currsize or 0,
-            "max_size": search_cache_info.maxsize or 0,
-        },
-        "get_from_datahub_cache": {
-            "hits": datahub_cache_info.hits,
-            "misses": datahub_cache_info.misses,
-            "current_size": datahub_cache_info.currsize or 0,
-            "max_size": datahub_cache_info.maxsize or 0,
-        },
-    }
+    return platform_resource_repository.get_entity_cache_info()
 
 
 class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
@@ -65,8 +44,6 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
     exists_in_unity_catalog: bool = False
     persisted: bool = False
 
-    def __hash__(self) -> int:
-        return hash((self.tag_key, self.tag_value, self.platform_instance))
 
     # this is a hack to make sure the property is a string and not private pydantic field
     @staticmethod
@@ -86,17 +63,16 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         cls,
         tag: UnityCatalogTag,
         platform_instance: Optional[str],
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
         exists_in_unity_catalog: bool = False,
     ) -> "UnityCatalogTagPlatformResourceId":
         """
         Creates a UnityCatalogTagPlatformResourceId from a UnityCatalogTag.
         """
 
-        existing_platform_resource = cls.search_by_urn(
+        existing_platform_resource = platform_resource_repository.search_entity_by_urn(
             tag.to_datahub_tag_urn().urn(),
-            platform_resource_repository=platform_resource_repository,
-            tag_sync_context=UnityCatalogTagSyncContext(
+            sync_context=UnityCatalogTagSyncContext(
                 platform_instance=platform_instance
             ),
         )
@@ -115,66 +91,18 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
 
     @classmethod
-    @lru_cache(maxsize=1000)
-    def search_by_urn(
-        cls,
-        urn: str,
-        platform_resource_repository: PlatformResourceRepository,
-        tag_sync_context: UnityCatalogTagSyncContext,
-    ) -> Optional["UnityCatalogTagPlatformResourceId"]:
-        """Search for existing platform resource by URN with LRU caching."""
-        logger.debug(
-            f"Searching for URN {urn} with platform instance {tag_sync_context.platform_instance}"
-        )
-
-        mapped_tags = [
-            t
-            for t in platform_resource_repository.search_by_filter(
-                ElasticDocumentQuery.create_from(
-                    (
-                        PlatformResourceSearchFields.RESOURCE_TYPE,
-                        str(UnityCatalogTagPlatformResourceId._RESOURCE_TYPE()),
-                    ),
-                    (PlatformResourceSearchFields.SECONDARY_KEYS, urn),
-                )
-            )
-        ]
-
-        if len(mapped_tags) > 0:
-            for platform_resource in mapped_tags:
-                if (
-                    platform_resource.resource_info
-                    and platform_resource.resource_info.value
-                ):
-                    unity_catalog_tag = UnityCatalogTagPlatformResource(
-                        **platform_resource.resource_info.value.as_pydantic_object(
-                            UnityCatalogTagPlatformResource
-                        ).dict()
-                    )
-                    if (
-                        unity_catalog_tag.id.platform_instance
-                        == tag_sync_context.platform_instance
-                    ):
-                        unity_catalog_tag_id = unity_catalog_tag.id
-                        unity_catalog_tag_id.exists_in_unity_catalog = True
-                        unity_catalog_tag_id.persisted = True
-                        return unity_catalog_tag_id
-
-        return None
-
-    @classmethod
     def from_datahub_urn(
         cls,
         urn: str,
-        platform_resource_repository: PlatformResourceRepository,
         tag_sync_context: UnityCatalogTagSyncContext,
+        platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
         graph: DataHubGraph,
     ) -> "UnityCatalogTagPlatformResourceId":
         """
         Creates a UnityCatalogTagPlatformResourceId from a DataHub URN.
         """
-        existing_platform_resource_id = cls.search_by_urn(
-            urn, platform_resource_repository, tag_sync_context
+        existing_platform_resource_id = (
+            platform_resource_repository.search_entity_by_urn(urn, tag_sync_context)
         )
         if existing_platform_resource_id:
             return existing_platform_resource_id
@@ -185,6 +113,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
                 new_unity_catalog_tag_id.to_platform_resource_key()
             )
             if resource_key:
+                # Mark that this tag exists in Unity Catalog
                 new_unity_catalog_tag_id.exists_in_unity_catalog = True
             return new_unity_catalog_tag_id
         raise ValueError(
@@ -241,65 +170,13 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
         )
 
     @classmethod
-    @lru_cache(maxsize=1000)
     def get_from_datahub(
         cls,
         unity_catalog_tag_id: UnityCatalogTagPlatformResourceId,
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
         managed_by_datahub: bool = False,
     ) -> "UnityCatalogTagPlatformResource":
-        """Get platform resource from DataHub with LRU caching."""
-        logger.debug(
-            f"Getting platform resource for tag {unity_catalog_tag_id.tag_key}:{unity_catalog_tag_id.tag_value}"
-        )
-
-        platform_resources = [
-            r
-            for r in platform_resource_repository.search_by_filter(
-                ElasticDocumentQuery.create_from(
-                    (
-                        PlatformResourceSearchFields.RESOURCE_TYPE,
-                        str(UnityCatalogTagPlatformResourceId._RESOURCE_TYPE()),
-                    ),
-                    (
-                        PlatformResourceSearchFields.PRIMARY_KEY,
-                        f"{unity_catalog_tag_id.tag_key}/{unity_catalog_tag_id.tag_value}",
-                    ),
-                )
-            )
-        ]
-
-        if len(platform_resources) == 1:
-            platform_resource: PlatformResource = platform_resources[0]
-            if (
-                platform_resource.resource_info
-                and platform_resource.resource_info.value
-            ):
-                return UnityCatalogTagPlatformResource(
-                    **platform_resource.resource_info.value.as_pydantic_object(
-                        UnityCatalogTagPlatformResource
-                    ).dict()
-                )
-        else:
-            for platform_resource in platform_resources:
-                if (
-                    platform_resource.resource_info
-                    and platform_resource.resource_info.value
-                ):
-                    unity_catalog_tag = UnityCatalogTagPlatformResource(
-                        **platform_resource.resource_info.value.as_pydantic_object(
-                            UnityCatalogTagPlatformResource
-                        ).dict()
-                    )
-                    if (
-                        unity_catalog_tag.id.platform_instance
-                        == unity_catalog_tag_id.platform_instance
-                    ):
-                        return unity_catalog_tag
-
-        return cls(
-            id=unity_catalog_tag_id,
-            datahub_urns=LinkedResourceSet(urns=[]),
-            managed_by_datahub=managed_by_datahub,
-            allowed_values=None,
+        """Get Unity Catalog tag platform resource from DataHub with caching."""
+        return platform_resource_repository.get_entity_from_datahub(
+            unity_catalog_tag_id, managed_by_datahub
         )

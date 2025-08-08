@@ -69,23 +69,6 @@ class TestLakeFormationTagPlatformResourceId:
         assert resource_id.exists_in_lake_formation is True
         assert resource_id.persisted is True
 
-    def test_hash_method(self) -> None:
-        """Test that hash method returns consistent values."""
-        resource_id1 = LakeFormationTagPlatformResourceId(
-            tag_key="test_key",
-            tag_value="test_value",
-            platform_instance="test_instance",
-            catalog="test_catalog",
-        )
-        resource_id2 = LakeFormationTagPlatformResourceId(
-            tag_key="test_key",
-            tag_value="test_value",
-            platform_instance="test_instance",
-            catalog="test_catalog",
-        )
-
-        # Same objects should have same hash
-        assert hash(resource_id1) == hash(resource_id2)
 
     def test_resource_type_method(self) -> None:
         """Test _RESOURCE_TYPE static method."""

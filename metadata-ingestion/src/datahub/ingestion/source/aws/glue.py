@@ -26,7 +26,7 @@ from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.external_entities import (
-    PlatformResourceRepository,
+    GenericPlatformResourceRepository,
 )
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
@@ -357,10 +357,10 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
-        self.platform_resource_repository: Optional[PlatformResourceRepository] = None
+        self.platform_resource_repository: Optional[GenericPlatformResourceRepository] = None
         if self.ctx.graph:
-            self.platform_resource_repository = PlatformResourceRepository(
-                self.ctx.graph
+            self.platform_resource_repository = GenericPlatformResourceRepository(
+                self.ctx.graph, "LakeFormationTagPlatformResource"
             )
 
     def get_database_lf_tags(

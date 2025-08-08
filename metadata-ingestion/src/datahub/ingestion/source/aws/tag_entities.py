@@ -29,6 +29,10 @@ class LakeFormationTagSyncContext(BaseModel):
     platform_instance: Optional[str] = None
     catalog: Optional[str] = None
 
+    # Making it compatible with SyncContext interface
+    def get_platform_instance(self) -> Optional[str]:
+        return self.platform_instance
+
 
 class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     """
@@ -42,8 +46,6 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     exists_in_lake_formation: bool = False
     persisted: bool = False
 
-    def __hash__(self) -> int:
-        return hash(self.to_platform_resource_key().id)
 
     # this is a hack to make sure the property is a string and not private pydantic field
     @staticmethod
@@ -138,6 +140,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
                         == tag_sync_context.catalog
                     ):
                         lake_formation_tag_id = lake_formation_tag_platform_resource.id
+                        # Mark that this tag exists in Lake Formation and is persisted
                         lake_formation_tag_id.exists_in_lake_formation = True
                         lake_formation_tag_id.persisted = True
                         return lake_formation_tag_id
@@ -188,9 +191,8 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
                 logger.info(
                     f"Tag {new_tag_id} already exists in platform resource repository with {resource_key}"
                 )
-                new_tag_id.exists_in_lake_formation = (
-                    True  # TODO: Check if this is a safe assumption
-                )
+                # Mark that this tag exists in Lake Formation
+                new_tag_id.exists_in_lake_formation = True
             return new_tag_id
         raise ValueError(f"Unable to create SnowflakeTagId from DataHub URN: {urn}")
 
@@ -252,7 +254,11 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
         platform_resource_repository: PlatformResourceRepository,
         managed_by_datahub: bool = False,
     ) -> "LakeFormationTagPlatformResource":
-        # Search for linked DataHub URNs
+        """
+        Get LakeFormationTagPlatformResource from DataHub using the repository.
+        This method is maintained for backward compatibility but delegates to the repository.
+        """
+        # Use the repository pattern through search
         platform_resources = [
             r
             for r in platform_resource_repository.search_by_filter(
@@ -290,3 +296,4 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
             managed_by_datahub=managed_by_datahub,
             allowed_values=None,
         )
+

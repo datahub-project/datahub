@@ -11,6 +11,7 @@ from datahub.api.entities.external.external_entities import (
     LinkedResourceSet,
     MissingExternalEntity,
     PlatformResourceRepository,
+    GenericPlatformResourceRepository,
 )
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
@@ -31,9 +32,9 @@ class TestPlatformResourceRepository:
         return Mock(spec=DataHubGraph)
 
     @pytest.fixture
-    def repository(self, mock_graph: Mock) -> PlatformResourceRepository:
-        """Create a PlatformResourceRepository instance."""
-        return PlatformResourceRepository(mock_graph)
+    def repository(self, mock_graph: Mock) -> GenericPlatformResourceRepository:
+        """Create a GenericPlatformResourceRepository instance."""
+        return GenericPlatformResourceRepository(mock_graph)
 
     @pytest.fixture
     def mock_platform_resource(self) -> Mock:
@@ -44,11 +45,14 @@ class TestPlatformResourceRepository:
 
     def test_init(self, mock_graph: Mock) -> None:
         """Test repository initialization."""
-        repo: PlatformResourceRepository = PlatformResourceRepository(mock_graph)
+        repo = GenericPlatformResourceRepository(mock_graph)
         assert repo.graph == mock_graph
-        assert isinstance(repo.cache, cachetools.TTLCache)
-        assert repo.cache.maxsize == 1000
-        assert repo.cache.ttl == 300  # 60 * 5
+        assert isinstance(repo.search_urn_cache, cachetools.TTLCache)
+        assert isinstance(repo.get_entity_cache, cachetools.TTLCache)
+        assert repo.search_urn_cache.maxsize == 1000
+        assert repo.search_urn_cache.ttl == 300  # 60 * 5
+        assert repo.get_entity_cache.maxsize == 1000
+        assert repo.get_entity_cache.ttl == 300  # 60 * 5
 
     @patch(
         "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
@@ -67,7 +71,7 @@ class TestPlatformResourceRepository:
 
         assert len(results) == 1
         assert results[0] == mock_platform_resource
-        assert repository.cache[mock_platform_resource.id] == mock_platform_resource
+        assert repository.get_entity_cache[mock_platform_resource.id] == mock_platform_resource
         mock_search.assert_called_once_with(repository.graph, mock_filter)
 
     @patch(
@@ -87,7 +91,7 @@ class TestPlatformResourceRepository:
 
         assert len(results) == 1
         assert results[0] == mock_platform_resource
-        assert mock_platform_resource.id not in repository.cache
+        assert mock_platform_resource.id not in repository.get_entity_cache
         mock_search.assert_called_once_with(repository.graph, mock_filter)
 
     def test_create(
@@ -97,7 +101,7 @@ class TestPlatformResourceRepository:
         repository.create(mock_platform_resource)
 
         mock_platform_resource.to_datahub.assert_called_once_with(repository.graph)
-        assert repository.cache[mock_platform_resource.id] == mock_platform_resource
+        assert repository.get_entity_cache[mock_platform_resource.id] == mock_platform_resource
 
     def test_get_existing(self, repository: PlatformResourceRepository) -> None:
         """Test get method for existing resource."""
@@ -112,7 +116,7 @@ class TestPlatformResourceRepository:
             key=mock_platform_resource_key, secondary_keys=[], value={}
         )
 
-        repository.cache[mock_platform_resource_key.id] = mock_platform_resource
+        repository.get_entity_cache[mock_platform_resource_key.id] = mock_platform_resource
 
         result: Optional[PlatformResource] = repository.get(mock_platform_resource_key)
 
@@ -145,14 +149,14 @@ class TestPlatformResourceRepository:
         )
 
         # Add item to cache first
-        repository.cache[mock_platform_resource_key.id] = mock_platform_resource
+        repository.get_entity_cache[mock_platform_resource_key.id] = mock_platform_resource
 
         repository.delete(mock_platform_resource_key)
 
         repository.graph.delete_entity.assert_called_once_with(  # type: ignore[attr-defined]
             urn=PlatformResourceUrn(mock_platform_resource.id).urn(), hard=True
         )
-        assert mock_platform_resource_key.id not in repository.cache
+        assert mock_platform_resource_key.id not in repository.get_entity_cache
 
 
 class TestCaseSensitivity:
@@ -418,8 +422,8 @@ class TestIntegration:
         return Mock(spec=DataHubGraph)
 
     @pytest.fixture
-    def repository(self, mock_graph: Mock) -> PlatformResourceRepository:
-        return PlatformResourceRepository(mock_graph)
+    def repository(self, mock_graph: Mock) -> GenericPlatformResourceRepository:
+        return GenericPlatformResourceRepository(mock_graph)
 
     def test_repository_with_linked_resource_set(
         self, repository: PlatformResourceRepository
@@ -431,7 +435,7 @@ class TestIntegration:
 
         # Test create and cache
         repository.create(mock_resource)
-        assert repository.cache["test-resource"] == mock_resource
+        assert repository.get_entity_cache["test-resource"] == mock_resource
 
     def test_case_sensitivity_with_linked_resources(self) -> None:
         """Test case sensitivity detection with LinkedResourceSet."""
@@ -448,14 +452,14 @@ class TestEdgeCases:
     def test_cache_ttl_expiration(self) -> None:
         """Test that cache TTL works correctly."""
         mock_graph: Mock = Mock(spec=DataHubGraph)
-        repo: PlatformResourceRepository = PlatformResourceRepository(mock_graph)
+        repo: GenericPlatformResourceRepository = GenericPlatformResourceRepository(mock_graph)
 
         # Add item to cache
-        repo.cache["test-key"] = "test-value"
-        assert "test-key" in repo.cache
+        repo.get_entity_cache["test-key"] = "test-value"
+        assert "test-key" in repo.get_entity_cache
 
         # Cache should still contain the item within TTL
-        cached_value: Optional[str] = repo.cache.get("test-key")
+        cached_value: Optional[str] = repo.get_entity_cache.get("test-key")
         assert cached_value == "test-value"
 
     def test_linked_resource_set_with_empty_urns(self) -> None:
