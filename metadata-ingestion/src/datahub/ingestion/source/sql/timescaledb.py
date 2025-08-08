@@ -252,7 +252,7 @@ class TimescaleDBSource(PostgresSource):
                         # Try to detect if this is Timescale Cloud
                         try:
                             cloud_result = conn.execute(
-                                "SELECT current_setting('license', true);"
+                                "SELECT current_setting('timescaledb.license', true);"
                             )
                             license_row = cloud_result.fetchone()
                             if (
@@ -693,8 +693,7 @@ class TimescaleDBSource(PostgresSource):
                 "materialized_only": str(cagg.materialized_only),
                 "finalized": str(cagg.finalized),
                 "owner": cagg.view_owner,
-                "definition": cagg.view_definition[:1000]
-                + ("..." if len(cagg.view_definition) > 1000 else ""),
+                "definition": cagg.view_definition,
                 "version": self._get_timescaledb_version(inspector),
             },
         )
