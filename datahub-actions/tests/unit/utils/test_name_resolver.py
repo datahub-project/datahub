@@ -60,9 +60,10 @@ def test_domain_name_resolver_with_graph_empty_properties():
     resolver = DomainNameResolver()
     domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
 
-    # Mock DataHubGraph that returns empty domain properties
+    # Mock DataHubGraph that returns domain properties with None name attribute
     mock_graph = Mock()
-    mock_properties = DomainPropertiesClass(name=None)
+    mock_properties = Mock()
+    mock_properties.name = None
     mock_graph.get_aspect.return_value = mock_properties
 
     entity_name = resolver.get_entity_name(domain_urn, mock_graph)
