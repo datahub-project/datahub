@@ -1,3 +1,8 @@
+"""
+DEPRECATED: This assertions CLI is no longer supported and will be removed in a future version.
+Please use alternative methods for managing assertions in DataHub.
+"""
+
 import logging
 import os
 from pathlib import Path
@@ -26,7 +31,18 @@ REPORT_FILE_NAME = "compile_report.json"
 
 @click.group(cls=DefaultGroup, default="upsert")
 def assertions() -> None:
-    """A group of commands to interact with the Assertion entity in DataHub."""
+    """A group of commands to interact with the Assertion entity in DataHub.
+
+    ⚠️  DEPRECATED: This assertions CLI is no longer supported and will be removed
+    in a future version. Please use alternative methods for managing assertions in DataHub.
+    """
+    click.secho(
+        "⚠️  WARNING: The assertions CLI is deprecated and no longer supported. "
+        "It may be removed in a future version. Please use alternative methods for managing assertions in DataHub.",
+        fg="yellow",
+        bold=True,
+        err=True,
+    )
     pass
 
 
@@ -34,7 +50,16 @@ def assertions() -> None:
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @upgrade.check_upgrade
 def upsert(file: str) -> None:
-    """Upsert (create or update) a set of assertions in DataHub."""
+    """Upsert (create or update) a set of assertions in DataHub.
+
+    ⚠️  DEPRECATED: This command is deprecated and no longer supported.
+    """
+    click.secho(
+        "⚠️  WARNING: The 'upsert' command is deprecated and no longer supported.",
+        fg="yellow",
+        bold=True,
+        err=True,
+    )
 
     assertions_spec: AssertionsConfigSpec = AssertionsConfigSpec.from_yaml(file)
 
@@ -78,7 +103,15 @@ def compile(
     In future, we may introduce separate command to automatically apply these compiled changes
     in assertion platform. Currently, generated result artifacts are stored in target folder
     unless another folder is specified using option `--output-to <folder>`.
+
+    ⚠️  DEPRECATED: This command is deprecated and no longer supported.
     """
+    click.secho(
+        "⚠️  WARNING: The 'compile' command is deprecated and no longer supported.",
+        fg="yellow",
+        bold=True,
+        err=True,
+    )
 
     if platform not in ASSERTION_PLATFORMS:
         click.secho(
@@ -146,3 +179,5 @@ def extras_list_to_dict(extras: List[str]) -> Dict[str, str]:
 # Later:
 # 3. execute compiled assertions on assertion platform (Later, requires connection details to platform),
 # 4. cleanup assertions from assertion platform (generate artifacts. optionally execute)
+#
+# NOTE: This entire assertions CLI is deprecated and these TODOs will not be implemented.
