@@ -168,18 +168,29 @@ class TimescaleDBJob(BaseModel):
     @classmethod
     def from_db_row(cls, row: Any) -> "TimescaleDBJob":
         """Create a TimescaleDBJob from database row"""
+
+        def safe_str_convert(value: Any) -> Optional[str]:
+            """Safely convert value to string, handling timedelta and None"""
+            if value is None:
+                return None
+            if hasattr(value, "total_seconds"):  # timedelta object
+                return str(value)
+            return str(value)
+
         return cls(
             job_id=safe_get_from_row(row, "job_id", 0),
             application_name=safe_get_from_row(row, "application_name"),
-            schedule_interval=safe_get_from_row(row, "schedule_interval"),
-            max_runtime=safe_get_from_row(row, "max_runtime"),
+            schedule_interval=safe_str_convert(
+                safe_get_from_row(row, "schedule_interval")
+            ),
+            max_runtime=safe_str_convert(safe_get_from_row(row, "max_runtime")),
             max_retries=safe_get_from_row(row, "max_retries", 0),
-            retry_period=safe_get_from_row(row, "retry_period"),
+            retry_period=safe_str_convert(safe_get_from_row(row, "retry_period")),
             proc_schema=safe_get_from_row(row, "proc_schema"),
             proc_name=safe_get_from_row(row, "proc_name"),
             scheduled=safe_get_from_row(row, "scheduled", False),
             fixed_schedule=safe_get_from_row(row, "fixed_schedule", False),
-            initial_start=safe_get_from_row(row, "initial_start"),
+            initial_start=safe_str_convert(safe_get_from_row(row, "initial_start")),
             config=safe_get_from_row(row, "config"),
             hypertable_schema=safe_get_from_row(row, "hypertable_schema"),
             hypertable_name=safe_get_from_row(row, "hypertable_name"),

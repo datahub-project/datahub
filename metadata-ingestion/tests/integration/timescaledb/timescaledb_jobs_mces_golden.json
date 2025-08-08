@@ -17,7 +17,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -33,7 +33,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -49,7 +49,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -67,7 +67,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -83,7 +83,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -99,7 +99,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -122,7 +122,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -138,7 +138,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -154,7 +154,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -172,7 +172,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -193,7 +193,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -209,7 +209,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -225,7 +225,18 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "is_hypertable": "true",
+                            "num_dimensions": "2",
+                            "num_chunks": "32",
+                            "compression_enabled": "True",
+                            "dimension_0_column": "time",
+                            "dimension_0_type": "timestamp with time zone",
+                            "dimension_0_interval": "1 day",
+                            "dimension_1_column": "device_id",
+                            "dimension_1_type": "integer",
+                            "retention_period": "30 days"
+                        },
                         "name": "sensor_data",
                         "tags": []
                     }
@@ -260,6 +271,13 @@
                                 },
                                 "nativeDataType": "TIMESTAMP WITH TIME ZONE",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -272,6 +290,13 @@
                                 },
                                 "nativeDataType": "INTEGER",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -284,6 +309,13 @@
                                 },
                                 "nativeDataType": "DOUBLE PRECISION",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -296,6 +328,13 @@
                                 },
                                 "nativeDataType": "DOUBLE PRECISION",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -308,6 +347,13 @@
                                 },
                                 "nativeDataType": "DOUBLE PRECISION",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -320,6 +366,13 @@
                                 },
                                 "nativeDataType": "VARCHAR(100)",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             }
                         ]
@@ -330,7 +383,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -348,7 +401,46 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Hypertable",
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:hypertable"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -373,7 +465,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -389,7 +481,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -486,7 +578,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -504,7 +596,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -529,7 +621,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -545,7 +637,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -561,7 +653,16 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
+                        "customProperties": {
+                            "is_hypertable": "true",
+                            "num_dimensions": "1",
+                            "num_chunks": "73",
+                            "compression_enabled": "True",
+                            "dimension_0_column": "time",
+                            "dimension_0_type": "timestamp with time zone",
+                            "dimension_0_interval": "01:00:00",
+                            "retention_period": "14 days"
+                        },
                         "name": "system_metrics",
                         "tags": []
                     }
@@ -596,6 +697,13 @@
                                 },
                                 "nativeDataType": "TIMESTAMP WITH TIME ZONE",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -608,6 +716,13 @@
                                 },
                                 "nativeDataType": "VARCHAR(100)",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -620,6 +735,13 @@
                                 },
                                 "nativeDataType": "DOUBLE PRECISION",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -632,6 +754,13 @@
                                 },
                                 "nativeDataType": "DOUBLE PRECISION",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -644,6 +773,13 @@
                                 },
                                 "nativeDataType": "BIGINT",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -656,6 +792,13 @@
                                 },
                                 "nativeDataType": "BIGINT",
                                 "recursive": false,
+                                "globalTags": {
+                                    "tags": [
+                                        {
+                                            "tag": "urn:li:tag:hypertable"
+                                        }
+                                    ]
+                                },
                                 "isPartOfKey": false
                             }
                         ]
@@ -666,7 +809,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -684,7 +827,46 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Hypertable",
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_metrics,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:hypertable"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -709,7 +891,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -725,7 +907,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -849,7 +1031,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -867,7 +1049,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -885,7 +1067,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -910,7 +1092,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -926,7 +1108,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -943,6 +1125,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "is_continuous_aggregate": "true",
+                            "materialized_only": "True",
+                            "compression_enabled": "False",
+                            "source_hypertable": "public.sensor_data",
                             "is_view": "True",
                             "view_definition": " SELECT _materialized_hypertable_3.hour,\n    _materialized_hypertable_3.device_id,\n    _materialized_hypertable_3.location,\n    _materialized_hypertable_3.avg_temperature,\n    _materialized_hypertable_3.max_temperature,\n    _materialized_hypertable_3.min_temperature,\n    _materialized_hypertable_3.avg_humidity,\n    _materialized_hypertable_3.avg_pressure,\n    _materialized_hypertable_3.sample_count\n   FROM _timescaledb_internal._materialized_hypertable_3;"
                         },
@@ -1086,7 +1272,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1104,7 +1290,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1122,7 +1308,66 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_hourly_avg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Continuous Aggregate",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_hourly_avg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "materialized": "true",
+                "continuous_aggregate": "true"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_hourly_avg,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:continuous_aggregate"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1147,7 +1392,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1163,7 +1408,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1180,6 +1425,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "is_continuous_aggregate": "true",
+                            "materialized_only": "True",
+                            "compression_enabled": "False",
+                            "source_hypertable": "public.system_metrics",
                             "is_view": "True",
                             "view_definition": " SELECT _materialized_hypertable_4.day,\n    _materialized_hypertable_4.host,\n    _materialized_hypertable_4.avg_cpu,\n    _materialized_hypertable_4.max_cpu,\n    _materialized_hypertable_4.avg_memory,\n    _materialized_hypertable_4.total_disk_io,\n    _materialized_hypertable_4.total_network_io\n   FROM _timescaledb_internal._materialized_hypertable_4;"
                         },
@@ -1299,7 +1548,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1317,7 +1566,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1335,7 +1584,66 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_daily_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Continuous Aggregate",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_daily_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "materialized": "true",
+                "continuous_aggregate": "true"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_daily_stats,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:continuous_aggregate"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1360,7 +1668,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1376,7 +1684,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1393,6 +1701,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "is_continuous_aggregate": "true",
+                            "materialized_only": "True",
+                            "compression_enabled": "False",
+                            "source_hypertable": "public.sensor_data",
                             "is_view": "True",
                             "view_definition": " SELECT _materialized_hypertable_5.hour,\n    _materialized_hypertable_5.location,\n    _materialized_hypertable_5.unique_devices,\n    _materialized_hypertable_5.avg_temp,\n    _materialized_hypertable_5.median_humidity\n   FROM _timescaledb_internal._materialized_hypertable_5;"
                         },
@@ -1488,7 +1800,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1506,7 +1818,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1524,7 +1836,66 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.device_location_hourly,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Continuous Aggregate",
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.device_location_hourly,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "materialized": "true",
+                "continuous_aggregate": "true"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.device_location_hourly,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:continuous_aggregate"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1549,7 +1920,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1565,7 +1936,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1713,7 +2084,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1731,7 +2102,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1749,7 +2120,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1774,7 +2145,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1790,7 +2161,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1914,7 +2285,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1932,7 +2303,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1950,7 +2321,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1975,7 +2346,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1992,7 +2363,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2010,7 +2381,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2026,7 +2397,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2047,7 +2418,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2067,7 +2438,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2085,7 +2456,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2101,7 +2472,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2124,7 +2495,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2149,7 +2520,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2169,7 +2540,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2187,7 +2558,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2203,7 +2574,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2226,7 +2597,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2251,7 +2622,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2271,7 +2642,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2289,7 +2660,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2305,7 +2676,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2328,7 +2699,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2353,7 +2724,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2373,7 +2744,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2391,7 +2762,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2407,7 +2778,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2430,7 +2801,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2455,7 +2826,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2475,7 +2846,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2493,7 +2864,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2509,7 +2880,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2532,7 +2903,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2557,7 +2928,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2577,7 +2948,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2595,7 +2966,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2611,7 +2982,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2634,7 +3005,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2659,7 +3030,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2679,7 +3050,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2697,7 +3068,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2713,7 +3084,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2736,7 +3107,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2761,7 +3132,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2781,7 +3152,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2799,7 +3170,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2815,7 +3186,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2838,7 +3209,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2863,7 +3234,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2883,7 +3254,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2901,7 +3272,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2917,7 +3288,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2940,7 +3311,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2965,7 +3336,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2985,7 +3356,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3003,7 +3374,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3019,7 +3390,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3042,7 +3413,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3067,7 +3438,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3087,7 +3458,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3105,7 +3476,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3121,7 +3492,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3144,7 +3515,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3169,7 +3540,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3189,7 +3560,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3207,7 +3578,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3223,7 +3594,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3246,7 +3617,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3271,7 +3642,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3291,7 +3662,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3309,7 +3680,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3325,7 +3696,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3348,7 +3719,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3373,7 +3744,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3393,7 +3764,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3411,7 +3782,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3427,7 +3798,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3450,7 +3821,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3475,7 +3846,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3495,7 +3866,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3513,7 +3884,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3529,7 +3900,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3552,7 +3923,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3577,7 +3948,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3597,7 +3968,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3615,7 +3986,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3631,7 +4002,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3654,7 +4025,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3679,7 +4050,1126 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "database": "tsdb",
+                "schema": "public",
+                "orchestrator": "timescaledb"
+            },
+            "name": "TimescaleDB Background Jobs (public)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Jobs"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1000",
+                "application_name": "Refresh Continuous Aggregate Policy [1000]",
+                "schedule_interval": "1:00:00",
+                "max_runtime": "0:00:00",
+                "max_retries": "-1",
+                "retry_period": "1:00:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_refresh_continuous_aggregate",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"end_offset\": \"01:00:00\", \"start_offset\": \"03:00:00\", \"mat_hypertable_id\": 3}",
+                "hypertable": "public.sensor_hourly_avg"
+            },
+            "name": "Refresh Continuous Aggregate - sensor_hourly_avg",
+            "description": "Refreshes continuous aggregate materialized data for hypertable 'sensor_hourly_avg' running every 1:00:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_hourly_avg,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1000_sensor_hourly_avg_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1001",
+                "application_name": "Refresh Continuous Aggregate Policy [1001]",
+                "schedule_interval": "1 day, 0:00:00",
+                "max_runtime": "0:00:00",
+                "max_retries": "-1",
+                "retry_period": "1 day, 0:00:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_refresh_continuous_aggregate",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"end_offset\": \"1 day\", \"start_offset\": \"3 days\", \"mat_hypertable_id\": 4}",
+                "hypertable": "public.system_daily_stats"
+            },
+            "name": "Refresh Continuous Aggregate - system_daily_stats",
+            "description": "Refreshes continuous aggregate materialized data for hypertable 'system_daily_stats' running every 1 day, 0:00:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_daily_stats,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_system_daily_stats_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1002",
+                "application_name": "Refresh Continuous Aggregate Policy [1002]",
+                "schedule_interval": "1:00:00",
+                "max_runtime": "0:00:00",
+                "max_retries": "-1",
+                "retry_period": "1:00:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_refresh_continuous_aggregate",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"end_offset\": \"01:00:00\", \"start_offset\": \"04:00:00\", \"mat_hypertable_id\": 5}",
+                "hypertable": "public.device_location_hourly"
+            },
+            "name": "Refresh Continuous Aggregate - device_location_hourly",
+            "description": "Refreshes continuous aggregate materialized data for hypertable 'device_location_hourly' running every 1:00:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.device_location_hourly,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1002_device_location_hourly_policy_refresh_continuous_aggregate)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1003",
+                "application_name": "Columnstore Policy [1003]",
+                "schedule_interval": "12:00:00",
+                "max_runtime": "0:00:00",
+                "max_retries": "-1",
+                "retry_period": "1:00:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_compression",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"hypertable_id\": 1, \"compress_after\": \"7 days\"}",
+                "hypertable": "public.sensor_data"
+            },
+            "name": "Compression Policy - sensor_data",
+            "description": "Compresses hypertable chunks to save storage for hypertable 'sensor_data' running every 12:00:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_data,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_data,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1003_sensor_data_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1004",
+                "application_name": "Retention Policy [1004]",
+                "schedule_interval": "1 day, 0:00:00",
+                "max_runtime": "0:05:00",
+                "max_retries": "-1",
+                "retry_period": "0:05:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_retention",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"drop_after\": \"30 days\", \"hypertable_id\": 1}",
+                "hypertable": "public.sensor_data"
+            },
+            "name": "Data Retention - sensor_data",
+            "description": "Manages data retention by dropping old chunks for hypertable 'sensor_data' running every 1 day, 0:00:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_data,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.sensor_data,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1004_sensor_data_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1005",
+                "application_name": "Columnstore Policy [1005]",
+                "schedule_interval": "0:30:00",
+                "max_runtime": "0:00:00",
+                "max_retries": "-1",
+                "retry_period": "1:00:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_compression",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"hypertable_id\": 2, \"compress_after\": \"3 days\"}",
+                "hypertable": "public.system_metrics"
+            },
+            "name": "Compression Policy - system_metrics",
+            "description": "Compresses hypertable chunks to save storage for hypertable 'system_metrics' running every 0:30:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_metrics,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_metrics,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1005_system_metrics_policy_compression)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "job_id": "1006",
+                "application_name": "Retention Policy [1006]",
+                "schedule_interval": "1 day, 0:00:00",
+                "max_runtime": "0:05:00",
+                "max_retries": "-1",
+                "retry_period": "0:05:00",
+                "proc_schema": "_timescaledb_functions",
+                "proc_name": "policy_retention",
+                "scheduled": "True",
+                "fixed_schedule": "False",
+                "initial_start": "",
+                "config": "{\"drop_after\": \"14 days\", \"hypertable_id\": 2}",
+                "hypertable": "public.system_metrics"
+            },
+            "name": "Data Retention - system_metrics",
+            "description": "Manages data retention by dropping old chunks for hypertable 'system_metrics' running every 1 day, 0:00:00.",
+            "type": {
+                "string": "COMMAND"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Background Job"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:15565829339a965a2cee204fabcba176"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_metrics,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:timescaledb,tsdb.public.system_metrics,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1006_system_metrics_policy_retention)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:32fdef29b06448a3aa175ac61949a261",
+                    "urn": "urn:li:container:32fdef29b06448a3aa175ac61949a261"
+                },
+                {
+                    "id": "urn:li:container:15565829339a965a2cee204fabcba176",
+                    "urn": "urn:li:container:15565829339a965a2cee204fabcba176"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3776,7 +5266,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3805,7 +5295,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3858,7 +5348,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3874,7 +5364,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3984,7 +5474,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4013,7 +5503,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4069,7 +5559,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4085,7 +5575,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4234,7 +5724,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4263,7 +5753,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4337,7 +5827,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4353,7 +5843,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4502,7 +5992,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4531,7 +6021,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4608,7 +6098,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4624,7 +6114,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4734,7 +6224,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4763,7 +6253,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4822,7 +6312,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4838,7 +6328,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4961,7 +6451,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4990,7 +6480,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5055,7 +6545,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5071,7 +6561,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5087,7 +6577,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5103,7 +6593,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5119,7 +6609,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5135,7 +6625,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5151,7 +6641,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5167,7 +6657,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5183,7 +6673,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5199,7 +6689,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5215,7 +6705,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5231,7 +6721,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5247,7 +6737,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5263,7 +6753,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5279,7 +6769,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5295,7 +6785,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5311,7 +6801,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5327,7 +6817,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5343,7 +6833,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5359,7 +6849,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5375,7 +6865,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5391,7 +6881,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5407,7 +6897,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5423,7 +6913,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -5439,7 +6929,39 @@
     },
     "systemMetadata": {
         "lastObserved": 1705312800000,
-        "runId": "timescaledb-2024_01_15-10_00_00-g4l4nb",
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:continuous_aggregate",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "continuous_aggregate"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:hypertable",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "hypertable"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705312800000,
+        "runId": "timescaledb-2024_01_15-10_00_00-46yk3b",
         "lastRunId": "no-run-id-provided"
     }
 }
