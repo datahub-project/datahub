@@ -10,9 +10,8 @@ References:
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
-from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.emitter.mcp_builder import ContainerKey
 
 # Grafana-specific type definitions for better type safety
@@ -25,7 +24,11 @@ GrafanaFieldConfig = Dict[
 GrafanaTransformation = Dict[str, Any]  # Transformations: id, options
 
 
-class DatasourceRef(BaseModel):
+class _GrafanaBaseModel(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+
+class DatasourceRef(_GrafanaBaseModel):
     """Reference to a Grafana datasource."""
 
     type: Optional[str] = None  # Datasource type (prometheus, mysql, postgres, etc.)
@@ -33,7 +36,7 @@ class DatasourceRef(BaseModel):
     name: Optional[str] = None  # Datasource display name
 
 
-class Panel(BaseModel):
+class Panel(_GrafanaBaseModel):
     """Represents a Grafana dashboard panel."""
 
     id: str
@@ -52,7 +55,7 @@ class Panel(BaseModel):
     transformations: List[GrafanaTransformation] = Field(default_factory=list)
 
 
-class Dashboard(BaseModel):
+class Dashboard(_GrafanaBaseModel):
     """Represents a Grafana dashboard."""
 
     uid: str
@@ -100,17 +103,12 @@ class Dashboard(BaseModel):
         return super().parse_obj(dashboard_dict)
 
 
-class Folder(BaseModel):
+class Folder(_GrafanaBaseModel):
     """Represents a Grafana folder."""
 
     id: str
     title: str
     description: Optional[str] = ""
-
-    if PYDANTIC_VERSION_2:
-        from pydantic import ConfigDict
-
-        model_config = ConfigDict(coerce_numbers_to_str=True)  # type: ignore
 
 
 class FolderKey(ContainerKey):
