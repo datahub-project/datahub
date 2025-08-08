@@ -3,6 +3,7 @@ import {
     dictToQueryStringParams,
     encodeComma,
     extractDatasetNameFromUrn,
+    extractPlatformNameFromPlatformUrn,
     getDataProduct,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
@@ -228,5 +229,33 @@ describe('extractDatasetNameFromUrn', () => {
         const urn = ',,,,';
         const result = extractDatasetNameFromUrn(urn);
         expect(result).toBe(urn);
+    });
+});
+
+describe('extractPlatformNameFromPlatformUrn', () => {
+    it('should extract platform name from valid platform URN', () => {
+        const urn = 'urn:li:dataPlatform:mysql';
+        expect(extractPlatformNameFromPlatformUrn(urn)).toBe('mysql');
+    });
+
+    it('should handle platform names with hyphens and underscores', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my-platform')).toBe('my-platform');
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:my_platform')).toBe('my_platform');
+    });
+
+    it('should handle platform names with numbers', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:platform123')).toBe('platform123');
+    });
+
+    it('should return null for invalid platform URNs', () => {
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name)')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:dataPlatform:name,extra')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('urn:li:wrongType:name')).toBeNull();
+    });
+
+    it('should return null for malformed URNs', () => {
+        expect(extractPlatformNameFromPlatformUrn('not:a:valid:urn')).toBeNull();
+        expect(extractPlatformNameFromPlatformUrn('')).toBeNull();
     });
 });
