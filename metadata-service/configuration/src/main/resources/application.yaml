@@ -8,7 +8,7 @@ baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
+  excludedPaths: /schema-registry/*,/health,/health/live,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
