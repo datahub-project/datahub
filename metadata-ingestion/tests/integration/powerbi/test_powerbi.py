@@ -1,31 +1,19 @@
 import datetime
 import json
-import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, Optional, Union
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
 from freezegun import freeze_time
 
-from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.powerbi.config import (
-    Constant,
-    PowerBiDashboardSourceConfig,
-    SupportedDataPlatform,
     PowerBiEnvironment,
 )
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
-from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
-    Page,
-    Report,
-    ReportType,
-    Workspace,
-)
 from datahub.testing import mce_helpers
-from tests.test_helpers import test_connection_helpers
 
 pytestmark = pytest.mark.integration_batch_3
 FROZEN_TIME = "2022-02-03 07:00:00"

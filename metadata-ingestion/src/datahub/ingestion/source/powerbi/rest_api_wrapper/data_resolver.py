@@ -101,14 +101,7 @@ class DataResolverBase(ABC):
         self.BASE_URL = f"{self.MY_ORG_URL}/groups"
         self.ADMIN_BASE_URL = f"{self.MY_ORG_URL}/admin"
         self.AUTHORITY = self._urls["AUTHORITY"]
-
-    def __init__(
-        self,
-        client_id: str,
-        client_secret: str,
-        tenant_id: str,
-        metadata_api_timeout: int,
-    ):
+        
         self._access_token: Optional[str] = None
         self._access_token_expiry_time: Optional[datetime] = None
 
@@ -119,7 +112,7 @@ class DataResolverBase(ABC):
         self._msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
-            authority=DataResolverBase.AUTHORITY + tenant_id,
+            authority=self.AUTHORITY + tenant_id,
         )
         self.get_access_token()
 
@@ -194,7 +187,7 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return f"{DataResolverBase.AUTHORITY}{self._tenant_id}"
+        return f"{self.AUTHORITY}{self._tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
@@ -206,7 +199,7 @@ class DataResolverBase(ABC):
         logger.info("Generating PowerBi access token")
 
         auth_response = self._msal_client.acquire_token_for_client(
-            scopes=[DataResolverBase.SCOPE]
+            scopes=[self.SCOPE]
         )
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
