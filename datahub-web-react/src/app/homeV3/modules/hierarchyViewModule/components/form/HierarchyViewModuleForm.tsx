@@ -1,14 +1,21 @@
 import { Input } from '@components';
-import { Form } from 'antd';
 import React from 'react';
+import styled from 'styled-components';
 
+import FormItem from '@app/homeV3/modules/hierarchyViewModule/components/form/components/FormItem';
 import RelatedEntitiesSection from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/relatedEntities/RelatedEntitiesSection';
 import SelectAssetsSection from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/selectAssets/SelectAssetsSection';
 
+const FormWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+`;
+
 export default function HierarchyViewModuleForm() {
     return (
-        <>
-            <Form.Item
+        <FormWrapper>
+            <FormItem
                 name="name"
                 rules={[
                     {
@@ -18,10 +25,10 @@ export default function HierarchyViewModuleForm() {
                 ]}
             >
                 <Input label="Name" placeholder="Choose a name for your module" isRequired />
-            </Form.Item>
+            </FormItem>
 
             <SelectAssetsSection />
             <RelatedEntitiesSection />
-        </>
+        </FormWrapper>
     );
 }
