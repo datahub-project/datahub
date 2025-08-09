@@ -1120,6 +1120,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Use the repository's get_entity_from_datahub method which handles
         # searching and caching internally - this is the ONLY search we need
+        if self.platform_resource_repository is None:
+            raise ValueError("Platform resource repository not initialized")
         return UnityCatalogTagPlatformResource.get_from_datahub(
             platform_resource_id,
             self.platform_resource_repository,

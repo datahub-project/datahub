@@ -1,5 +1,10 @@
 import logging
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.aws.platform_resource_repository import (
+        GluePlatformResourceRepository,
+    )
 
 from pydantic import BaseModel
 
@@ -7,7 +12,6 @@ from datahub.api.entities.external.external_entities import (
     ExternalEntity,
     ExternalEntityId,
     LinkedResourceSet,
-    PlatformResourceRepository,
 )
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
@@ -34,7 +38,7 @@ class LakeFormationTagSyncContext(BaseModel):
         return self.platform_instance
 
 
-class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
+class LakeFormationTagPlatformResourceId(ExternalEntityId):
     """
     A LakeFormationTag is a unique identifier for a Lakeformation tag.
     """
@@ -65,9 +69,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     def from_tag(
         cls,
         tag: LakeFormationTag,
-        platform_instance: Optional[str],
-        platform_resource_repository: PlatformResourceRepository,
-        catalog: Optional[str] = None,
+        platform_resource_repository: "GluePlatformResourceRepository",
         exists_in_lake_formation: bool = False,
     ) -> "LakeFormationTagPlatformResourceId":
         """
@@ -78,8 +80,8 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
             tag.to_datahub_tag_urn().urn(),
             platform_resource_repository=platform_resource_repository,
             tag_sync_context=LakeFormationTagSyncContext(
-                platform_instance=platform_instance,
-                catalog=catalog,
+                platform_instance=platform_resource_repository.platform_instance,
+                catalog=platform_resource_repository.catalog,
             ),
         )
         if existing_platform_resource:
@@ -91,9 +93,9 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
         return LakeFormationTagPlatformResourceId(
             tag_key=str(tag.key),
             tag_value=str(tag.value) if tag.value is not None else None,
-            platform_instance=platform_instance,
+            platform_instance=platform_resource_repository.platform_instance,
             exists_in_lake_formation=exists_in_lake_formation,
-            catalog=catalog,
+            catalog=platform_resource_repository.catalog,
             persisted=False,
         )
 
@@ -101,7 +103,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     def search_by_urn(
         cls,
         urn: str,
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: "GluePlatformResourceRepository",
         tag_sync_context: LakeFormationTagSyncContext,
     ) -> Optional["LakeFormationTagPlatformResourceId"]:
         mapped_tags = [
@@ -139,10 +141,15 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
                         == tag_sync_context.catalog
                     ):
                         lake_formation_tag_id = lake_formation_tag_platform_resource.id
-                        # Mark that this tag exists in Lake Formation and is persisted
-                        lake_formation_tag_id.exists_in_lake_formation = True
-                        lake_formation_tag_id.persisted = True
-                        return lake_formation_tag_id
+                        # Create a new ID with the correct state instead of mutating
+                        return LakeFormationTagPlatformResourceId(
+                            tag_key=lake_formation_tag_id.tag_key,
+                            tag_value=lake_formation_tag_id.tag_value,
+                            platform_instance=lake_formation_tag_id.platform_instance,
+                            catalog=lake_formation_tag_id.catalog,
+                            exists_in_lake_formation=True,  # This tag exists in Lake Formation
+                            persisted=True,  # And it's persisted in DataHub
+                        )
                 else:
                     logger.warning(
                         f"Platform resource {platform_resource} does not have a resource_info value"
@@ -159,7 +166,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     def from_datahub_urn(
         cls,
         urn: str,
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: "GluePlatformResourceRepository",
         tag_sync_context: LakeFormationTagSyncContext,
     ) -> "LakeFormationTagPlatformResourceId":
         """
@@ -190,8 +197,15 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
                 logger.info(
                     f"Tag {new_tag_id} already exists in platform resource repository with {resource_key}"
                 )
-                # Mark that this tag exists in Lake Formation
-                new_tag_id.exists_in_lake_formation = True
+                # Create a new ID with the correct state instead of mutating
+                return LakeFormationTagPlatformResourceId(
+                    tag_key=new_tag_id.tag_key,
+                    tag_value=new_tag_id.tag_value,
+                    platform_instance=new_tag_id.platform_instance,
+                    catalog=new_tag_id.catalog,
+                    exists_in_lake_formation=True,  # This tag exists in Lake Formation
+                    persisted=new_tag_id.persisted,
+                )
             return new_tag_id
         raise ValueError(f"Unable to create LakeFormationTagId from DataHub URN: {urn}")
 
@@ -224,7 +238,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
 
 
-class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
+class LakeFormationTagPlatformResource(ExternalEntity):
     datahub_urns: LinkedResourceSet
     managed_by_datahub: bool
     id: LakeFormationTagPlatformResourceId
@@ -247,10 +261,34 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
         )
 
     @classmethod
+    def create_default(
+        cls,
+        entity_id: LakeFormationTagPlatformResourceId,
+        managed_by_datahub: bool,
+    ) -> "LakeFormationTagPlatformResource":
+        """Create a default Lake Formation tag entity when none found in DataHub."""
+        # Create a new entity ID with correct default state instead of mutating
+        default_entity_id = LakeFormationTagPlatformResourceId(
+            tag_key=entity_id.tag_key,
+            tag_value=entity_id.tag_value,
+            platform_instance=entity_id.platform_instance,
+            catalog=entity_id.catalog,
+            exists_in_lake_formation=False,  # New entities don't exist in Lake Formation yet
+            persisted=False,  # New entities are not persisted yet
+        )
+
+        return cls(
+            id=default_entity_id,
+            datahub_urns=LinkedResourceSet(urns=[]),
+            managed_by_datahub=managed_by_datahub,
+            allowed_values=None,
+        )
+
+    @classmethod
     def get_from_datahub(
         cls,
         lake_formation_tag_id: LakeFormationTagPlatformResourceId,
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: "GluePlatformResourceRepository",
         managed_by_datahub: bool = False,
     ) -> "LakeFormationTagPlatformResource":
         """

@@ -122,9 +122,7 @@ class TestLakeFormationTagPlatformResourceId:
         ):
             result = LakeFormationTagPlatformResourceId.from_tag(
                 tag=mock_tag,
-                platform_instance="test_instance",
                 platform_resource_repository=mock_repo,
-                catalog="test_catalog",
             )
 
         assert result.tag_key == "test_key"
@@ -160,9 +158,7 @@ class TestLakeFormationTagPlatformResourceId:
         ):
             result = LakeFormationTagPlatformResourceId.from_tag(
                 tag=mock_tag,
-                platform_instance="test_instance",
                 platform_resource_repository=mock_repo,
-                catalog="test_catalog",
             )
 
         assert result == existing_resource

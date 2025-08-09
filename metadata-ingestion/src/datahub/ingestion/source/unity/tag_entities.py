@@ -1,5 +1,10 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unity.platform_resource_repository import (
+        UnityCatalogPlatformResourceRepository,
+    )
 
 from pydantic import BaseModel
 
@@ -27,13 +32,13 @@ logger = logging.getLogger(__name__)
 
 
 def get_unity_catalog_tag_cache_info(
-    platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
+    platform_resource_repository: "UnityCatalogPlatformResourceRepository",
 ) -> Dict[str, Dict[str, int]]:
     """Get cache statistics for Unity Catalog tag operations."""
     return platform_resource_repository.get_entity_cache_info()
 
 
-class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
+class UnityCatalogTagPlatformResourceId(ExternalEntityId):
     """
     A Unity Catalog tag platform resource ID.
     """
@@ -61,8 +66,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
     def from_tag(
         cls,
         tag: UnityCatalogTag,
-        platform_instance: Optional[str],
-        platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
+        platform_resource_repository: "UnityCatalogPlatformResourceRepository",
         exists_in_unity_catalog: bool = False,
     ) -> "UnityCatalogTagPlatformResourceId":
         """
@@ -72,7 +76,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         existing_platform_resource = platform_resource_repository.search_entity_by_urn(
             tag.to_datahub_tag_urn().urn(),
             sync_context=UnityCatalogTagSyncContext(
-                platform_instance=platform_instance
+                platform_instance=platform_resource_repository.platform_instance
             ),
         )
         if existing_platform_resource:
@@ -84,7 +88,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         return UnityCatalogTagPlatformResourceId(
             tag_key=tag.key.raw_text,
             tag_value=tag.value.raw_text if tag.value is not None else None,
-            platform_instance=platform_instance,
+            platform_instance=platform_resource_repository.platform_instance,
             exists_in_unity_catalog=exists_in_unity_catalog,
             persisted=False,
         )
@@ -94,7 +98,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         cls,
         urn: str,
         tag_sync_context: UnityCatalogTagSyncContext,
-        platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
+        platform_resource_repository: "UnityCatalogPlatformResourceRepository",
         graph: DataHubGraph,
     ) -> "UnityCatalogTagPlatformResourceId":
         """
@@ -112,8 +116,14 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
                 new_unity_catalog_tag_id.to_platform_resource_key()
             )
             if resource_key:
-                # Mark that this tag exists in Unity Catalog
-                new_unity_catalog_tag_id.exists_in_unity_catalog = True
+                # Create a new ID with the correct state instead of mutating
+                return UnityCatalogTagPlatformResourceId(
+                    tag_key=new_unity_catalog_tag_id.tag_key,
+                    tag_value=new_unity_catalog_tag_id.tag_value,
+                    platform_instance=new_unity_catalog_tag_id.platform_instance,
+                    exists_in_unity_catalog=True,  # This tag exists in Unity Catalog
+                    persisted=new_unity_catalog_tag_id.persisted,
+                )
             return new_unity_catalog_tag_id
         raise ValueError(
             f"Unable to create Unity Catalog tag ID from DataHub URN: {urn}"
@@ -146,7 +156,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
 
 
-class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
+class UnityCatalogTagPlatformResource(ExternalEntity):
     datahub_urns: LinkedResourceSet
     managed_by_datahub: bool
     id: UnityCatalogTagPlatformResourceId
@@ -169,10 +179,33 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
         )
 
     @classmethod
+    def create_default(
+        cls,
+        entity_id: UnityCatalogTagPlatformResourceId,
+        managed_by_datahub: bool,
+    ) -> "UnityCatalogTagPlatformResource":
+        """Create a default Unity Catalog tag entity when none found in DataHub."""
+        # Create a new entity ID with correct default state instead of mutating
+        default_entity_id = UnityCatalogTagPlatformResourceId(
+            tag_key=entity_id.tag_key,
+            tag_value=entity_id.tag_value,
+            platform_instance=entity_id.platform_instance,
+            exists_in_unity_catalog=False,  # New entities don't exist in Unity Catalog yet
+            persisted=False,  # New entities are not persisted yet
+        )
+
+        return cls(
+            id=default_entity_id,
+            datahub_urns=LinkedResourceSet(urns=[]),
+            managed_by_datahub=managed_by_datahub,
+            allowed_values=None,
+        )
+
+    @classmethod
     def get_from_datahub(
         cls,
         unity_catalog_tag_id: UnityCatalogTagPlatformResourceId,
-        platform_resource_repository: Any,  # UnityCatalogPlatformResourceRepository - avoiding circular import
+        platform_resource_repository: "UnityCatalogPlatformResourceRepository",
         managed_by_datahub: bool = False,
     ) -> "UnityCatalogTagPlatformResource":
         """Get Unity Catalog tag platform resource from DataHub with caching."""

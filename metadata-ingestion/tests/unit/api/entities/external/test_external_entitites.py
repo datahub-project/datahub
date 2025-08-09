@@ -3,30 +3,33 @@ from unittest.mock import Mock, PropertyMock, patch
 
 import cachetools
 import pytest
-from pydantic import BaseModel
 
 # Import the classes from your module
 from datahub.api.entities.external.external_entities import (
     CaseSensitivity,
     ExternalEntityId,
-    GenericPlatformResource,
-    GenericPlatformResourceRepository,
     LinkedResourceSet,
     MissingExternalEntity,
-    PlatformResourceRepository,
 )
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
 )
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.unity.platform_resource_repository import (
+    UnityCatalogPlatformResourceRepository,
+)
+from datahub.ingestion.source.unity.tag_entities import (
+    UnityCatalogTagPlatformResource,
+    UnityCatalogTagPlatformResourceId,
+)
 from datahub.metadata.urns import PlatformResourceUrn, Urn
 from datahub.utilities.search_utils import ElasticDocumentQuery
 from datahub.utilities.urns.error import InvalidUrnError
 
 
 class TestPlatformResourceRepository:
-    """Tests for PlatformResourceRepository class."""
+    """Tests for PlatformResourceRepository class using Unity Catalog implementation."""
 
     @pytest.fixture
     def mock_graph(self) -> Mock:
@@ -34,20 +37,21 @@ class TestPlatformResourceRepository:
         return Mock(spec=DataHubGraph)
 
     @pytest.fixture
-    def repository(self, mock_graph: Mock) -> GenericPlatformResourceRepository:
-        """Create a GenericPlatformResourceRepository instance."""
-        return GenericPlatformResourceRepository(mock_graph)
+    def repository(self, mock_graph: Mock) -> UnityCatalogPlatformResourceRepository:
+        """Create a UnityCatalogPlatformResourceRepository instance."""
+        return UnityCatalogPlatformResourceRepository(mock_graph)
 
     @pytest.fixture
     def mock_platform_resource(self) -> Mock:
         """Create a mock PlatformResource."""
         resource: Mock = Mock(spec=PlatformResource)
         resource.id = "test-resource-id"
+        resource.resource_info = None  # Simulate no resource_info for simple test
         return resource
 
     def test_init(self, mock_graph: Mock) -> None:
         """Test repository initialization."""
-        repo = GenericPlatformResourceRepository(mock_graph)
+        repo = UnityCatalogPlatformResourceRepository(mock_graph)
         assert repo.graph == mock_graph
         assert isinstance(repo.entity_id_cache, cachetools.LRUCache)
         assert isinstance(repo.entity_object_cache, cachetools.LRUCache)
@@ -60,7 +64,7 @@ class TestPlatformResourceRepository:
     def test_search_by_filter_with_cache(
         self,
         mock_search: Mock,
-        repository: PlatformResourceRepository,
+        repository: UnityCatalogPlatformResourceRepository,
         mock_platform_resource: Mock,
     ) -> None:
         """Test search_by_filter with caching enabled."""
@@ -83,7 +87,7 @@ class TestPlatformResourceRepository:
     def test_search_by_filter_without_cache(
         self,
         mock_search: Mock,
-        repository: PlatformResourceRepository,
+        repository: UnityCatalogPlatformResourceRepository,
         mock_platform_resource: Mock,
     ) -> None:
         """Test search_by_filter with caching disabled."""
@@ -98,7 +102,9 @@ class TestPlatformResourceRepository:
         mock_search.assert_called_once_with(repository.graph, mock_filter)
 
     def test_create(
-        self, repository: PlatformResourceRepository, mock_platform_resource: Mock
+        self,
+        repository: UnityCatalogPlatformResourceRepository,
+        mock_platform_resource: Mock,
     ) -> None:
         """Test create method."""
         repository.create(mock_platform_resource)
@@ -109,7 +115,9 @@ class TestPlatformResourceRepository:
             == mock_platform_resource
         )
 
-    def test_get_existing(self, repository: PlatformResourceRepository) -> None:
+    def test_get_existing(
+        self, repository: UnityCatalogPlatformResourceRepository
+    ) -> None:
         """Test get method for existing resource."""
         mock_platform_resource_key: PlatformResourceKey = PlatformResourceKey(
             platform="test-platform",
@@ -130,7 +138,9 @@ class TestPlatformResourceRepository:
 
         assert result == mock_platform_resource
 
-    def test_get_non_existing(self, repository: PlatformResourceRepository) -> None:
+    def test_get_non_existing(
+        self, repository: UnityCatalogPlatformResourceRepository
+    ) -> None:
         """Test get method for non-existing resource."""
         mock_platform_resource_key: PlatformResourceKey = PlatformResourceKey(
             platform="test-platform",
@@ -143,7 +153,7 @@ class TestPlatformResourceRepository:
 
         assert result is None
 
-    def test_delete(self, repository: PlatformResourceRepository) -> None:
+    def test_delete(self, repository: UnityCatalogPlatformResourceRepository) -> None:
         """Test delete method."""
         mock_platform_resource_key: PlatformResourceKey = PlatformResourceKey(
             platform="test-platform",
@@ -167,6 +177,41 @@ class TestPlatformResourceRepository:
             urn=PlatformResourceUrn(mock_platform_resource.id).urn(), hard=True
         )
         assert mock_platform_resource_key.id not in repository.entity_object_cache
+
+    def test_get_resource_type(
+        self, repository: UnityCatalogPlatformResourceRepository
+    ) -> None:
+        """Test get_resource_type returns Unity Catalog resource type."""
+        result = repository.get_resource_type()
+        assert result == "UnityCatalogTagPlatformResource"
+
+    def test_create_default_entity(
+        self, repository: UnityCatalogPlatformResourceRepository
+    ) -> None:
+        """Test create_default_entity method."""
+        entity_id = UnityCatalogTagPlatformResourceId(
+            tag_key="test-key",
+            tag_value="test-value",
+            platform_instance="test-instance",
+        )
+        result = repository.create_default_entity(entity_id, True)
+
+        assert isinstance(result, UnityCatalogTagPlatformResource)
+        assert result.id == entity_id
+        assert result.managed_by_datahub is True
+        assert isinstance(result.datahub_urns, LinkedResourceSet)
+        assert result.datahub_urns.urns == []
+
+    def test_extract_platform_instance(
+        self, repository: UnityCatalogPlatformResourceRepository
+    ) -> None:
+        """Test extract_platform_instance method."""
+        sync_context = Mock()
+        sync_context.platform_instance = "test-instance"
+        result = repository.extract_platform_instance(sync_context)
+        assert (
+            result is None
+        )  # Unity Catalog repository returns its own platform_instance, which is None in this case
 
 
 class TestCaseSensitivity:
@@ -223,17 +268,6 @@ class TestLinkedResourceSet:
         return LinkedResourceSet(urns=[])
 
     @pytest.fixture
-    def mock_urn(self) -> Mock:
-        """Create a mock URN."""
-        urn: Mock = Mock(spec=Urn)
-        urn.urn.return_value = (
-            "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
-        )
-        urn.entity_type = "dataset"
-        urn.get_entity_id_as_string.return_value = "test.table"
-        return urn
-
-    @pytest.fixture
     def populated_resource_set(self) -> LinkedResourceSet:
         """Create a LinkedResourceSet with some URNs."""
         return LinkedResourceSet(
@@ -260,10 +294,12 @@ class TestLinkedResourceSet:
     ) -> None:
         """Test _has_conflict with different entity types."""
         # Setup existing URN
-        empty_resource_set.urns = ["urn:li:tag2:test"]
+        empty_resource_set.urns = ["urn:li:tag:test"]
 
         # New URN with different entity type
-        new_urn: Urn = Urn.from_string("urn:li:tag:test")
+        new_urn: Urn = Urn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
+        )
 
         result: bool = empty_resource_set._has_conflict(new_urn)
 
@@ -352,11 +388,9 @@ class TestLinkedResourceSet:
         empty_resource_set.urns = [
             "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
         ]
-        result: bool = empty_resource_set._has_conflict(
-            Urn.from_string("urn:li:tag:myTag")
-        )
 
-        assert result is True  # Conflict detected
+        with pytest.raises(ValueError, match="Conflict detected"):
+            empty_resource_set.add("urn:li:tag:myTag")
 
     def test_add_deduplicates_urns(self, empty_resource_set: LinkedResourceSet) -> None:
         """Test that add method deduplicates existing URNs."""
@@ -383,12 +417,16 @@ class TestMissingExternalEntity:
     """Tests for MissingExternalEntity class."""
 
     @pytest.fixture
-    def mock_external_entity_id(self) -> Mock:
-        """Create a mock ExternalEntityId."""
-        return Mock(spec=ExternalEntityId)
+    def mock_external_entity_id(self) -> ExternalEntityId:
+        """Create a concrete ExternalEntityId for testing."""
+        return MockExternalEntityId(
+            primary_key="test-key", platform_instance="test-instance"
+        )
 
     @pytest.fixture
-    def missing_entity(self, mock_external_entity_id: Mock) -> MissingExternalEntity:
+    def missing_entity(
+        self, mock_external_entity_id: ExternalEntityId
+    ) -> MissingExternalEntity:
         """Create a MissingExternalEntity instance."""
         return MissingExternalEntity(id=mock_external_entity_id)
 
@@ -411,78 +449,13 @@ class TestMissingExternalEntity:
         assert result is None
 
     def test_get_id(
-        self, missing_entity: MissingExternalEntity, mock_external_entity_id: Mock
+        self,
+        missing_entity: MissingExternalEntity,
+        mock_external_entity_id: ExternalEntityId,
     ) -> None:
         """Test get_id returns the correct id."""
         result: ExternalEntityId = missing_entity.get_id()
         assert result == mock_external_entity_id
-
-
-class TestIntegration:
-    """Integration tests combining multiple classes."""
-
-    @pytest.fixture
-    def mock_graph(self) -> Mock:
-        return Mock(spec=DataHubGraph)
-
-    @pytest.fixture
-    def repository(self, mock_graph: Mock) -> GenericPlatformResourceRepository:
-        return GenericPlatformResourceRepository(mock_graph)
-
-    def test_repository_with_linked_resource_set(
-        self, repository: PlatformResourceRepository
-    ) -> None:
-        """Test repository operations with LinkedResourceSet."""
-        # Create a mock platform resource with linked URNs
-        mock_resource: Mock = Mock(spec=PlatformResource)
-        mock_resource.id = "test-resource"
-
-        # Test create and cache
-        repository.create(mock_resource)
-        assert repository.entity_object_cache["test-resource"] == mock_resource
-
-    def test_case_sensitivity_with_linked_resources(self) -> None:
-        """Test case sensitivity detection with LinkedResourceSet."""
-        # Test with mixed case detection
-        test_values: List[str] = ["TABLE1", "table2", "Table3"]
-        result: CaseSensitivity = CaseSensitivity.detect_for_many(test_values)
-        assert result == CaseSensitivity.MIXED
-
-
-# Additional edge case tests
-class TestEdgeCases:
-    """Tests for edge cases and error conditions."""
-
-    def test_cache_ttl_expiration(self) -> None:
-        """Test that cache TTL works correctly."""
-        mock_graph: Mock = Mock(spec=DataHubGraph)
-        repo: GenericPlatformResourceRepository = GenericPlatformResourceRepository(
-            mock_graph
-        )
-
-        # Add item to cache
-        repo.entity_object_cache["test-key"] = "test-value"
-        assert "test-key" in repo.entity_object_cache
-
-        # Cache should still contain the item within TTL
-        cached_value: Optional[str] = repo.entity_object_cache.get("test-key")
-        assert cached_value == "test-value"
-
-    def test_linked_resource_set_with_empty_urns(self) -> None:
-        """Test LinkedResourceSet behavior with empty URN list."""
-        test_urn: str = "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
-        resource_set: LinkedResourceSet = LinkedResourceSet(urns=[])
-
-        result: bool = resource_set.add(test_urn)
-
-        assert result is True
-        assert test_urn in resource_set.urns
-
-    def test_case_sensitivity_enum_values(self) -> None:
-        """Test CaseSensitivity enum values."""
-        assert CaseSensitivity.UPPER.value == "upper"
-        assert CaseSensitivity.LOWER.value == "lower"
-        assert CaseSensitivity.MIXED.value == "mixed"
 
 
 class TestExternalEntityId:
@@ -492,14 +465,16 @@ class TestExternalEntityId:
         """Test that ExternalEntityId cannot be instantiated directly."""
         # ExternalEntityId doesn't have __init__ defined, so we test through inheritance
         assert hasattr(ExternalEntityId, "to_platform_resource_key")
-        assert hasattr(ExternalEntityId, "platform_instance")
+        # platform_instance is a Pydantic field, check it exists in the model fields
+        assert "platform_instance" in ExternalEntityId.__fields__
 
 
-class MockExternalEntityId(BaseModel, ExternalEntityId):
+class MockExternalEntityId(ExternalEntityId):
     """Concrete implementation of ExternalEntityId for testing."""
 
     primary_key: str
     platform_instance: Optional[str] = None
+    persisted: bool = False
 
     def to_platform_resource_key(self) -> PlatformResourceKey:
         return PlatformResourceKey(
@@ -510,18 +485,22 @@ class MockExternalEntityId(BaseModel, ExternalEntityId):
         )
 
 
-class TestGenericPlatformResource:
-    """Tests for GenericPlatformResource class."""
+class TestUnityCatalogTagPlatformResource:
+    """Tests for UnityCatalogTagPlatformResource class."""
 
     @pytest.fixture
-    def external_entity_id(self) -> MockExternalEntityId:
-        return MockExternalEntityId(primary_key="test-primary-key")
+    def external_entity_id(self) -> UnityCatalogTagPlatformResourceId:
+        return UnityCatalogTagPlatformResourceId(
+            tag_key="test-key",
+            tag_value="test-value",
+            platform_instance="test-instance",
+        )
 
     @pytest.fixture
-    def generic_resource(
-        self, external_entity_id: MockExternalEntityId
-    ) -> GenericPlatformResource:
-        return GenericPlatformResource(
+    def unity_resource(
+        self, external_entity_id: UnityCatalogTagPlatformResourceId
+    ) -> UnityCatalogTagPlatformResource:
+        return UnityCatalogTagPlatformResource(
             id=external_entity_id,
             datahub_urns=LinkedResourceSet(urns=[]),
             managed_by_datahub=False,
@@ -529,23 +508,23 @@ class TestGenericPlatformResource:
 
     def test_get_id(
         self,
-        generic_resource: GenericPlatformResource,
-        external_entity_id: MockExternalEntityId,
+        unity_resource: UnityCatalogTagPlatformResource,
+        external_entity_id: UnityCatalogTagPlatformResourceId,
     ) -> None:
         """Test get_id method."""
-        assert generic_resource.get_id() == external_entity_id
+        assert unity_resource.get_id() == external_entity_id
 
     def test_is_managed_by_datahub_false(
-        self, generic_resource: GenericPlatformResource
+        self, unity_resource: UnityCatalogTagPlatformResource
     ) -> None:
         """Test is_managed_by_datahub when False."""
-        assert generic_resource.is_managed_by_datahub() is False
+        assert unity_resource.is_managed_by_datahub() is False
 
     def test_is_managed_by_datahub_true(
-        self, external_entity_id: MockExternalEntityId
+        self, external_entity_id: UnityCatalogTagPlatformResourceId
     ) -> None:
         """Test is_managed_by_datahub when True."""
-        resource = GenericPlatformResource(
+        resource = UnityCatalogTagPlatformResource(
             id=external_entity_id,
             datahub_urns=LinkedResourceSet(urns=[]),
             managed_by_datahub=True,
@@ -553,38 +532,26 @@ class TestGenericPlatformResource:
         assert resource.is_managed_by_datahub() is True
 
     def test_datahub_linked_resources(
-        self, generic_resource: GenericPlatformResource
+        self, unity_resource: UnityCatalogTagPlatformResource
     ) -> None:
         """Test datahub_linked_resources method."""
-        linked_resources = generic_resource.datahub_linked_resources()
+        linked_resources = unity_resource.datahub_linked_resources()
         assert isinstance(linked_resources, LinkedResourceSet)
         assert linked_resources.urns == []
 
     def test_as_platform_resource(
         self,
-        generic_resource: GenericPlatformResource,
-        external_entity_id: MockExternalEntityId,
+        unity_resource: UnityCatalogTagPlatformResource,
+        external_entity_id: UnityCatalogTagPlatformResourceId,
     ) -> None:
         """Test as_platform_resource method."""
-        platform_resource = generic_resource.as_platform_resource()
+        platform_resource = unity_resource.as_platform_resource()
         assert isinstance(platform_resource, PlatformResource)
         assert platform_resource.id == external_entity_id.to_platform_resource_key().id
         assert platform_resource.resource_info is not None
         assert (
             platform_resource.resource_info.secondary_keys == []
         )  # Empty URNs should result in empty secondary_keys
-
-    def test_config_allows_arbitrary_types(
-        self, external_entity_id: MockExternalEntityId
-    ) -> None:
-        """Test that Config allows arbitrary types."""
-        # This should not raise an error due to arbitrary_types_allowed = True
-        resource = GenericPlatformResource(
-            id=external_entity_id,
-            datahub_urns=LinkedResourceSet(urns=[]),
-            managed_by_datahub=False,
-        )
-        assert resource is not None
 
 
 class MockSyncContext:
@@ -602,94 +569,11 @@ class TestPlatformResourceRepositoryAdvanced:
         return Mock(spec=DataHubGraph)
 
     @pytest.fixture
-    def repository(self, mock_graph: Mock) -> GenericPlatformResourceRepository:
-        return GenericPlatformResourceRepository(mock_graph)
-
-    def test_search_entity_by_urn_cache_hit(
-        self, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test search_entity_by_urn with cache hit."""
-        sync_context = MockSyncContext("test-instance")
-        test_urn = "urn:li:tag:test"
-        cache_key = f"search_urn:GenericPlatformResource:{test_urn}:test-instance"
-
-        # Pre-populate cache
-        expected_result = MockExternalEntityId(primary_key="cached-result")
-        repository.entity_id_cache[cache_key] = expected_result
-
-        result = repository.search_entity_by_urn(test_urn, sync_context)
-
-        assert result == expected_result
-        assert repository.entity_id_cache_hits == 1
-        assert repository.entity_id_cache_misses == 0
-
-    @patch(
-        "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
-    )
-    def test_search_entity_by_urn_cache_miss(
-        self, mock_search: Mock, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test search_entity_by_urn with cache miss and no results."""
-        sync_context = MockSyncContext("test-instance")
-        test_urn = "urn:li:tag:test"
-        mock_search.return_value = []
-
-        result = repository.search_entity_by_urn(test_urn, sync_context)
-
-        assert result is None
-        assert repository.entity_id_cache_hits == 0
-        assert repository.entity_id_cache_misses == 1
-        # Result should be cached even when None
-        cache_key = f"search_urn:GenericPlatformResource:{test_urn}:test-instance"
-        assert repository.entity_id_cache[cache_key] is None
-
-    @patch(
-        "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
-    )
-    def test_get_entity_from_datahub_cache_hit(
-        self, mock_search: Mock, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test get_entity_from_datahub with cache hit."""
-        entity_id = MockExternalEntityId(
-            primary_key="test-key", platform_instance="test-instance"
-        )
-        cache_key = "GenericPlatformResource:test-key:test-instance"
-        expected_result = GenericPlatformResource(
-            id=entity_id,
-            datahub_urns=LinkedResourceSet(urns=[]),
-            managed_by_datahub=False,
-        )
-        repository.entity_object_cache[cache_key] = expected_result
-
-        result = repository.get_entity_from_datahub(entity_id, False)
-
-        assert result == expected_result
-        assert repository.entity_object_cache_hits == 1
-        assert repository.entity_object_cache_misses == 0
-        # Should not call search since we hit cache
-        mock_search.assert_not_called()
-
-    @patch(
-        "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
-    )
-    def test_get_entity_from_datahub_creates_default_when_not_found(
-        self, mock_search: Mock, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test get_entity_from_datahub creates default entity when not found."""
-        entity_id = MockExternalEntityId(
-            primary_key="test-key", platform_instance="test-instance"
-        )
-        mock_search.return_value = []
-
-        result = repository.get_entity_from_datahub(entity_id, True)
-
-        assert isinstance(result, GenericPlatformResource)
-        assert result.id == entity_id
-        assert result.managed_by_datahub is True
-        assert repository.entity_object_cache_misses == 1
+    def repository(self, mock_graph: Mock) -> UnityCatalogPlatformResourceRepository:
+        return UnityCatalogPlatformResourceRepository(mock_graph)
 
     def test_get_entity_cache_info(
-        self, repository: GenericPlatformResourceRepository
+        self, repository: UnityCatalogPlatformResourceRepository
     ) -> None:
         """Test get_entity_cache_info method."""
         # Simulate some cache activity
@@ -710,79 +594,6 @@ class TestPlatformResourceRepositoryAdvanced:
         assert cache_info["get_from_datahub_cache"]["misses"] == 2
         assert cache_info["get_from_datahub_cache"]["current_size"] == 1
         assert cache_info["get_from_datahub_cache"]["max_size"] == 1000
-
-
-class TestGenericPlatformResourceRepositoryMethods:
-    """Test specific methods of GenericPlatformResourceRepository."""
-
-    @pytest.fixture
-    def mock_graph(self) -> Mock:
-        return Mock(spec=DataHubGraph)
-
-    @pytest.fixture
-    def repository(self, mock_graph: Mock) -> GenericPlatformResourceRepository:
-        return GenericPlatformResourceRepository(mock_graph, "CustomResourceType")
-
-    def test_custom_resource_type(
-        self, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test repository with custom resource type."""
-        assert repository.get_resource_type() == "CustomResourceType"
-
-    def test_default_resource_type(self, mock_graph: Mock) -> None:
-        """Test repository with default resource type."""
-        repo = GenericPlatformResourceRepository(mock_graph)
-        assert repo.get_resource_type() == "GenericPlatformResource"
-
-    def test_get_entity_class(
-        self, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test get_entity_class returns GenericPlatformResource."""
-        assert repository.get_entity_class() == GenericPlatformResource
-
-    def test_create_default_entity(
-        self, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test create_default_entity method."""
-        entity_id = MockExternalEntityId(primary_key="test-key")
-        result = repository.create_default_entity(entity_id, True)
-
-        assert isinstance(result, GenericPlatformResource)
-        assert result.id == entity_id
-        assert result.managed_by_datahub is True
-        assert isinstance(result.datahub_urns, LinkedResourceSet)
-        assert result.datahub_urns.urns == []
-
-    def test_extract_platform_instance(
-        self, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test extract_platform_instance method."""
-        sync_context = MockSyncContext("test-instance")
-        result = repository.extract_platform_instance(sync_context)
-        assert result == "test-instance"
-
-    def test_configure_entity_for_return(
-        self, repository: GenericPlatformResourceRepository
-    ) -> None:
-        """Test configure_entity_for_return method."""
-        entity_id = MockExternalEntityId(primary_key="test-key")
-        result = repository.configure_entity_for_return(entity_id)
-        assert result == entity_id  # Generic implementation returns as-is
-
-
-class TestSyncContextProtocol:
-    """Tests for SyncContext protocol."""
-
-    def test_mock_sync_context_implements_protocol(self) -> None:
-        """Test that MockSyncContext implements SyncContext protocol."""
-        sync_context = MockSyncContext("test-instance")
-
-        # Should be able to access platform_instance attribute
-        assert sync_context.platform_instance == "test-instance"
-
-        # Test with None
-        sync_context_none = MockSyncContext(None)
-        assert sync_context_none.platform_instance is None
 
 
 class TestLinkedResourceSetAdvanced:
@@ -835,3 +646,83 @@ class TestLinkedResourceSetAdvanced:
         assert result is False
         assert resource_set.urns.count("urn:li:tag:test1") == 1
         assert resource_set.urns.count("urn:li:tag:test2") == 1
+
+
+class TestSyncContextProtocol:
+    """Tests for SyncContext protocol."""
+
+    def test_mock_sync_context_implements_protocol(self) -> None:
+        """Test that MockSyncContext implements SyncContext protocol."""
+        sync_context = MockSyncContext("test-instance")
+
+        # Should be able to access platform_instance attribute
+        assert sync_context.platform_instance == "test-instance"
+
+        # Test with None
+        sync_context_none = MockSyncContext(None)
+        assert sync_context_none.platform_instance is None
+
+
+class TestIntegration:
+    """Integration tests combining multiple classes."""
+
+    @pytest.fixture
+    def mock_graph(self) -> Mock:
+        return Mock(spec=DataHubGraph)
+
+    @pytest.fixture
+    def repository(self, mock_graph: Mock) -> UnityCatalogPlatformResourceRepository:
+        return UnityCatalogPlatformResourceRepository(mock_graph)
+
+    def test_repository_with_linked_resource_set(
+        self, repository: UnityCatalogPlatformResourceRepository
+    ) -> None:
+        """Test repository operations with LinkedResourceSet."""
+        # Create a mock platform resource with linked URNs
+        mock_resource: Mock = Mock(spec=PlatformResource)
+        mock_resource.id = "test-resource"
+        mock_resource.resource_info = None  # Simulate no resource_info for simple test
+
+        # Test create and cache
+        repository.create(mock_resource)
+        assert repository.entity_object_cache["test-resource"] == mock_resource
+
+    def test_case_sensitivity_with_linked_resources(self) -> None:
+        """Test case sensitivity detection with LinkedResourceSet."""
+        # Test with mixed case detection
+        test_values: List[str] = ["TABLE1", "table2", "Table3"]
+        result: CaseSensitivity = CaseSensitivity.detect_for_many(test_values)
+        assert result == CaseSensitivity.MIXED
+
+
+class TestEdgeCases:
+    """Tests for edge cases and error conditions."""
+
+    def test_cache_behavior_with_unity_catalog_repository(self) -> None:
+        """Test cache behavior with Unity Catalog repository."""
+        mock_graph: Mock = Mock(spec=DataHubGraph)
+        repo = UnityCatalogPlatformResourceRepository(mock_graph)
+
+        # Add item to cache
+        repo.entity_object_cache["test-key"] = "test-value"
+        assert "test-key" in repo.entity_object_cache
+
+        # Cache should still contain the item
+        cached_value: Optional[str] = repo.entity_object_cache.get("test-key")
+        assert cached_value == "test-value"
+
+    def test_linked_resource_set_with_empty_urns(self) -> None:
+        """Test LinkedResourceSet behavior with empty URN list."""
+        test_urn: str = "urn:li:dataset:(urn:li:dataPlatform:mysql,test.table,PROD)"
+        resource_set: LinkedResourceSet = LinkedResourceSet(urns=[])
+
+        result: bool = resource_set.add(test_urn)
+
+        assert result is True
+        assert test_urn in resource_set.urns
+
+    def test_case_sensitivity_enum_values(self) -> None:
+        """Test CaseSensitivity enum values."""
+        assert CaseSensitivity.UPPER.value == "upper"
+        assert CaseSensitivity.LOWER.value == "lower"
+        assert CaseSensitivity.MIXED.value == "mixed"

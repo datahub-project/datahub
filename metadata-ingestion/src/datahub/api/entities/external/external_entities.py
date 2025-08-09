@@ -1,11 +1,23 @@
 import logging
+import typing
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Protocol, Union
+from typing import (
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import cachetools
 from pydantic import BaseModel
+from typing_extensions import get_original_bases
 
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
@@ -18,6 +30,10 @@ from datahub.utilities.search_utils import ElasticDocumentQuery
 
 logger = logging.getLogger(__name__)
 
+# Type variables for generic repository
+TExternalEntityId = TypeVar("TExternalEntityId", bound="ExternalEntityId")
+TExternalEntity = TypeVar("TExternalEntity", bound="ExternalEntity")
+
 
 class SyncContext(Protocol):
     """Protocol defining the interface for platform-specific sync context objects.
@@ -28,11 +44,19 @@ class SyncContext(Protocol):
     platform_instance: Optional[str]
 
 
-class PlatformResourceRepository(ABC):
+class PlatformResourceRepository(ABC, Generic[TExternalEntityId, TExternalEntity]):
     CACHE_SIZE = 1000
+
+    # Subclasses should override this with their specific entity class
+    entity_class: Type[TExternalEntity]
 
     def __init__(self, graph: DataHubGraph):
         self.graph = graph
+
+        # Extract the entity class from generic type parameters
+        # self.entity_class = typing.get_args(self.__class__.__orig_bases__[0])[1]
+        self.entity_class = typing.get_args(get_original_bases(self.__class__)[0])[1]
+
         # Two main caches for different data types
         self.entity_id_cache: cachetools.LRUCache = cachetools.LRUCache(
             maxsize=PlatformResourceRepository.CACHE_SIZE
@@ -61,6 +85,44 @@ class PlatformResourceRepository(ABC):
 
     def create(self, platform_resource: PlatformResource) -> None:
         platform_resource.to_datahub(self.graph)
+
+        # Update cache with an entity that has correct flags after ingestion
+        if platform_resource.resource_info and platform_resource.resource_info.value:
+            # Extract the original entity from the serialized resource value
+            try:
+                entity_obj = platform_resource.resource_info.value.as_pydantic_object(
+                    self.entity_class
+                )
+                entity = self.entity_class(**entity_obj.dict())
+
+                # Create updated entity ID with persisted=True
+                entity_id = entity.get_id()
+                if hasattr(entity_id, "dict"):
+                    entity_id_data = entity_id.dict()
+                    entity_id_data["persisted"] = True
+
+                    # Create new entity ID with updated flags
+                    updated_entity_id = type(entity_id)(**entity_id_data)
+
+                    # Update the entity with the new ID (immutable update)
+                    entity_data = entity.dict()  # type: ignore[attr-defined]
+                    entity_data["id"] = updated_entity_id
+                    updated_entity = type(entity)(**entity_data)
+
+                    # Cache the updated entity for the key that get_entity_from_datahub uses
+                    primary_key = (
+                        updated_entity_id.to_platform_resource_key().primary_key
+                    )
+                    platform_instance = updated_entity_id.platform_instance
+                    cache_key = (
+                        f"{self.get_resource_type()}:{primary_key}:{platform_instance}"
+                    )
+                    self.entity_object_cache[cache_key] = updated_entity
+            except Exception:
+                # If we can't update the entity, just cache the platform resource as before
+                pass
+
+        # Always cache the platform resource as well
         self.entity_object_cache[platform_resource.id] = platform_resource
 
     def get(self, key: PlatformResourceKey) -> Optional[PlatformResource]:
@@ -71,29 +133,24 @@ class PlatformResourceRepository(ABC):
         if key.id in self.entity_object_cache:
             del self.entity_object_cache[key.id]
 
-    @abstractmethod
     def get_resource_type(self) -> str:
         """Get the platform-specific resource type for filtering.
+
+        Returns the entity class name, which matches the resource type.
 
         Returns:
             Resource type string (e.g., 'UnityCatalogTagPlatformResource')
         """
-        pass
+        return self.entity_class.__name__
 
-    @abstractmethod
-    def get_entity_class(self) -> type:
-        """Get the platform-specific entity class for deserialization.
-
-        Returns:
-            Entity class type (e.g., UnityCatalogTagPlatformResource)
-        """
-        pass
-
-    @abstractmethod
     def create_default_entity(
-        self, entity_id: "ExternalEntityId", managed_by_datahub: bool
-    ) -> Any:
+        self, entity_id: TExternalEntityId, managed_by_datahub: bool
+    ) -> TExternalEntity:
         """Create a default entity when none found in DataHub.
+
+        This method delegates to the entity class's create_default class method
+        to avoid circular dependencies and ensure entity creation logic stays
+        with the entity class.
 
         Args:
             entity_id: The external entity ID
@@ -102,7 +159,11 @@ class PlatformResourceRepository(ABC):
         Returns:
             Default entity instance
         """
-        pass
+        # Call the abstract create_default method on the entity class
+        return cast(
+            TExternalEntity,
+            self.entity_class.create_default(entity_id, managed_by_datahub),
+        )
 
     @abstractmethod
     def extract_platform_instance(self, sync_context: SyncContext) -> Optional[str]:
@@ -116,23 +177,9 @@ class PlatformResourceRepository(ABC):
         """
         pass
 
-    @abstractmethod
-    def configure_entity_for_return(
-        self, entity_id: "ExternalEntityId"
-    ) -> "ExternalEntityId":
-        """Configure entity ID for return (set flags, etc.).
-
-        Args:
-            entity_id: The entity ID to configure
-
-        Returns:
-            Configured entity ID
-        """
-        pass
-
     def search_entity_by_urn(
         self, urn: str, sync_context: SyncContext
-    ) -> Optional["ExternalEntityId"]:
+    ) -> Optional[TExternalEntityId]:
         """Search for existing external entity by URN with caching.
 
         Args:
@@ -173,23 +220,27 @@ class PlatformResourceRepository(ABC):
 
         result = None
         if len(mapped_entities) > 0:
-            entity_class = self.get_entity_class()
-
             for platform_resource in mapped_entities:
                 if (
                     platform_resource.resource_info
                     and platform_resource.resource_info.value
                 ):
-                    entity = entity_class(
-                        **platform_resource.resource_info.value.as_pydantic_object(
-                            entity_class
-                        ).dict()  # type: ignore[attr-defined]
+                    entity_obj = (
+                        platform_resource.resource_info.value.as_pydantic_object(
+                            self.entity_class
+                        )
                     )
+                    entity = self.entity_class(**entity_obj.dict())
                     # Check if platform instance matches
-                    entity_platform_instance = entity.id.platform_instance
-                    if entity_platform_instance == platform_instance:
-                        entity_id = entity.id
-                        result = self.configure_entity_for_return(entity_id)
+                    entity_id = entity.get_id()
+                    if entity_id.platform_instance == platform_instance:
+                        # Create a new entity ID with the correct state instead of mutating
+                        # All our entity IDs are Pydantic models, so we can use dict() method
+                        entity_data = entity_id.dict()
+                        entity_data["persisted"] = (
+                            True  # This entity was found in DataHub
+                        )
+                        result = cast(TExternalEntityId, type(entity_id)(**entity_data))
                         break
 
         # Cache the result (even if None)
@@ -197,8 +248,8 @@ class PlatformResourceRepository(ABC):
         return result
 
     def get_entity_from_datahub(
-        self, entity_id: "ExternalEntityId", managed_by_datahub: bool = False
-    ) -> Any:
+        self, entity_id: TExternalEntityId, managed_by_datahub: bool = False
+    ) -> TExternalEntity:
         """Get external entity from DataHub with caching.
 
         Args:
@@ -239,7 +290,6 @@ class PlatformResourceRepository(ABC):
             )
         ]
 
-        entity_class = self.get_entity_class()
         result = None
 
         if len(platform_resources) == 1:
@@ -248,11 +298,10 @@ class PlatformResourceRepository(ABC):
                 platform_resource.resource_info
                 and platform_resource.resource_info.value
             ):
-                result = entity_class(
-                    **platform_resource.resource_info.value.as_pydantic_object(
-                        entity_class
-                    ).dict()  # type: ignore[attr-defined]
+                entity_obj = platform_resource.resource_info.value.as_pydantic_object(
+                    self.entity_class
                 )
+                result = self.entity_class(**entity_obj.dict())
         elif len(platform_resources) > 1:
             # Handle multiple matches - find the one with matching platform instance
             target_platform_instance = entity_id.platform_instance
@@ -261,12 +310,13 @@ class PlatformResourceRepository(ABC):
                     platform_resource.resource_info
                     and platform_resource.resource_info.value
                 ):
-                    entity = entity_class(
-                        **platform_resource.resource_info.value.as_pydantic_object(
-                            entity_class
-                        ).dict()  # type: ignore[attr-defined]
+                    entity_obj = (
+                        platform_resource.resource_info.value.as_pydantic_object(
+                            self.entity_class
+                        )
                     )
-                    if entity.id.platform_instance == target_platform_instance:
+                    entity = self.entity_class(**entity_obj.dict())
+                    if entity.get_id().platform_instance == target_platform_instance:
                         result = entity
                         break
 
@@ -304,49 +354,7 @@ class PlatformResourceRepository(ABC):
         }
 
 
-class GenericPlatformResourceRepository(PlatformResourceRepository):
-    """
-    Generic implementation of PlatformResourceRepository that provides basic functionality.
-
-    This implementation should only be used when no specific platform implementation is available
-    and basic repository functionality is needed. It uses default implementations that may not
-    be optimal for specific platforms.
-    """
-
-    def __init__(
-        self, graph: DataHubGraph, resource_type: str = "GenericPlatformResource"
-    ):
-        super().__init__(graph)
-        self._resource_type = resource_type
-
-    def get_resource_type(self) -> str:
-        return self._resource_type
-
-    def get_entity_class(self) -> type:
-        # Return a generic Pydantic model class
-        return GenericPlatformResource
-
-    def create_default_entity(
-        self, entity_id: "ExternalEntityId", managed_by_datahub: bool
-    ) -> Any:
-        # Return a GenericPlatformResource instance
-        return GenericPlatformResource(
-            id=entity_id,
-            datahub_urns=LinkedResourceSet(urns=[]),
-            managed_by_datahub=managed_by_datahub,
-        )
-
-    def extract_platform_instance(self, sync_context: SyncContext) -> Optional[str]:
-        return sync_context.platform_instance
-
-    def configure_entity_for_return(
-        self, entity_id: "ExternalEntityId"
-    ) -> "ExternalEntityId":
-        # No specific configuration needed for generic implementation
-        return entity_id
-
-
-class ExternalEntityId:
+class ExternalEntityId(BaseModel):
     """
     ExternalEntityId is a unique
     identifier for an ExternalEntity.
@@ -469,7 +477,7 @@ class LinkedResourceSet(BaseModel):
         return False
 
 
-class ExternalEntity:
+class ExternalEntity(BaseModel):
     """
     An ExternalEntity is a representation of an entity that external to DataHub
     but could be linked to one or more DataHub entities.
@@ -504,8 +512,24 @@ class ExternalEntity:
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def create_default(
+        cls, entity_id: ExternalEntityId, managed_by_datahub: bool
+    ) -> "ExternalEntity":
+        """
+        Create a default entity instance when none found in DataHub.
 
-@dataclass
+        Args:
+            entity_id: The external entity ID (concrete implementations use specific types)
+            managed_by_datahub: Whether the entity is managed by DataHub
+
+        Returns:
+            Default entity instance
+        """
+        pass
+
+
 class MissingExternalEntity(ExternalEntity):
     id: ExternalEntityId
 
@@ -520,6 +544,13 @@ class MissingExternalEntity(ExternalEntity):
 
     def get_id(self) -> ExternalEntityId:
         return self.id
+
+    @classmethod
+    def create_default(
+        cls, entity_id: ExternalEntityId, managed_by_datahub: bool
+    ) -> "MissingExternalEntity":
+        """Create a missing external entity."""
+        return cls(id=entity_id)
 
 
 class ExternalSystem:
@@ -541,30 +572,3 @@ class ExternalSystem:
         Uses the platform resource repository to enrich the ExternalEntity with DataHub URNs.
         """
         pass
-
-
-class GenericPlatformResource(BaseModel, ExternalEntity):
-    """Generic platform resource that works with any platform when no specific implementation exists."""
-
-    id: ExternalEntityId
-    datahub_urns: LinkedResourceSet = LinkedResourceSet(urns=[])
-    managed_by_datahub: bool = False
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    def get_id(self) -> ExternalEntityId:
-        return self.id
-
-    def is_managed_by_datahub(self) -> bool:
-        return self.managed_by_datahub
-
-    def datahub_linked_resources(self) -> LinkedResourceSet:
-        return self.datahub_urns
-
-    def as_platform_resource(self) -> PlatformResource:
-        return PlatformResource.create(
-            key=self.id.to_platform_resource_key(),
-            secondary_keys=[u for u in self.datahub_urns.urns],
-            value=self,
-        )

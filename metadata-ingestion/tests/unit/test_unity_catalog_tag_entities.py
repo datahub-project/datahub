@@ -382,14 +382,16 @@ class TestUnityCatalogTagEntitiesIntegrationWithRepository:
 
         # Mock repository responses
         mock_repository.search_entity_by_urn.return_value = None
+        mock_repository.platform_instance = "workspace1"
 
         # Create tag ID from Unity Catalog tag
         tag_id = UnityCatalogTagPlatformResourceId.from_tag(
-            unity_tag, "workspace1", mock_repository, exists_in_unity_catalog=True
+            unity_tag, mock_repository, exists_in_unity_catalog=True
         )
 
         assert tag_id.tag_key == "environment"
         assert tag_id.tag_value == "staging"
+        assert tag_id.platform_instance == "workspace1"
         assert tag_id.exists_in_unity_catalog is True
 
         # Create platform resource

@@ -25,9 +25,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
-from datahub.api.entities.external.external_entities import (
-    GenericPlatformResourceRepository,
-)
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
@@ -358,10 +355,14 @@ class GlueSource(StatefulIngestionSourceBase):
         self.env = config.env
 
         self.platform_resource_repository: Optional[
-            GenericPlatformResourceRepository
+            "GluePlatformResourceRepository"
         ] = None
         if self.ctx.graph:
-            self.platform_resource_repository = GenericPlatformResourceRepository(
+            from datahub.ingestion.source.aws.platform_resource_repository import (
+                GluePlatformResourceRepository,
+            )
+
+            self.platform_resource_repository = GluePlatformResourceRepository(
                 self.ctx.graph, "LakeFormationTagPlatformResource"
             )
 
@@ -1182,10 +1183,8 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
-                platform_instance=self.source_config.platform_instance,
-                platform_resource_repository=self.platform_resource_repository,
-                catalog=tag.catalog,
                 tag=tag,
+                platform_resource_repository=self.platform_resource_repository,
             )
             logger.info(f"Created platform resource {platform_resource_id}")
 
