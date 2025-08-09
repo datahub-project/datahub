@@ -347,6 +347,17 @@ class DataHubRestEmitter(Closeable, Emitter):
             # config loader or by the caller, but it gets the job done for now.
             gms_server, token = config_utils.require_config_from_env()
 
+        cfg = config_utils.load_client_config()
+
+        if ca_certificate_path is None:
+            ca_certificate_path = cfg.ca_certificate_path
+
+        if client_certificate_path is None:
+            client_certificate_path = cfg.client_certificate_path
+
+        if not disable_ssl_verification:
+            disable_ssl_verification = cfg.disable_ssl_verification
+
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
         self._session = requests.Session()

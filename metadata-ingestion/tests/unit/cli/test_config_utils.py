@@ -86,7 +86,7 @@ class TestConfigUtils:
             },
             clear=True,
         ):
-            url, token = config_utils._get_config_from_env()
+            url, token, *_ = config_utils._get_config_from_env()
             assert url == "http://test-url:8080"
             assert token == "test-token"
 
@@ -96,7 +96,7 @@ class TestConfigUtils:
             {"DATAHUB_GMS_HOST": "test-host", "DATAHUB_GMS_PORT": "8080"},
             clear=True,
         ):
-            url, token = config_utils._get_config_from_env()
+            url, token, *_ = config_utils._get_config_from_env()
             assert url == "http://test-host:8080"
             assert token is None
 
@@ -105,14 +105,14 @@ class TestConfigUtils:
             patch.dict(os.environ, {"DATAHUB_GMS_HOST": "test-host"}, clear=True),
             patch.object(config_utils.logger, "warning") as mock_warning,
         ):
-            url, token = config_utils._get_config_from_env()
+            url, token, *_ = config_utils._get_config_from_env()
             assert url == "test-host"
             assert token is None
             mock_warning.assert_called_once()  # Warning about using host as URL
 
         # Test with empty environment
         with patch.dict(os.environ, {}, clear=True):
-            url, token = config_utils._get_config_from_env()
+            url, token, *_ = config_utils._get_config_from_env()
             assert url is None
             assert token is None
 
@@ -142,17 +142,26 @@ class TestConfigUtils:
             {
                 "DATAHUB_GMS_URL": "http://test-url:8080",
                 "DATAHUB_GMS_TOKEN": "test-token",
+                "SERVER_CA_CERT_PATH": "test-ca-path",
+                "CLIENT_CERTIFICATE_PATH": "test-client-path",
+                "DISABLE_SSL_VERIFICATION": False,
             },
             clear=True,
         ):
             config = load_client_config()
             assert config.server == "http://test-url:8080"
             assert config.token == "test-token"
+            assert config.ca_certificate_path == "test-ca-path"
+            assert config.client_certificate_path == "test-client-path"
+            assert config.disable_ssl_verification == False
 
     def test_load_client_config_from_file(self):
         """Test loading client config from file."""
         test_config = {
-            "gms": {"server": "http://localhost:8080", "token": "test-token"}
+            "gms": {"server": "http://localhost:8080", "token": "test-token",
+                    "ca_certificate_path": "test-ca-path", "client_certificate_path": "test-client-path",
+                    "disable_ssl_verification": False
+                    }
         }
 
         # Mock both environment check and file loading
@@ -167,6 +176,9 @@ class TestConfigUtils:
             config = load_client_config()
             assert config.server == "http://localhost:8080"
             assert config.token == "test-token"
+            assert config.ca_certificate_path == "test-ca-path"
+            assert config.client_certificate_path == "test-client-path"
+            assert config.disable_ssl_verification == False
 
     def test_load_client_config_missing(self):
         """Test loading client config when missing."""

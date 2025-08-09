@@ -29,7 +29,9 @@ ENV_METADATA_TOKEN = "DATAHUB_GMS_TOKEN"
 ENV_METADATA_HOST = "DATAHUB_GMS_HOST"
 ENV_METADATA_PORT = "DATAHUB_GMS_PORT"
 ENV_METADATA_PROTOCOL = "DATAHUB_GMS_PROTOCOL"
-
+SERVER_CA_CERT_PATH = "DATAHUB_SERVER_CA_CERT"
+CLIENT_CERTIFICATE_PATH = "DATAHUB_CLIENT_CERT"
+DISABLE_SSL_VERIFICATION = "DISABLE_SSL_VERIFICATION"
 
 class MissingConfigError(Exception):
     SHOW_STACK_TRACE = False
@@ -66,36 +68,39 @@ class DatahubConfig(BaseModel):
     gms: DatahubClientConfig
 
 
-def _get_config_from_env() -> Tuple[Optional[str], Optional[str]]:
+def _get_config_from_env() -> Tuple[Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]]:
     host = os.environ.get(ENV_METADATA_HOST)
     port = os.environ.get(ENV_METADATA_PORT)
     token = os.environ.get(ENV_METADATA_TOKEN)
     protocol = os.environ.get(ENV_METADATA_PROTOCOL, "http")
     url = os.environ.get(ENV_METADATA_HOST_URL)
+    server_ca_cert = os.environ.get(SERVER_CA_CERT_PATH)
+    client_cert = os.environ.get(CLIENT_CERTIFICATE_PATH)
+    disable_ssl = os.environ.get(DISABLE_SSL_VERIFICATION)
     if port is not None:
         url = f"{protocol}://{host}:{port}"
-        return url, token
+        return url, token, server_ca_cert, client_cert, disable_ssl
     # The reason for using host as URL is backward compatibility
     # If port is not being used we assume someone is using host env var as URL
     if url is None and host is not None:
         logger.warning(
             f"Do not use {ENV_METADATA_HOST} as URL. Use {ENV_METADATA_HOST_URL} instead"
         )
-    return url or host, token
+    return url or host, token, server_ca_cert, client_cert, disable_ssl
 
 
 def require_config_from_env() -> Tuple[str, Optional[str]]:
-    host, token = _get_config_from_env()
+    host, token, *_ = _get_config_from_env()
     if host is None:
         raise MissingConfigError("No GMS host was provided in env variables.")
     return host, token
 
 
 def load_client_config() -> DatahubClientConfig:
-    gms_host_env, gms_token_env = _get_config_from_env()
+    gms_host_env, gms_token_env, server_ca_cert, client_cert, disable_ssl = _get_config_from_env()
     if gms_host_env:
         # TODO We should also load system auth credentials here.
-        return DatahubClientConfig(server=gms_host_env, token=gms_token_env)
+        return DatahubClientConfig(server=gms_host_env, token=gms_token_env, ca_certificate_path=server_ca_cert, client_certificate_path=client_cert, disable_ssl_verification=disable_ssl)
 
     if _should_skip_config():
         raise MissingConfigError(

@@ -17,14 +17,14 @@ def test_first_non_null():
 
 @mock.patch.dict(os.environ, {"DATAHUB_GMS_HOST": "http://localhost:9092"})
 def test_correct_url_when_gms_host_in_old_format():
-    assert _get_config_from_env() == ("http://localhost:9092", None)
+    assert _get_config_from_env() == ("http://localhost:9092", None, None, None, None)
 
 
 @mock.patch.dict(
     os.environ, {"DATAHUB_GMS_HOST": "localhost", "DATAHUB_GMS_PORT": "8080"}
 )
 def test_correct_url_when_gms_host_and_port_set():
-    assert _get_config_from_env() == ("http://localhost:8080", None)
+    assert _get_config_from_env() == ("http://localhost:8080", None, None, None, None)
 
 
 @mock.patch.dict(
@@ -36,7 +36,7 @@ def test_correct_url_when_gms_host_and_port_set():
     },
 )
 def test_correct_url_when_gms_host_port_url_set():
-    assert _get_config_from_env() == ("http://localhost:8080", None)
+    assert _get_config_from_env() == ("http://localhost:8080", None, None, None, None)
 
 
 @mock.patch.dict(
@@ -49,7 +49,7 @@ def test_correct_url_when_gms_host_port_url_set():
     },
 )
 def test_correct_url_when_gms_host_port_url_protocol_set():
-    assert _get_config_from_env() == ("https://localhost:8080", None)
+    assert _get_config_from_env() == ("https://localhost:8080", None, None, None, None)
 
 
 @mock.patch.dict(
@@ -59,7 +59,7 @@ def test_correct_url_when_gms_host_port_url_protocol_set():
     },
 )
 def test_correct_url_when_url_set():
-    assert _get_config_from_env() == ("https://example.com", None)
+    assert _get_config_from_env() == ("https://example.com", None, None, None, None)
 
 
 def test_fixup_gms_url():
