@@ -500,8 +500,13 @@ class TestGraphQLCommand:
         assert "Description: Search across all entity types" in result.output
         assert "input: SearchInput!" in result.output
 
-    def test_graphql_no_arguments(self):
+    @patch("datahub.cli.graphql_cli.get_default_graph")
+    def test_graphql_no_arguments(self, mock_get_graph):
         """Test GraphQL command with no arguments."""
+        # Mock is needed even for argument validation to avoid config errors
+        mock_client = Mock()
+        mock_get_graph.return_value = mock_client
+
         result = self.runner.invoke(graphql, [])
 
         assert result.exit_code != 0
@@ -716,10 +721,16 @@ class TestGraphQLCommand:
             finally:
                 os.chdir(original_cwd)
 
-    def test_graphql_query_from_nonexistent_relative_path(self):
+    @patch("datahub.cli.graphql_cli.get_default_graph")
+    def test_graphql_query_from_nonexistent_relative_path(self, mock_get_graph):
         """Test error handling with non-existent relative path."""
         import os
         import tempfile
+
+        # Mock client to handle GraphQL execution
+        mock_client = Mock()
+        mock_client.execute_graphql.side_effect = Exception("Query execution failed")
+        mock_get_graph.return_value = mock_client
 
         with tempfile.TemporaryDirectory() as temp_dir:
             original_cwd = os.getcwd()
@@ -730,7 +741,7 @@ class TestGraphQLCommand:
                     graphql, ["--query", "./nonexistent.graphql"]
                 )
 
-                # Should fail because file doesn't exist
+                # Should fail because file doesn't exist, but treated as literal query
                 assert result.exit_code != 0
                 assert "Failed to execute GraphQL query" in result.output
 
