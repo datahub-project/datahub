@@ -174,6 +174,7 @@ describe("incidents", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false&separate_siblings=false",
     );
+    cy.wait(1000); // wait for siblings to reflect in UI
     cy.findByTestId("create-incident-btn-main").as("btn");
     cy.get("@btn").click();
     cy.get('[data-testid="drawer-header-title"]').should(
