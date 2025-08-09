@@ -7,7 +7,7 @@ const communityCardDropdownContent = [
         {
             title: "Events",
             iconImage: "/img/icon-events.png",
-            href: "https://datahub.com/events",
+            href: "https://datahub.com/events/",
         },
         {
             title: "Champions",
