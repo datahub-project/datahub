@@ -153,7 +153,7 @@ class TestConfigUtils:
             assert config.token == "test-token"
             assert config.ca_certificate_path == "test-ca-path"
             assert config.client_certificate_path == "test-client-path"
-            assert config.disable_ssl_verification == False
+            assert not config.disable_ssl_verification
 
     def test_load_client_config_from_file(self):
         """Test loading client config from file."""
@@ -178,7 +178,7 @@ class TestConfigUtils:
             assert config.token == "test-token"
             assert config.ca_certificate_path == "test-ca-path"
             assert config.client_certificate_path == "test-client-path"
-            assert config.disable_ssl_verification == False
+            assert not config.disable_ssl_verification
 
     def test_load_client_config_missing(self):
         """Test loading client config when missing."""
