@@ -1,135 +1,113 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Applications (Experimental - Beta Feature)
+# About DataHub Applications (Experimental)
 
 <FeatureAvailability/>
 
-Starting in version `1.2.0`, DataHub supports grouping data assets into collections called **Applications**. Applications reperesent the specific purpose the data assets are used for. Applications are similar to Domains in that they group data assets together based on business context. This feature is still experimental, and is subject to change. Your team likely may not need Applications, and often teams find Domains and Data Products are sufficient for this purpose. If you are interested in trying this experimental feature, read on.
+DataHub Cloud v1.2.0 introduces **Applications**, an experimental approach to grouping similar assets within DataHub that align with a specific business purpose.
 
-Applications differ from Domains in that an Application is a smaller, more specific grouping for a single purpose, whereas Domains will often have many purposes within them. Applications differ from Data Products in the opposite direction, an Application would represent an entire purpose, and many Data Products would be expected to exist within that purpose. Applications are also not a core concept within Data Mesh- we observe organizations using Application as a grouping outside of Data Mesh principles. Applications are hidden by default because often times, they are not required for organizing your data- Domains and Data Products may be sufficient. For larger organizations with more complex Data Landscapes, Application can be a useful third grouping alongside Domain and Data Product that serve to fill the gap between those two concepts. An Application also differs from the Software Engineering concept of a Service- a Service is generally 1 distinct piece of software that is receiving API calls, etc. An Application in Datahub represents a purpose-based grouping that is not neccessarily scoped to a single Service.
+Applications sit between Domains and Data Products in DataHub's metadata model hierarchy:
 
-An Example Application would be "Cancellation Refund Processing". This Application might exist in the domain Payments, under the Subdomain Cancellations. It might contain various tables, pipelines and services involved in processing refunds when a customer cancels an order. It may have peer Applications such as "Cancellations Notification Procesing", "Cancellation Fraud Detection" and "Cancellation Inventory Response". It may contain some Data Products such as "Customer Refund Daily Payments" and "Customer Refund Daily Failed Payments". It may contain a few Services involved in the processing of the cancellations, such as a service that sends payments, a service that manages refilling inventory, and so forth, depending on the architecture of the system. A DataHub user may opt for Application for categorizing the "Cancellation Refund Processing" in order to distinguish the grouping as serving a specific Business purpose. Often DataHub users who use Application already track the concept of Applications internally.
+- **Domains** (largest): Business areas with multiple purposes
+- **Applications** (middle): Single business purpose within the Domain
+- **Data Products** (smallest): Specific data offerings within the Application
 
-Some teams find that Domains and Data Products are sufficient to organize their metadata and may not need Applications. DataHub can be used successfully without involving this concept. As a result, Applications are hidden from the UI by default and must be enabled in the settings.
+For example, let's consider a company that handles customer cancellations and refunds. Here's how they might organize these assets in DataHub:
 
-## Applications Setup, Prerequisites, and Permissions
+The **Payments Domain** contains everything related to processing payments across the business. Within this domain, the **"Cancellation Refund Processing" Application** groups all the assets specifically used for handling customer refunds.
 
-What you need to create and add applications:
+This Application might include:
 
-- **Edit Entity** privilege on Applications to create new Appliations, or edit existing ones.
+- **Data Products** like "Customer Refund Daily Payments" and "Customer Refund Daily Failed Payments" that other teams can easily discover and use
+- Supporting assets such as refund processing datasets, payment pipelines, and inventory management services
 
-- **Edit Entity Applications** privilege to apply Appliations to Entities.
+Additional Applications in the Payments Domain might be "Cancellation Fraud Detection" or "Cancellation Notification Processing," each serving their own specific business purpose.
 
+## Why Use Applications?
+
+Applications work best for large organizations that already use this concept internally and need additional organization beyond Domains and Data Products. For most teams, we recommend starting with Domains and Data Products first.
+
+Keep in mind the following:
+
+- **This is an experimental feature** that's subject to change in future releases
+- **Applications aren't part of Data Mesh architecture** — they're an additional organizational layer that some large organizations find helpful, but are not suitable for teams adopting Data Mesh
+- **Applications differ from software services** — while a service is a single piece of software, an Application within DataHub groups multiple data assets around one business purpose
+
+:::note
+**Most teams don't need Applications**. We find that Domains and Data Products frequently provide enough organizational support for DataHub users.
+:::
+
+## Prerequisites and Permissions
+
+Users will need the following DataHub Privileges to use Applications:
+
+- **Edit Entity** privilege on Applications to create new Applications or edit existing ones.
+- **Edit Entity Applications** privilege to assign Applications to data assets.
 - **Manage Features** platform privilege to control whether Applications are visible to users.
 
-You can create these privileges by creating a new [Metadata Policy](../../authorization/policies.md).
+Learn more about creating a Custom Policy to leverage these privileges [here](../../authorization/policies.md).
 
 ## Using Applications
 
 ### Enabling Applications
 
-To enable Applications, navigate to **Settings**, then **Appearance**. There will be a toggle for **Show Applications**.
+To enable Applications, you will need to work with your DataHub rep to configure the feature. Once this is complete, navigate to **Settings** > **Appearance** and toggle on **Show Applications**.
+
+:::warning
+Applications are currently experimental, subject to change at any time, and are disabled by default. Please reach out to your DataHub rep to enable the feature.
+:::
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/EnableApplicationsInSettings.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/EnableApplicationsInSettings.png"/>
 </p>
 
-### Creating a Applications
+### Creating an Application
 
 To create an Application, first navigate to the **Applications** tab in the left-side navigation menu of DataHub.
 
 Once you're on the Applications page, you'll see a list of all the Applications that have been created on DataHub.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/ManageApplicationsScreen.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/ManageApplicationsScreen.png"/>
 </p>
 
 To create a new Application, click '+ Create Application'.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/CreateNewApplicationModal.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/CreateNewApplicationModal.png"/>
 </p>
 
-Inside the form, you can choose a name for your Application, along with decription and owner.
+Inside the form, you can choose a name for your Application, along with description and owner. Learn more about creating Applications via API in [this tutorial](../../api/tutorials/applications.md).
 
-### Assigning an Asset to an Application
+### Assigning Assets to an Application
 
 You can assign assets to Applications using the UI or programmatically using the API. To assign in the UI, you can add an Application via the Entity sidebar, or from an Applications page.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/AddAssetsToApplication.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/AddAssetsToApplication.png"/>
 </p>
+
+Learn more about assigning assets to Applications via API in [this tutorial](../../api/tutorials/applications.md).
 
 ### Searching by Application
 
 Once you've created an Application, you can use the search bar to find it.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/SearchForApplications.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/SearchForApplications.png"/>
 </p>
 
-Clicking on the search result will take you to the Applications's profile, where you
-can edit its description, add / remove owners, and view the assets inside the Application.
+Clicking on the search result will take you to the Application's profile, where you can edit its description, manage owners, and view the assets inside the Application.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/ApplicationAssetsTab.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master//imgs/applications/ApplicationAssetsTab.png"/>
 </p>
 
-Once you've added assets to an Application, you can filter search results to limit to those Assets
-within a particular Application using search filters.
+Once you've added assets to an Application, you can filter search results to limit to those assets within a particular Application using search filters.
 
-#### Examples
+### API Tutorials
 
-**Creating an Application**
-
-```graphql
-mutation createApplication {
-  createApplication(
-    input: {
-      properties: {
-        name: "My New Application"
-        description: "An optional description"
-      }
-    }
-  )
-}
-```
-
-This query will return an `urn` which you can use to fetch the Application details.
-
-**Fetching an Application by Urn**
-
-```graphql
-query getApplication {
-  application(urn: "urn:li:application:engineering") {
-    urn
-    properties {
-      name
-      description
-    }
-    children {
-      total
-    }
-  }
-}
-```
-
-**Adding a Dataset to an Application**
-
-```graphql
-mutation batchSetApplication {
-  batchSetApplication(
-    input: {
-      resourceUrns: [
-        "urn:li:dataset:(urn:li:dataPlatform:bigquery,banking.public.customer,PROD)"
-      ]
-      applicationUrn: "urn:li:application:new-customer-signup"
-    }
-  )
-}
-```
-
-> Pro Tip! You can try out the sample queries by visiting `<your-datahub-url>/api/graphiql`.
+- [Applications](../../api/tutorials/applications.md)
 
 ### Related Features
 
