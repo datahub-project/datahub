@@ -102,6 +102,7 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showStatsTabRedesign
             showHomePageRedesign
             showProductUpdates
             lineageGraphV3
