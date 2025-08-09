@@ -1,6 +1,6 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Applications (Experimental)
+# About DataHub Applications
 
 <FeatureAvailability/>
 
@@ -12,16 +12,19 @@ Applications sit between Domains and Data Products in DataHub's metadata model h
 - **Applications** (middle): Single business purpose within the Domain
 - **Data Products** (smallest): Specific data offerings within the Application
 
-For example, let's consider a company that handles customer cancellations and refunds. Here's how they might organize these assets in DataHub:
+For example, an ecommerce company might have the following structure:
 
-The **Payments Domain** contains everything related to processing payments across the business. Within this domain, the **"Cancellation Refund Processing" Application** groups all the assets specifically used for handling customer refunds.
+- **Payments Domain**: Contains everything related to processing payments across the business
+- **Refund Application**: Groups all assets specifically used for handling customer refunds within the Payments Domain, including:
+  - "Daily Refund Payments" **Data Product**
+  - "Daily Refund Failures" **Data Product**
+  - Supporting assets like payment pipelines, refund processing datasets, etc.
+- **Fraud Detection Application**: Groups all assets related to identifying and preventing fraudulent transactions within the Payments Domain, including:
+  - "Real-time Fraud Alerts" **Data Product**
+  - "Weekly Fraud Analytics Report" **Data Product**
+  - Supporting assets like ML models, risk scoring datasets, etc.
 
-This Application might include:
-
-- **Data Products** like "Customer Refund Daily Payments" and "Customer Refund Daily Failed Payments" that other teams can easily discover and use
-- Supporting assets such as refund processing datasets, payment pipelines, and inventory management services
-
-Additional Applications in the Payments Domain might be "Cancellation Fraud Detection" or "Cancellation Notification Processing," each serving their own specific business purpose.
+Each Application serves its specific business purpose while remaining part of the broader Payments Domain.
 
 ## Why Use Applications?
 
@@ -53,7 +56,7 @@ Learn more about creating a Custom Policy to leverage these privileges [here](..
 
 To enable Applications, you will need to work with your DataHub rep to configure the feature. Once this is complete, navigate to **Settings** > **Appearance** and toggle on **Show Applications**.
 
-:::warning
+:::note
 Applications are currently experimental, subject to change at any time, and are disabled by default. Please reach out to your DataHub rep to enable the feature.
 :::
 
