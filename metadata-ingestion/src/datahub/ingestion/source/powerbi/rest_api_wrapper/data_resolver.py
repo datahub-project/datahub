@@ -70,11 +70,19 @@ class SessionWithTimeout(requests.Session):
 
 
 class DataResolverBase(ABC):
-    SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
-    MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
-    BASE_URL: str = f"{MY_ORG_URL}/groups"
-    ADMIN_BASE_URL: str = "https://api.powerbi.com/v1.0/myorg/admin"
-    AUTHORITY: str = "https://login.microsoftonline.com/"
+    # PowerBI environment URLs
+    COMMERCIAL_URLS = {
+        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.com/",
+    }
+
+    GOVERNMENT_URLS = {
+        "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
+        "MY_ORG_URL": "https://api.powerbigov.us/v1.0/myorg",
+        "AUTHORITY": "https://login.microsoftonline.us/",
+    }
+
     TOP: int = 1000
 
     def __init__(
@@ -83,7 +91,21 @@ class DataResolverBase(ABC):
         client_secret: str,
         tenant_id: str,
         metadata_api_timeout: int,
+        environment: str = "commercial",
     ):
+        self._environment = environment
+        self._urls = (
+            self.GOVERNMENT_URLS
+            if environment == "government"
+            else self.COMMERCIAL_URLS
+        )
+
+        self.SCOPE = self._urls["SCOPE"]
+        self.MY_ORG_URL = self._urls["MY_ORG_URL"]
+        self.BASE_URL = f"{self.MY_ORG_URL}/groups"
+        self.ADMIN_BASE_URL = f"{self.MY_ORG_URL}/admin"
+        self.AUTHORITY = self._urls["AUTHORITY"]
+
         self._access_token: Optional[str] = None
         self._access_token_expiry_time: Optional[datetime] = None
 
@@ -94,7 +116,7 @@ class DataResolverBase(ABC):
         self._msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
-            authority=DataResolverBase.AUTHORITY + tenant_id,
+            authority=self.AUTHORITY + tenant_id,
         )
         self.get_access_token()
 
@@ -169,7 +191,7 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return f"{DataResolverBase.AUTHORITY}{self._tenant_id}"
+        return f"{self.AUTHORITY}{self._tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
@@ -180,9 +202,7 @@ class DataResolverBase(ABC):
 
         logger.info("Generating PowerBi access token")
 
-        auth_response = self._msal_client.acquire_token_for_client(
-            scopes=[DataResolverBase.SCOPE]
-        )
+        auth_response = self._msal_client.acquire_token_for_client(scopes=[self.SCOPE])
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
             logger.warning(
