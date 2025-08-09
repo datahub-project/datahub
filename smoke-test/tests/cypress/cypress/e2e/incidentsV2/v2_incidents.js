@@ -71,10 +71,9 @@ describe("incidents", () => {
       .click();
     cy.get('[data-testid="incident-create-button"]').click();
     // Wait for the incident to be created and appear in the list
-    cy.get(
-      `[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`,
-      { timeout: 15000 }
-    ).should("exist");
+    cy.get(`[data-testid="incident-row-${newIncidentNameWithTimeStamp}"]`, {
+      timeout: 15000,
+    }).should("exist");
     cy.get(`[data-testid="${newIncidentNameWithTimeStamp}"]`)
       .scrollIntoView()
       .should("be.visible");
@@ -137,7 +136,9 @@ describe("incidents", () => {
     cy.get('[data-testid="status-options-list"]').contains("Resolved").click();
     cy.get('[data-testid="incident-create-button"]').click();
     // Wait for the incident to be updated and page to reload
-    cy.get('[data-testid="nested-options-dropdown-container"]', { timeout: 15000 })
+    cy.get('[data-testid="nested-options-dropdown-container"]', {
+      timeout: 15000,
+    })
       .should("be.visible")
       .click();
     cy.get('[data-testid="child-option-RESOLVED"]').click();
@@ -178,21 +179,22 @@ describe("incidents", () => {
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/Incidents?is_lineage_mode=false&separate_siblings=false",
     );
-    
+
     // Wait for the page to load properly and button to be interactive
-    cy.findByTestId("create-incident-btn-main", { timeout: 10000 })
-      .should("be.visible");
-    
+    cy.findByTestId("create-incident-btn-main", { timeout: 10000 }).should(
+      "be.visible",
+    );
+
     // Click the button (this opens a dropdown when separate_siblings=false and siblings exist)
     cy.findByTestId("create-incident-btn-main").click();
-    
+
     // For separate_siblings=false mode, we need to select a sibling from the dropdown first
     // Wait for dropdown to appear and select the first option
-    cy.get('.ant-dropdown-menu-item', { timeout: 10000 })
+    cy.get(".ant-dropdown-menu-item", { timeout: 10000 })
       .first()
-      .should('be.visible')
+      .should("be.visible")
       .click();
-    
+
     // Now the incident builder should open
     cy.get('[data-testid="drawer-header-title"]', { timeout: 30000 }).should(
       "contain.text",

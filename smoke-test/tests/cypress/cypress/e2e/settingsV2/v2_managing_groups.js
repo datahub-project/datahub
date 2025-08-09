@@ -13,7 +13,9 @@ describe("create and manage group", () => {
 
   it("add test user", () => {
     cy.visitWithLogin("/settings/identities/users");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.clickOptionWithText("Invite Users");
     cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
       const inviteLink = $elem.text();
@@ -36,7 +38,9 @@ describe("create and manage group", () => {
 
   it("create a group", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.clickOptionWithText("Create group");
     cy.waitTextVisible("Create new group");
     cy.get("#name").type(group_name);
@@ -51,7 +55,9 @@ describe("create and manage group", () => {
 
   it("add test user to a group", () => {
     cy.visitWithLogin("/settings/identities/users");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.get(".ant-tabs-tab-btn").contains("Groups").click();
     // Wait for groups tab to load and group to be visible
     cy.contains(group_name, { timeout: 10000 }).should("be.visible");
@@ -60,59 +66,68 @@ describe("create and manage group", () => {
     // cy.get(".ant-typography").contains(group_name).should("be.visible");
     // Click on the Members tab and wait for it to load
     cy.get(".ant-tabs-tab").contains("Members").click();
-    
+
     // Wait for tab content to be fully loaded by looking for specific content
-    cy.get("body").then($body => {
+    cy.get("body").then(($body) => {
       if ($body.text().includes("No members in this group yet.")) {
-        cy.contains("No members in this group yet.", { timeout: 10000 }).should("be.visible");
+        cy.contains("No members in this group yet.", { timeout: 10000 }).should(
+          "be.visible",
+        );
       } else {
         // Tab is loaded, continue
         cy.wait(1000); // Give it a moment to settle
       }
     });
-    
+
     // Look for the Add Member button (it should be visible regardless of existing members)
-    cy.get("button", { timeout: 10000 }).contains("Add Member").should("be.visible").click();
+    cy.get("button", { timeout: 10000 })
+      .contains("Add Member")
+      .should("be.visible")
+      .click();
     // Wait for the modal to appear and ensure it's fully loaded
     cy.get('[role="dialog"]', { timeout: 10000 }).should("be.visible");
-    
+
     // Try multiple approaches to interact with the user search dropdown
-    cy.get('body').then($body => {
+    cy.get("body").then(($body) => {
       // First try to find the ant-select component directly
-      if ($body.find('.ant-select:not(.ant-select-disabled)').length > 0) {
-        cy.get('.ant-select:not(.ant-select-disabled)').first().click({ force: true });
+      if ($body.find(".ant-select:not(.ant-select-disabled)").length > 0) {
+        cy.get(".ant-select:not(.ant-select-disabled)")
+          .first()
+          .click({ force: true });
       } else {
         // Fallback: try to find the search input or placeholder
         cy.get('[role="dialog"]').within(() => {
-          cy.get('.ant-select-selector, .ant-select-selection-search-input, [placeholder*="user"]')
+          cy.get(
+            '.ant-select-selector, .ant-select-selection-search-input, [placeholder*="user"]',
+          )
             .first()
             .click({ force: true });
         });
       }
     });
-    
+
     // Type the username into the search field (ensure we get only the visible one in the dialog)
     cy.get('[role="dialog"]').within(() => {
       cy.get('.ant-select-selection-search-input, input[role="combobox"]')
         .first()
-        .should('be.visible')
+        .should("be.visible")
         .type(username, { force: true });
     });
-    
+
     // Wait for search results and select the user
     cy.get(".ant-select-item-option", { timeout: 10000 })
       .contains(username)
       .should("be.visible")
       .click();
-    
+
     // Wait for dropdown to close and verify the user was selected
     cy.get('[role="dialog"]').within(() => {
       // Wait for the dropdown to close
-      cy.get('.ant-select-dropdown', { timeout: 5000 }).should('not.exist');
+      cy.get(".ant-select-dropdown", { timeout: 5000 }).should("not.exist");
       // Verify the user was selected
       cy.contains(username).should("be.visible");
       // Click the Add button with force to handle any lingering overlay issues
-      cy.get('button').contains("Add").click({ force: true });
+      cy.get("button").contains("Add").click({ force: true });
     });
     cy.waitTextVisible("Group members added!");
     cy.contains(username, { timeout: 10000 }).should("be.visible");
@@ -120,7 +135,9 @@ describe("create and manage group", () => {
 
   it("update group info", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.contains(group_name, { timeout: 10000 }).should("be.visible");
     cy.clickOptionWithText(group_name);
     cy.clickOptionWithSpecificClass(".ant-typography", 0);
@@ -139,8 +156,12 @@ describe("create and manage group", () => {
 
   it("user verify to edit the discription", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
-    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 }).should("be.visible").click();
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
+    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
+      .should("be.visible")
+      .click();
     cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
     cy.contains("Test group description").should("be.visible").type(" EDITED");
     cy.clickOptionWithText("Test group");
@@ -152,15 +173,23 @@ describe("create and manage group", () => {
 
   it("user verify to add the owner", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
-    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 }).should("be.visible").click();
-    cy.get(".anticon.anticon-plus", { timeout: 10000 }).should("be.visible").click();
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
+    cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
+      .should("be.visible")
+      .click();
+    cy.get(".anticon.anticon-plus", { timeout: 10000 })
+      .should("be.visible")
+      .click();
     cy.get('[aria-label="Close"]').should("be.visible");
     cy.get('[id="owner"]').click();
     cy.contains("Add Owners").click();
     cy.get('[id="owner"]').click();
     cy.focused().type(username);
-    cy.get(`[data-testid="owner-${username}"]`, { timeout: 10000 }).should("be.visible").click();
+    cy.get(`[data-testid="owner-${username}"]`, { timeout: 10000 })
+      .should("be.visible")
+      .click();
     cy.focused().blur();
     cy.contains(username, { matchCase: false }).should("have.length", 1);
     cy.get('[role="dialog"] button').contains("Add").click();
@@ -170,42 +199,49 @@ describe("create and manage group", () => {
 
   it("test User verify group participation", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
     cy.hideOnboardingTour();
-    
+
     // Add debugging and robust existence check
-    cy.get("body").then($body => {
+    cy.get("body").then(($body) => {
       if ($body.text().includes(`Test group EDITED ${test_id}`)) {
         cy.log("Found group:", `Test group EDITED ${test_id}`);
       } else {
-        cy.log("Group not found in page, available text:", $body.text().substring(0, 500));
+        cy.log(
+          "Group not found in page, available text:",
+          $body.text().substring(0, 500),
+        );
       }
     });
-    
+
     // Wait for and verify the group exists before clicking
     cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
       .should("be.visible")
       .click();
-    
+
     // Wait for Members tab to be visible before clicking
     cy.get(".ant-tabs-tab", { timeout: 10000 })
       .contains("Members")
       .should("be.visible")
       .click();
-    
+
     // Verify the user is in the group with explicit timeout
     cy.contains(username, { timeout: 10000 }).should("be.visible");
   });
 
   it("remove group", () => {
     cy.visitWithLogin("/settings/identities/groups");
-    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should("be.visible");
-    
+    cy.get('[data-testid="manage-users-groups-v2"]', { timeout: 10000 }).should(
+      "be.visible",
+    );
+
     // Wait for the group link to be present before trying to interact
     cy.get(`[href="/group/urn:li:corpGroup:${test_id}"]`, { timeout: 10000 })
       .should("be.visible")
       .openThreeDotDropdown();
-    
+
     cy.clickOptionWithText("Delete");
     cy.clickOptionWithText("Yes");
     cy.waitTextVisible("Deleted Group!");
