@@ -1,0 +1,35 @@
+source:
+  type: timescaledb
+  config:
+    username: tsdbuser
+    password: tsdbpass
+    host_port: localhost:5432
+    database: tsdb
+
+    emit_timescaledb_metadata: true
+
+    # Focus on views for lineage
+    include_tables: true  # Need source tables
+    include_views: true
+    include_view_lineage: true
+    include_view_column_lineage: true
+
+    # Include stored procedures for lineage
+    include_stored_procedures: true
+
+    schema_pattern:
+      allow:
+        - public
+        - analytics
+
+    # Filter to specific views for focused testing
+    view_pattern:
+      allow:
+        - ".*hourly.*"
+        - ".*daily.*"
+        - ".*location.*"
+
+sink:
+  type: file
+  config:
+    filename: "./timescaledb_lineage_mces.json"
