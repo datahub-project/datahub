@@ -142,7 +142,8 @@ task lint(type: Exec, dependsOn: installDev) {
     venv_activate_command +
     "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
     "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
+    "mypy --show-traceback --show-error-codes src/ tests/ examples/ && " +
+    "python scripts/linting/check_logger_warnings.py"
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
