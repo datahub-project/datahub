@@ -161,6 +161,7 @@ describe("create and manage group", () => {
     );
     cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
       .should("be.visible")
+      .first()
       .click();
     cy.get('[data-testid="EditOutlinedIcon"]').eq(1).click();
     cy.contains("Test group description").should("be.visible").type(" EDITED");
@@ -178,6 +179,7 @@ describe("create and manage group", () => {
     );
     cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
       .should("be.visible")
+      .first()
       .click();
     cy.get(".anticon.anticon-plus", { timeout: 10000 })
       .should("be.visible")
@@ -217,8 +219,10 @@ describe("create and manage group", () => {
     });
 
     // Wait for and verify the group exists before clicking
+    // Use first() to ensure we only click on one element if multiple exist
     cy.contains(`Test group EDITED ${test_id}`, { timeout: 10000 })
       .should("be.visible")
+      .first()
       .click();
 
     // Wait for Members tab to be visible before clicking
