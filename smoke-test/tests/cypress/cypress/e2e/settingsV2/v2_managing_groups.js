@@ -70,9 +70,9 @@ describe("create and manage group", () => {
     // Wait for tab content to be fully loaded by looking for specific content
     cy.get("body").then(($body) => {
       if ($body.text().includes(Cypress.env("ADMIN_DISPLAYNAME"))) {
-        cy.contains(Cypress.env("ADMIN_DISPLAYNAME"), { timeout: 10000 }).should(
-          "be.visible",
-        );
+        cy.contains(Cypress.env("ADMIN_DISPLAYNAME"), {
+          timeout: 10000,
+        }).should("be.visible");
       } else {
         // Tab is loaded, continue
         cy.wait(1000); // Give it a moment to settle
