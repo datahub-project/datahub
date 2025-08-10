@@ -181,7 +181,7 @@ describe("create and manage group", () => {
       .should("be.visible")
       .first()
       .click();
-    cy.get("[data-testid="add-owners-sidebar-button"]", { timeout: 10000 })
+    cy.get('[data-testid="add-owners-sidebar-button"]', { timeout: 10000 })
       .should("be.visible")
       .click();
     cy.get('[aria-label="Close"]').should("be.visible");
