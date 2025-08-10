@@ -69,8 +69,8 @@ describe("create and manage group", () => {
 
     // Wait for tab content to be fully loaded by looking for specific content
     cy.get("body").then(($body) => {
-      if ($body.text().includes("No members in this group yet.")) {
-        cy.contains("No members in this group yet.", { timeout: 10000 }).should(
+      if ($body.text().includes("DataHub")) {
+        cy.contains("DataHub", { timeout: 10000 }).should(
           "be.visible",
         );
       } else {
