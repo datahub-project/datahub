@@ -80,11 +80,16 @@ def _get_config_from_env() -> Tuple[
     server_ca_cert = os.environ.get(SERVER_CA_CERT_PATH)
     client_cert = os.environ.get(CLIENT_CERTIFICATE_PATH)
 
-    # Parse disable_ssl env var into a boolean
-    disable_ssl_env = os.environ.get(DISABLE_SSL_VERIFICATION)
+    # Get the raw value (could be str, bool, or None in weird test cases)
+    raw_disable_ssl: Union[str, bool, None] = os.environ.get(DISABLE_SSL_VERIFICATION)  # type: ignore
+
     disable_ssl: Optional[bool] = None
-    if disable_ssl_env is not None:
-        disable_ssl = disable_ssl_env.strip().lower() in ("1", "true", "yes")
+    if isinstance(raw_disable_ssl, bool):
+        # If it's already a bool (rare, mostly in tests)
+        disable_ssl = raw_disable_ssl
+    elif isinstance(raw_disable_ssl, str):
+        # Parse truthy strings
+        disable_ssl = raw_disable_ssl.strip().lower() in ("1", "true", "yes")
 
     if port is not None:
         url = f"{protocol}://{host}:{port}"
