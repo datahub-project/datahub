@@ -5,7 +5,7 @@ For helper methods to contain manipulation of the config file in local system.
 import logging
 import os
 import sys
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import click
 import yaml
