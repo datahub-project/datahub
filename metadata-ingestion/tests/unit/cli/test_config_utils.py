@@ -158,10 +158,13 @@ class TestConfigUtils:
     def test_load_client_config_from_file(self):
         """Test loading client config from file."""
         test_config = {
-            "gms": {"server": "http://localhost:8080", "token": "test-token",
-                    "ca_certificate_path": "test-ca-path", "client_certificate_path": "test-client-path",
-                    "disable_ssl_verification": False
-                    }
+            "gms": {
+                "server": "http://localhost:8080",
+                "token": "test-token",
+                "ca_certificate_path": "test-ca-path",
+                "client_certificate_path": "test-client-path",
+                "disable_ssl_verification": False,
+            }
         }
 
         # Mock both environment check and file loading
