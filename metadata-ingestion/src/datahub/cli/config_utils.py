@@ -70,7 +70,7 @@ class DatahubConfig(BaseModel):
 
 
 def _get_config_from_env() -> Tuple[
-    Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]
+    Optional[str], Optional[str], Optional[str], Optional[str], Optional[bool]
 ]:
     host = os.environ.get(ENV_METADATA_HOST)
     port = os.environ.get(ENV_METADATA_PORT)
@@ -79,7 +79,13 @@ def _get_config_from_env() -> Tuple[
     url = os.environ.get(ENV_METADATA_HOST_URL)
     server_ca_cert = os.environ.get(SERVER_CA_CERT_PATH)
     client_cert = os.environ.get(CLIENT_CERTIFICATE_PATH)
-    disable_ssl = os.environ.get(DISABLE_SSL_VERIFICATION)
+
+    # Parse disable_ssl env var into a boolean
+    disable_ssl_env = os.environ.get(DISABLE_SSL_VERIFICATION)
+    disable_ssl: Optional[bool] = None
+    if disable_ssl_env is not None:
+        disable_ssl = disable_ssl_env.strip().lower() in ("1", "true", "yes")
+
     if port is not None:
         url = f"{protocol}://{host}:{port}"
         return url, token, server_ca_cert, client_cert, disable_ssl
@@ -105,13 +111,12 @@ def load_client_config() -> DatahubClientConfig:
     )
     if gms_host_env:
         # TODO We should also load system auth credentials here.
-        disable_ssl = disable_ssl if disable_ssl is not None else False
         return DatahubClientConfig(
             server=gms_host_env,
             token=gms_token_env,
             ca_certificate_path=server_ca_cert,
             client_certificate_path=client_cert,
-            disable_ssl_verification=disable_ssl,
+            disable_ssl_verification=disable_ssl or False,
         )
 
     if _should_skip_config():
