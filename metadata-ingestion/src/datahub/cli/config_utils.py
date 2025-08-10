@@ -100,6 +100,7 @@ def load_client_config() -> DatahubClientConfig:
     gms_host_env, gms_token_env, server_ca_cert, client_cert, disable_ssl = _get_config_from_env()
     if gms_host_env:
         # TODO We should also load system auth credentials here.
+        disable_ssl = disable_ssl if disable_ssl is not None else False
         return DatahubClientConfig(server=gms_host_env, token=gms_token_env, ca_certificate_path=server_ca_cert, client_certificate_path=client_cert, disable_ssl_verification=disable_ssl)
 
     if _should_skip_config():
