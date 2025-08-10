@@ -61,7 +61,7 @@ describe("create and manage group", () => {
     // cy.get(".ant-typography").contains(group_name).should("be.visible");
     cy.clickTextOptionWithClass(".ant-tabs-tab", "Members");
     // cy.get(".ant-tabs-tab").contains("Members").click();
-    cy.waitTextVisible("No members in this group yet.");
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
     cy.clickOptionWithText("Add Member");
     // cy.clickOptionWithText('Search for users...')
     cy.contains("Search for users...").click({ force: true });
@@ -114,7 +114,7 @@ describe("create and manage group", () => {
     cy.get('[data-testid="manage-users-groups-v2"]');
     cy.wait(1000);
     cy.contains(`Test group EDITED ${test_id}`).should("be.visible").click();
-    cy.get(".anticon.anticon-plus").click();
+    cy.get('[data-testid="add-owners-sidebar-button"]').click();
     cy.get('[aria-label="Close"]').should("be.visible");
     cy.get('[id="owner"]').click();
     cy.contains("Add Owners").click();
