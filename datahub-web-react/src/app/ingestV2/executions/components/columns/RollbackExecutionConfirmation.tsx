@@ -13,9 +13,20 @@ export default function RollbackExecutionConfirmation({ isOpen, onConfirm, onCan
         <ConfirmationModal
             isOpen={isOpen}
             modalTitle="Confirm Rollback"
-            modalText="Are you sure you want to continue? 
-            Rolling back this ingestion run will remove any new data ingested during the run. This may
-            exclude data that was previously extracted, but did not change during this run."
+            modalText={
+                <>
+                    Are you sure you want to continue? Rolling back this ingestion run will remove any new data ingested
+                    during the run. This may exclude data that was previously extracted, but did not change during this
+                    run.{' '}
+                    <a
+                        href="https://docs.datahub.com/docs/how/delete-metadata#rollback-ingestion-run"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Learn more
+                    </a>
+                </>
+            }
             handleConfirm={onConfirm}
             handleClose={onCancel}
         />

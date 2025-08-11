@@ -1,3 +1,4 @@
+import { Tooltip } from '@components';
 import React from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
@@ -13,6 +14,7 @@ export const iconDefaults: IconPropsDefaults = {
     size: '4xl',
     color: 'inherit',
     rotate: '0',
+    tooltipText: '',
 };
 
 export const Icon = ({
@@ -24,6 +26,7 @@ export const Icon = ({
     colorLevel,
     rotate = iconDefaults.rotate,
     weight,
+    tooltipText,
     ...props
 }: IconProps) => {
     const { filled, outlined } = getIconNames();
@@ -56,14 +59,16 @@ export const Icon = ({
 
     return (
         <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
-            <IconComponent
-                sx={{
-                    fontSize: getFontSize(size),
-                    color: getColor(color, colorLevel, theme),
-                }}
-                style={{ color: getColor(color, colorLevel, theme) }}
-                weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
-            />
+            <Tooltip title={tooltipText}>
+                <IconComponent
+                    sx={{
+                        fontSize: getFontSize(size),
+                        color: getColor(color, colorLevel, theme),
+                    }}
+                    style={{ color: getColor(color, colorLevel, theme) }}
+                    weight={source === 'phosphor' ? weight : undefined} // Phosphor icons use 'weight' prop
+                />
+            </Tooltip>
         </IconWrapper>
     );
 };

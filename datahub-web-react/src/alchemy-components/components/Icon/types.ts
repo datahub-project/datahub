@@ -31,6 +31,7 @@ export interface IconPropsDefaults {
     color: FontColorOptions;
     colorLevel?: FontColorLevelOptions;
     rotate: RotationOptions;
+    tooltipText?: string;
 }
 
 export interface IconProps extends Partial<IconPropsDefaults>, Omit<HTMLAttributes<HTMLElement>, 'color'> {

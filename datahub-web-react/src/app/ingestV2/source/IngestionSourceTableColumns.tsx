@@ -347,6 +347,7 @@ export function ActionsColumn({
                             onCancel(record.lastExecUrn, record.urn);
                         }
                     }}
+                    tooltipText="Stop Execution"
                 />
             );
         }
@@ -363,6 +364,7 @@ export function ActionsColumn({
                         onExecute(record.urn);
                     }
                 }}
+                tooltipText="Execute"
             />
         );
     };
