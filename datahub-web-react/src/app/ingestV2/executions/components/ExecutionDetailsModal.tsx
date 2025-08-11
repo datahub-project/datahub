@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Modal, Pill } from '@components';
 import { message } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
@@ -23,6 +23,7 @@ import { ExecutionRequestResult } from '@types';
 
 const modalBodyStyle = {
     padding: 0,
+    height: '80vh',
 };
 
 type Props = {
@@ -58,45 +59,47 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         const interval = setInterval(() => {
             if (status === EXECUTION_REQUEST_STATUS_RUNNING) refetch();
         }, 2000);
-
         return () => clearInterval(interval);
-    });
+    }, [status, refetch]);
 
-    const tabs: Tab[] = [
-        {
-            component: (
-                <SummaryTab
-                    urn={urn}
-                    status={status}
-                    result={result}
-                    data={data}
-                    onTabChange={(tab: TabType) => setSelectedTab(tab)}
-                />
-            ),
-            key: TabType.Summary,
-            name: TabType.Summary,
-        },
-        {
-            component: <LogsTab urn={urn} data={data} />,
-            key: TabType.Logs,
-            name: TabType.Logs,
-        },
-        {
-            component: <RecipeTab data={data} />,
-            key: TabType.Recipe,
-            name: TabType.Recipe,
-        },
-    ];
+    const tabs: Tab[] = useMemo(
+        () => [
+            {
+                component: (
+                    <SummaryTab
+                        urn={urn}
+                        status={status}
+                        result={result}
+                        data={data}
+                        onTabChange={(tab: TabType) => setSelectedTab(tab)}
+                    />
+                ),
+                key: TabType.Summary,
+                name: TabType.Summary,
+            },
+            {
+                component: <LogsTab urn={urn} data={data} />,
+                key: TabType.Logs,
+                name: TabType.Logs,
+            },
+            {
+                component: <RecipeTab urn={urn} data={data} />,
+                key: TabType.Recipe,
+                name: TabType.Recipe,
+            },
+        ],
+        [data, urn, result, status],
+    );
 
     return (
         <Modal
             width="1400px"
             bodyStyle={modalBodyStyle}
-            title="Status Details"
+            title="Run Details"
             titlePill={titlePill}
             open={open}
             onCancel={onClose}
-            buttons={[{ text: 'Close', variant: 'outline', onClick: onClose }]}
+            buttons={[]}
         >
             {!data && loading && <Message type="loading" content="Loading execution run details..." />}
             {error && message.error('Failed to load execution run details :(')}

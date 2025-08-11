@@ -392,3 +392,32 @@ function splitEntityId(entity_id: string): string[] {
 
     return parts;
 }
+
+export function extractPlatformNameFromPlatformUrn(platformUrn: string): string | null {
+    const match = platformUrn.match(/^urn:li:dataPlatform:([^,\s)]+)$/);
+    return match ? match[1] : null;
+}
+
+export function extractPlatformNameFromAssetUrn(urn: string) {
+    // First extract the platform URN
+    const platformUrn = getPlatformUrnFromEntityUrn(urn);
+    if (!platformUrn) return null;
+
+    // Then extract the platform name from the platform URN
+    const platformName = extractPlatformNameFromPlatformUrn(platformUrn);
+    return platformName;
+}
+
+/**
+ * Extracts the fully qualified dataset name from a dataset URN.
+ * URNs typically look like: urn:li:dataset:(urn:li:dataPlatform:postgres,database.schema.table,PROD)
+ * @param datasetUrn - The URN of the dataset.
+ * @returns The dataset name.
+ */
+export const extractDatasetNameFromUrn = (datasetUrn: string): string => {
+    const parts = datasetUrn.split(',');
+    if (parts.length >= 2) {
+        return parts[1] || datasetUrn;
+    }
+    return datasetUrn;
+};

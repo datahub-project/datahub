@@ -168,7 +168,7 @@ public class SampleDataFixtureConfiguration {
             TEST_ES_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
-            true,
+            false,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(

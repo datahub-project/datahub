@@ -20,6 +20,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -84,11 +85,28 @@ public class BatchMetadataChangeProposalsProcessor {
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils ->
-                  metricUtils.histogram(
-                      this.getClass(),
-                      "kafkaLag",
-                      System.currentTimeMillis() - consumerRecord.timestamp()));
+              metricUtils -> {
+                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+
+                // Dropwizard legacy
+                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
+
+                // Micrometer with tags
+                // TODO: include priority level when available
+                metricUtils
+                    .getRegistry()
+                    .ifPresent(
+                        meterRegistry -> {
+                          meterRegistry
+                              .timer(
+                                  MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                                  "topic",
+                                  consumerRecord.topic(),
+                                  "consumer.group",
+                                  mceConsumerGroupId)
+                              .record(Duration.ofMillis(queueTimeMs));
+                        });
+              });
       final GenericRecord record = consumerRecord.value();
 
       if (topicName == null) {

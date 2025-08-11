@@ -25,9 +25,6 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
-from datahub.api.entities.external.external_entities import (
-    PlatformResourceRepository,
-)
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
@@ -63,18 +60,21 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.platform_resource_repository import (
+    GluePlatformResourceRepository,
+)
 from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
     make_s3_urn,
     make_s3_urn_for_lineage,
 )
 from datahub.ingestion.source.aws.tag_entities import (
-    LakeFormationTagPlatformResource,
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    SourceCapabilityModifier,
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -275,6 +275,13 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
 @capability(
     SourceCapability.LINEAGE_FINE, "Support via the `emit_s3_lineage` config field"
 )
+@capability(
+    SourceCapability.CONTAINERS,
+    "Enabled by default",
+    subtype_modifier=[
+        SourceCapabilityModifier.DATABASE,
+    ],
+)
 class GlueSource(StatefulIngestionSourceBase):
     """
     Note: if you also have files in S3 that you'd like to ingest, we recommend you use Glue's built-in data catalog. See [here](../../../../docs/generated/ingestion/sources/s3.md) for a quick guide on how to set up a crawler on Glue and ingest the outputs with DataHub.
@@ -349,10 +356,14 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
-        self.platform_resource_repository: Optional[PlatformResourceRepository] = None
+        self.platform_resource_repository: Optional[
+            "GluePlatformResourceRepository"
+        ] = None
         if self.ctx.graph:
-            self.platform_resource_repository = PlatformResourceRepository(
-                self.ctx.graph
+            self.platform_resource_repository = GluePlatformResourceRepository(
+                self.ctx.graph,
+                platform_instance=self.source_config.platform_instance,
+                catalog=self.source_config.catalog_id,
             )
 
     def get_database_lf_tags(
@@ -387,7 +398,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     t = LakeFormationTag(
                         key=tag_key,
                         value=tag_value,
-                        catalog_id=catalog_id,
+                        catalog=catalog_id,
                     )
                     tags.append(t)
             return tags
@@ -430,7 +441,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     t = LakeFormationTag(
                         key=tag_key,
                         value=tag_value,
-                        catalog_id=catalog_id,
+                        catalog=catalog_id,
                     )
                     tags.append(t)
             return tags
@@ -514,6 +525,14 @@ class GlueSource(StatefulIngestionSourceBase):
         bucket = url.netloc
         key = url.path[1:]
 
+        # validate that we have a non-empty key
+        if not key:
+            self.report.num_job_script_location_invalid += 1
+            logger.warning(
+                f"Error parsing DAG for Glue job. The script {script_path} is not a valid S3 path for flow urn: {flow_urn}."
+            )
+            return None
+
         # download the script contents
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html#S3.Client.get_object
         try:
@@ -525,6 +544,14 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             self.report.num_job_script_failed_download += 1
             return None
+        except botocore.exceptions.ParamValidationError as e:
+            self.report_warning(
+                flow_urn,
+                f"Invalid S3 path for Glue job script {script_path}: {e}",
+            )
+            self.report.num_job_script_location_invalid += 1
+            return None
+
         script = obj["Body"].read().decode("utf-8")
 
         try:
@@ -1155,16 +1182,17 @@ class GlueSource(StatefulIngestionSourceBase):
         self, tag: LakeFormationTag
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
-            platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
-                platform_instance=self.source_config.platform_instance,
-                platform_resource_repository=self.platform_resource_repository,
-                catalog=tag.catalog,
-                tag=tag,
+            platform_resource_id = (
+                LakeFormationTagPlatformResourceId.get_or_create_from_tag(
+                    tag=tag,
+                    platform_resource_repository=self.platform_resource_repository,
+                    catalog_id=tag.catalog,
+                )
             )
             logger.info(f"Created platform resource {platform_resource_id}")
 
-            lf_tag = LakeFormationTagPlatformResource.get_from_datahub(
-                platform_resource_id, self.platform_resource_repository, False
+            lf_tag = self.platform_resource_repository.get_entity_from_datahub(
+                platform_resource_id, False
             )
             if (
                 tag.to_datahub_tag_urn().urn()

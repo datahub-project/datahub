@@ -1,5 +1,5 @@
-import { Icon, IconNames, Text } from '@components';
-import React from 'react';
+import { Icon, IconNames, Text, Tooltip } from '@components';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import spacing from '@components/theme/foundations/spacing';
@@ -32,19 +32,33 @@ interface Props {
     title: string;
     description?: string;
     hasChildren?: boolean;
+    isDisabled?: boolean;
+    isSmallModule?: boolean;
 }
 
-export default function MenuItem({ icon, title, description, hasChildren }: Props) {
-    return (
+export default function MenuItem({ icon, title, description, hasChildren, isDisabled, isSmallModule }: Props) {
+    const tooltipText = useMemo(() => {
+        if (!isDisabled) return undefined;
+        if (isSmallModule) {
+            return 'Cannot add small widget to large widget row';
+        }
+        return 'Cannot add large widget to small widget row';
+    }, [isDisabled, isSmallModule]);
+
+    const iconColorLevel = isDisabled ? 300 : 1800;
+
+    const content = (
         <Wrapper>
             <IconWrapper>
-                <Icon icon={icon} source="phosphor" color="gray" size="2xl" />
+                <Icon icon={icon} source="phosphor" color="gray" colorLevel={iconColorLevel} size="2xl" />
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold">{title}</Text>
+                <Text weight="semiBold" color="gray" colorLevel={600}>
+                    {title}
+                </Text>
                 {description && (
-                    <Text color="gray" colorLevel={1700} size="sm">
+                    <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
                         {description}
                     </Text>
                 )}
@@ -52,7 +66,15 @@ export default function MenuItem({ icon, title, description, hasChildren }: Prop
 
             <SpaceFiller />
 
-            {hasChildren && <Icon icon="CaretRight" source="phosphor" color="gray" size="lg" />}
+            {hasChildren && (
+                <Icon icon="CaretRight" source="phosphor" color="gray" colorLevel={iconColorLevel} size="lg" />
+            )}
         </Wrapper>
     );
+
+    if (isDisabled && tooltipText) {
+        return <Tooltip title={tooltipText}>{content}</Tooltip>;
+    }
+
+    return content;
 }
