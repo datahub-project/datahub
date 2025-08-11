@@ -1,16 +1,15 @@
-import { LockOutlined, LoginOutlined, UserOutlined } from '@ant-design/icons';
-import { useReactiveVar } from '@apollo/client';
-import { Button, Divider, Form, Image, Input, message } from 'antd';
-import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
-import { Redirect, useLocation } from 'react-router';
+import * as QueryString from 'query-string';
+import { Input, Button, Form, message, Image, Divider } from 'antd';
+import { UserOutlined, LockOutlined, LoginOutlined } from '@ant-design/icons';
+import { useReactiveVar } from '@apollo/client';
 import styled, { useTheme } from 'styled-components/macro';
-
-import analytics, { EventType } from '@app/analytics';
-import { isLoggedInVar } from '@app/auth/checkAuthStatus';
-import styles from '@app/auth/login.module.css';
-import { Message } from '@app/shared/Message';
-import { useAppConfig } from '@app/useAppConfig';
+import { Redirect, useLocation } from 'react-router';
+import styles from './login.module.css';
+import { Message } from '../shared/Message';
+import { isLoggedInVar } from './checkAuthStatus';
+import analytics, { EventType } from '../analytics';
+import { useAppConfig } from '../useAppConfig';
 
 type FormValues = {
     username: string;
@@ -62,12 +61,12 @@ const SsoTextSpan = styled.span`
     padding-top: 6px;
 `;
 
-export type LogInProps = Record<string, never>;
+export type AdminLogInProps = Record<string, never>;
 
-export const LogIn: React.VFC<LogInProps> = () => {
+export const AdminLogIn: React.VFC<AdminLogInProps> = () => {
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const location = useLocation();
-    const params = QueryString.parse(location.search, { decode: true });
+    const params = QueryString.parse(location.search);
     const maybeRedirectError = params.error_msg;
 
     const themeConfig = useTheme();
@@ -95,8 +94,8 @@ export const LogIn: React.VFC<LogInProps> = () => {
                     analytics.event({ type: EventType.LogInEvent });
                     return Promise.resolve();
                 })
-                .catch((e) => {
-                    message.error(`Failed to log in! ${e}`);
+                .catch((_) => {
+                    message.error(`Failed to log in! An unexpected error occurred.`);
                 })
                 .finally(() => setLoading(false));
         },
@@ -105,8 +104,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
 
     if (isLoggedIn) {
         const maybeRedirectUri = params.redirect_uri;
-        // NOTE we do not decode the redirect_uri because it is already decoded by QueryString.parse
-        return <Redirect to={maybeRedirectUri || '/'} />;
+        return <Redirect to={(maybeRedirectUri && decodeURIComponent(maybeRedirectUri as string)) || '/'} />;
     }
 
     return (
@@ -120,7 +118,7 @@ export const LogIn: React.VFC<LogInProps> = () => {
                 </div>
                 <div className={styles.login_form_box}>
                     {loading && <Message type="loading" content="Logging in..." />}
-                    {/*<Form onFinish={handleLogin} layout="vertical">
+                    <Form onFinish={handleLogin} layout="vertical">
                         <Form.Item
                             name="username"
                             // eslint-disable-next-line jsx-a11y/label-has-associated-control
@@ -153,10 +151,10 @@ export const LogIn: React.VFC<LogInProps> = () => {
                             }}
                         </Form.Item>
                     </Form>
-                    <SsoDivider /> */}
+                    <SsoDivider />
                     <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
                         <LoginLogo />
-                        <SsoTextSpan>Sign in with Kakao Okta</SsoTextSpan>
+                        <SsoTextSpan>Sign in with SSO</SsoTextSpan>
                         <span />
                     </SsoButton>
                 </div>
