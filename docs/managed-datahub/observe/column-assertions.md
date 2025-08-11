@@ -173,13 +173,13 @@ You can choose from any of the columns from the table listed in the dropdown.
   can check that the column value is greater than a specific value. For string types, you can check that the column value
   matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
   **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
-  assertion.
+  assertion. Note, Smart Assertions are not supported for Column Value Assertions today.
 
 - **Column Metric Assertions**: You will be able to choose from a list of common metrics and then specify the operator
   and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
   with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
   specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
-  is less than a specific number.
+  is less than a specific number. You can also select the **Detect with AI** option to use Smart Assertions to detect anomalies in the column metric.
 
 #### 9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate.
 
