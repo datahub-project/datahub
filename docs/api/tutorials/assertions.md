@@ -81,12 +81,12 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart freshness assertion
+# Create smart freshness assertion (AI-powered anomaly detection)
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
-freshness_assertion = client.assertions.sync_smart_freshness_assertion(
+smart_freshness_assertion = client.assertions.sync_smart_freshness_assertion(
     dataset_urn=dataset_urn,
-    display_name="Freshness Anomaly Monitor",
+    display_name="Smart Freshness Anomaly Monitor",
     # Detection mechanism - information_schema is recommended
     detection_mechanism="information_schema",
     # Smart sensitivity setting
@@ -97,7 +97,70 @@ freshness_assertion = client.assertions.sync_smart_freshness_assertion(
     enabled=True
 )
 
+print(f"Created smart freshness assertion: {smart_freshness_assertion.urn}")
+
+# Create traditional freshness assertion (fixed interval)
+freshness_assertion = client.assertions.sync_freshness_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Fixed Interval Freshness Check",
+    # Fixed interval check - table should be updated within lookback window
+    freshness_schedule_check_type="fixed_interval",
+    # Lookback window - table should be updated within 8 hours
+    lookback_window={"unit": "HOUR", "multiple": 8},
+    # Detection mechanism
+    detection_mechanism="information_schema",
+    # Evaluation schedule - how often to check
+    schedule="0 */2 * * *",  # Check every 2 hours
+    # Tags
+    tags=["automated", "freshness", "fixed_interval"],
+    enabled=True
+)
+
 print(f"Created freshness assertion: {freshness_assertion.urn}")
+
+# Create since-last-check freshness assertion
+since_last_check_assertion = client.assertions.sync_freshness_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Since Last Check Freshness",
+    # Since last check - table should be updated since the last evaluation
+    freshness_schedule_check_type="since_the_last_check",
+    # Detection mechanism with last modified column
+    detection_mechanism={
+        "type": "last_modified_column",
+        "column_name": "updated_at",
+        "additional_filter": "status = 'active'"
+    },
+    # Evaluation schedule - how often to check
+    schedule="0 */6 * * *",  # Check every 6 hours
+    # Tags
+    tags=["automated", "freshness", "since_last_check"],
+    enabled=True
+)
+
+print(f"Created since last check assertion: {since_last_check_assertion.urn}")
+
+# Create freshness assertion with high watermark column
+watermark_freshness_assertion = client.assertions.sync_freshness_assertion(
+    dataset_urn=dataset_urn,
+    display_name="High Watermark Freshness Check",
+    # Fixed interval check with specific lookback window
+    freshness_schedule_check_type="fixed_interval",
+    # Lookback window - check for updates in the last 24 hours
+    lookback_window={"unit": "DAY", "multiple": 1},
+    # Detection mechanism using high watermark column (e.g., auto-incrementing ID)
+    detection_mechanism={
+        "type": "high_watermark_column",
+        "column_name": "id",
+        "additional_filter": "status != 'deleted'"
+    },
+    # Evaluation schedule
+    schedule="0 8 * * *",  # Check daily at 8 AM
+    # Tags
+    tags=["automated", "freshness", "high_watermark"],
+    enabled=True
+)
+
+print(f"Created watermark freshness assertion: {watermark_freshness_assertion.urn}")
 ```
 
 </TabItem>
@@ -161,16 +224,16 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart volume assertion
+# Create smart volume assertion (AI-powered anomaly detection)
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
-volume_assertion = client.assertions.sync_smart_volume_assertion(
+smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     dataset_urn=dataset_urn,
     display_name="Smart Volume Check",
     # Detection mechanism options
     detection_mechanism="information_schema",
     # Smart sensitivity setting
-    sensitivity="medium",
+    sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "volume", "data_quality"],
     # Schedule (optional - defaults to hourly)
@@ -179,7 +242,52 @@ volume_assertion = client.assertions.sync_smart_volume_assertion(
     enabled=True
 )
 
+print(f"Created smart volume assertion: {smart_volume_assertion.urn}")
+
+# Create traditional volume assertion (fixed threshold range)
+volume_assertion = client.assertions.sync_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Row Count Range Check",
+    criteria_condition="ROW_COUNT_IS_WITHIN_A_RANGE",
+    criteria_parameters=(1000, 10000),  # Between 1000 and 10000 rows
+    # Detection mechanism
+    detection_mechanism="information_schema",
+    # Evaluation schedule
+    schedule="0 */4 * * *",  # Every 4 hours
+    # Tags
+    tags=["automated", "volume", "threshold_check"],
+    enabled=True
+)
+
 print(f"Created volume assertion: {volume_assertion.urn}")
+
+# Example with single threshold
+min_volume_assertion = client.assertions.sync_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Minimum Row Count Check",
+    criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+    criteria_parameters=500,  # At least 500 rows
+    detection_mechanism="information_schema",
+    schedule="0 */2 * * *",  # Every 2 hours
+    tags=["automated", "volume", "minimum_check"],
+    enabled=True
+)
+
+print(f"Created minimum volume assertion: {min_volume_assertion.urn}")
+
+# Example with growth-based assertion
+growth_volume_assertion = client.assertions.sync_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Daily Growth Check",
+    criteria_condition="ROW_COUNT_GROWS_BY_AT_MOST_ABSOLUTE",
+    criteria_parameters=1000,  # Grows by at most 1000 rows between checks
+    detection_mechanism="information_schema",
+    schedule="0 6 * * *",  # Daily at 6 AM
+    tags=["automated", "volume", "growth_check"],
+    enabled=True
+)
+
+print(f"Created growth volume assertion: {growth_volume_assertion.urn}")
 ```
 
 </TabItem>
