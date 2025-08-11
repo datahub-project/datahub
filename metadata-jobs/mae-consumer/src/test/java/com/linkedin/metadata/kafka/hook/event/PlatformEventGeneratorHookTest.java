@@ -42,6 +42,7 @@ import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
 import com.linkedin.dataprocess.DataProcessInstanceRunResult;
@@ -49,6 +50,9 @@ import com.linkedin.dataprocess.DataProcessRunStatus;
 import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
+import com.linkedin.dataset.FineGrainedLineage;
+import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -75,6 +79,8 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import com.linkedin.platform.event.v1.Parameters;
+import com.linkedin.platform.event.v1.RelationshipChangeEvent;
+import com.linkedin.platform.event.v1.RelationshipChangeOperation;
 import com.linkedin.schema.*;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -87,11 +93,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * Tests the {@link EntityChangeEventGeneratorHook}.
+ * Tests the {@link PlatformEventGeneratorHook}.
  *
  * <p>TODO: Include more Schema Field Tests for tags, terms and schema-changes.
  */
-public class EntityChangeEventGeneratorHookTest {
+public class PlatformEventGeneratorHookTest {
   private static final long EVENT_TIME = 123L;
 
   private static final String TEST_DATASET_URN =
@@ -122,7 +128,7 @@ public class EntityChangeEventGeneratorHookTest {
       "Personally Identifiable Information";
 
   private SystemEntityClient _mockClient;
-  private EntityChangeEventGeneratorHook _entityChangeEventHook;
+  private PlatformEventGeneratorHook _entityChangeEventHook;
 
   @BeforeMethod
   public void setupTest() throws URISyntaxException {
@@ -131,7 +137,7 @@ public class EntityChangeEventGeneratorHookTest {
     EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry =
         createEntityChangeEventGeneratorRegistry();
     _entityChangeEventHook =
-        new EntityChangeEventGeneratorHook(
+        new PlatformEventGeneratorHook(
             createMockOperationContext(), entityChangeEventGeneratorRegistry, _mockClient, true);
   }
 
@@ -1689,6 +1695,174 @@ public class EntityChangeEventGeneratorHookTest {
     verifyProducePlatformEvent(_mockClient, platformEvent);
   }
 
+  @Test
+  public void testRelationshipEventGenerationFromUpstreamAspectRelationshipAdded()
+      throws Exception {
+    String TEST_UPSTREAM_LINEAGE_URN =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset-upstream,PROD)";
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fine = new FineGrainedLineageArray();
+    FineGrainedLineage lineage = new FineGrainedLineage();
+    UrnArray downstreams = new UrnArray();
+    downstreams.add(Urn.createFromString(TEST_DATASET_URN));
+    lineage.setDownstreams(downstreams);
+
+    UrnArray upstreams = new UrnArray();
+    upstreams.add(Urn.createFromString(TEST_UPSTREAM_LINEAGE_URN));
+    lineage.setUpstreams(upstreams);
+    fine.add(lineage);
+    upstreamLineage.setFineGrainedLineages(fine);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProduceRelationshipPlatformEvent(
+        _mockClient,
+        createRelationshipEvent(
+            "downstreamOf",
+            Urn.createFromString(TEST_DATASET_URN),
+            upstreams.get(0),
+            RelationshipChangeOperation.ADD,
+            actorUrn),
+        false);
+  }
+
+  @Test
+  public void
+      testRelationshipEventGenerationFromUpstreamAspectRelationshipMultipleRelationshipAdded()
+          throws Exception {
+    String TEST_UPSTREAM_LINEAGE_URN =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset-upstream,PROD)";
+
+    String TEST_UPSTREAM_LINEAGE_URN2 =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset-upstream2,PROD)";
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fine = new FineGrainedLineageArray();
+    FineGrainedLineage lineage = new FineGrainedLineage();
+    UrnArray downstreams = new UrnArray();
+    downstreams.add(Urn.createFromString(TEST_DATASET_URN));
+    lineage.setDownstreams(downstreams);
+
+    UrnArray upstreams = new UrnArray();
+    upstreams.add(Urn.createFromString(TEST_UPSTREAM_LINEAGE_URN));
+    lineage.setUpstreams(upstreams);
+    fine.add(lineage);
+    upstreamLineage.setFineGrainedLineages(fine);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(upstreamLineage));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProduceRelationshipPlatformEvent(
+        _mockClient,
+        createRelationshipEvent(
+            "downstreamOf",
+            Urn.createFromString(TEST_DATASET_URN),
+            upstreams.get(0),
+            RelationshipChangeOperation.ADD,
+            actorUrn),
+        false);
+  }
+
+  @Test
+  public void testRelationshipEventGenerationFromUpstreamAspectRelationshipRemoved()
+      throws Exception {
+    String TEST_UPSTREAM_LINEAGE_URN =
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset-upstream,PROD)";
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATASET_ENTITY_NAME);
+    event.setAspectName(UPSTREAM_LINEAGE_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    UpstreamLineage upstreamLineage = new UpstreamLineage();
+    FineGrainedLineageArray fine = new FineGrainedLineageArray();
+    FineGrainedLineage lineage = new FineGrainedLineage();
+    UrnArray downstreams = new UrnArray();
+    downstreams.add(Urn.createFromString(TEST_DATASET_URN));
+    lineage.setDownstreams(downstreams);
+
+    UrnArray upstreams = new UrnArray();
+    upstreams.add(Urn.createFromString(TEST_UPSTREAM_LINEAGE_URN));
+    lineage.setUpstreams(upstreams);
+    fine.add(lineage);
+    upstreamLineage.setFineGrainedLineages(fine);
+
+    event.setPreviousAspectValue(GenericRecordUtils.serializeAspect(upstreamLineage));
+    event.setAspect(GenericRecordUtils.serializeAspect(new UpstreamLineage()));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProduceRelationshipPlatformEvent(
+        _mockClient,
+        createRelationshipEvent(
+            "downstreamOf",
+            Urn.createFromString(TEST_DATASET_URN),
+            upstreams.get(0),
+            RelationshipChangeOperation.REMOVE,
+            actorUrn),
+        false);
+  }
+
+  @Test
+  public void testRelationshipEventGenerationFromDataJobInputOutputAspectRelationshipRemoved()
+      throws Exception {
+    String TEST_UPSTREAM_LINEAGE_URN = "urn:li:datajob:(datahub,my_pipeline.daily_etl_job,PROD)\n";
+
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(DATA_JOB_ENTITY_NAME);
+    event.setAspectName(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setEntityUrn(Urn.createFromString(TEST_DATASET_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
+    FineGrainedLineageArray fine = new FineGrainedLineageArray();
+    FineGrainedLineage lineage = new FineGrainedLineage();
+    UrnArray downstreams = new UrnArray();
+    downstreams.add(Urn.createFromString(TEST_DATASET_URN));
+    UrnArray upstreams = new UrnArray();
+    upstreams.add(Urn.createFromString(TEST_UPSTREAM_LINEAGE_URN));
+
+    lineage.setDownstreams(downstreams);
+    lineage.setUpstreams(upstreams);
+    fine.add(lineage);
+    dataJobInputOutput.setFineGrainedLineages(fine);
+
+    event.setAspect(GenericRecordUtils.serializeAspect(dataJobInputOutput));
+
+    _entityChangeEventHook.invoke(event);
+
+    verifyProduceRelationshipPlatformEvent(
+        _mockClient,
+        createRelationshipEvent(
+            "DownstreamOf",
+            fine.get(0).getDownstreams().get(0),
+            fine.get(0).getUpstreams().get(0),
+            RelationshipChangeOperation.ADD,
+            actorUrn),
+        false);
+  }
+
   private PlatformEvent createChangeEvent(
       String entityType,
       Urn entityUrn,
@@ -1706,7 +1880,7 @@ public class EntityChangeEventGeneratorHookTest {
       changeEvent.setModifier(modifier);
     }
     changeEvent.setAuditStamp(
-        new AuditStamp().setActor(actor).setTime(EntityChangeEventGeneratorHookTest.EVENT_TIME));
+        new AuditStamp().setActor(actor).setTime(PlatformEventGeneratorHookTest.EVENT_TIME));
     changeEvent.setVersion(0);
     if (parameters != null) {
       changeEvent.setParameters(new Parameters(new DataMap(parameters)));
@@ -1714,8 +1888,28 @@ public class EntityChangeEventGeneratorHookTest {
     final PlatformEvent platformEvent = new PlatformEvent();
     platformEvent.setName(CHANGE_EVENT_PLATFORM_EVENT_NAME);
     platformEvent.setHeader(
-        new PlatformEventHeader()
-            .setTimestampMillis(EntityChangeEventGeneratorHookTest.EVENT_TIME));
+        new PlatformEventHeader().setTimestampMillis(PlatformEventGeneratorHookTest.EVENT_TIME));
+    platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
+    return platformEvent;
+  }
+
+  private PlatformEvent createRelationshipEvent(
+      String relationshipType,
+      Urn sourceUrn,
+      Urn targetUrn,
+      RelationshipChangeOperation operation,
+      Urn actor) {
+    final RelationshipChangeEvent changeEvent = new RelationshipChangeEvent();
+    changeEvent.setRelationshipType(relationshipType);
+    changeEvent.setSourceUrn(sourceUrn);
+    changeEvent.setDestinationUrn(targetUrn);
+    changeEvent.setOperation(operation);
+    changeEvent.setAuditStamp(
+        new AuditStamp().setActor(actor).setTime(PlatformEventGeneratorHookTest.EVENT_TIME));
+    final PlatformEvent platformEvent = new PlatformEvent();
+    platformEvent.setName(RELATIONSHIP_PLATFORM_EVENT_NAME);
+    platformEvent.setHeader(
+        new PlatformEventHeader().setTimestampMillis(PlatformEventGeneratorHookTest.EVENT_TIME));
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
     return platformEvent;
   }
@@ -1793,6 +1987,11 @@ public class EntityChangeEventGeneratorHookTest {
     Mockito.when(datasetSpec.getAspectSpec(eq(DATASET_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockDatasetProperties);
 
+    AspectSpec mockUpstreamLineage = createMockAspectSpec(UpstreamLineage.class);
+    when(mockUpstreamLineage.getName()).thenReturn(UPSTREAM_LINEAGE_ASPECT_NAME);
+    Mockito.when(datasetSpec.getAspectSpec(eq(UPSTREAM_LINEAGE_ASPECT_NAME)))
+        .thenReturn(mockUpstreamLineage);
+
     AspectSpec mockEditableDatasetProperties =
         createMockAspectSpec(EditableDatasetProperties.class);
     Mockito.when(datasetSpec.getAspectSpec(eq(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME)))
@@ -1820,6 +2019,16 @@ public class EntityChangeEventGeneratorHookTest {
     Mockito.when(containerSpec.getAspectSpec(eq(CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockEditableContainerProperties);
     Mockito.when(registry.getEntitySpec(eq(CONTAINER_ENTITY_NAME))).thenReturn(containerSpec);
+
+    // Build DataJob Entity Spec
+    EntitySpec dataJobSpec = Mockito.mock(EntitySpec.class);
+
+    AspectSpec mockDatajobInputOutput = createMockAspectSpec(DataJobInputOutput.class);
+    when(mockDatajobInputOutput.getName()).thenReturn(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME);
+    Mockito.when(dataJobSpec.getAspectSpec(eq(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)))
+        .thenReturn(mockDatajobInputOutput);
+
+    Mockito.when(registry.getEntitySpec(eq(DATA_JOB_ENTITY_NAME))).thenReturn(dataJobSpec);
 
     // Build Assertion Entity Spec
     EntitySpec assertionSpec = Mockito.mock(EntitySpec.class);
@@ -1874,11 +2083,33 @@ public class EntityChangeEventGeneratorHookTest {
   private void verifyProducePlatformEvent(
       SystemEntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions)
       throws Exception {
+    verifyProducePlatformEvent(
+        mockClient, platformEvent, CHANGE_EVENT_PLATFORM_EVENT_NAME, noMoreInteractions);
+  }
+
+  private void verifyProduceRelationshipPlatformEvent(
+      SystemEntityClient mockClient, PlatformEvent platformEvent) throws Exception {
+    verifyProducePlatformEvent(mockClient, platformEvent, RELATIONSHIP_PLATFORM_EVENT_NAME, true);
+  }
+
+  private void verifyProduceRelationshipPlatformEvent(
+      SystemEntityClient mockClient, PlatformEvent platformEvent, boolean noMoreInteractions)
+      throws Exception {
+    verifyProducePlatformEvent(
+        mockClient, platformEvent, RELATIONSHIP_PLATFORM_EVENT_NAME, noMoreInteractions);
+  }
+
+  private void verifyProducePlatformEvent(
+      SystemEntityClient mockClient,
+      PlatformEvent platformEvent,
+      String name,
+      boolean noMoreInteractions)
+      throws Exception {
     // Verify event has been emitted.
     verify(mockClient, Mockito.times(1))
         .producePlatformEvent(
             any(OperationContext.class),
-            eq(CHANGE_EVENT_PLATFORM_EVENT_NAME),
+            eq(name),
             Mockito.anyString(),
             argThat(new PlatformEventMatcher(platformEvent)));
 

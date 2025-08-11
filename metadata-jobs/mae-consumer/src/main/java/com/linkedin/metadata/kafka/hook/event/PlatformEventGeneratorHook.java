@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.hook.event;
 
+import static com.linkedin.metadata.graph.GraphIndexUtils.*;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
@@ -10,6 +12,9 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.models.graph.Edge;
+import com.linkedin.metadata.graph.EdgeDiff;
+import com.linkedin.metadata.graph.GraphIndexUtils;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -23,9 +28,13 @@ import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.platform.event.v1.Parameters;
+import com.linkedin.platform.event.v1.RelationshipChangeEvent;
+import com.linkedin.platform.event.v1.RelationshipChangeOperation;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -47,10 +56,14 @@ import org.springframework.stereotype.Component;
 @Slf4j
 @Component
 @Import({EntityRegistryFactory.class})
-public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
+public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
+
+  private static final Set<String> RELATIONSHIP_CHANGE_SUPPORTED_ASPECT_NAMES =
+      ImmutableSet.of(
+          Constants.UPSTREAM_LINEAGE_ASPECT_NAME, Constants.FINE_GRAINED_LINEAGE_ASPECT_NAME);
 
   /** The list of aspects that are supported for generating semantic change events. */
-  private static final Set<String> SUPPORTED_ASPECT_NAMES =
+  private static final Set<String> ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES =
       ImmutableSet.of(
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
@@ -88,7 +101,11 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
           Constants.BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME);
 
   /** The list of change types that are supported for generating semantic change events. */
-  private static final Set<String> SUPPORTED_OPERATIONS =
+  private static final Set<String> CHANGE_EVENT_SUPPORTED_OPERATIONS =
+      ImmutableSet.of("CREATE", "UPSERT", "DELETE");
+
+  /** The list of change types that are supported for generating platform events. */
+  private static final Set<String> RELATIONSHIP_CHANGE_EVENT_SUPPORTED_OPERATIONS =
       ImmutableSet.of("CREATE", "UPSERT", "DELETE");
 
   private final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry;
@@ -99,7 +116,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   private final List<String> entityExclusions;
 
   @Autowired
-  public EntityChangeEventGeneratorHook(
+  public PlatformEventGeneratorHook(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull @Qualifier("entityChangeEventGeneratorRegistry")
           final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
@@ -118,7 +135,7 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
   }
 
   @VisibleForTesting
-  public EntityChangeEventGeneratorHook(
+  public PlatformEventGeneratorHook(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull final EntityChangeEventGeneratorRegistry entityChangeEventGeneratorRegistry,
       @Nonnull final SystemEntityClient entityClient,
@@ -137,61 +154,95 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
     return isEnabled;
   }
 
+  private List<ChangeEvent> getChangeEvents(MetadataChangeLog logEvent) {
+    final AspectSpec aspectSpec =
+        systemOperationContext
+            .getEntityRegistry()
+            .getEntitySpec(logEvent.getEntityType())
+            .getAspectSpec(logEvent.getAspectName());
+
+    assert aspectSpec != null;
+
+    final RecordTemplate fromAspect =
+        logEvent.getPreviousAspectValue() != null
+            ? GenericRecordUtils.deserializeAspect(
+                logEvent.getPreviousAspectValue().getValue(),
+                logEvent.getPreviousAspectValue().getContentType(),
+                aspectSpec)
+            : null;
+
+    final RecordTemplate toAspect =
+        logEvent.getAspect() != null
+            ? GenericRecordUtils.deserializeAspect(
+                logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec)
+            : null;
+
+    return ChangeEventGeneratorUtils.generateChangeEvents(
+        entityChangeEventGeneratorRegistry,
+        logEvent.getEntityUrn(),
+        logEvent.getEntityType(),
+        logEvent.getAspectName(),
+        createAspect(fromAspect, logEvent.getPreviousSystemMetadata()),
+        createAspect(toAspect, logEvent.getSystemMetadata()),
+        logEvent.getCreated());
+  }
+
+  private void processChangeEvent(@Nonnull final MetadataChangeLog logEvent) throws Exception {
+    // Steps:
+    // 1. Parse the old and new aspect.
+    // 2. Find and invoke a EntityChangeEventGenerator.
+    // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
+    final List<ChangeEvent> changeEvents = getChangeEvents(logEvent);
+    // Iterate through each transaction, emit change events as platform events.
+    for (final ChangeEvent event : changeEvents) {
+      PlatformEvent platformEvent = buildPlatformEvent(event);
+      emitPlatformEvent(
+          platformEvent,
+          String.format("%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn()));
+      log.debug(
+          "Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
+          event.getCategory(),
+          event.getOperation(),
+          event.getEntityUrn());
+    }
+  }
+
+  private void processRelationshipChangeEvent(@Nonnull final MetadataChangeLog logEvent)
+      throws Exception {
+    // Steps:
+    // 1. Parse the old and new aspect.
+    // 2. Find and invoke a EntityChangeEventGenerator.
+    // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
+    final List<RelationshipChangeEvent> relationshipChangeEvents =
+        buildRelationshipChangeEvents(logEvent);
+    for (final RelationshipChangeEvent changeEvent : relationshipChangeEvents) {
+      PlatformEvent platformEvent = buildRelationshipPlatformEvent(changeEvent);
+      emitPlatformEvent(
+          platformEvent,
+          String.format(
+              "%s-%s", Constants.RELATIONSHIP_PLATFORM_EVENT_NAME, logEvent.getEntityUrn()));
+      log.debug(
+          "Successfully emitted relationship event. operation: {}, entity urn: {}",
+          changeEvent.getOperation(),
+          logEvent.getEntityUrn());
+    }
+  }
+
   @Override
   public void invoke(@Nonnull final MetadataChangeLog logEvent) throws Exception {
-    if (isEligibleForProcessing(logEvent)) {
+    if (isEligibleForChangeEventProcessing(logEvent)) {
       // Steps:
       // 1. Parse the old and new aspect.
       // 2. Find and invoke a EntityChangeEventGenerator.
       // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
-      final AspectSpec aspectSpec =
-          systemOperationContext
-              .getEntityRegistry()
-              .getEntitySpec(logEvent.getEntityType())
-              .getAspectSpec(logEvent.getAspectName());
-
-      assert aspectSpec != null;
-
-      final RecordTemplate fromAspect =
-          logEvent.getPreviousAspectValue() != null
-              ? GenericRecordUtils.deserializeAspect(
-                  logEvent.getPreviousAspectValue().getValue(),
-                  logEvent.getPreviousAspectValue().getContentType(),
-                  aspectSpec)
-              : null;
-
-      final RecordTemplate toAspect =
-          logEvent.getAspect() != null
-              ? GenericRecordUtils.deserializeAspect(
-                  logEvent.getAspect().getValue(),
-                  logEvent.getAspect().getContentType(),
-                  aspectSpec)
-              : null;
-
-      final List<ChangeEvent> changeEvents =
-          ChangeEventGeneratorUtils.generateChangeEvents(
-              entityChangeEventGeneratorRegistry,
-              logEvent.getEntityUrn(),
-              logEvent.getEntityType(),
-              logEvent.getAspectName(),
-              createAspect(fromAspect, logEvent.getPreviousSystemMetadata()),
-              createAspect(toAspect, logEvent.getSystemMetadata()),
-              logEvent.getCreated());
-
-      // Iterate through each transaction, emit change events as platform events.
-      for (final ChangeEvent event : changeEvents) {
-        PlatformEvent platformEvent = buildPlatformEvent(event);
-        emitPlatformEvent(
-            platformEvent,
-            String.format(
-                "%s-%s", Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, event.getEntityUrn()));
-        log.debug(
-            "Successfully emitted change event. category: {}, operation: {}, entity urn: {}",
-            event.getCategory(),
-            event.getOperation(),
-            event.getEntityUrn());
-      }
+      processChangeEvent(logEvent);
     }
+
+    // Steps:
+    // 1. Parse the old and new aspect.
+    // 2. Find and invoke a EntityChangeEventGenerator.
+    // 3. Sink the output of the EntityChangeEventGenerator to a specific PDL change event.
+    processRelationshipChangeEvent(logEvent);
   }
 
   private <T extends RecordTemplate> List<ChangeEvent> generateChangeEvents(
@@ -215,16 +266,21 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
     return allChangeEvents;
   }
 
-  private boolean isEligibleForProcessing(final MetadataChangeLog log) {
-    return SUPPORTED_OPERATIONS.contains(log.getChangeType().toString())
-        && SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
+  private boolean isEligibleForChangeEventProcessing(final MetadataChangeLog log) {
+    return CHANGE_EVENT_SUPPORTED_OPERATIONS.contains(log.getChangeType().toString())
+        && ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
+        && !entityExclusions.contains(log.getEntityType());
+  }
+
+  private boolean isEligibleForRelationshipChangeEventProcessing(final MetadataChangeLog log) {
+    return RELATIONSHIP_CHANGE_SUPPORTED_ASPECT_NAMES.contains(log.getAspectName())
         && !entityExclusions.contains(log.getEntityType());
   }
 
   private void emitPlatformEvent(
       @Nonnull final PlatformEvent event, @Nonnull final String partitioningKey) throws Exception {
     systemEntityClient.producePlatformEvent(
-        systemOperationContext, Constants.CHANGE_EVENT_PLATFORM_EVENT_NAME, partitioningKey, event);
+        systemOperationContext, event.getName(), partitioningKey, event);
   }
 
   private PlatformEvent buildPlatformEvent(final ChangeEvent rawChangeEvent) {
@@ -237,6 +293,106 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
         new PlatformEventHeader().setTimestampMillis(rawChangeEvent.getAuditStamp().getTime()));
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
     return platformEvent;
+  }
+
+  private PlatformEvent buildRelationshipPlatformEvent(final RelationshipChangeEvent changeEvent) {
+    // 2. Build platform event
+    PlatformEvent platformEvent = new PlatformEvent();
+    platformEvent.setName(Constants.RELATIONSHIP_PLATFORM_EVENT_NAME);
+    platformEvent.setHeader(
+        new PlatformEventHeader().setTimestampMillis(changeEvent.getAuditStamp().getTime()));
+    platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
+    return platformEvent;
+  }
+
+  private List<RelationshipChangeEvent> buildRelationshipChangeEvents(
+      final MetadataChangeLog logEvent) {
+    final AspectSpec aspectSpec =
+        Objects.requireNonNull(
+                systemOperationContext.getEntityRegistry().getEntitySpec(logEvent.getEntityType()))
+            .getAspectSpec(logEvent.getAspectName());
+
+    if (aspectSpec == null) {
+      log.error(
+          "Failed to find aspect spec for entity type {} for log event: {}",
+          logEvent.getEntityType(),
+          logEvent);
+      return Collections.emptyList();
+    }
+
+    final RecordTemplate oldAspect =
+        logEvent.getPreviousAspectValue() != null
+            ? GenericRecordUtils.deserializeAspect(
+                logEvent.getPreviousAspectValue().getValue(),
+                logEvent.getPreviousAspectValue().getContentType(),
+                aspectSpec)
+            : null;
+
+    final RecordTemplate newAspect =
+        logEvent.getAspect() != null
+            ? GenericRecordUtils.deserializeAspect(
+                logEvent.getAspect().getValue(), logEvent.getAspect().getContentType(), aspectSpec)
+            : null;
+    Pair<List<Edge>, HashMap<Urn, Set<String>>> oldEdgeAndRelationTypes = null;
+    if (oldAspect != null) {
+      oldEdgeAndRelationTypes =
+          GraphIndexUtils.getEdgesAndRelationshipTypesFromAspect(
+              Objects.requireNonNull(logEvent.getEntityUrn()),
+              aspectSpec,
+              oldAspect,
+              logEvent,
+              false);
+    }
+
+    final List<Edge> oldEdges =
+        oldEdgeAndRelationTypes != null
+            ? oldEdgeAndRelationTypes.getFirst()
+            : Collections.emptyList();
+
+    EdgeDiff edgeDiff =
+        computeAspectEdgeDiff(logEvent.getEntityUrn(), aspectSpec, oldAspect, newAspect, logEvent);
+
+    List<RelationshipChangeEvent> relationshipChangeEvents = new ArrayList<>();
+
+    for (Edge edge : edgeDiff.getEdgesToAdd()) {
+      if (edge.getRelationshipType() != null) {
+        log.debug("Additive difference found for relationship type {}", edge.getRelationshipType());
+      }
+
+      RelationshipChangeEvent relationshipChangeEvent =
+          new RelationshipChangeEvent()
+              .setRelationshipType(edge.getRelationshipType())
+              .setOperation(RelationshipChangeOperation.ADD)
+              .setSourceUrn(edge.getSource())
+              .setDestinationUrn(edge.getDestination())
+              .setRelationshipType(edge.getRelationshipType());
+
+      if (logEvent.getCreated() != null) {
+        relationshipChangeEvent.setAuditStamp(logEvent.getCreated());
+      }
+      relationshipChangeEvents.add(relationshipChangeEvent);
+    }
+
+    for (Edge edge : edgeDiff.getEdgesToRemove()) {
+      if (edge.getRelationshipType() != null) {
+        log.debug("Additive difference found for relationship type {}", edge.getRelationshipType());
+      }
+
+      RelationshipChangeEvent relationshipChangeEvent =
+          new RelationshipChangeEvent()
+              .setRelationshipType(edge.getRelationshipType())
+              .setOperation(RelationshipChangeOperation.REMOVE)
+              .setSourceUrn(edge.getSource())
+              .setDestinationUrn(edge.getDestination())
+              .setRelationshipType(edge.getRelationshipType());
+
+      if (logEvent.getCreated() != null) {
+        relationshipChangeEvent.setAuditStamp(logEvent.getCreated());
+      }
+      relationshipChangeEvents.add(relationshipChangeEvent);
+    }
+
+    return relationshipChangeEvents;
   }
 
   /**
