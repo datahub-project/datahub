@@ -191,6 +191,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 ),
                 schema_key=None,  # MySQL is two-tier - no schema key needed
                 schema_resolver=self.get_schema_resolver(),
+                is_temp_table=self.is_temp_table,
             )
         except Exception as e:
             self.report.warning(
