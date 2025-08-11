@@ -2,8 +2,7 @@
 
 :::note Supported Data Platforms
 Currently we support monitoring data on Snowflake, Redshift, BigQuery, and Databricks as part of DataHub Cloud Observe.
-For other data platforms, DataHub Cloud Observe can monitor assertions against dataset metrics (such as volume, or column nullness) and dataset freshenss by using the ingested statistics for each asset.
-Column Value and Custom SQL Assertions are not currently supported for other data platforms.
+DataHub Cloud Observe can still monitor assertions for other data platforms against dataset metrics (such as row count, or column nullness) and dataset freshenss by using the ingested statistics.
 :::
 
 An assertion is **a data quality test that finds data that violates a specified rule.**
@@ -25,13 +24,11 @@ For DataHub-provided assertion runners, we can deploy an agent in your environme
 
 #### Bulk Creating Assertions
 
-You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md):
-
-<div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/f6720541914645aab6b28cdff8695d9f?sid=58dff84d-bb88-4f02-b814-17fb4986ad1f" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
+You can bulk create Freshness and Volume [Smart Assertions](/docs/managed-datahub/observe/smart-assertions.md) (AI Anomaly Monitors) across several tables at once via the [Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md).
 
 To bulk create column metric assertions on a given dataset, follow the steps under the **Anomaly Detection** section of [Column Assertion](https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#anomaly-detection-with-smart-assertions-).
 
-### AI Anomaly Detection (Smart Assertions)
+### Detecting Anomalies Across Massive Data Landscapes
 
 There are many cases where either you do not have the time to figure out what a good rule for an assertion is, or strict rules simply do not suffice for your data validation needs. Traditional rule-based assertions can become inadequate when dealing with complex data patterns or large-scale operations.
 
@@ -45,7 +42,7 @@ Here are some typical situations where manual assertion rules fall short:
 
 - **Dynamic data environments** - When data patterns evolve over time, manually updating assertion rules becomes a maintenance burden that can lead to false positives or missed anomalies.
 
-### The Smart Assertion Solution
+### The AI Smart Assertion Solution
 
 In these scenarios, you may want to consider creating a [Smart Assertion](./smart-assertions.md) to let machine learning automatically detect the normal patterns in your data and alert you when anomalies occur. This approach allows for more flexible and adaptive data quality monitoring without the overhead of manual rule maintenance.
 

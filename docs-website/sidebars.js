@@ -96,7 +96,7 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Assertion Notes (Troubleshooting & Documentation)",
+              label: "Adding Notes to Assertions",
               type: "doc",
               id: "docs/managed-datahub/observe/assertion-notes",
               className: "saasOnly",

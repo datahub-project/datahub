@@ -197,9 +197,8 @@ Once these are in place, you're ready to create your Column Assertions!
       of invalid values in the column. By default this is 0, meaning the assertion will fail if any rows have an invalid column value.
 
     - **Source**: For **Column Metric** assertions, you can choose the mechanism that will be used to obtain the column
-      metric. **Query** will issue a query to the dataset to compute the metric. **DataHub Dataset Profile** will use the
-      DataHub Dataset Profile metadata to compute the metric. Note that this option requires that dataset profiling
-      statistics are up-to-date as of the assertion run time.
+      metric. **Query** will issue a query to the dataset to compute the metric. This issues a query to the table, which can be more expensive than Information Schema.
+      **DataHub Dataset Profile** will use the DataHub Dataset Profile metadata to compute the metric. This is the cheapest option, but requires that Dataset Profiles are reported to DataHub. By default, Ingestion will report Dataset Profiles to DataHub, which can be and infrequent. You can report Dataset Profiles via the DataHub APIs for more frequent and reliable data.
 
     - **Additional Filters**: You can choose to add additional filters to the query that will be used to evaluate the
       assertion. This is useful if you want to limit the assertion to a subset of rows in the table. Note this option will not
