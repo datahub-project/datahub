@@ -645,7 +645,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.7",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
 }
 
 base_dev_requirements = {
@@ -987,11 +987,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         },
         "all": list(
             framework_common.union(
+                pydantic_no_v2,
                 *[
                     requirements
                     for plugin, requirements in plugins.items()
                     if plugin not in all_exclude_plugins
-                ]
+                ],
             )
         ),
         "cloud": ["acryl-datahub-cloud"],

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import useDomainTreeNodesSorter from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useDomainTreeNodesSorter';
 import useInitialDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useInitialDomains';
 import useRootDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useRootDomains';
 import useTreeNodesFromFlatDomains from '@app/homeV3/modules/hierarchyViewModule/components/domains/hooks/useTreeNodesFromFlatDomains';
@@ -10,13 +11,14 @@ import { mergeTrees } from '@app/homeV3/modules/hierarchyViewModule/treeView/uti
 export default function useSelectableDomainTree(initialSelectedDomainUrns: string[] | undefined) {
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const [selectedValues, setSelectedValues] = useState<string[]>(initialSelectedDomainUrns ?? []);
-    const tree = useTree();
+    const nodesSorter = useDomainTreeNodesSorter();
+    const tree = useTree(undefined, nodesSorter);
 
     const { domains: initialDomains } = useInitialDomains(initialSelectedDomainUrns ?? []);
     const initialSelectedTreeNodes = useTreeNodesFromFlatDomains(initialDomains);
 
     const { domains: rootDomains, loading: rootDomainsLoading } = useRootDomains();
-    const rootTreeNodes = useTreeNodesFromDomains(rootDomains);
+    const rootTreeNodes = useTreeNodesFromDomains(rootDomains, false);
 
     useEffect(() => {
         if (

@@ -281,16 +281,22 @@ export const EmbeddedListSearch = ({
     // used for logging impact anlaysis events
     const degreeFilter = filters.find((filter) => filter.field === DEGREE_FILTER_NAME);
 
+    // Stable values for analytics to prevent multiple events
+    const degreeValues = degreeFilter?.values || [];
+    const maxDegree = degreeValues.length > 0 ? degreeValues.sort().reverse()[0] || '1' : null;
+
     // we already have some lineage logging through Tab events, but this adds additional context, particularly degree
-    if (!loading && (degreeFilter?.values?.length || 0) > 0) {
-        analytics.event({
-            type: EventType.SearchAcrossLineageResultsViewEvent,
-            query,
-            page,
-            total: data?.total || 0,
-            maxDegree: degreeFilter?.values?.sort()?.reverse()[0] || '1',
-        });
-    }
+    useEffect(() => {
+        if (!loading && maxDegree && data?.total !== undefined) {
+            analytics.event({
+                type: EventType.SearchAcrossLineageResultsViewEvent,
+                query,
+                page,
+                total: data.total,
+                maxDegree,
+            });
+        }
+    }, [loading, data?.total, query, page, maxDegree]);
 
     const isServerOverloadError = [503, 500, 504].includes(serverError?.networkError?.response?.status);
 
