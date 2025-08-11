@@ -8,7 +8,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
-SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
 
@@ -246,7 +246,7 @@ class SnowflakeQuery:
     @staticmethod
     def show_views_for_database(
         db_name: str,
-        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
         # While there is an information_schema.views view, that only shows the view definition if the role
@@ -255,7 +255,7 @@ class SnowflakeQuery:
 
         # SHOW VIEWS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
-        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
@@ -955,11 +955,11 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     @staticmethod
     def show_dynamic_tables_for_database(
         db_name: str,
-        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         dynamic_table_pagination_marker: Optional[str] = None,
     ) -> str:
         """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
-        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
         from_clause = (
             f"""FROM '{dynamic_table_pagination_marker}'"""

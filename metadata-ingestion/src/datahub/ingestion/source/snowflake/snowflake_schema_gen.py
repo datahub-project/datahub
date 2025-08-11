@@ -183,7 +183,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.identifiers: SnowflakeIdentifierBuilder = identifiers
 
         self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
-            connection=self.connection
+            connection=self.connection, report=self.report
         )
         self.report.data_dictionary_cache = self.data_dictionary
 

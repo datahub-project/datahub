@@ -6,6 +6,7 @@ import pytest
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
@@ -15,7 +16,8 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 @pytest.fixture
 def mock_snowflake_data_dictionary() -> SnowflakeDataDictionary:
     connection = cast(SnowflakeConnection, MagicMock())
-    data_dict = SnowflakeDataDictionary(connection)
+    report = cast(SnowflakeV2Report, MagicMock())
+    data_dict = SnowflakeDataDictionary(connection, report)
     return data_dict
 
 

@@ -10,9 +10,10 @@ from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
-    SHOW_VIEWS_MAX_PAGE_SIZE,
+    SHOW_COMMAND_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -237,8 +238,11 @@ class _SnowflakeTagCache:
 
 
 class SnowflakeDataDictionary(SupportsAsObj):
-    def __init__(self, connection: SnowflakeConnection) -> None:
+    def __init__(
+        self, connection: SnowflakeConnection, report: SnowflakeV2Report
+    ) -> None:
         self.connection = connection
+        self.report = report
 
     def as_obj(self) -> Dict[str, Dict[str, int]]:
         # TODO: Move this into a proper report type that gets computed.
@@ -427,7 +431,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
 
@@ -686,7 +690,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_streams_for_database(
         self, db_name: str
     ) -> Dict[str, List[SnowflakeStream]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         streams: Dict[str, List[SnowflakeStream]] = {}
 
@@ -791,8 +795,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 f"Successfully retrieved graph info for {len(dt_graph_info)} dynamic tables in {db_name}"
             )
         except Exception as e:
-            logger.debug(
-                f"Failed to get dynamic table graph history for {db_name}: {e}"
+            self.report.warning(
+                "Failed to get dynamic table graph history",
+                db_name,
+                exc=e,
             )
 
         return dt_graph_info
@@ -802,7 +808,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self, db_name: str
     ) -> Dict[str, List[SnowflakeDynamicTable]]:
         """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
         dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
 
         # Get graph/dependency information (pass db_name)
