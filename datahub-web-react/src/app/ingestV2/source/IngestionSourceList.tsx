@@ -347,6 +347,7 @@ export const IngestionSourceList = ({
                 variables: {
                     input: { ingestionSourceUrn: urn },
                 },
+                refetchQueries: ['listIngestionExecutionRequests'],
             })
                 .then(() => {
                     setSourcesToRefetch((prev) => new Set(prev).add(urn));
