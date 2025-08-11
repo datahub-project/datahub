@@ -6,7 +6,7 @@ import AppProviders from '@app/AppProviders';
 import { ProtectedRoutes } from '@app/ProtectedRoutes';
 import { useTrackPageView } from '@app/analytics';
 import { LogIn } from '@app/auth/LogIn';
-import { AdminLogIn } from './auth/AdminLogIn';
+import { AdminLogIn } from '@app/auth/AdminLogIn';
 import { ResetCredentials } from '@app/auth/ResetCredentials';
 import { SignUp } from '@app/auth/SignUp';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
