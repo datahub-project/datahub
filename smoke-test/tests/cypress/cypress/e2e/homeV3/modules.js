@@ -94,6 +94,7 @@ describe("home page modules", () => {
   it("remove default module", () => {
     addYourAssetsModule();
     removeFirstModuleWithTestId("your-assets-module");
+    cy.getWithTestId("your-assets-module").should("have.length.lessThan", 2);
     cy.getWithTestId("your-assets-module").should("have.length", 1);
 
     // Clean-up

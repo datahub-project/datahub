@@ -86,6 +86,7 @@ export function removeFirstModuleWithTestId(testId) {
       cy.getWithTestId("module-options").click();
     });
   cy.getWithTestId("remove-module").click();
+  cy.wait(100);
 }
 
 export function createAssetCollectionModule(name) {
