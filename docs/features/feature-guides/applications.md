@@ -4,7 +4,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability/>
 
-DataHub Cloud v1.2.0 introduces **Applications**, an experimental approach to grouping similar assets within DataHub that align with a specific business purpose.
+DataHub Cloud v1.2.0 introduces **Applications**, an experimental approach to grouping similar assets within DataHub that align with a specific business purpose. This is an experimental feature and is subject to change as we get feedback.
 
 Applications sit between Domains and Data Products in DataHub's metadata model hierarchy:
 
