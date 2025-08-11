@@ -275,9 +275,9 @@ query getLastMonthUsageAggregations($urn: String!) {
     }
 }
 
-query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!) {
+query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!, $startTime: Long, $timeZone: String) {
     dataset(urn: $urn) {
-        usageStats(range: $timeRange) {
+        usageStats(range: $timeRange, startTimeMillis: $startTime, timeZone: $timeZone) {
             aggregations {
                 uniqueUserCount
                 totalSqlQueries
@@ -452,6 +452,19 @@ fragment getRoles on Access {
     }
 }
 
+query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
+    dataset(urn: $urn) {
+        operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
+            timestampMillis
+            lastUpdatedTimestamp
+            operationType
+            actor
+            lastUpdatedTimestamp
+            customOperationType
+        }
+    }
+}
+
 fragment assertionsQueryWithRunEvents on Dataset {
     assertions(start: 0, count: 1000) {
         start
@@ -459,6 +472,77 @@ fragment assertionsQueryWithRunEvents on Dataset {
         total
         assertions {
             ...assertionDetailsWithRunEvents
+        }
+    }
+}
+
+query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
+    dataset(urn: $urn) {
+        operationsStats(input: $input) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
+            buckets {
+                bucket
+                aggregations {
+                    totalOperations
+                    totalInserts
+                    totalUpdates
+                    totalDeletes
+                    totalCreates
+                    totalAlters
+                    totalDrops
+                    totalCustoms
+                    customOperationsMap {
+                        key
+                        value
+                    }
+                }
+            }
+        }
+    }
+}
+
+query getDatasetTimeseriesCapability($urn: String!) {
+    dataset(urn: $urn) {
+        timeseriesCapabilities {
+            assetStats {
+                oldestOperationTime
+                oldestDatasetUsageTime
+                oldestDatasetProfileTime
+            }
+        }
+    }
+}
+
+query getOperationsStats($urn: String!, $range: TimeRange!) {
+    dataset(urn: $urn) {
+        operationsStats(input: { range: $range }) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
+            }
         }
     }
 }
