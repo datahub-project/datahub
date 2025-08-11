@@ -1,13 +1,11 @@
 import base64
+import dataclasses
 import json
 import logging
 from collections import namedtuple
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
-from pydantic.dataclasses import dataclass
-from pydantic.fields import Field
-
-# This import verifies that the dependencies are available.
+from pydantic import Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.reflection import Inspector
 
@@ -73,7 +71,7 @@ class HiveMetastoreConfigMode(StrEnum):
     trino = "trino"
 
 
-@dataclass
+@dataclasses.dataclass
 class ViewDataset:
     dataset_name: str
     schema_name: str

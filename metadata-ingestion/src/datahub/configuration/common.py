@@ -94,6 +94,8 @@ if TYPE_CHECKING:
 else:
     HiddenFromDocs = pydantic.json_schema.SkipJsonSchema
 
+LaxStr = Annotated[str, pydantic.BeforeValidator(lambda v: str(v))]
+
 
 @dataclasses.dataclass(frozen=True)
 class SupportedSources:
