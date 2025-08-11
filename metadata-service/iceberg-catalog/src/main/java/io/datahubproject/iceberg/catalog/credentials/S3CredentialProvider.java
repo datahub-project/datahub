@@ -142,7 +142,22 @@ public class S3CredentialProvider implements CredentialProvider {
     }
 
     String objectsPathPrefix() {
-      return path + "/*";
+      /*
+       * This is a temporary workaround to relax the session policy to work with files that may not be in this path prefix.
+       * This can happen only if iceberg tables had their data written using a catalog that does not strict policies
+       * (either non-datahub IRC or using datahub IRC without vended credentials -- that allows clients to manage access
+       * policies) and then, have their table location changed after it has data, which will cause all new data to be
+       * written to the new location, but existing snapshots will continue to refer to older data in the old locations.
+       * The policy path prefix condition limits the access to only the current path prefix so older data is no longer accessible.
+       * By excluding the path prefix, this policy allows all files in the bucket, but since this is applied on top of the role
+       * associated with the warehouse, it really is limited by what the associated role is configured to allow.
+       */
+      String disablePathPrefixPolicy = System.getenv("IRC_DISABLE_PATH_PREFIX_POLICY");
+      if (disablePathPrefixPolicy != null && disablePathPrefixPolicy.equalsIgnoreCase("true")) {
+        return "*";
+      } else {
+        return path + "/*";
+      }
     }
   }
 }
