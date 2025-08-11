@@ -33,6 +33,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_sample_result,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.query import DaxQuery
+from datahub.ingestion.source.powerbi.config import PowerBiEnvironment
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -91,20 +92,20 @@ class DataResolverBase(ABC):
         client_secret: str,
         tenant_id: str,
         metadata_api_timeout: int,
-        environment: str = "commercial",
+        environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
     ):
         self._environment = environment
-        self._urls = (
+        urls = (
             self.GOVERNMENT_URLS
-            if environment == "government"
+            if environment == PowerBiEnvironment.GOVERNMENT
             else self.COMMERCIAL_URLS
         )
 
-        self.SCOPE = self._urls["SCOPE"]
-        self.MY_ORG_URL = self._urls["MY_ORG_URL"]
+        self.SCOPE = urls["SCOPE"]
+        self.MY_ORG_URL = urls["MY_ORG_URL"]
         self.BASE_URL = f"{self.MY_ORG_URL}/groups"
         self.ADMIN_BASE_URL = f"{self.MY_ORG_URL}/admin"
-        self.AUTHORITY = self._urls["AUTHORITY"]
+        self.AUTHORITY = urls["AUTHORITY"]
 
         self._access_token: Optional[str] = None
         self._access_token_expiry_time: Optional[datetime] = None
