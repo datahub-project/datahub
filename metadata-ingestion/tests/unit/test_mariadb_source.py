@@ -152,7 +152,7 @@ def test_loop_stored_procedures():
         # Convert generator to list to execute it
         workunits = list(
             source.loop_stored_procedures(
-                inspector=mock_inspector, schema="test_db", sql_config=config
+                inspector=mock_inspector, schema="test_db", config=config
             )
         )
 

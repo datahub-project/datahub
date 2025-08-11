@@ -28,5 +28,5 @@ class StoredProcedureConfigMixin(ConfigModel):
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for stored procedures to filter in ingestion. "
         "Specify regex to match the entire procedure name in the format expected by the specific SQL source. "
-        "e.g., 'database.procedure_name' for two-tier systems or 'database.schema.procedure_name' for three-tier systems.",
+        "e.g., 'database.procedure_name' for two-tier systems like MySQL/MariaDB or 'database.schema.procedure_name' for three-tier systems.",
     )
