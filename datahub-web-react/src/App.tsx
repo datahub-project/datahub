@@ -89,8 +89,7 @@ const client = new ApolloClient({
 
 Sentry.init({
     dsn: 'https://50799ff93031aceb3246b8b31ca063ad@o4504487219363840.ingest.us.sentry.io/4508738535424000',
-    integrations: [Sentry.browserTracingIntegration()],
-    tracesSampleRate: 0.5,
+    defaultIntegrations: false, // no default error/performance capture
 });
 
 export const InnerApp: React.VFC = () => {
