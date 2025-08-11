@@ -250,6 +250,16 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
+  /**
+   * Associates a dbt entity with its source entity as siblings.
+   *
+   * <p>If sibling relationships already exist between the entities, this method respects the
+   * existing primary/secondary configuration and does not override it. This prevents conflicts when
+   * sibling aspects are created by other processes (e.g., dbt ingestion).
+   *
+   * @param dbtUrn The URN of the dbt entity (model, source, etc.)
+   * @param sourceUrn The URN of the source platform entity (table, view, etc.)
+   */
   private void setSiblingsAndSoftDeleteSibling(Urn dbtUrn, Urn sourceUrn) {
     Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(dbtUrn);
     Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(sourceUrn);
@@ -260,7 +270,12 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         && existingSourceSiblingAspect != null
         && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
         && existingSourceSiblingAspect.getSiblings().contains(dbtUrn.toString())) {
-      // we have already connected them- we can abort here
+      // Siblings already exist - respect existing primary/secondary configuration
+      // This preserves any configuration set by dbt ingestion (e.g., dbt_is_primary_sibling=false)
+      log.info(
+          "Siblings already exist between {} and {}. Preserving existing primary/secondary configuration.",
+          dbtUrn.toString(),
+          sourceUrn.toString());
       return;
     }
 
