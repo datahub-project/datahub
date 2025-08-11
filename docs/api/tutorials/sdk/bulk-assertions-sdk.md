@@ -33,7 +33,7 @@ The actor making API calls must have the `Edit Assertions` and `Edit Monitors` p
 
 :::note
 Before creating assertions, you need to ensure the target datasets are already present in your DataHub instance.
-If you attempt to create assertions for entities that do not exist, your operation will fail.
+If you attempt to create assertions for entities that do not exist, GMS will continuously report errors to the logs.
 :::
 
 ### Goal Of This Guide
@@ -72,6 +72,12 @@ from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()
 ```
+
+## Important Considerations for Parallel Processing
+
+- Always run bulk assertion creation for a given dataset in a single thread to avoid race conditions.
+- Always call subscription APIs for a given dataset in a single thread to avoid race conditions.
+  - If you are subscribing to assertions directly, make sure to also run the script on a single thread per dataset.
 
 ## Step 1: Discover Tables
 
