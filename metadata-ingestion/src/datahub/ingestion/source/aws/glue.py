@@ -60,6 +60,9 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
+from datahub.ingestion.source.aws.platform_resource_repository import (
+    GluePlatformResourceRepository,
+)
 from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
     make_s3_urn,
@@ -357,10 +360,6 @@ class GlueSource(StatefulIngestionSourceBase):
             "GluePlatformResourceRepository"
         ] = None
         if self.ctx.graph:
-            from datahub.ingestion.source.aws.platform_resource_repository import (
-                GluePlatformResourceRepository,
-            )
-
             self.platform_resource_repository = GluePlatformResourceRepository(
                 self.ctx.graph,
                 platform_instance=self.source_config.platform_instance,

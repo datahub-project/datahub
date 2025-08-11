@@ -1,10 +1,8 @@
 import logging
-from typing import Optional
 
 from datahub.api.entities.external.external_entities import (
     PlatformResourceRepository,
 )
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResource,
     UnityCatalogTagPlatformResourceId,
@@ -19,6 +17,3 @@ class UnityCatalogPlatformResourceRepository(
     ]
 ):
     """Unity Catalog-specific platform resource repository with tag-related operations."""
-
-    def __init__(self, graph: DataHubGraph, platform_instance: Optional[str] = None):
-        super().__init__(graph, platform_instance)
