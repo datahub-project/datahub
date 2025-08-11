@@ -11,7 +11,7 @@ Subscriptions are a way to receive notifications when entity changes occur (e.g.
 
 ### Goal Of This Guide
 
-This guide specifically covers how to use the [DataHub Cloud Python SDK](https://pypi.org/project/acryl-datahub-cloud/) for creating Subscriptions:
+This guide specifically covers how to use the [DataHub Cloud Python SDK](https://pypi.org/project/acryl-datahub-cloud/) for managing Subscriptions:
 
 - Create: create a subscription to a dataset or assertion.
 - Remove: remove a subscription.
