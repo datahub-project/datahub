@@ -363,7 +363,9 @@ class GlueSource(StatefulIngestionSourceBase):
             )
 
             self.platform_resource_repository = GluePlatformResourceRepository(
-                self.ctx.graph, "LakeFormationTagPlatformResource"
+                self.ctx.graph,
+                platform_instance=self.source_config.platform_instance,
+                catalog=self.source_config.catalog_id,
             )
 
     def get_database_lf_tags(
@@ -1185,6 +1187,7 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
                 tag=tag,
                 platform_resource_repository=self.platform_resource_repository,
+                catalog_id=tag.catalog,
             )
             logger.info(f"Created platform resource {platform_resource_id}")
 

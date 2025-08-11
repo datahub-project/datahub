@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unity.platform_resource_repository import (
@@ -29,13 +29,6 @@ class UnityCatalogTagSyncContext(BaseModel):
 
 
 logger = logging.getLogger(__name__)
-
-
-def get_unity_catalog_tag_cache_info(
-    platform_resource_repository: "UnityCatalogPlatformResourceRepository",
-) -> Dict[str, Dict[str, int]]:
-    """Get cache statistics for Unity Catalog tag operations."""
-    return platform_resource_repository.get_entity_cache_info()
 
 
 class UnityCatalogTagPlatformResourceId(ExternalEntityId):
@@ -74,10 +67,7 @@ class UnityCatalogTagPlatformResourceId(ExternalEntityId):
         """
 
         existing_platform_resource = platform_resource_repository.search_entity_by_urn(
-            tag.to_datahub_tag_urn().urn(),
-            sync_context=UnityCatalogTagSyncContext(
-                platform_instance=platform_resource_repository.platform_instance
-            ),
+            tag.to_datahub_tag_urn().urn()
         )
         if existing_platform_resource:
             logger.debug(
@@ -105,7 +95,7 @@ class UnityCatalogTagPlatformResourceId(ExternalEntityId):
         Creates a UnityCatalogTagPlatformResourceId from a DataHub URN.
         """
         existing_platform_resource_id = (
-            platform_resource_repository.search_entity_by_urn(urn, tag_sync_context)
+            platform_resource_repository.search_entity_by_urn(urn)
         )
         if existing_platform_resource_id:
             return existing_platform_resource_id
@@ -181,10 +171,16 @@ class UnityCatalogTagPlatformResource(ExternalEntity):
     @classmethod
     def create_default(
         cls,
-        entity_id: UnityCatalogTagPlatformResourceId,
+        entity_id: ExternalEntityId,
         managed_by_datahub: bool,
     ) -> "UnityCatalogTagPlatformResource":
         """Create a default Unity Catalog tag entity when none found in DataHub."""
+        # Type narrowing: we know this will be a UnityCatalogTagPlatformResourceId
+        if not isinstance(entity_id, UnityCatalogTagPlatformResourceId):
+            raise TypeError(
+                f"Expected UnityCatalogTagPlatformResourceId, got {type(entity_id)}"
+            )
+
         # Create a new entity ID with correct default state instead of mutating
         default_entity_id = UnityCatalogTagPlatformResourceId(
             tag_key=entity_id.tag_key,

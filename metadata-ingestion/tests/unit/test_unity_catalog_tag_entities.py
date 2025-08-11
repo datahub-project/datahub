@@ -9,7 +9,6 @@ from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResource,
     UnityCatalogTagPlatformResourceId,
     UnityCatalogTagSyncContext,
-    get_unity_catalog_tag_cache_info,
 )
 from datahub.metadata.urns import TagUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -266,33 +265,6 @@ class TestIntegrationScenario:
         assert resource.id.persisted is True
 
 
-class TestGetUnityCatalogTagCacheInfo:
-    """Tests for get_unity_catalog_tag_cache_info function."""
-
-    def test_get_cache_info(self) -> None:
-        """Test getting cache info from platform resource repository."""
-        mock_repository = Mock()
-        expected_cache_info = {
-            "search_by_urn_cache": {"hits": 10, "misses": 2},
-            "get_from_datahub_cache": {"hits": 15, "misses": 5},
-        }
-        mock_repository.get_entity_cache_info.return_value = expected_cache_info
-
-        result = get_unity_catalog_tag_cache_info(mock_repository)
-
-        assert result == expected_cache_info
-        mock_repository.get_entity_cache_info.assert_called_once()
-
-    def test_get_cache_info_delegates_correctly(self) -> None:
-        """Test that function properly delegates to repository method."""
-        mock_repository = Mock()
-
-        get_unity_catalog_tag_cache_info(mock_repository)
-
-        # Should call the repository method exactly once
-        mock_repository.get_entity_cache_info.assert_called_once_with()
-
-
 class TestEdgeCasesAndErrorHandling:
     """Tests for edge cases and error handling."""
 
@@ -433,8 +405,8 @@ class TestUnityCatalogTagEntitiesIntegrationWithRepository:
             "get_from_datahub_cache": {"hits": 3, "misses": 2},
         }
 
-        # Get cache info
-        cache_info = get_unity_catalog_tag_cache_info(mock_repository)
+        # Get cache info directly from repository
+        cache_info = mock_repository.get_entity_cache_info()
 
         assert cache_info["search_by_urn_cache"]["hits"] == 5
         assert cache_info["get_from_datahub_cache"]["hits"] == 3

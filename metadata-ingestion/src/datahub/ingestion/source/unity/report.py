@@ -1,11 +1,16 @@
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.unity.platform_resource_repository import (
+        UnityCatalogPlatformResourceRepository,
+    )
 
 
 @dataclass
@@ -62,5 +67,7 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
 
-    # Tag cache statistics
-    tag_cache_info: Optional[Dict[str, Dict[str, int]]] = None
+    # Platform resource repository for automatic cache statistics via SupportsAsObj
+    platform_resource_repository: Optional["UnityCatalogPlatformResourceRepository"] = (
+        None
+    )

@@ -115,6 +115,8 @@ class TestLakeFormationTagPlatformResourceId:
         )
 
         mock_repo = Mock(spec=PlatformResourceRepository)
+        mock_repo.platform_instance = "test_instance"
+        mock_repo.catalog = "test_catalog"
 
         # Mock search_by_urn to return None (no existing resource)
         with patch.object(
@@ -141,6 +143,8 @@ class TestLakeFormationTagPlatformResourceId:
         )
 
         mock_repo = Mock(spec=PlatformResourceRepository)
+        mock_repo.platform_instance = "test_instance"
+        mock_repo.catalog = "test_catalog"
 
         existing_resource = LakeFormationTagPlatformResourceId(
             tag_key="test_key",
@@ -167,7 +171,7 @@ class TestLakeFormationTagPlatformResourceId:
     def test_search_by_urn_no_results(self) -> None:
         """Test search_by_urn method when no results are found."""
         mock_repo = Mock(spec=PlatformResourceRepository)
-        mock_repo.search_by_filter.return_value = []
+        mock_repo.search_entity_by_urn.return_value = None
 
         context = LakeFormationTagSyncContext(
             platform_instance="test_instance", catalog="test_catalog"
@@ -180,53 +184,39 @@ class TestLakeFormationTagPlatformResourceId:
         )
 
         assert result is None
-        mock_repo.search_by_filter.assert_called_once()
+        mock_repo.search_entity_by_urn.assert_called_once_with(
+            "urn:li:tag:test_key:test_value"
+        )
 
     def test_search_by_urn_with_results(self) -> None:
         """Test search_by_urn method when results are found."""
         mock_repo = Mock(spec=PlatformResourceRepository)
 
-        # Create mock platform resource
-        mock_platform_resource = Mock()
-        mock_platform_resource.resource_info = Mock()
-        mock_platform_resource.resource_info.value = Mock()
-
-        # Create mock LakeFormationTagPlatformResource
-        mock_lf_tag_resource = Mock()
-        mock_lf_tag_resource.id = LakeFormationTagPlatformResourceId(
+        existing_entity_id = LakeFormationTagPlatformResourceId(
             tag_key="test_key",
             tag_value="test_value",
             platform_instance="test_instance",
             catalog="test_catalog",
         )
 
-        mock_platform_resource.resource_info.value.as_pydantic_object.return_value.dict.return_value = {
-            "id": mock_lf_tag_resource.id,
-            "datahub_urns": LinkedResourceSet(urns=[]),
-            "managed_by_datahub": False,
-            "allowed_values": None,
-        }
-
-        mock_repo.search_by_filter.return_value = [mock_platform_resource]
+        mock_repo.search_entity_by_urn.return_value = existing_entity_id
 
         context = LakeFormationTagSyncContext(
             platform_instance="test_instance", catalog="test_catalog"
         )
 
-        with patch(
-            "datahub.ingestion.source.aws.tag_entities.LakeFormationTagPlatformResource"
-        ) as mock_lf_tag_platform_resource:
-            mock_lf_tag_platform_resource.return_value = mock_lf_tag_resource
-
-            result = LakeFormationTagPlatformResourceId.search_by_urn(
-                urn="urn:li:tag:test_key:test_value",
-                platform_resource_repository=mock_repo,
-                tag_sync_context=context,
-            )
+        result = LakeFormationTagPlatformResourceId.search_by_urn(
+            urn="urn:li:tag:test_key:test_value",
+            platform_resource_repository=mock_repo,
+            tag_sync_context=context,
+        )
 
         assert result is not None
         assert result.exists_in_lake_formation is True
         assert result.persisted is True
+        mock_repo.search_entity_by_urn.assert_called_once_with(
+            "urn:li:tag:test_key:test_value"
+        )
 
     def test_from_datahub_tag(self) -> None:
         """Test from_datahub_tag method."""
@@ -356,7 +346,14 @@ class TestLakeFormationTagPlatformResource:
         )
 
         mock_repo = Mock(spec=PlatformResourceRepository)
-        mock_repo.search_by_filter.return_value = []
+        mock_repo.get_entity_from_datahub.return_value = (
+            LakeFormationTagPlatformResource(
+                id=tag_id,
+                datahub_urns=LinkedResourceSet(urns=[]),
+                managed_by_datahub=True,
+                allowed_values=None,
+            )
+        )
 
         result = LakeFormationTagPlatformResource.get_from_datahub(
             lake_formation_tag_id=tag_id,
@@ -368,6 +365,7 @@ class TestLakeFormationTagPlatformResource:
         assert result.managed_by_datahub is True
         assert result.datahub_urns.urns == []
         assert result.allowed_values is None
+        mock_repo.get_entity_from_datahub.assert_called_once_with(tag_id, True)
 
     def test_get_from_datahub_with_existing_resources(self) -> None:
         """Test get_from_datahub method when existing resources are found."""
@@ -399,20 +397,16 @@ class TestLakeFormationTagPlatformResource:
         }
 
         mock_repo = Mock(spec=PlatformResourceRepository)
-        mock_repo.search_by_filter.return_value = [mock_platform_resource]
+        mock_repo.get_entity_from_datahub.return_value = expected_resource
 
-        with patch(
-            "datahub.ingestion.source.aws.tag_entities.LakeFormationTagPlatformResource",
-            return_value=expected_resource,
-        ):
-            result = LakeFormationTagPlatformResource.get_from_datahub(
-                lake_formation_tag_id=tag_id,
-                platform_resource_repository=mock_repo,
-                managed_by_datahub=False,
-            )
+        result = LakeFormationTagPlatformResource.get_from_datahub(
+            lake_formation_tag_id=tag_id,
+            platform_resource_repository=mock_repo,
+            managed_by_datahub=False,
+        )
 
         assert result == expected_resource
-        mock_repo.search_by_filter.assert_called_once()
+        mock_repo.get_entity_from_datahub.assert_called_once_with(tag_id, False)
 
     def test_get_from_datahub_with_mismatched_platform_instance(self) -> None:
         """Test get_from_datahub method when platform instance doesn't match."""
@@ -435,7 +429,8 @@ class TestLakeFormationTagPlatformResource:
         mock_platform_resource.resource_info = Mock()
         mock_platform_resource.resource_info.value = Mock()
 
-        mock_lf_tag_resource = LakeFormationTagPlatformResource(
+        # Create a different resource but don't need to use it
+        LakeFormationTagPlatformResource(
             id=different_tag_id,
             datahub_urns=LinkedResourceSet(urns=[]),
             managed_by_datahub=False,
@@ -450,19 +445,24 @@ class TestLakeFormationTagPlatformResource:
         }
 
         mock_repo = Mock(spec=PlatformResourceRepository)
-        mock_repo.search_by_filter.return_value = [mock_platform_resource]
-
-        with patch(
-            "datahub.ingestion.source.aws.tag_entities.LakeFormationTagPlatformResource",
-            return_value=mock_lf_tag_resource,
-        ):
-            result = LakeFormationTagPlatformResource.get_from_datahub(
-                lake_formation_tag_id=tag_id,
-                platform_resource_repository=mock_repo,
+        # Mock the repository to return a new resource since platform instance doesn't match
+        mock_repo.get_entity_from_datahub.return_value = (
+            LakeFormationTagPlatformResource(
+                id=tag_id,
+                datahub_urns=LinkedResourceSet(urns=[]),
                 managed_by_datahub=True,
+                allowed_values=None,
             )
+        )
+
+        result = LakeFormationTagPlatformResource.get_from_datahub(
+            lake_formation_tag_id=tag_id,
+            platform_resource_repository=mock_repo,
+            managed_by_datahub=True,
+        )
 
         # Should return new resource since platform instance doesn't match
         assert result.id == tag_id
         assert result.managed_by_datahub is True
         assert result.datahub_urns.urns == []
+        mock_repo.get_entity_from_datahub.assert_called_once_with(tag_id, True)

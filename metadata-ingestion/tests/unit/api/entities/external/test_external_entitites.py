@@ -53,10 +53,15 @@ class TestPlatformResourceRepository:
         """Test repository initialization."""
         repo = UnityCatalogPlatformResourceRepository(mock_graph)
         assert repo.graph == mock_graph
-        assert isinstance(repo.entity_id_cache, cachetools.LRUCache)
-        assert isinstance(repo.entity_object_cache, cachetools.LRUCache)
-        assert repo.entity_id_cache.maxsize == 1000
-        assert repo.entity_object_cache.maxsize == 1000
+        assert isinstance(repo.urn_search_cache, cachetools.LRUCache)
+        assert isinstance(repo.external_entity_cache, cachetools.LRUCache)
+        assert repo.urn_search_cache.maxsize == 1000
+        assert repo.external_entity_cache.maxsize == 1000
+        # Verify thread safety infrastructure
+        assert hasattr(repo, "_cache_lock")
+        # Verify statistics tracking
+        assert hasattr(repo, "urn_search_cache_hits")
+        assert hasattr(repo, "external_entity_cache_hits")
 
     @patch(
         "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
@@ -75,10 +80,7 @@ class TestPlatformResourceRepository:
 
         assert len(results) == 1
         assert results[0] == mock_platform_resource
-        assert (
-            repository.entity_object_cache[mock_platform_resource.id]
-            == mock_platform_resource
-        )
+        # Note: search_by_filter no longer caches platform resources since we eliminated platform_resource_cache
         mock_search.assert_called_once_with(repository.graph, mock_filter)
 
     @patch(
@@ -98,7 +100,7 @@ class TestPlatformResourceRepository:
 
         assert len(results) == 1
         assert results[0] == mock_platform_resource
-        assert mock_platform_resource.id not in repository.entity_object_cache
+        # Note: search_by_filter no longer uses caching since we eliminated platform_resource_cache
         mock_search.assert_called_once_with(repository.graph, mock_filter)
 
     def test_create(
@@ -110,13 +112,13 @@ class TestPlatformResourceRepository:
         repository.create(mock_platform_resource)
 
         mock_platform_resource.to_datahub.assert_called_once_with(repository.graph)
-        assert (
-            repository.entity_object_cache[mock_platform_resource.id]
-            == mock_platform_resource
-        )
+        # Note: create method no longer caches platform resources directly since we eliminated platform_resource_cache
 
+    @patch(
+        "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
+    )
     def test_get_existing(
-        self, repository: UnityCatalogPlatformResourceRepository
+        self, mock_search: Mock, repository: UnityCatalogPlatformResourceRepository
     ) -> None:
         """Test get method for existing resource."""
         mock_platform_resource_key: PlatformResourceKey = PlatformResourceKey(
@@ -129,17 +131,17 @@ class TestPlatformResourceRepository:
         mock_platform_resource = PlatformResource.create(
             key=mock_platform_resource_key, secondary_keys=[], value={}
         )
-
-        repository.entity_object_cache[mock_platform_resource_key.id] = (
-            mock_platform_resource
-        )
+        mock_search.return_value = [mock_platform_resource]
 
         result: Optional[PlatformResource] = repository.get(mock_platform_resource_key)
 
         assert result == mock_platform_resource
 
+    @patch(
+        "datahub.api.entities.platformresource.platform_resource.PlatformResource.search_by_filters"
+    )
     def test_get_non_existing(
-        self, repository: UnityCatalogPlatformResourceRepository
+        self, mock_search: Mock, repository: UnityCatalogPlatformResourceRepository
     ) -> None:
         """Test get method for non-existing resource."""
         mock_platform_resource_key: PlatformResourceKey = PlatformResourceKey(
@@ -148,6 +150,7 @@ class TestPlatformResourceRepository:
             platform_instance="test-instance",
             primary_key="test-primary-key",
         )
+        mock_search.return_value = []
 
         result: Optional[PlatformResource] = repository.get(mock_platform_resource_key)
 
@@ -162,21 +165,21 @@ class TestPlatformResourceRepository:
             primary_key="test-primary-key",
         )
 
-        mock_platform_resource: PlatformResource = PlatformResource.create(
-            key=mock_platform_resource_key, secondary_keys=[], value={}
+        # Add item to external entity cache first
+        mock_tag_id = UnityCatalogTagPlatformResourceId(
+            tag_key="test", platform_instance=None
         )
-
-        # Add item to cache first
-        repository.entity_object_cache[mock_platform_resource_key.id] = (
-            mock_platform_resource
+        mock_entity = UnityCatalogTagPlatformResource.create_default(
+            mock_tag_id, managed_by_datahub=False
         )
+        repository.external_entity_cache[mock_platform_resource_key.id] = mock_entity
 
         repository.delete(mock_platform_resource_key)
 
         repository.graph.delete_entity.assert_called_once_with(  # type: ignore[attr-defined]
-            urn=PlatformResourceUrn(mock_platform_resource.id).urn(), hard=True
+            urn=PlatformResourceUrn(mock_platform_resource_key.id).urn(), hard=True
         )
-        assert mock_platform_resource_key.id not in repository.entity_object_cache
+        assert mock_platform_resource_key.id not in repository.external_entity_cache
 
     def test_get_resource_type(
         self, repository: UnityCatalogPlatformResourceRepository
@@ -202,16 +205,14 @@ class TestPlatformResourceRepository:
         assert isinstance(result.datahub_urns, LinkedResourceSet)
         assert result.datahub_urns.urns == []
 
-    def test_extract_platform_instance(
+    def test_platform_instance_direct_access(
         self, repository: UnityCatalogPlatformResourceRepository
     ) -> None:
-        """Test extract_platform_instance method."""
-        sync_context = Mock()
-        sync_context.platform_instance = "test-instance"
-        result = repository.extract_platform_instance(sync_context)
+        """Test direct access to platform_instance attribute."""
+        result = repository.platform_instance
         assert (
             result is None
-        )  # Unity Catalog repository returns its own platform_instance, which is None in this case
+        )  # Unity Catalog repository's platform_instance is None in this case
 
 
 class TestCaseSensitivity:
@@ -572,28 +573,37 @@ class TestPlatformResourceRepositoryAdvanced:
     def repository(self, mock_graph: Mock) -> UnityCatalogPlatformResourceRepository:
         return UnityCatalogPlatformResourceRepository(mock_graph)
 
-    def test_get_entity_cache_info(
+    def test_as_obj_cache_info(
         self, repository: UnityCatalogPlatformResourceRepository
     ) -> None:
-        """Test get_entity_cache_info method."""
+        """Test as_obj method returns cache statistics."""
         # Simulate some cache activity
-        repository.entity_id_cache_hits = 5
-        repository.entity_id_cache_misses = 3
-        repository.entity_object_cache_hits = 7
-        repository.entity_object_cache_misses = 2
-        repository.entity_id_cache["test1"] = "value1"
-        repository.entity_object_cache["test2"] = "value2"
+        repository.urn_search_cache_hits = 5
+        repository.urn_search_cache_misses = 3
+        repository.external_entity_cache_hits = 7
+        repository.external_entity_cache_misses = 2
+        from datahub.api.entities.external.external_entities import UrnCacheKey
 
-        cache_info = repository.get_entity_cache_info()
+        cache_key = UrnCacheKey(urn="test1", platform_instance=None)
+        mock_tag_id = UnityCatalogTagPlatformResourceId(
+            tag_key="test", platform_instance=None
+        )
+        repository.urn_search_cache[cache_key] = mock_tag_id
+        mock_entity = UnityCatalogTagPlatformResource.create_default(
+            mock_tag_id, managed_by_datahub=False
+        )
+        repository.external_entity_cache["test2"] = mock_entity
+
+        cache_info = repository.as_obj()
 
         assert cache_info["search_by_urn_cache"]["hits"] == 5
         assert cache_info["search_by_urn_cache"]["misses"] == 3
         assert cache_info["search_by_urn_cache"]["current_size"] == 1
         assert cache_info["search_by_urn_cache"]["max_size"] == 1000
-        assert cache_info["get_from_datahub_cache"]["hits"] == 7
-        assert cache_info["get_from_datahub_cache"]["misses"] == 2
-        assert cache_info["get_from_datahub_cache"]["current_size"] == 1
-        assert cache_info["get_from_datahub_cache"]["max_size"] == 1000
+        assert cache_info["external_entity_cache"]["hits"] == 7
+        assert cache_info["external_entity_cache"]["misses"] == 2
+        assert cache_info["external_entity_cache"]["current_size"] == 1
+        assert cache_info["external_entity_cache"]["max_size"] == 1000
 
 
 class TestLinkedResourceSetAdvanced:
@@ -683,9 +693,9 @@ class TestIntegration:
         mock_resource.id = "test-resource"
         mock_resource.resource_info = None  # Simulate no resource_info for simple test
 
-        # Test create and cache
+        # Test create method calls DataHub
         repository.create(mock_resource)
-        assert repository.entity_object_cache["test-resource"] == mock_resource
+        mock_resource.to_datahub.assert_called_once_with(repository.graph)
 
     def test_case_sensitivity_with_linked_resources(self) -> None:
         """Test case sensitivity detection with LinkedResourceSet."""
@@ -703,13 +713,19 @@ class TestEdgeCases:
         mock_graph: Mock = Mock(spec=DataHubGraph)
         repo = UnityCatalogPlatformResourceRepository(mock_graph)
 
-        # Add item to cache
-        repo.entity_object_cache["test-key"] = "test-value"
-        assert "test-key" in repo.entity_object_cache
+        # Add item to external entity cache
+        mock_tag_id = UnityCatalogTagPlatformResourceId(
+            tag_key="test", platform_instance=None
+        )
+        mock_entity = UnityCatalogTagPlatformResource.create_default(
+            mock_tag_id, managed_by_datahub=False
+        )
+        repo.external_entity_cache["test-key"] = mock_entity
+        assert "test-key" in repo.external_entity_cache
 
         # Cache should still contain the item
-        cached_value: Optional[str] = repo.entity_object_cache.get("test-key")
-        assert cached_value == "test-value"
+        cached_value = repo.external_entity_cache.get("test-key")
+        assert cached_value == mock_entity
 
     def test_linked_resource_set_with_empty_urns(self) -> None:
         """Test LinkedResourceSet behavior with empty URN list."""

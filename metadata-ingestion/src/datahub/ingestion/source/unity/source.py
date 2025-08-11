@@ -98,7 +98,6 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
     UnityCatalogTagPlatformResource,
     UnityCatalogTagPlatformResourceId,
-    get_unity_catalog_tag_cache_info,
 )
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -245,7 +244,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self.tables: FileBackedDict[Table] = FileBackedDict()
         if self.ctx.graph:
             self.platform_resource_repository = UnityCatalogPlatformResourceRepository(
-                self.ctx.graph
+                self.ctx.graph, platform_instance=self.platform_instance_name
             )
         else:
             self.platform_resource_repository = None
@@ -382,17 +381,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 else:
                     raise ValueError("Unknown profiling config method")
 
-        # Collect cache statistics if tag processing was enabled
+        # Include platform resource repository in report for automatic cache statistics
         if self.config.include_tags and self.platform_resource_repository:
-            try:
-                self.report.tag_cache_info = get_unity_catalog_tag_cache_info(
-                    self.platform_resource_repository
-                )
-                logger.info(
-                    f"Unity Catalog tag cache statistics: {self.report.tag_cache_info}"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to collect tag cache statistics: {e}")
+            self.report.platform_resource_repository = self.platform_resource_repository
 
     def build_service_principal_map(self) -> None:
         try:

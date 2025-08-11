@@ -3,7 +3,6 @@ from typing import Optional
 
 from datahub.api.entities.external.external_entities import (
     PlatformResourceRepository,
-    SyncContext,
 )
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.aws.tag_entities import (
@@ -27,10 +26,5 @@ class GluePlatformResourceRepository(
         platform_instance: Optional[str] = None,
         catalog: Optional[str] = None,
     ):
-        super().__init__(graph)
-        self.platform_instance = platform_instance
+        super().__init__(graph, platform_instance)
         self.catalog = catalog
-
-    def extract_platform_instance(self, sync_context: SyncContext) -> Optional[str]:
-        """Get platform instance from repository configuration."""
-        return self.platform_instance
