@@ -154,7 +154,7 @@ export const AdminLogIn: React.VFC<AdminLogInProps> = () => {
                     <SsoDivider />
                     <SsoButton type="primary" href="/sso" block htmlType="submit" className={styles.sso_button}>
                         <LoginLogo />
-                        <SsoTextSpan>Sign in with SSO</SsoTextSpan>
+                        <SsoTextSpan>Sign in with Kakao Okta</SsoTextSpan>
                         <span />
                     </SsoButton>
                 </div>
