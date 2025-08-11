@@ -105,6 +105,8 @@ public enum DataHubUsageEventType {
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
   HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
   SEARCH_BAR_FILTER("SearchBarFilterEvent"),
+  FILTER_STATS_PAGE_EVENT("FilterStatsPageEvent"),
+  FILTER_STATS_CHART_LOOK_BACK_EVENT("FilterStatsChartLookBackEvent"),
   HOME_PAGE_TEMPLATE_MODULE_CREATE_EVENT("HomePageTemplateModuleCreateEvent"),
   HOME_PAGE_TEMPLATE_MODULE_ADD_EVENT("HomePageTemplateModuleAddEvent"),
   HOME_PAGE_TEMPLATE_MODULE_UPDATE_EVENT("HomePageTemplateModuleUpdateEvent"),
@@ -131,7 +133,13 @@ public enum DataHubUsageEventType {
   ENTITY_EVENT("EntityEvent"),
   FAILED_LOGIN_EVENT("FailedLogInEvent"),
   DELETE_POLICY_EVENT("DeletePolicyEvent"),
-  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent");
+  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
+  WELCOME_TO_DATAHUB_MODAL_VIEW_EVENT("WelcomeToDataHubModalViewEvent"),
+  WELCOME_TO_DATAHUB_MODAL_INTERACT_EVENT("WelcomeToDataHubModalInteractEvent"),
+  WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
+  WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
+      "WelcomeToDataHubModalClickViewDocumentationEvent"),
+  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent");
 
   private final String type;
 

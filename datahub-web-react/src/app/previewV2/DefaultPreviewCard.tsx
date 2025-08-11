@@ -374,7 +374,7 @@ export default function DefaultPreviewCard({
 
 function useRemoveRelationship(entityType: EntityType) {
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
-    const { showRemovalFromList } = useSearchCardContext();
+    const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
     const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
     const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
     const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
@@ -385,21 +385,23 @@ function useRemoveRelationship(entityType: EntityType) {
 
     if (pageEntityType === EntityType.Domain) {
         return {
-            removeRelationship: () => removeDomain(previewData?.urn),
+            removeRelationship: () => (onRemove ? onRemove() : removeDomain(previewData?.urn)),
             removeButtonText:
-                showRemovalFromList && entityType !== EntityType.DataProduct ? 'Remove from Domain' : null,
+                showRemovalFromList && entityType !== EntityType.DataProduct
+                    ? removeText || 'Remove from Domain'
+                    : null,
         };
     }
     if (pageEntityType === EntityType.GlossaryTerm) {
         return {
-            removeRelationship: () => removeTerm(previewData, entityData.urn),
-            removeButtonText: showRemovalFromList ? 'Remove Glossary Term' : null,
+            removeRelationship: () => (onRemove ? onRemove() : removeTerm(previewData, entityData.urn)),
+            removeButtonText: showRemovalFromList ? removeText || 'Remove Glossary Term' : null,
         };
     }
     if (pageEntityType === EntityType.DataProduct) {
         return {
-            removeRelationship: () => removeDataProduct(previewData?.urn),
-            removeButtonText: showRemovalFromList ? 'Remove from Data Product' : null,
+            removeRelationship: () => (onRemove ? onRemove() : removeDataProduct(previewData?.urn)),
+            removeButtonText: showRemovalFromList ? removeText || 'Remove from Data Product' : null,
         };
     }
     return {

@@ -4,6 +4,7 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
@@ -145,6 +146,11 @@ function EntityActions(props: Props) {
                         setShouldRefetchEmbeddedListSearch?.(true);
                         entityState?.setShouldRefetchContents(true);
                     }, 3000);
+                    analytics.event({
+                        type: EventType.BatchEntityActionEvent,
+                        actionType: EntityActionType.SetDomain,
+                        entityUrns,
+                    });
                 }
             })
             .catch((e) => {
@@ -180,6 +186,11 @@ function EntityActions(props: Props) {
                         refetchForEntity?.();
                         setShouldRefetchEmbeddedListSearch?.(true);
                     }, 3000);
+                    analytics.event({
+                        type: EventType.BatchEntityActionEvent,
+                        actionType: EntityActionType.SetDataProduct,
+                        entityUrns,
+                    });
                 }
             })
             .catch((e) => {

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Iterable, List, Optional, Union
 
 import yaml
-from pydantic import StrictStr, validator
+from pydantic import Field, StrictStr, validator
 from ruamel.yaml import YAML
 
 from datahub.configuration.common import ConfigModel
@@ -68,7 +68,7 @@ class TypeQualifierAllowedTypes(ConfigModel):
 
 class StructuredProperties(ConfigModel):
     id: Optional[str] = None
-    urn: Optional[str] = None
+    urn: Optional[str] = Field(None, validate_default=True)
     qualified_name: Optional[str] = None
     type: str
     value_entity_types: Optional[List[str]] = None

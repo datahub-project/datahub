@@ -74,10 +74,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Services encryption
           "secretService.encryptionKey",
 
-          // Authentication mode settings that can contain sensitive data
-          "ebean.postgresUseIamAuth",
-          "elasticsearch.opensearchUseAwsIamAuth",
-
           // Environment variables that may contain sensitive paths/credentials
           "GIT_ASKPASS", // Can contain path to credential helper
           "PWD" // Current directory may contain sensitive info
@@ -115,7 +111,15 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "cache.client.entityClient.entityAspectTTLSeconds.*.*",
 
           // Gradle test worker properties (Java system properties)
-          "org.gradle.test.worker*");
+          "org.gradle.test.worker*",
+
+          // System update properties
+          "systemUpdate.*.enabled",
+          "systemUpdate.*.batchSize",
+
+          // IAM authentication flags
+          "*.postgresUseIamAuth",
+          "*.opensearchUseAwsIamAuth");
 
   /**
    * Property keys that should NOT be redacted. Add new non-sensitive properties here when they are
@@ -317,8 +321,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "socksNonProxyHosts",
 
           // Java system properties
+          "apple.awt.application.name",
           "file.encoding",
           "file.separator",
+          "stderr.encoding",
+          "stdout.encoding",
           "java.awt.headless",
           "java.class.path",
           "java.class.version",
@@ -453,6 +460,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.showManageTags",
           "featureFlags.showNavBarRedesign",
           "featureFlags.showProductUpdates",
+          "featureFlags.showStatsTabRedesign",
           "featureFlags.showSearchBarAutocompleteRedesign",
           "featureFlags.showSearchFiltersV2",
           "featureFlags.showSeparateSiblings",
@@ -782,7 +790,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
 
           // Gradle and test-specific properties
           "org.gradle.internal.worker.tmpdir",
-          "org.springframework.boot.test.context.SpringBootTestContextBootstrapper"
+          "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
+          "datahub.policies.systemPolicyUrnList"
 
           // TODO: Add more properties as they are discovered during testing
           // When this test fails due to unclassified properties, add them to

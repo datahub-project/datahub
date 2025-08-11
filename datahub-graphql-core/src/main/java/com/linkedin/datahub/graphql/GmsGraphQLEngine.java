@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
@@ -64,6 +65,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.DatasetOperationsStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
@@ -220,6 +222,7 @@ import com.linkedin.datahub.graphql.resolvers.structuredproperties.UpsertStructu
 import com.linkedin.datahub.graphql.resolvers.tag.CreateTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.DeleteTagResolver;
 import com.linkedin.datahub.graphql.resolvers.tag.SetTagColorResolver;
+import com.linkedin.datahub.graphql.resolvers.template.DeletePageTemplateResolver;
 import com.linkedin.datahub.graphql.resolvers.template.UpsertPageTemplateResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.test.DeleteTestResolver;
@@ -229,6 +232,7 @@ import com.linkedin.datahub.graphql.resolvers.test.UpdateTestResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaVersionListResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetTimelineResolver;
+import com.linkedin.datahub.graphql.resolvers.timeseries.TimeseriesCapabilitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -829,11 +833,13 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(OPERATIONS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(TIMESERIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(VERSION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(QUERY_SCHEMA_FILE))
         .addSchema(fileBasedSchema(TEMPLATE_SCHEMA_FILE))
@@ -1108,8 +1114,13 @@ public class GmsGraphQLEngine {
         (env) -> {
           final QueryContext context = env.getContext();
           List<String> urns = env.getArgument(URNS_FIELD_NAME);
+          Boolean checkForExistence = env.getArgument(CHECK_EXISTENCE_FIELD_NAME);
           return urns.stream()
               .map(UrnUtils::getUrn)
+              .filter(
+                  urn ->
+                      ResolverUtils.filterEntitiesForExistence(
+                          context.getOperationContext(), urn, entityClient, checkForExistence))
               .map(
                   (urn) -> {
                     try {
@@ -1380,6 +1391,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateForm", new UpdateFormResolver(this.entityClient))
               .dataFetcher(
                   "upsertPageTemplate", new UpsertPageTemplateResolver(this.pageTemplateService))
+              .dataFetcher(
+                  "deletePageTemplate", new DeletePageTemplateResolver(this.pageTemplateService))
               .dataFetcher("upsertPageModule", new UpsertPageModuleResolver(this.pageModuleService))
               .dataFetcher("deletePageModule", new DeletePageModuleResolver(this.pageModuleService))
               .dataFetcher(
@@ -1718,6 +1731,11 @@ public class GmsGraphQLEngine {
                                 .setField(OPERATION_EVENT_TIME_FIELD_NAME)
                                 .setOrder(SortOrder.DESCENDING)))
                     .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
+                    .dataFetcher(
+                        "operationsStats",
+                        new DatasetOperationsStatsResolver(timeseriesAspectService))
+                    .dataFetcher(
+                        "timeseriesCapabilities", new TimeseriesCapabilitiesResolver(entityClient))
                     .dataFetcher("statsSummary", new DatasetStatsSummaryResolver(this.usageClient))
                     .dataFetcher(
                         "health",
@@ -2458,6 +2476,16 @@ public class GmsGraphQLEngine {
                               final DataJob dataJob = env.getSource();
                               return dataJob.getDataPlatformInstance() != null
                                   ? dataJob.getDataPlatformInstance().getUrn()
+                                  : null;
+                            }))
+                    .dataFetcher(
+                        "platform",
+                        new LoadableTypeResolver<>(
+                            dataPlatformType,
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob != null && dataJob.getPlatform() != null
+                                  ? dataJob.getPlatform().getUrn()
                                   : null;
                             }))
                     .dataFetcher(
@@ -3554,5 +3582,9 @@ public class GmsGraphQLEngine {
                             .getModules().stream()
                                 .map(DataHubPageModule::getUrn)
                                 .collect(Collectors.toList()))));
+
+    builder.type(
+        "DataHubPageModule",
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
   }
 }
