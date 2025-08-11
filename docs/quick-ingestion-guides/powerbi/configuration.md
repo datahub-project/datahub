@@ -84,7 +84,7 @@ This will securely store your client secret"
 
     c. **client_secret:** Use the secret POWER_BI_CLIENT_SECRET with the format "${POWER_BI_CLIENT_SECRET}".
 
-    d. **environment:** (Optional) Specify the PowerBI environment to connect to. Use 'government' for PowerBI Government Community Cloud (GCC) or 'commercial' for commercial PowerBI (default).
+    d. **environment:** (Optional) Specify the PowerBI environment to connect to. Use 'commercial' for commercial PowerBI (default) or 'government' for PowerBI Government Community Cloud (GCC).
 
 Optionally, use the `workspace_id_pattern` field to filter for specific workspaces.
 
@@ -123,7 +123,7 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 1. Name your ingestion source, then click **Save and Run**
 <p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-source-window.png"/>
+  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-recipe-window.png"/>
 </p>
 
 You will now find your new ingestion source running
@@ -137,25 +137,25 @@ You will now find your new ingestion source running
 1. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
-  <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-succeeded.png"/>
+    <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-succeeded.png"/>
 </p>
 
 2. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
 <p align="center">
-  <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-history.png"/>
+    <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-history.png"/>
 </p>
 
 3. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-detail.png"/>
+    <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-detail.png"/>
 </p>
 
 4. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
-  <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-assets.png"/>
+    <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/powerbi/powerbi-ingestion-assets.png"/>
 </p>
 
 **Congratulations!** You've successfully set up PowerBI as an ingestion source for DataHub!
