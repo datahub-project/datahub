@@ -10,7 +10,7 @@ const StatsTabWrapper = () => {
     const { showStatsTabRedesign } = config.featureFlags;
     return (
         <StatsSectionsContextProvider>
-            {showStatsTabRedesign || true ? <StatsTabV2 /> : <StatsTab />}
+            {showStatsTabRedesign ? <StatsTabV2 /> : <StatsTab />}
         </StatsSectionsContextProvider>
     );
 };
