@@ -27,6 +27,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -70,6 +71,11 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
     SqlAlchemyTableDataReader,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+    generate_procedure_container_workunits,
+    generate_procedure_workunits,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -530,6 +536,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.include_views:
             yield from self.loop_views(inspector, schema, self.config)
+
+        if getattr(self.config, "include_stored_procedures", False):
+            try:
+                yield from self.loop_stored_procedures(inspector, schema, self.config)
+            except NotImplementedError as e:
+                self.report.warning(
+                    title="Stored procedures not supported",
+                    message="The current SQL dialect does not support stored procedures.",
+                    context=f"{database}.{schema}",
+                    exc=e,
+                )
+            except Exception as e:
+                self.report.failure(
+                    title="Failed to list stored procedures for schema",
+                    message="An error occurred while listing procedures for the schema.",
+                    context=f"{database}.{schema}",
+                    exc=e,
+                )
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -1437,3 +1461,116 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self):
         return self.report
+
+    def loop_stored_procedures(
+        self,
+        inspector: Inspector,
+        schema: str,
+        config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Loop schema data for get stored procedures as dataJob-s.
+        """
+        db_name = self.get_db_name(inspector)
+
+        procedures = self.fetch_procedures_for_schema(inspector, schema, db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, db_name, schema)
+
+    def fetch_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        try:
+            raw_procedures: List[BaseProcedure] = self.get_procedures_for_schema(
+                inspector, schema, db_name
+            )
+            procedures: List[BaseProcedure] = []
+            for procedure in raw_procedures:
+                procedure_qualified_name = self.get_identifier(
+                    schema=schema,
+                    entity=procedure.name,
+                    inspector=inspector,
+                )
+
+                procedure_pattern = getattr(
+                    self.config, "procedure_pattern", AllowDenyPattern.allow_all()
+                )
+                if not procedure_pattern.allowed(procedure_qualified_name):
+                    self.report.report_dropped(procedure_qualified_name)
+                else:
+                    procedures.append(procedure)
+            return procedures
+        except NotImplementedError:
+            raise
+        except Exception as e:
+            self.report.warning(
+                title="Failed to get procedures for schema",
+                message="An error occurred while fetching procedures for the schema.",
+                context=f"{db_name}.{schema}",
+                exc=e,
+            )
+            return []
+
+    def get_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        raise NotImplementedError(
+            "Subclasses must implement the 'get_procedures_for_schema' method."
+        )
+
+    def _process_procedures(
+        self,
+        procedures: List[BaseProcedure],
+        db_name: str,
+        schema: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        if procedures:
+            yield from generate_procedure_container_workunits(
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+            )
+        for procedure in procedures:
+            yield from self._process_procedure(procedure, schema, db_name)
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        schema: str,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        try:
+            yield from generate_procedure_workunits(
+                procedure=procedure,
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_resolver=self.get_schema_resolver(),
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit stored procedure",
+                message="An error occurred while emitting stored procedure",
+                context=procedure.name,
+                exc=e,
+            )

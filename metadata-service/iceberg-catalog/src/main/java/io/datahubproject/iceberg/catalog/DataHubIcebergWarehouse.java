@@ -39,7 +39,7 @@ public class DataHubIcebergWarehouse {
   public static final String DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME =
       "icebergWarehouseInfo";
 
-  public static final String ICEBERG_PROPERTY_PREFIX = "iceberg:";
+  public static final String ICEBERG_PROPERTY_PREFIX = "TBLPROPERTIES:";
   private final EntityService entityService;
 
   private final SecretService secretService;

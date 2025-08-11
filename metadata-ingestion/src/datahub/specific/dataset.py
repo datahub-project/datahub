@@ -1,3 +1,4 @@
+import warnings
 from typing import Generic, List, Optional, Tuple, TypeVar, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
@@ -17,6 +18,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.fine_grained_lineage import (
+    HasFineGrainedLineagePatch,
+)
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
@@ -99,6 +103,7 @@ class DatasetPatchBuilder(
     HasStructuredPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasFineGrainedLineagePatch,
     MetadataPatchProposal,
 ):
     def __init__(
@@ -114,6 +119,10 @@ class DatasetPatchBuilder(
     @classmethod
     def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
         return DatasetProperties.ASPECT_NAME, ("customProperties",)
+
+    @classmethod
+    def _fine_grained_lineage_location(cls) -> Tuple[str, PatchPath]:
+        return UpstreamLineage.ASPECT_NAME, ("fineGrainedLineages",)
 
     def add_upstream_lineage(self, upstream: Upstream) -> "DatasetPatchBuilder":
         self._add_patch(
@@ -144,75 +153,44 @@ class DatasetPatchBuilder(
     def add_fine_grained_upstream_lineage(
         self, fine_grained_lineage: FineGrainedLineage
     ) -> "DatasetPatchBuilder":
-        (
-            transform_op,
-            downstream_urn,
-            query_id,
-        ) = DatasetPatchBuilder.get_fine_grained_key(fine_grained_lineage)
-        for upstream_urn in fine_grained_lineage.upstreams or []:
-            self._add_patch(
-                UpstreamLineage.ASPECT_NAME,
-                "add",
-                path=self._build_fine_grained_path(
-                    transform_op, downstream_urn, query_id, upstream_urn
-                ),
-                value={"confidenceScore": fine_grained_lineage.confidenceScore},
-            )
-        return self
-
-    @staticmethod
-    def get_fine_grained_key(
-        fine_grained_lineage: FineGrainedLineage,
-    ) -> Tuple[str, str, str]:
-        downstreams = fine_grained_lineage.downstreams or []
-        if len(downstreams) != 1:
-            raise TypeError("Cannot patch with more or less than one downstream.")
-        transform_op = fine_grained_lineage.transformOperation or "NONE"
-        downstream_urn = downstreams[0]
-        query_id = fine_grained_lineage.query or "NONE"
-        return transform_op, downstream_urn, query_id
-
-    @classmethod
-    def _build_fine_grained_path(
-        cls, transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
-    ) -> PatchPath:
-        return (
-            "fineGrainedLineages",
-            transform_op,
-            downstream_urn,
-            query_id,
-            upstream_urn,
+        """
+        Deprecated: Use `add_fine_grained_lineage` instead.
+        """
+        warnings.warn(
+            "add_fine_grained_upstream_lineage() is deprecated."
+            " Use add_fine_grained_lineage() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
+        return self.add_fine_grained_lineage(fine_grained_lineage)
 
     def remove_fine_grained_upstream_lineage(
         self, fine_grained_lineage: FineGrainedLineage
     ) -> "DatasetPatchBuilder":
-        (
-            transform_op,
-            downstream_urn,
-            query_id,
-        ) = DatasetPatchBuilder.get_fine_grained_key(fine_grained_lineage)
-        for upstream_urn in fine_grained_lineage.upstreams or []:
-            self._add_patch(
-                UpstreamLineage.ASPECT_NAME,
-                "remove",
-                path=self._build_fine_grained_path(
-                    transform_op, downstream_urn, query_id, upstream_urn
-                ),
-                value={},
-            )
-        return self
+        """
+        Deprecated: Use `remove_fine_grained_lineage` instead.
+        """
+        warnings.warn(
+            "remove_fine_grained_upstream_lineage() is deprecated."
+            " Use remove_fine_grained_lineage() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.remove_fine_grained_lineage(fine_grained_lineage)
 
     def set_fine_grained_upstream_lineages(
         self, fine_grained_lineages: List[FineGrainedLineage]
     ) -> "DatasetPatchBuilder":
-        self._add_patch(
-            UpstreamLineage.ASPECT_NAME,
-            "add",
-            path=("fineGrainedLineages",),
-            value=fine_grained_lineages,
+        """
+        Deprecated: Use `set_fine_grained_lineages` instead.
+        """
+        warnings.warn(
+            "set_fine_grained_upstream_lineages() is deprecated."
+            " Use set_fine_grained_lineages() instead.",
+            DeprecationWarning,
+            stacklevel=2,
         )
-        return self
+        return self.set_fine_grained_lineages(fine_grained_lineages)
 
     def for_field(
         self, field_path: str, editable: bool = True

@@ -4,6 +4,7 @@ import { useCallback, useMemo } from 'react';
 import analytics, { EventType } from '@app/analytics';
 import {
     calculateAdjustedRowIndex,
+    handleModuleAdditionWithSizeMismatch,
     insertModuleIntoRows,
     removeModuleFromRows,
     validateModuleMoveConstraints,
@@ -245,8 +246,14 @@ export function useModuleOperations(
                 return;
             }
 
-            // Update template state
-            const updatedTemplate = updateTemplateWithModule(templateToUpdate, module, position, isEditingModule);
+            // Handle module addition with size mismatch detection
+            const updatedTemplate = handleModuleAdditionWithSizeMismatch(
+                templateToUpdate,
+                module,
+                position,
+                updateTemplateWithModule,
+                isEditingModule,
+            );
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
@@ -400,10 +407,12 @@ export function useModuleOperations(
                         );
 
                         if (updatedTemplate) {
-                            updatedTemplate = updateTemplateWithModule(
+                            // Handle module addition with size mismatch detection
+                            updatedTemplate = handleModuleAdditionWithSizeMismatch(
                                 updatedTemplate,
                                 moduleFragment,
                                 position,
+                                updateTemplateWithModule,
                                 false,
                             );
 
