@@ -78,8 +78,6 @@ export const CreateAssertionButton = ({
     // Check !isSiblingMode because in isSiblingMode we render a drop down listing each siblings instead
     const isUnsupportedPlatform = !isSiblingMode && !isEntityEligibleForAssertionMonitoring(entityData?.platform?.urn);
 
-    const noPermissionsMessage = 'You do not have permission to create an assertion for this asset';
-
     if (!assertionMonitorsEnabled) {
         return null;
     }
@@ -87,10 +85,13 @@ export const CreateAssertionButton = ({
     /* We do not enable the create button if the user does not have the privilege, OR if sibling mode is enabled */
     const canEditAssertions = privileges?.canEditAssertions || false;
     const canEditMonitors = privileges?.canEditMonitors || false;
-    const isAllowedToCreateAssertion = canEditAssertions && canEditMonitors && !isUnsupportedPlatform;
+    const hasPermissions = canEditAssertions && canEditMonitors;
+    const isAllowedToCreateAssertion = hasPermissions && !isUnsupportedPlatform;
 
     const disableCreateAssertion = !isAllowedToCreateAssertion;
-    const disableCreateAssertionMessage = noPermissionsMessage;
+    const disableCreateAssertionMessage = hasPermissions
+        ? 'Contact your DataHub administrator for permission to create assertions.'
+        : 'This platform does not support assertions';
 
     const onCreateAssertionForEntity = (params: Partial<EntityStagedForAssertion>) => {
         if (!params.urn || !params.platform || !params.entityType) {
@@ -174,7 +175,7 @@ export const CreateAssertionButton = ({
                 </Dropdown>
             ) : (
                 <Tooltip showArrow={false} title={disableCreateAssertion ? disableCreateAssertionMessage : null}>
-                    {createButton}
+                    <div>{createButton}</div>
                 </Tooltip>
             )}
         </TabToolbar>
