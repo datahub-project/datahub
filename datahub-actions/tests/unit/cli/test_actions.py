@@ -123,7 +123,7 @@ action:
 @pytest.fixture
 def disabled_config_file_env_var() -> Generator[str, None, None]:
     """Creates a temporary YAML config file with disabled pipeline."""
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
         f.write(
             """
 name: "disabled_pipeline"
@@ -137,11 +137,7 @@ action:
     type: "hello_world"
 """
         )
-        config_path = f.name
-
-    yield config_path
-    # Cleanup
-    os.unlink(config_path)
+        yield f.name
 
 
 @pytest.fixture
