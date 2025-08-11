@@ -37,6 +37,7 @@ describe("home page templates", () => {
   it("create personal template, then log back in to check the updated template", () => {
     addYourAssetsModule();
     createAssetCollectionModule("Collection Module");
+    cy.wait(2000);
     shouldBeOnPersonalTemplate();
     cy.logoutV2();
     cy.login();
@@ -50,6 +51,7 @@ describe("home page templates", () => {
 
   it("reset the homepage to organization default", () => {
     addYourAssetsModule();
+    cy.wait(1000);
     resetToOrgDefault();
     shouldShowDefaultTemplate();
   });

@@ -23,6 +23,19 @@ export function clickLastAddModuleButton() {
   cy.getWithTestId("add-module-button").last().should("be.visible").click();
 }
 
+export function closeForkedHomepageToast() {
+  cy.wait(200);
+  cy.get("body").then(($body) => {
+    if (
+      $body.find('[data-testid="toast-notification-close-icon"]').length > 0
+    ) {
+      cy.getWithTestId("toast-notification-close-icon")
+        .should("be.visible")
+        .click();
+    }
+  });
+}
+
 export function shouldShowDefaultTemplate() {
   cy.getWithTestId("your-assets-module").should("exist");
   cy.getWithTestId("domains-module").should("exist");
@@ -31,18 +44,21 @@ export function shouldShowDefaultTemplate() {
 }
 
 export function shouldBeOnPersonalTemplate() {
+  closeForkedHomepageToast();
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("reset-to-organization-default").should("exist");
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
 }
 
 export function resetToOrgDefault() {
+  closeForkedHomepageToast();
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("reset-to-organization-default").click();
   cy.getWithTestId("modal-confirm-button").should("be.visible").click();
 }
 
 export function startEditingDefaultTemplate() {
+  closeForkedHomepageToast();
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("edit-organization-default").should("be.visible").click();
   cy.getWithTestId("editing-default-template-bar").should("be.visible");
