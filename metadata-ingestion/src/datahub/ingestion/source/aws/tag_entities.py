@@ -37,7 +37,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
 
     tag_key: str
     tag_value: Optional[str] = None
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
     catalog: Optional[str] = None
     exists_in_lake_formation: bool = False
     persisted: bool = False
@@ -88,8 +88,8 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
             return existing_platform_resource
 
         return LakeFormationTagPlatformResourceId(
-            tag_key=tag.key,
-            tag_value=tag.value if tag.value is not None else None,
+            tag_key=str(tag.key),
+            tag_value=str(tag.value) if tag.value is not None else None,
             platform_instance=platform_instance,
             exists_in_lake_formation=exists_in_lake_formation,
             catalog=catalog,
@@ -227,7 +227,7 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
     datahub_urns: LinkedResourceSet
     managed_by_datahub: bool
     id: LakeFormationTagPlatformResourceId
-    allowed_values: Optional[List[str]]
+    allowed_values: Optional[List[str]] = None
 
     def get_id(self) -> ExternalEntityId:
         return self.id

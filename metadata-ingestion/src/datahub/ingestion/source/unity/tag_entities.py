@@ -36,7 +36,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
 
     tag_key: str
     tag_value: Optional[str] = None
-    platform_instance: Optional[str]
+    platform_instance: Optional[str] = None
     exists_in_unity_catalog: bool = False
     persisted: bool = False
 
@@ -77,13 +77,13 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
         if existing_platform_resource:
             logger.info(
-                f"Found existing UnityCatalogTagPlatformResourceId for tag {tag.key.original}: {existing_platform_resource}"
+                f"Found existing UnityCatalogTagPlatformResourceId for tag {tag.key.raw_text}: {existing_platform_resource}"
             )
             return existing_platform_resource
 
         return UnityCatalogTagPlatformResourceId(
-            tag_key=tag.key.original,
-            tag_value=tag.value.original if tag.value is not None else None,
+            tag_key=tag.key.raw_text,
+            tag_value=tag.value.raw_text if tag.value is not None else None,
             platform_instance=platform_instance,
             exists_in_unity_catalog=exists_in_unity_catalog,
             persisted=False,
@@ -218,7 +218,7 @@ class UnityCatalogTagPlatformResource(BaseModel, ExternalEntity):
     datahub_urns: LinkedResourceSet
     managed_by_datahub: bool
     id: UnityCatalogTagPlatformResourceId
-    allowed_values: Optional[List[str]]
+    allowed_values: Optional[List[str]] = None
 
     def get_id(self) -> ExternalEntityId:
         return self.id
