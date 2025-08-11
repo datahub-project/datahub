@@ -56,7 +56,7 @@ class UnityCatalogTagPlatformResourceId(ExternalEntityId):
         )
 
     @classmethod
-    def from_tag(
+    def get_or_create_from_tag(
         cls,
         tag: UnityCatalogTag,
         platform_resource_repository: "UnityCatalogPlatformResourceRepository",
@@ -176,10 +176,9 @@ class UnityCatalogTagPlatformResource(ExternalEntity):
     ) -> "UnityCatalogTagPlatformResource":
         """Create a default Unity Catalog tag entity when none found in DataHub."""
         # Type narrowing: we know this will be a UnityCatalogTagPlatformResourceId
-        if not isinstance(entity_id, UnityCatalogTagPlatformResourceId):
-            raise TypeError(
-                f"Expected UnityCatalogTagPlatformResourceId, got {type(entity_id)}"
-            )
+        assert isinstance(entity_id, UnityCatalogTagPlatformResourceId), (
+            f"Expected UnityCatalogTagPlatformResourceId, got {type(entity_id)}"
+        )
 
         # Create a new entity ID with correct default state instead of mutating
         default_entity_id = UnityCatalogTagPlatformResourceId(
@@ -195,16 +194,4 @@ class UnityCatalogTagPlatformResource(ExternalEntity):
             datahub_urns=LinkedResourceSet(urns=[]),
             managed_by_datahub=managed_by_datahub,
             allowed_values=None,
-        )
-
-    @classmethod
-    def get_from_datahub(
-        cls,
-        unity_catalog_tag_id: UnityCatalogTagPlatformResourceId,
-        platform_resource_repository: "UnityCatalogPlatformResourceRepository",
-        managed_by_datahub: bool = False,
-    ) -> "UnityCatalogTagPlatformResource":
-        """Get Unity Catalog tag platform resource from DataHub with caching."""
-        return platform_resource_repository.get_entity_from_datahub(
-            unity_catalog_tag_id, managed_by_datahub
         )

@@ -357,7 +357,7 @@ class TestUnityCatalogTagEntitiesIntegrationWithRepository:
         mock_repository.platform_instance = "workspace1"
 
         # Create tag ID from Unity Catalog tag
-        tag_id = UnityCatalogTagPlatformResourceId.from_tag(
+        tag_id = UnityCatalogTagPlatformResourceId.get_or_create_from_tag(
             unity_tag, mock_repository, exists_in_unity_catalog=True
         )
 
@@ -374,9 +374,7 @@ class TestUnityCatalogTagEntitiesIntegrationWithRepository:
         # Get from DataHub using repository
         mock_repository.get_entity_from_datahub.return_value = platform_resource
 
-        result = UnityCatalogTagPlatformResource.get_from_datahub(
-            tag_id, mock_repository, False
-        )
+        result = mock_repository.get_entity_from_datahub(tag_id, False)
 
         assert result == platform_resource
         mock_repository.get_entity_from_datahub.assert_called_once_with(tag_id, False)

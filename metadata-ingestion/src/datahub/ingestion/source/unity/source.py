@@ -249,6 +249,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         else:
             self.platform_resource_repository = None
 
+        # Include platform resource repository in report for automatic cache statistics
+        if self.config.include_tags and self.platform_resource_repository:
+            self.report.tag_urn_resolver_cache = self.platform_resource_repository
+
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
@@ -380,10 +384,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ).get_workunits(list(self.tables.values()))
                 else:
                     raise ValueError("Unknown profiling config method")
-
-        # Include platform resource repository in report for automatic cache statistics
-        if self.config.include_tags and self.platform_resource_repository:
-            self.report.platform_resource_repository = self.platform_resource_repository
 
     def build_service_principal_map(self) -> None:
         try:
@@ -1113,9 +1113,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # searching and caching internally - this is the ONLY search we need
         if self.platform_resource_repository is None:
             raise ValueError("Platform resource repository not initialized")
-        return UnityCatalogTagPlatformResource.get_from_datahub(
+        return self.platform_resource_repository.get_entity_from_datahub(
             platform_resource_id,
-            self.platform_resource_repository,
             managed_by_datahub,
         )
 

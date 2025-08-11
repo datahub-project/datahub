@@ -66,7 +66,6 @@ from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
 )
 from datahub.ingestion.source.aws.tag_entities import (
-    LakeFormationTagPlatformResource,
     LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -1184,15 +1183,17 @@ class GlueSource(StatefulIngestionSourceBase):
         self, tag: LakeFormationTag
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
-            platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
-                tag=tag,
-                platform_resource_repository=self.platform_resource_repository,
-                catalog_id=tag.catalog,
+            platform_resource_id = (
+                LakeFormationTagPlatformResourceId.get_or_create_from_tag(
+                    tag=tag,
+                    platform_resource_repository=self.platform_resource_repository,
+                    catalog_id=tag.catalog,
+                )
             )
             logger.info(f"Created platform resource {platform_resource_id}")
 
-            lf_tag = LakeFormationTagPlatformResource.get_from_datahub(
-                platform_resource_id, self.platform_resource_repository, False
+            lf_tag = self.platform_resource_repository.get_entity_from_datahub(
+                platform_resource_id, False
             )
             if (
                 tag.to_datahub_tag_urn().urn()

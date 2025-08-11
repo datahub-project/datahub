@@ -122,7 +122,7 @@ class TestLakeFormationTagPlatformResourceId:
         with patch.object(
             LakeFormationTagPlatformResourceId, "search_by_urn", return_value=None
         ):
-            result = LakeFormationTagPlatformResourceId.from_tag(
+            result = LakeFormationTagPlatformResourceId.get_or_create_from_tag(
                 tag=mock_tag,
                 platform_resource_repository=mock_repo,
             )
@@ -160,7 +160,7 @@ class TestLakeFormationTagPlatformResourceId:
             "search_by_urn",
             return_value=existing_resource,
         ):
-            result = LakeFormationTagPlatformResourceId.from_tag(
+            result = LakeFormationTagPlatformResourceId.get_or_create_from_tag(
                 tag=mock_tag,
                 platform_resource_repository=mock_repo,
             )
@@ -355,11 +355,7 @@ class TestLakeFormationTagPlatformResource:
             )
         )
 
-        result = LakeFormationTagPlatformResource.get_from_datahub(
-            lake_formation_tag_id=tag_id,
-            platform_resource_repository=mock_repo,
-            managed_by_datahub=True,
-        )
+        result = mock_repo.get_entity_from_datahub(tag_id, True)
 
         assert result.id == tag_id
         assert result.managed_by_datahub is True
@@ -399,11 +395,7 @@ class TestLakeFormationTagPlatformResource:
         mock_repo = Mock(spec=PlatformResourceRepository)
         mock_repo.get_entity_from_datahub.return_value = expected_resource
 
-        result = LakeFormationTagPlatformResource.get_from_datahub(
-            lake_formation_tag_id=tag_id,
-            platform_resource_repository=mock_repo,
-            managed_by_datahub=False,
-        )
+        result = mock_repo.get_entity_from_datahub(tag_id, False)
 
         assert result == expected_resource
         mock_repo.get_entity_from_datahub.assert_called_once_with(tag_id, False)
@@ -455,11 +447,7 @@ class TestLakeFormationTagPlatformResource:
             )
         )
 
-        result = LakeFormationTagPlatformResource.get_from_datahub(
-            lake_formation_tag_id=tag_id,
-            platform_resource_repository=mock_repo,
-            managed_by_datahub=True,
-        )
+        result = mock_repo.get_entity_from_datahub(tag_id, True)
 
         # Should return new resource since platform instance doesn't match
         assert result.id == tag_id

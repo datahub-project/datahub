@@ -68,6 +68,4 @@ class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     num_queries_missing_info: int = 0
 
     # Platform resource repository for automatic cache statistics via SupportsAsObj
-    platform_resource_repository: Optional["UnityCatalogPlatformResourceRepository"] = (
-        None
-    )
+    tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

@@ -64,7 +64,7 @@ class LakeFormationTagPlatformResourceId(ExternalEntityId):
         )
 
     @classmethod
-    def from_tag(
+    def get_or_create_from_tag(
         cls,
         tag: LakeFormationTag,
         platform_resource_repository: "GluePlatformResourceRepository",
@@ -248,10 +248,9 @@ class LakeFormationTagPlatformResource(ExternalEntity):
     ) -> "LakeFormationTagPlatformResource":
         """Create a default Lake Formation tag entity when none found in DataHub."""
         # Type narrowing: we know this will be a LakeFormationTagPlatformResourceId
-        if not isinstance(entity_id, LakeFormationTagPlatformResourceId):
-            raise TypeError(
-                f"Expected LakeFormationTagPlatformResourceId, got {type(entity_id)}"
-            )
+        assert isinstance(entity_id, LakeFormationTagPlatformResourceId), (
+            f"Expected LakeFormationTagPlatformResourceId, got {type(entity_id)}"
+        )
 
         # Create a new entity ID with correct default state instead of mutating
         default_entity_id = LakeFormationTagPlatformResourceId(
@@ -268,21 +267,4 @@ class LakeFormationTagPlatformResource(ExternalEntity):
             datahub_urns=LinkedResourceSet(urns=[]),
             managed_by_datahub=managed_by_datahub,
             allowed_values=None,
-        )
-
-    @classmethod
-    def get_from_datahub(
-        cls,
-        lake_formation_tag_id: LakeFormationTagPlatformResourceId,
-        platform_resource_repository: "GluePlatformResourceRepository",
-        managed_by_datahub: bool = False,
-    ) -> "LakeFormationTagPlatformResource":
-        """
-        Get Lake Formation tag platform resource from DataHub with caching.
-
-        This method now properly delegates to the repository's get_entity_from_datahub
-        method to ensure consistent caching behavior, matching Unity Catalog implementation.
-        """
-        return platform_resource_repository.get_entity_from_datahub(
-            lake_formation_tag_id, managed_by_datahub
         )
