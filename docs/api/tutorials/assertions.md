@@ -29,10 +29,10 @@ The actor making API calls must have the `Edit Assertions` and `Edit Monitors` p
 
 You can create new dataset Assertions to DataHub using the following APIs.
 
+### Freshness Assertion
+
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
-
-### Freshness Assertion
 
 To create a new freshness assertion, use the `upsertDatasetFreshnessAssertionMonitor` GraphQL Mutation.
 
@@ -71,9 +71,44 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create smart freshness assertion
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+freshness_assertion = client.assertions.sync_smart_freshness_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Freshness Anomaly Monitor",
+    # Detection mechanism - information_schema is recommended
+    detection_mechanism="information_schema",
+    # Smart sensitivity setting
+    sensitivity="medium",  # options: "low", "medium", "high"
+    # Tags for grouping
+    tags=["automated", "freshness", "data_quality"],
+    # Enable the assertion
+    enabled=True
+)
+
+print(f"Created freshness assertion: {freshness_assertion.urn}")
+```
+
+</TabItem>
+</Tabs>
+
 For more details, see the [Freshness Assertions](/docs/managed-datahub/observe/freshness-assertions.md) guide.
 
 ### Volume Assertions
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
 
 To create a new volume assertion, use the `upsertDatasetVolumeAssertionMonitor` GraphQL Mutation.
 
@@ -116,9 +151,46 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create smart volume assertion
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+volume_assertion = client.assertions.sync_smart_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Smart Volume Check",
+    # Detection mechanism options
+    detection_mechanism="information_schema",
+    # Smart sensitivity setting
+    sensitivity="medium",
+    # Tags for grouping
+    tags=["automated", "volume", "data_quality"],
+    # Schedule (optional - defaults to hourly)
+    schedule="0 */6 * * *",  # Every 6 hours
+    # Enable the assertion
+    enabled=True
+)
+
+print(f"Created volume assertion: {volume_assertion.urn}")
+```
+
+</TabItem>
+</Tabs>
+
 For more details, see the [Volume Assertions](/docs/managed-datahub/observe/volume-assertions.md) guide.
 
 ### Column Assertions
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
 
 To create a new column assertion, use the `upsertDatasetFieldAssertionMonitor` GraphQL Mutation.
 
@@ -165,11 +237,64 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create smart column metric assertion (AI-powered anomaly detection)
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
+    dataset_urn=dataset_urn,
+    column_name="user_id",
+    metric_type="null_count",
+    display_name="Smart Null Count Check - user_id",
+    # Detection mechanism for column metrics
+    detection_mechanism="all_rows_query_datahub_dataset_profile",
+    # Smart sensitivity setting
+    sensitivity="medium",  # options: "low", "medium", "high"
+    # Tags
+    tags=["automated", "column_quality", "null_checks"],
+    enabled=True
+)
+
+print(f"Created smart column assertion: {smart_column_assertion.urn}")
+
+# Create regular column metric assertion (fixed threshold)
+column_assertion = client.assertions.sync_column_metric_assertion(
+    dataset_urn=dataset_urn,
+    column_name="price",
+    metric_type="min",
+    operator="greater_than_or_equal_to",
+    criteria_parameters=0,
+    display_name="Price Minimum Check",
+    # Evaluation schedule
+    schedule="0 */4 * * *",  # Every 4 hours
+    # Tags
+    tags=["automated", "column_quality", "price_validation"],
+    enabled=True
+)
+
+print(f"Created column assertion: {column_assertion.urn}")
+```
+
+</TabItem>
+</Tabs>
+
 For more details, see the [Column Assertions](/docs/managed-datahub/observe/column-assertions.md) guide.
 
 ### Custom SQL Assertions
 
-To create a new column assertion, use the `upsertDatasetSqlAssertionMonitor` GraphQL Mutation.
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+To create a new custom SQL assertion, use the `upsertDatasetSqlAssertionMonitor` GraphQL Mutation.
 
 ```graphql
 mutation upsertDatasetSqlAssertionMonitor {
@@ -207,9 +332,58 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
+</TabItem>
+<TabItem value="python" label="Python">
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+# Initialize the client
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# Create custom SQL assertion
+dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
+
+sql_assertion = client.assertions.sync_sql_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Revenue Quality Check",
+    statement="SELECT SUM(revenue) FROM database.schema.table WHERE date >= CURRENT_DATE - INTERVAL '1 day'",
+    criteria_condition="IS_GREATER_THAN_OR_EQUAL_TO",
+    criteria_parameters=1000,
+    # Evaluation schedule
+    schedule="0 6 * * *",  # Daily at 6 AM
+    # Tags
+    tags=["automated", "revenue", "data_quality"],
+    enabled=True
+)
+
+print(f"Created SQL assertion: {sql_assertion.urn}")
+
+# Example with range check
+range_sql_assertion = client.assertions.sync_sql_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Daily Order Count Range Check",
+    statement="SELECT COUNT(*) FROM database.schema.orders WHERE DATE(created_at) = CURRENT_DATE",
+    criteria_condition="IS_WITHIN_A_RANGE",
+    criteria_parameters=(50, 500),  # Between 50 and 500 orders per day
+    schedule="0 */6 * * *",  # Every 6 hours
+    tags=["automated", "orders", "volume_check"],
+    enabled=True
+)
+
+print(f"Created range SQL assertion: {range_sql_assertion.urn}")
+```
+
+</TabItem>
+</Tabs>
+
 For more details, see the [Custom SQL Assertions](/docs/managed-datahub/observe/custom-sql-assertions.md) guide.
 
 ### Schema Assertions
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
 
 To create a new schema assertion, use the `upsertDatasetSchemaAssertionMonitor` GraphQL Mutation.
 
@@ -248,10 +422,10 @@ This API will return a unique identifier (URN) for the new assertion if you were
 }
 ```
 
-For more details, see the [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md) guide.
-
 </TabItem>
 </Tabs>
+
+For more details, see the [Schema Assertions](/docs/managed-datahub/observe/schema-assertions.md) guide.
 
 ## Run Assertions
 
@@ -1163,30 +1337,6 @@ urn:li:assertion:<unique-assertion-id>
 3. Generate the [**AssertionRunEvent**](/docs/generated/metamodel/entities/assertion.md#assertionrunevent-timeseries) timeseries aspect using the Python SDK. This aspect should contain the result of the assertion
    run at a given timestamp and will be shown on the results graph in DataHub's UI.
 
-## Create Subscription
+## Create and Remove Subscriptions
 
-You can create subscriptions to receive notifications when assertions change state (pass, fail, or error) or when other entity changes occur. Subscriptions can be created at the dataset level (affecting all assertions on the dataset) or at the assertion level (affecting only specific assertions).
-
-<Tabs>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/create_subscription.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
-
-## Remove Subscription
-
-You can remove existing subscriptions to stop receiving notifications. The unsubscribe method supports selective removal of specific change types or complete removal of subscriptions.
-
-<Tabs>
-<TabItem value="python" label="Python">
-
-```python
-{{ inline /metadata-ingestion/examples/library/remove_subscription.py show_path_as_comment }}
-```
-
-</TabItem>
-</Tabs>
+Reference the [Subscriptions SDK](/docs/api/tutorials/subscriptions.md) for more information on how to create and remove subscriptions on Datasets or Assertions.
