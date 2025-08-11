@@ -258,7 +258,7 @@ describe('useSelectableDomainTree hook', () => {
 
             renderHook(() => useSelectableDomainTree([]));
 
-            expect(mockUseTreeNodesFromDomains).toHaveBeenCalledWith(rootDomains);
+            expect(mockUseTreeNodesFromDomains).toHaveBeenCalledWith(rootDomains, false);
         });
 
         it('should handle mixed states correctly', () => {
@@ -287,7 +287,7 @@ describe('useSelectableDomainTree hook', () => {
 
             renderHook(() => useSelectableDomainTree([]));
 
-            expect(mockUseTreeNodesFromDomains).toHaveBeenCalledWith([mockDomain1]);
+            expect(mockUseTreeNodesFromDomains).toHaveBeenCalledWith([mockDomain1], false);
         });
     });
 });

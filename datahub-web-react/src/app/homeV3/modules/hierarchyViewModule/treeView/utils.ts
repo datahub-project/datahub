@@ -179,3 +179,16 @@ export function getTopLevelSelectedValuesFromTree(selectedValues: string[], tree
 
     return [...result];
 }
+
+export function sortTree(tree: TreeNode[], nodesSorter: (nodes: TreeNode[]) => TreeNode[]): TreeNode[] {
+    function traverse(node: TreeNode) {
+        if (!node.children?.length) return node;
+
+        return {
+            ...node,
+            children: nodesSorter(node.children).map(traverse),
+        };
+    }
+
+    return nodesSorter(tree).map(traverse);
+}
