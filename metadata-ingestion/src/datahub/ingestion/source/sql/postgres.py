@@ -36,14 +36,8 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.sql_utils import (
-    gen_database_key,
-    gen_schema_key,
-)
 from datahub.ingestion.source.sql.stored_procedures.base import (
     BaseProcedure,
-    generate_procedure_container_workunits,
-    generate_procedure_workunits,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
@@ -132,10 +126,12 @@ class PostgresConfig(BasePostgresConfig):
             "Note: this is not used if `database` or `sqlalchemy_uri` are provided."
         ),
     )
+
     include_stored_procedures: bool = Field(
         default=True,
         description="Include ingest of stored procedures.",
     )
+
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for stored procedures to filter in ingestion."
@@ -310,73 +306,6 @@ class PostgresSource(SQLAlchemySource):
         except Exception as e:
             logger.error(f"failed to fetch profile metadata: {e}")
 
-    def get_schema_level_workunits(
-        self,
-        inspector: Inspector,
-        schema: str,
-        database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_schema_level_workunits(
-            inspector=inspector,
-            schema=schema,
-            database=database,
-        )
-
-        if self.config.include_stored_procedures:
-            try:
-                yield from self.loop_stored_procedures(inspector, schema, self.config)
-            except Exception as e:
-                self.report.failure(
-                    title="Failed to list stored procedures for schema",
-                    message="An error occurred while listing procedures for the schema.",
-                    context=f"{database}.{schema}",
-                    exc=e,
-                )
-
-    def loop_stored_procedures(
-        self,
-        inspector: Inspector,
-        schema: str,
-        config: PostgresConfig,
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Loop schema data for get stored procedures as dataJob-s.
-        """
-        db_name = self.get_db_name(inspector)
-
-        procedures = self.fetch_procedures_for_schema(inspector, schema, db_name)
-        if procedures:
-            yield from self._process_procedures(procedures, db_name, schema)
-
-    def fetch_procedures_for_schema(
-        self, inspector: Inspector, schema: str, db_name: str
-    ) -> List[BaseProcedure]:
-        try:
-            raw_procedures: List[BaseProcedure] = self.get_procedures_for_schema(
-                inspector, schema, db_name
-            )
-            procedures: List[BaseProcedure] = []
-            for procedure in raw_procedures:
-                procedure_qualified_name = self.get_identifier(
-                    schema=schema,
-                    entity=procedure.name,
-                    inspector=inspector,
-                )
-
-                if not self.config.procedure_pattern.allowed(procedure_qualified_name):
-                    self.report.report_dropped(procedure_qualified_name)
-                else:
-                    procedures.append(procedure)
-            return procedures
-        except Exception as e:
-            self.report.warning(
-                title="Failed to get procedures for schema",
-                message="An error occurred while fetching procedures for the schema.",
-                context=f"{db_name}.{schema}",
-                exc=e,
-            )
-            return []
-
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
@@ -401,10 +330,9 @@ class PostgresSource(SQLAlchemySource):
                         pg_language l ON l.oid = p.prolang
                     WHERE
                         p.prokind = 'p'
-                        AND n.nspname = '"""
-                + schema
-                + """';
-                    """
+                        AND n.nspname = %s;
+                """,
+                (schema,),
             )
 
             procedure_rows = list(procedures)
@@ -423,60 +351,3 @@ class PostgresSource(SQLAlchemySource):
                     )
                 )
             return base_procedures
-
-    def _process_procedures(
-        self,
-        procedures: List[BaseProcedure],
-        db_name: str,
-        schema: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        if procedures:
-            yield from generate_procedure_container_workunits(
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-            )
-        for procedure in procedures:
-            yield from self._process_procedure(procedure, schema, db_name)
-
-    def _process_procedure(
-        self,
-        procedure: BaseProcedure,
-        schema: str,
-        db_name: str,
-    ) -> Iterable[MetadataWorkUnit]:
-        try:
-            yield from generate_procedure_workunits(
-                procedure=procedure,
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_resolver=self.get_schema_resolver(),
-            )
-        except Exception as e:
-            self.report.warning(
-                title="Failed to emit stored procedure",
-                message="An error occurred while emitting stored procedure",
-                context=procedure.name,
-                exc=e,
-            )

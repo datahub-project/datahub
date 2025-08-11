@@ -455,7 +455,11 @@ class PathSpec(ConfigModel):
                 partition = partition.rsplit("/", 1)[0]
                 for partition_key in partition.split("/"):
                     if partition_key.find("=") != -1:
-                        partition_keys.append(tuple(partition_key.split("=")))
+                        key_value = partition_key.split(
+                            "=", 1
+                        )  # Split into at most 2 parts
+                        if len(key_value) == 2:
+                            partition_keys.append((key_value[0], key_value[1]))
             else:
                 partition_split = partition.rsplit("/", 1)
                 if len(partition_split) == 1:
