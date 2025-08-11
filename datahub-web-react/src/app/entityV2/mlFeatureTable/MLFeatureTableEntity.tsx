@@ -55,7 +55,10 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         return (
             <ChartScatter
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
                 weight="regular"
             />
         );

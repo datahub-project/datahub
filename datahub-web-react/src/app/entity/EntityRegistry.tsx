@@ -273,24 +273,4 @@ export default class EntityRegistry {
     getGraphNameFromType(type: EntityType): string {
         return validatedGet(type, this.entityTypeToEntity).getGraphName();
     }
-
-    /**
-     * Converts an EntityType enum value to camelCase string representation.
-     * e.g. EntityType.DataPlatform (DATA_PLATFORM) -> 'dataPlatform'
-     */
-    getEntityTypeAsCamelCase(type: EntityType): string {
-        return type
-            .toLowerCase()
-            .split('_')
-            .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
-            .join('');
-    }
-
-    /**
-     * Gets all search entity types converted to camelCase strings.
-     * Useful for comparing with backend data that uses camelCase entity names.
-     */
-    getSearchEntityTypesAsCamelCase(): Array<string> {
-        return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
-    }
 }

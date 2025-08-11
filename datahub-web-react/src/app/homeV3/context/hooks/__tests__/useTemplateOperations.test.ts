@@ -4,12 +4,7 @@ import { vi } from 'vitest';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import {
-    PageModuleFragment,
-    PageTemplateFragment,
-    useDeletePageTemplateMutation,
-    useUpsertPageTemplateMutation,
-} from '@graphql/template.generated';
+import { PageModuleFragment, PageTemplateFragment, useUpsertPageTemplateMutation } from '@graphql/template.generated';
 import { useUpdateUserHomePageSettingsMutation } from '@graphql/user.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
@@ -19,7 +14,6 @@ vi.mock('@graphql/user.generated');
 
 const mockUpsertPageTemplateMutation = vi.fn();
 const mockUpdateUserHomePageSettings = vi.fn();
-const mockDeletePageTemplate = vi.fn();
 
 // Mock template data
 const mockTemplate: PageTemplateFragment = {
@@ -65,12 +59,11 @@ describe('useTemplateOperations', () => {
         vi.clearAllMocks();
         (useUpsertPageTemplateMutation as any).mockReturnValue([mockUpsertPageTemplateMutation]);
         (useUpdateUserHomePageSettingsMutation as any).mockReturnValue([mockUpdateUserHomePageSettings]);
-        (useDeletePageTemplateMutation as any).mockReturnValue([mockDeletePageTemplate]);
     });
 
     describe('updateTemplateWithModule', () => {
         it('should add module to new row when rowIndex is undefined', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: undefined,
@@ -86,7 +79,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should add module to existing row on the left side', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 0,
@@ -103,7 +96,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should add module to existing row on the right side', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 0,
@@ -120,7 +113,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should create new row when rowIndex is out of bounds', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 5,
@@ -136,7 +129,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should handle template with no rows', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithoutRows: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:empty',
@@ -171,7 +164,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should return null when template is null', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 0,
@@ -186,7 +179,7 @@ describe('useTemplateOperations', () => {
 
     describe('removeModuleFromTemplate', () => {
         it('should remove module by moduleIndex when provided', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithMultipleModules: PageTemplateFragment = {
                 ...mockTemplate,
@@ -241,7 +234,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should handle duplicate URNs correctly with moduleIndex', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithDuplicateUrns: PageTemplateFragment = {
                 ...mockTemplate,
@@ -308,7 +301,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should fall back to URN search when moduleIndex is invalid', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithMultipleModules: PageTemplateFragment = {
                 ...mockTemplate,
@@ -363,7 +356,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should fall back to URN search when moduleIndex URN does not match', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithMultipleModules: PageTemplateFragment = {
                 ...mockTemplate,
@@ -418,7 +411,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should remove entire row when last module is removed if removing of empty rows is enabled', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithSingleModule: PageTemplateFragment = {
                 ...mockTemplate,
@@ -476,7 +469,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should not remove entire row when last module is removed if removing of empty rows is disabled', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithSingleModule: PageTemplateFragment = {
                 ...mockTemplate,
@@ -535,7 +528,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should return original template when module is not found', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 0,
@@ -554,7 +547,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should return original template when rowIndex is invalid', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 5, // Invalid index
@@ -573,7 +566,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should return original template when rowIndex is undefined', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: undefined,
@@ -592,7 +585,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should return original template when template is null', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const position: ModulePositionInput = {
                 rowIndex: 0,
@@ -611,7 +604,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should handle edge case with no modules in row', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithEmptyRow: PageTemplateFragment = {
                 ...mockTemplate,
@@ -644,7 +637,7 @@ describe('useTemplateOperations', () => {
 
     describe('upsertTemplate', () => {
         it('should upsert personal template with correct input', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             mockUpsertPageTemplateMutation.mockResolvedValue({
                 data: {
@@ -675,7 +668,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should upsert existing personal template with URN', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             mockUpsertPageTemplateMutation.mockResolvedValue({
                 data: {
@@ -706,7 +699,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should upsert global template with correct input', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             mockUpsertPageTemplateMutation.mockResolvedValue({
                 data: {
@@ -737,7 +730,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should update user settings when creating personal template', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             mockUpsertPageTemplateMutation.mockResolvedValue({
                 data: {
@@ -761,7 +754,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should not update user settings when updating existing personal template', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             mockUpsertPageTemplateMutation.mockResolvedValue({
                 data: {
@@ -779,7 +772,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should handle template with empty rows', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const templateWithEmptyRows: PageTemplateFragment = {
                 urn: 'urn:li:pageTemplate:empty',
@@ -824,7 +817,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should handle mutation error', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             const error = new Error('Mutation failed');
             mockUpsertPageTemplateMutation.mockRejectedValue(error);
@@ -834,8 +827,8 @@ describe('useTemplateOperations', () => {
     });
 
     describe('resetTemplateToDefault', () => {
-        it('should call setPersonalTemplate with null when no personal template exists', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+        it('should call setPersonalTemplate with null', () => {
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             act(() => {
                 result.current.resetTemplateToDefault();
@@ -844,8 +837,8 @@ describe('useTemplateOperations', () => {
             expect(setPersonalTemplate).toHaveBeenCalledWith(null);
         });
 
-        it('should call updateUserHomePageSettingsMutation with removePageTemplate: true', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+        it('should call updateUserHomePageSettingsMutation with pageTemplate: null', () => {
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             act(() => {
                 result.current.resetTemplateToDefault();
@@ -861,7 +854,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should call setPersonalTemplate and mutation exactly once on multiple calls', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             act(() => {
                 result.current.resetTemplateToDefault();
@@ -873,7 +866,7 @@ describe('useTemplateOperations', () => {
         });
 
         it('should handle async mutation call correctly', async () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
+            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate));
 
             await act(async () => {
                 await result.current.resetTemplateToDefault();
@@ -887,52 +880,6 @@ describe('useTemplateOperations', () => {
                     },
                 },
             });
-        });
-
-        it('should delete personal template when it exists', () => {
-            const personalTemplate: PageTemplateFragment = {
-                urn: 'urn:li:pageTemplate:personal',
-                type: EntityType.DatahubPageTemplate,
-                properties: {
-                    rows: [],
-                    surface: { surfaceType: PageTemplateSurfaceType.HomePage },
-                    visibility: { scope: PageTemplateScope.Personal },
-                },
-            };
-
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, personalTemplate));
-
-            act(() => {
-                result.current.resetTemplateToDefault();
-            });
-
-            expect(setPersonalTemplate).toHaveBeenCalledWith(null);
-            expect(mockUpdateUserHomePageSettings).toHaveBeenCalledWith({
-                variables: {
-                    input: {
-                        removePageTemplate: true,
-                    },
-                },
-            });
-            expect(mockDeletePageTemplate).toHaveBeenCalledWith({
-                variables: {
-                    input: {
-                        urn: 'urn:li:pageTemplate:personal',
-                    },
-                },
-            });
-        });
-
-        it('should not delete template when personal template is null', () => {
-            const { result } = renderHook(() => useTemplateOperations(setPersonalTemplate, null));
-
-            act(() => {
-                result.current.resetTemplateToDefault();
-            });
-
-            expect(setPersonalTemplate).toHaveBeenCalledWith(null);
-            expect(mockUpdateUserHomePageSettings).toHaveBeenCalled();
-            expect(mockDeletePageTemplate).not.toHaveBeenCalled();
         });
     });
 });

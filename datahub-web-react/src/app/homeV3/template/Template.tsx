@@ -19,7 +19,7 @@ const Wrapper = styled.div`
 
 // Additional margin to have width of content excluding side buttons
 const StyledAddModulesButton = styled(AddModuleButton)<{ $hasRows?: boolean }>`
-    ${(props) => props.$hasRows && 'margin: 0 42px;'}
+    ${(props) => props.$hasRows && 'margin: 0 48px;'}
 `;
 
 interface Props {

@@ -10,22 +10,14 @@ const Wrapper = styled.div`
     width: 100%;
 `;
 
-const InlineBlockWrapper = styled.div<{ $hasExpanded: boolean }>`
-    display: inline-block;
-    min-width: calc(100% - 20px);
-    ${(props) => !props.$hasExpanded && 'width: calc(100% - 20px);'}
-`;
-
 export default function TreeNodesRenderer() {
-    const { nodes, hasAnyExpanded } = useTreeViewContext();
+    const { nodes } = useTreeViewContext();
 
     return (
-        <InlineBlockWrapper $hasExpanded={hasAnyExpanded}>
-            <Wrapper>
-                {nodes.map((node) => (
-                    <TreeNodeRenderer node={node} depth={0} key={node.value} />
-                ))}
-            </Wrapper>
-        </InlineBlockWrapper>
+        <Wrapper>
+            {nodes.map((node) => (
+                <TreeNodeRenderer node={node} depth={0} key={node.value} />
+            ))}
+        </Wrapper>
     );
 }

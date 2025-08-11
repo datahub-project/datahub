@@ -32,7 +32,6 @@ interface Props {
     icon?: React.ReactNode;
     backgroundSize?: number;
     imgSize?: number;
-    className?: string;
 }
 
 export default function ColoredBackgroundPlatformIconGroup(props: Props) {
@@ -46,7 +45,6 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
         icon,
         imgSize = 18,
         backgroundSize = 32,
-        className,
     } = props;
 
     const shouldShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
@@ -99,5 +97,5 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
         );
     };
 
-    return <PlatformContentWrapper className={className}>{renderLogoIcon()}</PlatformContentWrapper>;
+    return <PlatformContentWrapper>{renderLogoIcon()}</PlatformContentWrapper>;
 }

@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import {
     extensionBlockquoteStyledCss,
     extensionCalloutStyledCss,
@@ -86,7 +85,6 @@ export const EditorContainer = styled.div`
 
         a {
             font-weight: 500;
-            color: ${colors.primary[500]};
         }
 
         li {

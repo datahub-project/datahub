@@ -44,7 +44,7 @@ def get_minimum_supported_version_message(version: str) -> str:
 class QuickstartExecutionPlan(BaseModel):
     composefile_git_ref: str
     docker_tag: str
-    mysql_tag: Optional[str] = None
+    mysql_tag: Optional[str]
 
 
 def _is_it_a_version(version: str) -> bool:

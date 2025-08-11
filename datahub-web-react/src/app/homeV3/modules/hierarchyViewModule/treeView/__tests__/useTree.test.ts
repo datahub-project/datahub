@@ -19,7 +19,7 @@ function createTreeNode(value: string, label?: string, children?: TreeNode[], en
 describe('useTree hook', () => {
     describe('initialization', () => {
         it('should initialize with empty array when no initial tree provided', () => {
-            const { result } = renderHook(() => useTree(undefined));
+            const { result } = renderHook(() => useTree());
 
             expect(result.current.nodes).toEqual([]);
         });
@@ -56,25 +56,6 @@ describe('useTree hook', () => {
             rerender({} as any);
 
             expect(result.current.nodes).toEqual(initialTree);
-        });
-    });
-
-    describe('sorting of tree', () => {
-        it('should sort tree if sorter is passed', () => {
-            const tree = [
-                createTreeNode('root2', '', [createTreeNode('root2-child2'), createTreeNode('root2-child1')]),
-                createTreeNode('root1', '', [createTreeNode('root1-child2'), createTreeNode('root1-child1')]),
-            ];
-
-            const nodesSorter = (nodes: TreeNode[]) =>
-                nodes.sort((nodeA, nodeB) => nodeA.value.localeCompare(nodeB.value));
-
-            const { result } = renderHook(() => useTree(tree, nodesSorter));
-
-            expect(result.current.nodes).toStrictEqual([
-                createTreeNode('root1', '', [createTreeNode('root1-child1'), createTreeNode('root1-child2')]),
-                createTreeNode('root2', '', [createTreeNode('root2-child1'), createTreeNode('root2-child2')]),
-            ]);
         });
     });
 

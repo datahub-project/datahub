@@ -27,15 +27,7 @@ export default function LinkForm({ form, formValues }: Props) {
             >
                 <Input label="Link" placeholder="https://www.datahub.com" isRequired />
             </Form.Item>
-            <Form.Item
-                name="imageUrl"
-                rules={[
-                    {
-                        type: 'url',
-                        message: 'Please enter a valid URL',
-                    },
-                ]}
-            >
+            <Form.Item name="imageUrl">
                 <Input label="Image URL (Optional)" placeholder="Your image URL" />
             </Form.Item>
             <Form.Item name="description">

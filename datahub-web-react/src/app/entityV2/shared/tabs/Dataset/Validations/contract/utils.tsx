@@ -7,10 +7,13 @@ import {
 } from '@ant-design/icons';
 import React from 'react';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import {
+    FAILURE_COLOR_HEX,
+    SUCCESS_COLOR_HEX,
+    WARNING_COLOR_HEX,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
 
 import { Assertion, AssertionType, DataContract, DataContractState } from '@types';

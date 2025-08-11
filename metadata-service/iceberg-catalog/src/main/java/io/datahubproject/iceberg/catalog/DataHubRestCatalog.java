@@ -178,9 +178,8 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
     int nLevels = namespace.length();
     Urn parentContainerUrn = null;
-    String[] parentLevels = null;
     if (nLevels > 1) {
-      parentLevels = Arrays.copyOfRange(namespace.levels(), 0, nLevels - 1);
+      String[] parentLevels = Arrays.copyOfRange(namespace.levels(), 0, nLevels - 1);
       parentContainerUrn = containerUrn(platformInstance(), parentLevels);
       if (!entityService.exists(operationContext, parentContainerUrn)) {
         throw new NoSuchNamespaceException(
@@ -196,10 +195,6 @@ public class DataHubRestCatalog extends BaseMetastoreViewCatalog implements Supp
 
     containerBatch.aspect(
         SUB_TYPES_ASPECT_NAME, new SubTypes().setTypeNames(new StringArray(CONTAINER_SUB_TYPE)));
-
-    containerBatch.aspect(
-        BROWSE_PATHS_V2_ASPECT_NAME,
-        Utils.browsePathsForContainer(platformInstance(), parentLevels));
 
     ingestBatch(icebergBatch);
 

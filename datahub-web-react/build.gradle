@@ -74,10 +74,6 @@ task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
   outputs.files(
     project.fileTree(dir: "src", include: "**/*.generated.ts"),
   )
-
-  doFirst{
-    delete fileTree(dir: 'src', include: '**/*.generated.ts')
-  }
 }
 
 task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -264,7 +260,7 @@ clean {
   delete 'dist'
   delete 'tmp'
   delete 'just'
-  delete fileTree(dir: 'src', include: '**/*.generated.ts')
+  delete fileTree(dir: 'src', include: '*.generated.ts')
   delete 'public/assets/capability_summary.json'
 }
 

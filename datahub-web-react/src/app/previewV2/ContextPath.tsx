@@ -92,7 +92,7 @@ export default function ContextPath(props: Props) {
 
     const entityRegistry = useEntityRegistryV2();
     const entityTypeIcon =
-        getSubTypeIcon(displayedEntityType) || entityRegistry.getIcon(entityType, undefined, IconStyleType.ACCENT);
+        getSubTypeIcon(displayedEntityType) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
 
     const hasBrowsePath = !!browsePaths?.path?.length && !isDefaultBrowsePath(browsePaths);
     const hasParentEntities = !!parentEntities?.length;

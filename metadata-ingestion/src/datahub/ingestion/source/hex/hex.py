@@ -69,7 +69,7 @@ class HexSourceConfig(
     )
     include_components: bool = Field(
         default=True,
-        description="Include Hex Components in the ingestion",
+        desciption="Include Hex Components in the ingestion",
     )
     page_size: int = Field(
         default=HEX_API_PAGE_SIZE_DEFAULT,

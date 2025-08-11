@@ -6,7 +6,7 @@ describe('translateFieldPathSegment', () => {
     });
 
     it('translates arrays', () => {
-        expect(translateFieldPathSegment('MyArray', 1, ['[type=array]', 'MyArray'])).toEqual('MyArray.');
+        expect(translateFieldPathSegment('MyArray', 1, ['[type=array]', 'MyArray'])).toEqual('MyArray[].');
     });
 
     it('translates qualifying structs in the middle', () => {

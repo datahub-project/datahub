@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useReactFlow } from 'reactflow';
 
-import { useTrackLineageView } from '@app/lineageV3/LineageDisplay.hooks';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import LineageSidebar from '@app/lineageV3/LineageSidebar';
 import LineageVisualization from '@app/lineageV3/LineageVisualization';
@@ -13,16 +12,10 @@ import useComputeGraph from '@app/lineageV3/useComputeGraph/useComputeGraph';
 import useNodeHighlighting from '@app/lineageV3/useNodeHighlighting';
 
 type Props = {
-    refetchCenterNode?: () => void;
-    dragToSelect?: boolean;
-    initialized?: boolean;
+    initialized: boolean;
 };
 
-export default function LineageDisplay({
-    refetchCenterNode: _refetchCenterNode,
-    dragToSelect: _dragToSelect,
-    initialized,
-}: Props) {
+export default function LineageDisplay({ initialized }: Props) {
     const { getEdge, setNodes, setEdges } = useReactFlow();
 
     const [selectedColumn, setSelectedColumn] = useState<ColumnRef | null>(null);
@@ -38,23 +31,13 @@ export default function LineageDisplay({
     const refetchUrn = useBulkEntityLineage(shownUrns);
 
     const { highlightedNodes, highlightedEdges } = useNodeHighlighting(hoveredNode);
+
     const { cllHighlightedNodes, highlightedColumns } = useColumnHighlighting(
         selectedColumn,
         hoveredColumn,
         fineGrainedLineage.indirect,
         shownUrns,
     );
-
-    const { rootUrn, rootType, nodes, adjacencyList, nodeVersion } = useContext(LineageNodesContext);
-
-    // Track lineage view analytics
-    useTrackLineageView({
-        initialized: initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0,
-        type: rootType,
-        adjacencyList,
-        rootUrn,
-        nodes,
-    });
 
     useEffect(() => {
         const newNodeMap = new Map(flowNodes.map((node) => [node.id, node]));
@@ -82,7 +65,7 @@ export default function LineageDisplay({
 
     useEffect(() => setEdges(flowEdges), [flowEdges, getEdge, setEdges]);
 
-    useFitView(initialized !== undefined ? initialized && nodeVersion > 0 : nodeVersion > 0);
+    useFitView(initialized);
 
     return (
         <LineageDisplayContext.Provider

@@ -10,7 +10,7 @@ type AddModuleButtonOrientation = 'vertical' | 'horizontal';
 const Wrapper = styled.div``;
 
 const StyledDropdownContainer = styled.div`
-    max-width: 335px;
+    max-width: 330px;
 
     .ant-dropdown-menu {
         border-radius: 12px;

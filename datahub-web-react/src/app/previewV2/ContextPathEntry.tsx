@@ -49,10 +49,6 @@ const Contents = styled.div<{ $disabled?: boolean }>`
     }
 `;
 
-const StyledLink = styled(Link)`
-    overflow: hidden;
-`;
-
 interface Props {
     name?: string;
     linkUrl?: string;
@@ -97,9 +93,9 @@ function ContextPathEntry(props: Props) {
     return (
         <Path isLast={isLast} className={className}>
             {showLink ? (
-                <StyledLink to={linkUrl} data-testid="container" {...linkProps}>
+                <Link to={linkUrl} data-testid="container" {...linkProps}>
                     {contents}
-                </StyledLink>
+                </Link>
             ) : (
                 contents
             )}

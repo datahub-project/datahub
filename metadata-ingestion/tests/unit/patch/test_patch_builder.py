@@ -80,7 +80,7 @@ def test_complex_dataset_patch(
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
         )
-        .add_fine_grained_lineage(
+        .add_fine_grained_upstream_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                 downstreams=[
@@ -108,7 +108,7 @@ def test_complex_dataset_patch(
                 confidenceScore=1.0,
             )
         )
-        .add_fine_grained_lineage(
+        .add_fine_grained_upstream_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
                 upstreams=[
@@ -251,104 +251,21 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
     job_urn = make_data_job_urn_with_flow(
         flow_urn, "5ca6fee7-0192-1000-f206-dfbc2b0d8bfb"
     )
-
     patcher = DataJobPatchBuilder(job_urn)
+
     patcher.add_output_dataset(
         make_edge_or_urn(
             "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
         )
-    ).add_output_dataset(
+    )
+    patcher.add_output_dataset(
         make_edge_or_urn(
             "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
         )
-    ).add_output_dataset(
+    )
+    patcher.add_output_dataset(
         make_edge_or_urn(
             "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
-        )
-    ).add_fine_grained_lineage(
-        fine_grained_lineage=FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="hive",
-                        name="fct_users_created_upstream",
-                        env="PROD",
-                    ),
-                    field_path="bar",
-                )
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-            downstreams=[
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="hive",
-                        name="fct_users_created",
-                        env="PROD",
-                    ),
-                    field_path="foo",
-                )
-            ],
-            transformOperation="TRANSFORM",
-            confidenceScore=1.0,
-        )
-    ).add_fine_grained_lineage(
-        fine_grained_lineage=FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
-            upstreams=[
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="s3",
-                        name="my-bucket/my-folder/my-file.txt",
-                        env="PROD",
-                    ),
-                    field_path="foo",
-                )
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
-            downstreams=[
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="hive",
-                        name="fct_users_created",
-                        env="PROD",
-                    ),
-                    field_path="foo",
-                )
-            ],
-        )
-    ).remove_fine_grained_lineage(
-        fine_grained_lineage=FineGrainedLineageClass(
-            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-            upstreams=[
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="hive",
-                        name="fct_users_deprecated",
-                        env="PROD",
-                    ),
-                    field_path="users",
-                ),
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="hive",
-                        name="fct_users_deprecated",
-                        env="PROD",
-                    ),
-                    field_path="users_old",
-                ),
-            ],
-            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-            downstreams=[
-                make_schema_field_urn(
-                    make_dataset_urn(
-                        platform="hive",
-                        name="fct_users_created",
-                        env="PROD",
-                    ),
-                    field_path="users",
-                )
-            ],
         )
     )
 
@@ -381,26 +298,6 @@ def test_datajob_patch_builder(created_on, last_modified, expected_actor):
                             "value": get_edge_expectation(
                                 "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
                             ),
-                        },
-                        {
-                            "op": "add",
-                            "path": "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD),bar)",
-                            "value": {"confidenceScore": 1.0},
-                        },
-                        {
-                            "op": "add",
-                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket~1my-folder~1my-file.txt,PROD),foo)",
-                            "value": {"confidenceScore": 1.0},
-                        },
-                        {
-                            "op": "remove",
-                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),users)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deprecated,PROD),users)",
-                            "value": {},
-                        },
-                        {
-                            "op": "remove",
-                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),users)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deprecated,PROD),users_old)",
-                            "value": {},
                         },
                     ]
                 ).encode("utf-8"),

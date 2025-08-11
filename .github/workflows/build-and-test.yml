@@ -39,7 +39,7 @@ jobs:
       elasticsearch_setup_change: ${{ steps.ci-optimize.outputs.elasticsearch-setup-change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v3
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
@@ -70,9 +70,7 @@ jobs:
         with:
           timezoneLinux: ${{ matrix.timezone }}
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
-        with:
-          checkout-head-only: false
+        uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -209,7 +207,7 @@ jobs:
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
     steps:
       - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v4
+        uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"

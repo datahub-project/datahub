@@ -4,7 +4,6 @@ import PersonalizationLoadingModal from '@app/homeV2/persona/PersonalizationLoad
 import HomePageContent from '@app/homeV3/HomePageContent';
 import Header from '@app/homeV3/header/Header';
 import { HomePageContainer, PageWrapper, StyledVectorBackground } from '@app/homeV3/styledComponents';
-import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
 import { SearchablePage } from '@app/searchV2/SearchablePage';
 
 export const HomePage = () => {
@@ -20,7 +19,6 @@ export const HomePage = () => {
                 </HomePageContainer>
             </SearchablePage>
             <PersonalizationLoadingModal />
-            <WelcomeToDataHubModal />
         </>
     );
 };

@@ -12,7 +12,6 @@ import {
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
-    ResourceRefInput,
     ScenarioType,
     SearchBarApi,
 } from '@types';
@@ -138,12 +137,6 @@ export enum EventType {
     HomePageTemplateModuleExpandClick,
     HomePageTemplateModuleLinkClick,
     HomePageTemplateModuleAnnouncementDismiss,
-    SetDeprecation,
-    WelcomeToDataHubModalViewEvent,
-    WelcomeToDataHubModalInteractEvent,
-    WelcomeToDataHubModalExitEvent,
-    WelcomeToDataHubModalClickViewDocumentationEvent,
-    ProductTourButtonClickEvent,
 }
 
 /**
@@ -394,8 +387,6 @@ export const EntityActionType = {
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
-    SetDomain: 'SetDomain',
-    SetDataProduct: 'SetDataProduct',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
@@ -444,14 +435,7 @@ export interface HomePageRecommendationClickEvent extends BaseEvent {
 
 export interface VisualLineageViewEvent extends BaseEvent {
     type: EventType.VisualLineageViewEvent;
-    entityType: EntityType;
-    numUpstreams: number;
-    numDownstreams: number;
-    hasColumnLevelLineage: boolean;
-    hasExpandableUpstreamsV2?: boolean;
-    hasExpandableDownstreamsV2?: boolean;
-    hasExpandableUpstreamsV3?: boolean;
-    hasExpandableDownstreamsV3?: boolean;
+    entityType?: EntityType;
 }
 
 export interface VisualLineageExpandGraphEvent extends BaseEvent {
@@ -474,9 +458,6 @@ export interface SearchAcrossLineageResultsViewEvent extends BaseEvent {
     page?: number;
     total: number;
     maxDegree?: string;
-    hasUserAppliedColumnFilter?: boolean;
-    /** Whether search is scoped to a specific schema field URN (from navigation) */
-    isSchemaFieldContext?: boolean;
 }
 
 export interface DownloadAsCsvEvent extends BaseEvent {
@@ -919,33 +900,6 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
-export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalViewEvent;
-}
-
-export interface WelcomeToDataHubModalInteractEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalInteractEvent;
-    currentSlide: number;
-    totalSlides: number;
-}
-
-export interface WelcomeToDataHubModalExitEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalExitEvent;
-    currentSlide: number;
-    totalSlides: number;
-    exitMethod: 'close_button' | 'get_started_button' | 'outside_click' | 'escape_key';
-}
-
-export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEvent {
-    type: EventType.WelcomeToDataHubModalClickViewDocumentationEvent;
-    url: string;
-}
-
-export interface ProductTourButtonClickEvent extends BaseEvent {
-    type: EventType.ProductTourButtonClickEvent;
-    originPage: string; // Page where the button was clicked
-}
-
 export interface ClickProductUpdateEvent extends BaseEvent {
     type: EventType.ClickProductUpdate;
     id: string;
@@ -1037,13 +991,6 @@ export interface HomePageTemplateModuleLinkClickEvent extends BaseEvent {
 
 export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEvent {
     type: EventType.HomePageTemplateModuleAnnouncementDismiss;
-}
-
-export interface SetDeprecationEvent extends BaseEvent {
-    type: EventType.SetDeprecation;
-    entityUrns: string[];
-    deprecated: boolean;
-    resources?: ResourceRefInput[];
 }
 
 /**
@@ -1166,10 +1113,4 @@ export type Event =
     | HomePageTemplateModuleExpandClickEvent
     | HomePageTemplateModuleViewAllClickEvent
     | HomePageTemplateModuleLinkClickEvent
-    | HomePageTemplateModuleAnnouncementDismissEvent
-    | SetDeprecationEvent
-    | WelcomeToDataHubModalViewEvent
-    | WelcomeToDataHubModalInteractEvent
-    | WelcomeToDataHubModalExitEvent
-    | WelcomeToDataHubModalClickViewDocumentationEvent
-    | ProductTourButtonClickEvent;
+    | HomePageTemplateModuleAnnouncementDismissEvent;

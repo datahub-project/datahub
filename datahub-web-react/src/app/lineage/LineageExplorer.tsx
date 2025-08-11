@@ -87,15 +87,10 @@ export default function LineageExplorer({ urn, type }: Props) {
         setAsyncEntities(new Map());
         // this can also be our hook for emitting the tracking event
 
-        if (entityData?.type) {
-            analytics.event({
-                type: EventType.VisualLineageViewEvent,
-                entityType: entityData.type,
-                numUpstreams: 0,
-                numDownstreams: 0,
-                hasColumnLevelLineage: false,
-            });
-        }
+        analytics.event({
+            type: EventType.VisualLineageViewEvent,
+            entityType: entityData?.type,
+        });
     }, [isHideSiblingMode, startTimeMillis, endTimeMillis, entityData?.type]);
 
     useEffect(() => {

@@ -1,17 +1,13 @@
 import { Text } from '@components';
 import { Form } from 'antd';
 import React, { useCallback } from 'react';
-import styled from 'styled-components';
 
 import DomainsSelectableTreeView from '@app/homeV3/modules/hierarchyViewModule/components/domains/DomainsSelectableTreeView';
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
-import FormItem from '@app/homeV3/modules/hierarchyViewModule/components/form/components/FormItem';
 import { FORM_FIELD_ASSET_TYPE } from '@app/homeV3/modules/hierarchyViewModule/components/form/constants';
 import EntityTypeTabs from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/selectAssets/assetTypeTabs/AssetTypeTabs';
 import GlossarySelectableTreeView from '@app/homeV3/modules/hierarchyViewModule/components/glossary/GlossarySelectableTreeView';
 import { ASSET_TYPE_DOMAINS, ASSET_TYPE_GLOSSARY } from '@app/homeV3/modules/hierarchyViewModule/constants';
-
-const Wrapper = styled.div``;
 
 export default function SelectAssetsSection() {
     const form = Form.useFormInstance();
@@ -34,30 +30,28 @@ export default function SelectAssetsSection() {
             key: ASSET_TYPE_DOMAINS,
             label: 'Domains',
             content: (
-                <FormItem name="domainAssets">
+                <Form.Item name="domainAssets">
                     <DomainsSelectableTreeView />
-                </FormItem>
+                </Form.Item>
             ),
         },
         {
             key: ASSET_TYPE_GLOSSARY,
             label: 'Glossary',
             content: (
-                <FormItem name="glossaryAssets">
+                <Form.Item name="glossaryAssets">
                     <GlossarySelectableTreeView />
-                </FormItem>
+                </Form.Item>
             ),
         },
     ];
 
     return (
-        <Wrapper>
-            <Text color="gray" weight="bold">
-                Search and Select Assets
-            </Text>
-            <FormItem name={FORM_FIELD_ASSET_TYPE}>
+        <>
+            <Text weight="bold">Search and Select Assets</Text>
+            <Form.Item name={FORM_FIELD_ASSET_TYPE}>
                 <EntityTypeTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
-            </FormItem>
-        </Wrapper>
+            </Form.Item>
+        </>
     );
 }

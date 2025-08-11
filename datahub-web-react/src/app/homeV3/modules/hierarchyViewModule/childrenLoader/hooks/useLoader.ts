@@ -26,7 +26,6 @@ export default function useLoader(
         parentValue,
         metadata,
         maxNumberToLoad,
-        forceHasAsyncChildren: relatedEntitiesOrFilters !== undefined,
     });
 
     const relatedEntitiesResponse = loadRelatedEntities?.({

@@ -89,8 +89,6 @@ export default function TreeViewContextProvider({
         [internalExpandedValues],
     );
 
-    const hasAnyExpanded = useMemo(() => internalExpandedValues.length > 0, [internalExpandedValues.length]);
-
     const expand = useCallback(
         (node: TreeNode) => {
             initialChildrenLoad(node); // try to load initial children on expand
@@ -249,7 +247,6 @@ export default function TreeViewContextProvider({
                 // Expanding
                 getIsExpandable,
                 getIsExpanded,
-                hasAnyExpanded,
                 expand,
                 collapse,
                 toggleExpanded,

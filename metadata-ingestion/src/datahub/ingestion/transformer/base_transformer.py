@@ -281,14 +281,11 @@ class BaseTransformer(Transformer, metaclass=ABCMeta):
                                 )
                             )
 
-                            if mcp.entityUrn:
-                                record_metadata = _update_work_unit_id(
-                                    envelope=envelope,
-                                    aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
-                                    urn=mcp.entityUrn,
-                                )
-                            else:
-                                record_metadata = envelope.metadata.copy()
+                            record_metadata = _update_work_unit_id(
+                                envelope=envelope,
+                                aspect_name=mcp.aspect.get_aspect_name(),  # type: ignore
+                                urn=mcp.entityUrn,
+                            )
 
                             yield RecordEnvelope(
                                 record=mcp,

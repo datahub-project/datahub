@@ -21,11 +21,11 @@ export default function ShowRelatedEntitiesSwitch({ isChecked, onChange }: Props
     return (
         <Wrapper>
             <LabelContainer>
-                <Text weight="bold" color="gray" lineHeight="sm">
+                <Text weight="bold" lineHeight="sm">
                     Show Related Entities
                 </Text>
                 <Text color="gray" lineHeight="sm">
-                    Show related entities for this term. Toggling shows entities in the module.
+                    Show related entities for this term. Toggling shows entities in widget.
                 </Text>
             </LabelContainer>
             <Switch label="" isChecked={isChecked} onChange={() => onChange(!isChecked)} />

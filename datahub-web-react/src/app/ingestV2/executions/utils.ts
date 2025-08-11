@@ -1,6 +1,5 @@
 import {
     EXECUTION_REQUEST_STATUS_ABORTED,
-    EXECUTION_REQUEST_STATUS_ACTIVE,
     EXECUTION_REQUEST_STATUS_CANCELLED,
     EXECUTION_REQUEST_STATUS_DUPLICATE,
     EXECUTION_REQUEST_STATUS_FAILURE,
@@ -18,7 +17,10 @@ import {
 import { ExecutionRequest } from '@types';
 
 export function isExecutionRequestActive(executionRequest: ExecutionRequest) {
-    return EXECUTION_REQUEST_STATUS_ACTIVE.includes(executionRequest?.result?.status ?? '');
+    return (
+        executionRequest.result?.status === EXECUTION_REQUEST_STATUS_RUNNING ||
+        executionRequest.result?.status === EXECUTION_REQUEST_STATUS_ROLLING_BACK
+    );
 }
 
 export const getExecutionRequestStatusIcon = (status: string) => {

@@ -77,7 +77,6 @@ describe('useLoader hook', () => {
                 parentValue: mockParentValue,
                 metadata: undefined,
                 maxNumberToLoad: mockMaxNumberOfChildrenToLoad,
-                forceHasAsyncChildren: false,
             });
         });
     });
@@ -96,7 +95,6 @@ describe('useLoader hook', () => {
                 parentValue: mockParentValue,
                 metadata: mockMetadata,
                 maxNumberToLoad: mockMaxNumberOfChildrenToLoad,
-                forceHasAsyncChildren: false,
             });
         });
 

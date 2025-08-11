@@ -31,7 +31,6 @@ const mockPersonalTemplate: PageTemplateFragment = {
                     {
                         urn: 'urn:li:pageModule:1',
                         type: EntityType.DatahubPageModule,
-                        exists: true,
                         properties: {
                             name: 'Personal Module 1',
                             type: DataHubPageModuleType.Link,
@@ -57,7 +56,6 @@ const mockGlobalTemplate: PageTemplateFragment = {
                     {
                         urn: 'urn:li:pageModule:2',
                         type: EntityType.DatahubPageModule,
-                        exists: true,
                         properties: {
                             name: 'Global Module 1',
                             type: DataHubPageModuleType.Link,
@@ -101,9 +99,9 @@ describe('useTemplateState', () => {
 
             const { result } = renderHook(() => useTemplateState());
 
-            expect(result.current.personalTemplate).toStrictEqual(mockPersonalTemplate);
-            expect(result.current.globalTemplate).toStrictEqual(mockGlobalTemplate);
-            expect(result.current.template).toStrictEqual(mockPersonalTemplate);
+            expect(result.current.personalTemplate).toBe(mockPersonalTemplate);
+            expect(result.current.globalTemplate).toBe(mockGlobalTemplate);
+            expect(result.current.template).toBe(mockPersonalTemplate);
             expect(result.current.isEditingGlobalTemplate).toBe(false);
         });
 
@@ -130,8 +128,8 @@ describe('useTemplateState', () => {
             const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(null);
-            expect(result.current.globalTemplate).toStrictEqual(mockGlobalTemplate);
-            expect(result.current.template).toStrictEqual(mockGlobalTemplate);
+            expect(result.current.globalTemplate).toBe(mockGlobalTemplate);
+            expect(result.current.template).toBe(mockGlobalTemplate);
             expect(result.current.isEditingGlobalTemplate).toBe(false);
         });
 
@@ -246,7 +244,7 @@ describe('useTemplateState', () => {
             });
 
             expect(result.current.isEditingGlobalTemplate).toBe(true);
-            expect(result.current.template).toStrictEqual(mockGlobalTemplate);
+            expect(result.current.template).toBe(mockGlobalTemplate);
         });
 
         it('should switch back to personal template when not editing global template', () => {
@@ -261,7 +259,7 @@ describe('useTemplateState', () => {
             });
 
             expect(result.current.isEditingGlobalTemplate).toBe(false);
-            expect(result.current.template).toStrictEqual(mockPersonalTemplate);
+            expect(result.current.template).toBe(mockPersonalTemplate);
         });
 
         it('should use global template when personal template is null and not editing global', () => {
@@ -278,7 +276,7 @@ describe('useTemplateState', () => {
 
             const { result } = renderHook(() => useTemplateState());
 
-            expect(result.current.template).toStrictEqual(mockGlobalTemplate);
+            expect(result.current.template).toBe(mockGlobalTemplate);
         });
 
         it('should use global template when editing global template even if personal exists', () => {
@@ -288,7 +286,7 @@ describe('useTemplateState', () => {
                 result.current.setIsEditingGlobalTemplate(true);
             });
 
-            expect(result.current.template).toStrictEqual(mockGlobalTemplate);
+            expect(result.current.template).toBe(mockGlobalTemplate);
         });
     });
 
@@ -332,7 +330,7 @@ describe('useTemplateState', () => {
             });
 
             expect(result.current.personalTemplate).toBe(newTemplate);
-            expect(result.current.globalTemplate).toStrictEqual(mockGlobalTemplate);
+            expect(result.current.globalTemplate).toBe(mockGlobalTemplate);
             expect(result.current.template).toBe(newTemplate);
         });
 
@@ -478,7 +476,7 @@ describe('useTemplateState', () => {
                 result.current.setIsEditingGlobalTemplate(true);
             });
 
-            expect(result.current.template).toStrictEqual(mockGlobalTemplate);
+            expect(result.current.template).toBe(mockGlobalTemplate);
         });
 
         it('should handle switching back to personal when personal template is null', () => {
@@ -503,7 +501,7 @@ describe('useTemplateState', () => {
                 result.current.setIsEditingGlobalTemplate(false);
             });
 
-            expect(result.current.template).toStrictEqual(mockGlobalTemplate); // Falls back to global
+            expect(result.current.template).toBe(mockGlobalTemplate); // Falls back to global
         });
 
         it('should handle setting template to null when editing global', () => {

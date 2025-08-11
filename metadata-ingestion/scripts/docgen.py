@@ -31,7 +31,6 @@ DENY_LIST = {
     "datahub-mock-data",
 }
 
-
 def get_snippet(long_string: str, max_length: int = 100) -> str:
     snippet = ""
     if len(long_string) > max_length:
@@ -90,7 +89,7 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
         try:
             return SourceCapability(capability_name)
         except ValueError:
-            raise ValueError(f"Unknown capability name: {capability_name}") from None
+            raise ValueError(f"Unknown capability name: {capability_name}")
 
 
 def does_extra_exist(extra_name: str) -> bool:
@@ -286,7 +285,7 @@ class PlatformMetrics:
 )
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
-def generate(  # noqa: C901
+def generate(
     out_dir: str,
     capability_summary: str,
     extra_docs: Optional[str] = None,

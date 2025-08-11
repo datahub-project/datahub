@@ -2,8 +2,6 @@ import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, St
 import QueryString from 'query-string';
 import React from 'react';
 
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
 // TODO
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
@@ -59,6 +57,9 @@ export const getResultText = (result: AssertionResultType) => {
 /**
  * Returns the display color associated with an AssertionResultType
  */
+const SUCCESS_COLOR_HEX = '#4db31b';
+const FAILURE_COLOR_HEX = '#F5222D';
+const ERROR_COLOR_HEX = '#FAAD14';
 const INIT_COLOR_HEX = '#2F54EB';
 const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
 

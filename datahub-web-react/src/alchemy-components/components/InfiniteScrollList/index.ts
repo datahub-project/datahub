@@ -1,1 +1,0 @@
-export { InfiniteScrollList } from './InfiniteScrollList';

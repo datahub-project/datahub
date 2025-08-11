@@ -1,5 +1,5 @@
-query getEntities($urns: [String!]!, $checkForExistence: Boolean) {
-    entities(urns: $urns, checkForExistence: $checkForExistence) {
+query getEntities($urns: [String!]!) {
+    entities(urns: $urns) {
         urn
         type
         ...searchResultFields

@@ -1,11 +1,10 @@
-import { Dropdown, colors } from '@components';
+import { Button, Dropdown, colors } from '@components';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { StyledIcon } from '@app/homeV3/styledComponents';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 const ButtonWrapper = styled.div`
@@ -100,7 +99,7 @@ export default function EditHomePageSettingsButton() {
                     trigger={['click']}
                     dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
                 >
-                    <StyledIcon icon="Gear" color="gray" source="phosphor" size="4xl" />
+                    <Button icon={{ icon: 'Gear', color: 'gray', source: 'phosphor', size: '4xl' }} variant="text" />
                 </Dropdown>
             </ButtonWrapper>
             <ConfirmationModal

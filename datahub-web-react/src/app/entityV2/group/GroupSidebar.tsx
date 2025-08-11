@@ -59,11 +59,7 @@ export default function GroupSidebar({ sidebarData, refetch }: Props) {
             <Content>
                 <AboutSidebarSection aboutText={aboutText || ''} isProfileOwner onSaveAboutMe={onSaveAboutMe} />
                 <GroupSidebarOwnersSection ownership={ownership} refetch={refetch} urn={urn} />
-                <GroupSidebarMembersSection
-                    groupMemberRelationships={groupMemberRelationships}
-                    urn={urn}
-                    refetch={refetch}
-                />
+                <GroupSidebarMembersSection groupMemberRelationships={groupMemberRelationships} />
             </Content>
         </SideBar>
     );

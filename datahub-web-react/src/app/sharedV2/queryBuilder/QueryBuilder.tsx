@@ -105,7 +105,6 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
                         onChangeOperator={onChangeOperator}
                         index={index}
                         operator={logicalPredicate.operator}
-                        showDeleteButton={operands.length > 0}
                     />
                 }
                 showArrow={operands.length > 0}

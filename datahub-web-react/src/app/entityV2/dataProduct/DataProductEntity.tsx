@@ -69,7 +69,10 @@ export class DataProductEntity implements Entity<DataProduct> {
         return (
             <FileDoneOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
             />
         );
     };

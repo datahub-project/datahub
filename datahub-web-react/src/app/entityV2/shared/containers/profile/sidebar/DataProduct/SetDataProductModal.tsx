@@ -5,7 +5,6 @@ import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { IconStyleType } from '@app/entityV2/Entity';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -88,24 +87,6 @@ export default function SetDataProductModal({
         return debounce(fetch, 100);
     }, [getSearchResults]);
 
-    const sendAnalytics = () => {
-        const isBatchAction = urns.length > 1;
-
-        if (isBatchAction) {
-            analytics.event({
-                type: EventType.BatchEntityActionEvent,
-                actionType: EntityActionType.SetDataProduct,
-                entityUrns: urns,
-            });
-        } else {
-            analytics.event({
-                type: EventType.EntityActionEvent,
-                actionType: EntityActionType.SetDataProduct,
-                entityUrn: urns[0],
-            });
-        }
-    };
-
     function onOk() {
         if (!selectedDataProduct) return;
 
@@ -125,7 +106,6 @@ export default function SetDataProductModal({
             .then(() => {
                 message.success({ content: 'Updated Data Product!', duration: 3 });
                 setDataProduct?.(selectedDataProduct);
-                sendAnalytics();
                 onModalClose();
                 setSelectedDataProduct(null);
                 // refetch is for search results, need to set a timeout

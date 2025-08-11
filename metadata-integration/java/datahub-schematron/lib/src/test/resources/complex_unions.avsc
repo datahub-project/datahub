@@ -9,8 +9,7 @@
         "string",
         "int",
         "boolean"
-      ],
-      "custom-prop": "custom-value"
+      ]
     },
     {
       "name": "fieldUnionComplexTypes",

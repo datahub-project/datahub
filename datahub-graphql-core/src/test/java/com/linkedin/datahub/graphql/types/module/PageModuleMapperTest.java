@@ -99,31 +99,4 @@ public class PageModuleMapperTest {
         result.getProperties().getLastModified().getActor().getUrn(),
         lastModified.getActor().toString());
   }
-
-  @Test
-  public void testDefaultModule() {
-    // Create test data with no aspects
-    Urn moduleUrn = UrnUtils.getUrn("urn:li:dataHubPageModule:test-module");
-    EntityResponse entityResponse = new EntityResponse();
-    entityResponse.setUrn(moduleUrn);
-    entityResponse.setAspects(new EnvelopedAspectMap());
-
-    // Map the form
-    DataHubPageModule result = PageModuleMapper.map(null, entityResponse);
-
-    // Verify the default form
-    assertNotNull(result);
-    assertEquals(result.getUrn(), moduleUrn.toString());
-    assertEquals(result.getType(), EntityType.DATAHUB_PAGE_MODULE);
-    assertEquals(result.getProperties().getName(), "");
-    assertEquals(
-        result.getProperties().getType(),
-        com.linkedin.datahub.graphql.generated.DataHubPageModuleType.OWNED_ASSETS);
-    assertEquals(
-        result.getProperties().getVisibility().getScope(),
-        com.linkedin.datahub.graphql.generated.PageModuleScope.GLOBAL);
-    assertNotNull(result.getProperties().getCreated());
-    assertNotNull(result.getProperties().getLastModified());
-    assertNotNull(result.getProperties().getParams());
-  }
 }

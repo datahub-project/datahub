@@ -1,9 +1,5 @@
 package com.datahub.gms.servlet;
 
-import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
-
-import com.datahub.authentication.Authentication;
-import com.datahub.authentication.AuthenticationContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
@@ -140,19 +136,11 @@ public class Config extends HttpServlet {
       }
     }
 
-    // Serialize cached configuration with user context
+    // Serialize cached configuration
     configLock.readLock().lock();
     try {
       resp.setContentType("application/json");
-
-      // Create a copy of cached config and conditionally add user type for verbose mode
-      Map<String, Object> responseConfig = new HashMap<>(cachedConfig);
-      if (shouldIncludeVerboseInfo(req)) {
-        responseConfig.put("userType", determineUserType());
-      }
-
-      String json =
-          objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(responseConfig);
+      String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(cachedConfig);
       resp.getWriter().println(json);
       resp.setStatus(200);
     } catch (Exception e) {
@@ -207,38 +195,5 @@ public class Config extends HttpServlet {
 
   private static boolean checkImpactAnalysisSupport(WebApplicationContext ctx) {
     return ((GraphService) ctx.getBean("graphService")).supportsMultiHop();
-  }
-
-  /**
-   * Checks if verbose information should be included in the response.
-   *
-   * @param req the HTTP request
-   * @return true if the "verbose" query parameter is set to "true"
-   */
-  private boolean shouldIncludeVerboseInfo(HttpServletRequest req) {
-    return "true".equals(req.getParameter("verbose"));
-  }
-
-  /**
-   * Determines the user type based on authentication context for progressive disclosure.
-   *
-   * @return "anonymous", "user", or "admin" based on authentication status
-   */
-  private String determineUserType() {
-    try {
-      Authentication auth = AuthenticationContext.getAuthentication();
-      if (auth == null || ANONYMOUS_ACTOR_ID.equals(auth.getActor().getId())) {
-        return "anonymous";
-      }
-
-      // For now, all authenticated users are classified as "user"
-      // TODO: Implement proper admin privilege checking with OperationContext
-      // This would require checking privileges like "MANAGE_POLICIES" using
-      // AuthUtil.isAPIAuthorized
-      return "user";
-    } catch (Exception e) {
-      log.warn("Error determining user type, defaulting to anonymous", e);
-      return "anonymous";
-    }
   }
 }

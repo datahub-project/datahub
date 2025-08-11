@@ -38,7 +38,6 @@ const ModuleHeader = styled.div`
 const DragHandle = styled.div<{ $isDragging?: boolean }>`
     cursor: ${({ $isDragging }) => ($isDragging ? 'grabbing' : 'grab')};
     flex: 1;
-    max-width: calc(100% - 10px);
 `;
 
 const Content = styled.div<{ $hasViewAll: boolean }>`
@@ -46,7 +45,7 @@ const Content = styled.div<{ $hasViewAll: boolean }>`
     overflow-y: auto;
     padding-right: 5px;
     scrollbar-gutter: stable;
-    height: ${({ $hasViewAll }) => ($hasViewAll ? '234px' : '246px')};
+    height: ${({ $hasViewAll }) => ($hasViewAll ? '226px' : '238px')};
 `;
 
 const LoaderContainer = styled.div`
@@ -55,8 +54,9 @@ const LoaderContainer = styled.div`
 `;
 
 const ViewAllButton = styled(Button)`
+    margin-left: auto;
+    margin-right: 16px;
     margin: 0 16px 0 auto;
-    padding-right: 8px;
 `;
 
 interface Props extends ModuleProps {

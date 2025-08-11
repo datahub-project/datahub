@@ -30,8 +30,6 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:top_domains',
 ];
 
-export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
-
 export const CUSTOM_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.Link,
     DataHubPageModuleType.RichText,

@@ -1,8 +1,6 @@
 import { CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import { TestResultType } from '@types';
 
 /**
@@ -22,6 +20,8 @@ export const getResultText = (result: TestResultType) => {
 /**
  * Returns the display color assoociated with an TestResultType
  */
+const SUCCESS_COLOR_HEX = '#4db31b';
+const FAILURE_COLOR_HEX = '#F5222D';
 
 export const getResultColor = (result: TestResultType) => {
     switch (result) {

@@ -19,8 +19,7 @@
           "fields": [
             {
               "name": "field1",
-              "type": "string",
-              "custom-prop-1": "custom-value-1"
+              "type": "string"
             },
             {
               "name": "field2",
@@ -28,8 +27,7 @@
             }
           ]
         }
-      },
-      "custom-prop": "custom-value"
+      }
     },
     {
       "name": "mapOfNullableString",
@@ -48,8 +46,7 @@
           "fields": [
             {
               "name": "field1",
-              "type": "string",
-              "custom-prop-1": "custom-value-1"
+              "type": "string"
             },
             {
               "name": "field2",
@@ -57,8 +54,7 @@
             }
           ]
         }]
-      },
-      "custom-prop": "custom-value"
+      }
     },
     {
       "name": "mapOfArray",

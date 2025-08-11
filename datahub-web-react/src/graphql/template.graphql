@@ -23,7 +23,6 @@ fragment PageTemplateRow on DataHubPageTemplateRow {
 fragment PageModule on DataHubPageModule {
     urn
     type
-    exists
     properties {
         name
         type
@@ -53,7 +52,7 @@ fragment PageModule on DataHubPageModule {
 
 mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
     upsertPageTemplate(input: $input) {
-        ...PageTemplate
+        urn
     }
 }
 
@@ -65,8 +64,4 @@ mutation upsertPageModule($input: UpsertPageModuleInput!) {
 
 mutation deletePageModule($input: DeletePageModuleInput!) {
     deletePageModule(input: $input)
-}
-
-mutation deletePageTemplate($input: DeletePageTemplateInput!) {
-    deletePageTemplate(input: $input)
 }

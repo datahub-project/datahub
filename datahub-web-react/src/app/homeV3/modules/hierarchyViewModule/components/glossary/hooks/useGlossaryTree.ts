@@ -1,5 +1,4 @@
 import useGlossaryNodesAndTermsByUrns from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryNodesAndTermsByUrns';
-import useGlossaryTreeNodesSorter from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryTreeNodesSorter';
 import useTreeNodesFromGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useTreeNodesFromGlossaryNodesAndTerms';
 import useTree from '@app/homeV3/modules/hierarchyViewModule/treeView/useTree';
 
@@ -12,8 +11,7 @@ export default function useGlossaryTree(glossaryNodesAndTermsUrns: string[], sho
         shouldShowRelatedEntities,
     );
 
-    const nodesSorter = useGlossaryTreeNodesSorter();
-    const tree = useTree(treeNodes, nodesSorter);
+    const tree = useTree(treeNodes);
 
     return {
         tree,

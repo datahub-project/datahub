@@ -15,7 +15,6 @@ import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.data.template.StringMap;
 import com.linkedin.dataplatforminstance.IcebergWarehouseInfo;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.IcebergCatalogInfo;
@@ -33,6 +32,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.*;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.exceptions.NotFoundException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -563,6 +563,7 @@ public class DataHubIcebergWarehouseTest {
             FabricType.PROD);
 
     // Mock getDatasetUrn behavior for source table
+
     PlatformResourceInfo resourceInfo =
         new PlatformResourceInfo()
             .setPrimaryKey(existingDatasetUrn.toString())
@@ -574,17 +575,6 @@ public class DataHubIcebergWarehouseTest {
             eq(Set.of(STATUS_ASPECT_NAME, PLATFORM_RESOURCE_INFO_ASPECT_NAME)),
             eq(false)))
         .thenReturn(Map.of(fromResourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
-
-    // Mock existing dataset properties with custom properties
-    DatasetProperties existingProperties =
-        new DatasetProperties()
-            .setName(fromTableId.name())
-            .setQualifiedName(fullTableName(platformInstance, fromTableId))
-            .setCustomProperties(new StringMap(Map.of("key1", "value1", "key2", "value2")));
-
-    when(entityService.getLatestAspect(
-            same(operationContext), eq(existingDatasetUrn), eq(DATASET_PROPERTIES_ASPECT_NAME)))
-        .thenReturn(existingProperties);
 
     DataHubIcebergWarehouse warehouse =
         new DataHubIcebergWarehouse(
@@ -617,58 +607,23 @@ public class DataHubIcebergWarehouseTest {
             eq(PLATFORM_RESOURCE_ENTITY_NAME),
             eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME),
             eq(resourceInfo));
-
-    // Verify that the dataset properties are updated with preserved custom properties
-    DatasetProperties expectedProperties =
-        new DatasetProperties()
-            .setName(toTableId.name())
-            .setQualifiedName(fullTableName(platformInstance, toTableId))
-            .setCustomProperties(new StringMap(Map.of("key1", "value1", "key2", "value2")));
-
-    verify(datasetUpdateBatch).aspect(DATASET_PROPERTIES_ASPECT_NAME, expectedProperties);
+    verify(datasetUpdateBatch)
+        .aspect(
+            DATASET_PROPERTIES_ASPECT_NAME,
+            new DatasetProperties()
+                .setName(toTableId.name())
+                .setQualifiedName(fullTableName(platformInstance, toTableId)));
     // no container aspect as rename is within same namespace
 
     verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
     verify(entityService).deleteUrn(eq(operationContext), eq(fromResourceUrn));
   }
 
-  @Test
-  public void testRenameDataset_NoExistingCustomProperties() throws Exception {
+  @Test(expectedExceptions = NoSuchTableException.class)
+  public void testRenameDataset_SourceTableNotFound() throws Exception {
     String platformInstance = "test-platform";
     TableIdentifier fromTableId = TableIdentifier.of("db", "oldTable");
     TableIdentifier toTableId = TableIdentifier.of("db", "newTable");
-    Urn fromResourceUrn =
-        Urn.createFromString("urn:li:platformResource:iceberg.test-platform.db.oldTable");
-    Urn toResourceUrn =
-        Urn.createFromString("urn:li:platformResource:iceberg.test-platform.db.newTable");
-    DatasetUrn existingDatasetUrn =
-        new DatasetUrn(
-            DataPlatformUrn.createFromString("urn:li:dataPlatform:iceberg"),
-            "test-dataset",
-            FabricType.PROD);
-
-    // Mock getDatasetUrn behavior for source table
-    PlatformResourceInfo resourceInfo =
-        new PlatformResourceInfo()
-            .setPrimaryKey(existingDatasetUrn.toString())
-            .setResourceType("icebergTable");
-
-    when(entityService.getLatestAspects(
-            same(operationContext),
-            eq(Set.of(fromResourceUrn)),
-            eq(Set.of(STATUS_ASPECT_NAME, PLATFORM_RESOURCE_INFO_ASPECT_NAME)),
-            eq(false)))
-        .thenReturn(Map.of(fromResourceUrn, List.of(new Status().setRemoved(false), resourceInfo)));
-
-    // Mock existing dataset properties without custom properties
-    DatasetProperties existingProperties =
-        new DatasetProperties()
-            .setName(fromTableId.name())
-            .setQualifiedName(fullTableName(platformInstance, fromTableId));
-
-    when(entityService.getLatestAspect(
-            same(operationContext), eq(existingDatasetUrn), eq(DATASET_PROPERTIES_ASPECT_NAME)))
-        .thenReturn(existingProperties);
 
     DataHubIcebergWarehouse warehouse =
         new DataHubIcebergWarehouse(
@@ -684,34 +639,7 @@ public class DataHubIcebergWarehouseTest {
           }
         };
 
-    IcebergBatch.EntityBatch datasetUpdateBatch = mock(IcebergBatch.EntityBatch.class);
-    when(mockIcebergBatch.updateEntity(eq(existingDatasetUrn), eq(DATASET_ENTITY_NAME)))
-        .thenReturn(datasetUpdateBatch);
-
-    when(entityService.ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false)))
-        .thenReturn(List.of());
-
+    // by default mock to return null on entity-service calls, so dataset should not be found
     warehouse.renameDataset(fromTableId, toTableId, false);
-
-    verify(mockIcebergBatch)
-        .softDeleteEntity(eq(fromResourceUrn), eq(PLATFORM_RESOURCE_ENTITY_NAME));
-    verify(mockIcebergBatch)
-        .createEntity(
-            eq(toResourceUrn),
-            eq(PLATFORM_RESOURCE_ENTITY_NAME),
-            eq(PLATFORM_RESOURCE_INFO_ASPECT_NAME),
-            eq(resourceInfo));
-
-    // Verify that the dataset properties are updated with empty custom properties
-    DatasetProperties expectedProperties =
-        new DatasetProperties()
-            .setName(toTableId.name())
-            .setQualifiedName(fullTableName(platformInstance, toTableId))
-            .setCustomProperties(new StringMap());
-
-    verify(datasetUpdateBatch).aspect(DATASET_PROPERTIES_ASPECT_NAME, expectedProperties);
-
-    verify(entityService).ingestProposal(same(operationContext), same(mockAspectsBatch), eq(false));
-    verify(entityService).deleteUrn(eq(operationContext), eq(fromResourceUrn));
   }
 }

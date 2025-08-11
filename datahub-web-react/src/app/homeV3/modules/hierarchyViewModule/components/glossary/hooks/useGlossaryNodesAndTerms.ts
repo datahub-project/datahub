@@ -63,7 +63,6 @@ export default function useGlossaryNodesAndTerms({
             },
         },
         skip: !filters || skip,
-        fetchPolicy: glossaryNodesAndTermsUrns?.length ? 'cache-first' : undefined,
     });
 
     const entities = useMemo(() => {

@@ -11,7 +11,6 @@ export default function useChildrenDomainsLoader({
     parentValue,
     metadata,
     maxNumberToLoad,
-    forceHasAsyncChildren,
 }: ChildrenLoaderInputType): ChildrenLoaderResultType {
     const totalNumberOfChildren = metadata?.totalNumberOfChildren ?? maxNumberToLoad;
     const numberOfAlreadyLoadedChildren = metadata?.numberOfLoadedChildren ?? 0;
@@ -28,7 +27,7 @@ export default function useChildrenDomainsLoader({
         numberOfChildrenToLoad,
         numberOfChildrenToLoad === 0,
     );
-    const nodes = useTreeNodesFromDomains(domains, forceHasAsyncChildren);
+    const nodes = useTreeNodesFromDomains(domains);
 
     const isLoading = useMemo(() => {
         if (!shouldLoad) return false;

@@ -139,10 +139,6 @@ class DataHubMockDataConfig(ConfigModel):
         default=0,
         description="Number of warnings to add in report for testing",
     )
-    num_info: int = Field(
-        default=0,
-        description="Number of info to add in report for testing",
-    )
 
     gen_1: LineageConfigGen1 = Field(
         default_factory=LineageConfigGen1,
@@ -165,9 +161,6 @@ class DataHubMockDataSource(Source):
         self.report = DataHubMockDataReport()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        # We don't want any implicit aspects to be produced
-        # so we are not using get_workunits_internal
-
         if self.config.throw_uncaught_exceptions:
             raise Exception("This is a test exception")
 
@@ -188,14 +181,8 @@ class DataHubMockDataSource(Source):
                     log_category=StructuredLogCategory.LINEAGE,
                 )
 
-        if self.config.num_info > 0:
-            for i in range(self.config.num_info):
-                self.report.info(
-                    message="This is test info",
-                    title="Test Info",
-                    context=f"This is test info {i}",
-                )
-
+        # We don't want any implicit aspects to be produced
+        # so we are not using get_workunits_internal
         if self.config.gen_1.enabled:
             for wu in self._data_gen_1():
                 if self.report.first_urn_seen is None:

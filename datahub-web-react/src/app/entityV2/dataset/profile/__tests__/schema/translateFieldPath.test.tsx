@@ -8,13 +8,15 @@ describe('translateFieldPath', () => {
     });
 
     it('translates nested arrays', () => {
-        expect(translateFieldPath('[type=array].[type=array].my_array.[type=long].field')).toEqual('my_array.field');
+        expect(translateFieldPath('[type=array].[type=array].my_array.[type=long].field')).toEqual(
+            'my_array[][].field',
+        );
     });
 
     it('removes non-qualifying structs', () => {
         expect(
             translateFieldPath('[type=array].[type=array].MyArray.[type=Struct].field.[type=long].nested_field'),
-        ).toEqual('MyArray.field.nested_field');
+        ).toEqual('MyArray[][].field.nested_field');
     });
 
     it('cleans the [key=true] prefix', () => {
@@ -22,7 +24,7 @@ describe('translateFieldPath', () => {
             translateFieldPath(
                 '[key=True].[type=array].[type=array].MyArray.[type=Struct].field.[type=long].nested_field',
             ),
-        ).toEqual('MyArray.field.nested_field');
+        ).toEqual('MyArray[][].field.nested_field');
     });
 
     it('leaves old fieldpaths as is', () => {

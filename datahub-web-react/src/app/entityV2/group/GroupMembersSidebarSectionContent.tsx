@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useHistory } from 'react-router';
 import { useRouteMatch } from 'react-router-dom';
 
-import { AddGroupMembersModal } from '@app/entity/group/AddGroupMembersModal';
 import { GroupMemberLink } from '@app/entityV2/group/GroupMemberLink';
 import { TabType } from '@app/entityV2/group/types';
 import { ShowMoreButton, TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
@@ -14,20 +13,10 @@ import { CorpUser, EntityRelationshipsResult } from '@types';
 
 type Props = {
     groupMemberRelationships: EntityRelationshipsResult;
-    showAddMemberModal: boolean;
-    setShowAddMemberModal: (show: boolean) => void;
-    urn: string;
-    refetch: () => void;
 };
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export default function GroupMembersSidebarSectionContent({
-    groupMemberRelationships,
-    showAddMemberModal,
-    setShowAddMemberModal,
-    urn,
-    refetch,
-}: Props) {
+export default function GroupMembersSidebarSectionContent({ groupMemberRelationships }: Props) {
     const history = useHistory();
     const { url } = useRouteMatch();
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -64,14 +53,6 @@ export default function GroupMembersSidebarSectionContent({
                 <ShowMoreButton onClick={() => history.replace(`${url}/${TabType.Members.toLocaleLowerCase()}`)}>
                     View all members
                 </ShowMoreButton>
-            )}
-            {showAddMemberModal && (
-                <AddGroupMembersModal
-                    urn={urn}
-                    open={showAddMemberModal}
-                    onSubmit={refetch}
-                    onCloseModal={() => setShowAddMemberModal(false)}
-                />
             )}
         </>
     );

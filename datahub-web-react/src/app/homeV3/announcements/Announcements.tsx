@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import ExpandableAnnouncements from '@app/homeV3/announcements/ExpandableAnnouncements';
+import { AnnouncementCard } from '@app/homeV3/announcements/AnnouncementCard';
 import { useGetAnnouncementsForUser } from '@app/homeV3/announcements/useGetAnnouncementsForUser';
 
 const AnnouncementsContainer = styled.div`
@@ -32,7 +32,9 @@ export const Announcements = () => {
 
     return (
         <AnnouncementsContainer>
-            <ExpandableAnnouncements announcements={sortedAnnouncements} onDismiss={onDismiss} />
+            {sortedAnnouncements.map((announcement) => (
+                <AnnouncementCard key={announcement.urn} announcement={announcement} onDismiss={onDismiss} />
+            ))}
         </AnnouncementsContainer>
     );
 };

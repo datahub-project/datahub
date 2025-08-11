@@ -28,7 +28,10 @@ export class GroupEntity implements Entity<CorpGroup> {
         return (
             <TeamOutlined
                 className={TYPE_ICON_CLASS_NAME}
-                style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }}
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
             />
         );
     };

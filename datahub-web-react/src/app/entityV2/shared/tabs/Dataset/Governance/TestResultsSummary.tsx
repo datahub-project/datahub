@@ -4,8 +4,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const SummaryHeader = styled.div`
@@ -41,6 +39,9 @@ export type TestsSummary = {
 type Props = {
     summary: TestsSummary;
 };
+
+const SUCCESS_COLOR_HEX = '#52C41A';
+const FAILURE_COLOR_HEX = '#F5222D';
 
 const getSummaryIcon = (summary: TestsSummary) => {
     if (summary.total === 0) {

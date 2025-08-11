@@ -28,7 +28,7 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
     type: EntityType = EntityType.SchemaField;
 
     icon = (fontSize?: number, styleType?: IconStyleType, color = 'inherit') => (
-        <PicCenterOutlined style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />
+        <PicCenterOutlined style={{ fontSize, color }} />
     );
 
     isSearchEnabled = () => true;

@@ -203,31 +203,38 @@ class SlackSourceConfig(
         description="Bot token for the Slack workspace. Needs `users:read`, `users:read.email`, `users.profile:read`, and `team:read` scopes.",
     )
     enrich_user_metadata: bool = Field(
-        True,
+        type=bool,
+        default=True,
         description="When enabled, will enrich provisioned DataHub users' metadata with information from Slack.",
     )
     ingest_users: bool = Field(
-        True,
+        type=bool,
+        default=True,
         description="Whether to ingest users. When set to true, will ingest all users in the Slack workspace (as platform resources) to simplify user enrichment after they are provisioned on DataHub.",
     )
     api_requests_per_min: int = Field(
-        10,
+        type=int,
+        default=10,
         description="Number of API requests per minute. Low-level config. Do not tweak unless you are facing any issues.",
     )
     ingest_public_channels: bool = Field(
-        False,
+        type=bool,
+        default=False,
         description="Whether to ingest public channels. If set to true needs `channels:read` scope.",
     )
     channels_iteration_limit: int = Field(
-        200,
+        type=int,
+        default=200,
         description="Limit the number of channels to be ingested in a iteration. Low-level config. Do not tweak unless you are facing any issues.",
     )
     channel_min_members: int = Field(
-        2,
+        type=int,
+        default=2,
         description="Ingest channels with at least this many members.",
     )
     should_ingest_archived_channels: bool = Field(
-        False,
+        type=bool,
+        default=False,
         description="Whether to ingest archived channels.",
     )
 

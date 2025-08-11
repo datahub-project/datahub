@@ -31,7 +31,7 @@ patch_builder.add_upstream_lineage(
 upstream_field_to_add_urn = make_schema_field_urn(upstream_to_add_urn, "profile_id")
 downstream_field_to_add_urn = make_schema_field_urn(dataset_urn, "profile_id")
 
-patch_builder.add_fine_grained_lineage(
+patch_builder.add_fine_grained_upstream_lineage(
     FineGrainedLineageClass(
         FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -45,7 +45,7 @@ upstream_field_to_remove_urn = make_schema_field_urn(
 )
 downstream_field_to_remove_urn = make_schema_field_urn(dataset_urn, "profile_id")
 
-patch_builder.remove_fine_grained_lineage(
+patch_builder.remove_fine_grained_upstream_lineage(
     FineGrainedLineageClass(
         FineGrainedLineageUpstreamTypeClass.FIELD_SET,
         FineGrainedLineageUpstreamTypeClass.FIELD_SET,

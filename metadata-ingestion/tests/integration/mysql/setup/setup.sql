@@ -334,21 +334,3 @@ ADD COLUMN `order_date` DATETIME NULL DEFAULT NULL AFTER `customer_id`;
 
 -- Add some sample order dates
 UPDATE `northwind`.`orders` SET order_date = NOW() - INTERVAL FLOOR(RAND() * 365) DAY;
-
-USE `northwind`;
-
-DELIMITER $$
-
-CREATE PROCEDURE `northwind`.`AddCustomer`(
-    IN id INT,
-    IN in_last_name VARCHAR(50),
-    IN in_first_name VARCHAR(50),
-    IN in_email_address VARCHAR(50),
-    IN in_priority FLOAT
-)
-BEGIN
-    INSERT INTO customers (id, last_name, first_name, email_address, priority)
-    VALUES (id, in_last_name, in_first_name, in_email_address, in_priority);
-END$$
-
-DELIMITER ;

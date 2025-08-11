@@ -112,8 +112,6 @@ class SearchClient:
         self,
         query: Optional[str] = None,
         filter: Optional[Filter] = None,
-        *,
-        skip_cache: bool = False,
     ) -> Iterable[Urn]:
         # TODO: Add better limit / pagination support.
         types, compiled_filters = compile_filters(filter)
@@ -122,6 +120,5 @@ class SearchClient:
             status=None,
             extra_or_filters=compiled_filters,
             entity_types=types,
-            skip_cache=skip_cache,
         ):
             yield Urn.from_string(urn)

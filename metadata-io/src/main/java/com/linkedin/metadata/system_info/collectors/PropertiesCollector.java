@@ -49,12 +49,7 @@ public class PropertiesCollector {
   private static final Set<Pattern> ALLOWED_PATTERNS =
       compilePatterns(
           Set.of(
-              "cache\\.client\\..*", // Allow all cache.client.* properties
-              ".*\\.(delay|interval|timeout|duration|initial|max|wait).*ms$", // Allow specific ms
-              // properties
-              ".*\\.limit$", // Allow properties ending with .limit
-              ".*\\.max$", // Allow properties ending with .max
-              ".*\\.\\w*size$" // Allow properties ending with .pageSize .batchSize
+              "cache\\.client\\..*" // Allow all cache.client.* properties
               ));
 
   /**
@@ -125,7 +120,7 @@ public class PropertiesCollector {
                   String resolvedValue = springEnvironment.getProperty(k);
 
                   // Check if this is an allowed property
-                  if (isAllowedProperty(k, resolvedValue)) {
+                  if (isAllowedProperty(k)) {
                     return PropertyInfo.builder()
                         .key(k)
                         .value(rawValue)
@@ -175,14 +170,9 @@ public class PropertiesCollector {
     return sources;
   }
 
-  private boolean isAllowedProperty(String key, String value) {
+  private boolean isAllowedProperty(String key) {
     String lowerKey = key.toLowerCase();
-    // Check if value is a boolean
-    boolean isBooleanValue =
-        value != null && (value.equalsIgnoreCase("true") || value.equalsIgnoreCase("false"));
-
-    return isBooleanValue
-        || ALLOWED_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(lowerKey).find())
+    return ALLOWED_PATTERNS.stream().anyMatch(pattern -> pattern.matcher(lowerKey).find())
         || SENSITIVE_PATTERNS.stream().noneMatch(lowerKey::endsWith);
   }
 }

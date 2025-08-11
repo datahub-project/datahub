@@ -48,17 +48,6 @@ DataHub is a **schema-first, event-driven metadata platform** with three core la
 - `metadata-ingestion/`: Python ingestion framework and CLI
 - `datahub-graphql-core/`: GraphQL schema and resolvers
 
-Most of the non-frontend modules are written in Java. The modules written in Python are:
-
-- `metadata-ingestion/`
-- `datahub-actions/`
-- `metadata-ingestion-modules/airflow-plugin/`
-- `metadata-ingestion-modules/gx-plugin/`
-- `metadata-ingestion-modules/dagster-plugin/`
-- `metadata-ingestion-modules/prefect-plugin/`
-
-Each Python module has a gradle setup similar to `metadata-ingestion/` (documented above)
-
 ### Metadata Model Concepts
 
 - **Entities**: Core objects (Dataset, Dashboard, Chart, CorpUser, etc.)

@@ -1,4 +1,4 @@
-import { Dropdown, Text, colors } from '@components';
+import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -65,8 +65,6 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     renderCustomOptionText,
     selectLabelProps,
     onSearchChange,
-    emptyState,
-    descriptionMaxWidth,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -120,11 +118,8 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         (option: SelectOption) => {
             const updatedValues = selectedValues.filter((val) => val !== option.value);
             setSelectedValues(updatedValues);
-            if (onUpdate) {
-                onUpdate(updatedValues);
-            }
         },
-        [selectedValues, onUpdate],
+        [selectedValues],
     );
 
     const handleUpdateClick = useCallback(() => {
@@ -200,7 +195,6 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                         onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
                                     />
                                 )}
-                                {!filteredOptions.length && emptyState}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
@@ -214,15 +208,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                 {renderCustomOptionText ? (
                                                     renderCustomOptionText(option)
                                                 ) : (
-                                                    <div>
-                                                        <span>{option.label}</span>
-                                                        {!!option.description && [
-                                                            <br />,
-                                                            <span style={{ color: colors.gray[400] }}>
-                                                                {option.description}
-                                                            </span>,
-                                                        ]}
-                                                    </div>
+                                                    <span>{option.label}</span>
                                                 )}
                                                 <StyledCheckbox
                                                     onClick={() => handleOptionChange(option)}
@@ -245,12 +231,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                                     </Text>
                                                 </ActionButtonsContainer>
                                                 {!!option.description && (
-                                                    <Text
-                                                        color="gray"
-                                                        weight="normal"
-                                                        size="sm"
-                                                        style={{ maxWidth: descriptionMaxWidth }}
-                                                    >
+                                                    <Text color="gray" weight="normal" size="sm">
                                                         {option.description}
                                                     </Text>
                                                 )}

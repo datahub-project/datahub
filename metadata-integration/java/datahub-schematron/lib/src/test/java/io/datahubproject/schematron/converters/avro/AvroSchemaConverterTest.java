@@ -168,16 +168,14 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType()
             .setType(
                 SchemaFieldDataType.Type.create(
-                    new MapType().setKeyType("string").setValueType("ComplexType"))),
-        "{\"custom-prop\":\"custom-value\"}");
+                    new MapType().setKeyType("string").setValueType("ComplexType"))));
     assertSchemaField(
         schema.getFields().get(2),
         "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType.[type=string].field1",
         "string",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())),
-        "{\"custom-prop-1\":\"custom-value-1\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(3),
         "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType.[type=int].field2",
@@ -211,24 +209,21 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType()
             .setType(
                 SchemaFieldDataType.Type.create(
-                    new MapType().setKeyType("string").setValueType("union"))),
-        "{\"custom-prop\":\"custom-value\"}");
+                    new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(7),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType",
         "ComplexTypeNullable",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())),
-        "{\"custom-prop\":\"custom-value\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
     assertSchemaField(
         schema.getFields().get(8),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType.[type=string].field1",
         "string",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())),
-        "{\"custom-prop-1\":\"custom-value-1\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(9),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType.[type=int].field2",
@@ -301,8 +296,7 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType()
             .setType(
                 SchemaFieldDataType.Type.create(
-                    new ArrayType().setNestedType(new StringArray("string")))),
-        "{\"custom-prop\":\"custom-value\"}");
+                    new ArrayType().setNestedType(new StringArray("string")))));
     assertSchemaField(
         schema.getFields().get(1),
         "[version=2.0].[type=ArrayType].[type=array].[type=map].arrayOfMap",
@@ -312,8 +306,7 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType()
             .setType(
                 SchemaFieldDataType.Type.create(
-                    new MapType().setKeyType("string").setValueType("string"))),
-        "{\"custom-prop\":\"custom-value\"}");
+                    new MapType().setKeyType("string").setValueType("string"))));
     assertSchemaField(
         schema.getFields().get(2),
         "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].arrayOfRecord",
@@ -323,24 +316,21 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType()
             .setType(
                 SchemaFieldDataType.Type.create(
-                    new ArrayType().setNestedType(new StringArray("ComplexType")))),
-        "{\"custom-prop\":\"custom-value\"}");
+                    new ArrayType().setNestedType(new StringArray("ComplexType")))));
     assertSchemaField(
         schema.getFields().get(3),
         "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].arrayOfRecord.[type=string].field1",
         "string",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())),
-        "{\"custom-prop-1\":\"custom-value-1\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(4),
         "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].arrayOfRecord.[type=int].field2",
         "int",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())),
-        "{\"custom-prop-2\":\"custom-value-2\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     assertSchemaField(
         schema.getFields().get(5),
         "[version=2.0].[type=ArrayType].[type=array].[type=array].arrayOfArray",
@@ -455,8 +445,7 @@ class AvroSchemaConverterTest {
         "string",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())),
-        "{\"custom-prop\":\"custom-value\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(2),
         "[version=2.0].[type=StructType].[type=ComplexStruct].structField.[type=int].fieldInt",
@@ -567,32 +556,28 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType()
             .setType(
                 SchemaFieldDataType.Type.create(
-                    new UnionType().setNestedTypes(new StringArray("union")))),
-        "{\"custom-prop\":\"custom-value\"}");
+                    new UnionType().setNestedTypes(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(1),
         "[version=2.0].[type=UnionType].[type=union].[type=string].fieldUnionNullablePrimitives",
         "string",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())),
-        "{\"custom-prop\":\"custom-value\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(2),
         "[version=2.0].[type=UnionType].[type=union].[type=int].fieldUnionNullablePrimitives",
         "int",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())),
-        "{\"custom-prop\":\"custom-value\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     assertSchemaField(
         schema.getFields().get(3),
         "[version=2.0].[type=UnionType].[type=union].[type=boolean].fieldUnionNullablePrimitives",
         "boolean",
         false,
         false,
-        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new BooleanType())),
-        "{\"custom-prop\":\"custom-value\"}");
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new BooleanType())));
     assertSchemaField(
         schema.getFields().get(4),
         "[version=2.0].[type=UnionType].[type=union].fieldUnionComplexTypes",
@@ -970,9 +955,9 @@ class AvroSchemaConverterTest {
     assertEquals(field.isNullable(), expectedNullable);
     assertEquals(field.isIsPartOfKey(), expectedIsPartOfKey);
     assertEquals(field.getType(), expectedType);
-    assertEquals(
-        field.getJsonProps(),
-        expectedJsonProps); // ensure this is null if there are no custom properties
+    if (expectedJsonProps != null) {
+      assertEquals(field.getJsonProps(), expectedJsonProps);
+    }
   }
 
   private Schema readAvroSchema(String schemaFileName) throws IOException {

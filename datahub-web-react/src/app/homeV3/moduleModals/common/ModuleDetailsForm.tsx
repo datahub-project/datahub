@@ -11,7 +11,7 @@ interface Props {
 
 const ModuleDetailsForm = ({ form, formValues }: Props) => {
     return (
-        <Form form={form} initialValues={formValues} autoComplete="off">
+        <Form form={form} initialValues={formValues}>
             <Form.Item
                 name="name"
                 rules={[
@@ -21,7 +21,7 @@ const ModuleDetailsForm = ({ form, formValues }: Props) => {
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Choose a name for your module" isRequired />
+                <Input label="Name" placeholder="Choose a name for your widget" isRequired />
             </Form.Item>
             {/* Should be used later, once support for description is added  */}
             {/* <Form.Item name="description">

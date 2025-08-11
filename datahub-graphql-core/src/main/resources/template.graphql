@@ -3,11 +3,6 @@ extend type Mutation {
   Batch update the state for a set of steps.
   """
   upsertPageTemplate(input: UpsertPageTemplateInput!): DataHubPageTemplate!
-
-  """
-  Delete a DataHub page template
-  """
-  deletePageTemplate(input: DeletePageTemplateInput!): Boolean!
 }
 
 """
@@ -152,14 +147,4 @@ input PageTemplateRowInput {
   A list of Page Module urns that comprise this row
   """
   modules: [String!]!
-}
-
-"""
-Input for deleting a DataHub page template
-"""
-input DeletePageTemplateInput {
-  """
-  The URN of the page template to delete
-  """
-  urn: String!
 }

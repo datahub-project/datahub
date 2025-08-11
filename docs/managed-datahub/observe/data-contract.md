@@ -35,7 +35,31 @@ The owner of the physical data asset is also the owner of the contract and can a
 
 ## How to Create Data Contracts
 
-Data Contracts can be created via DataHub API, or UI.
+Data Contracts can be created via DataHub CLI (YAML), API, or UI.
+
+### DataHub CLI using YAML
+
+For creation via CLI, it’s a simple CLI upsert command that you can integrate into your CI/CD system to publish your Data Contracts and any change to them.
+
+1. Define your data contract.
+
+<!-- prettier-ignore-start -->
+```yaml
+{{ inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment }}
+```
+<!-- prettier-ignore-end -->
+
+2. Use the CLI to create the contract by running the below command.
+
+```shell
+datahub datacontract upsert -f contract_definition.yml
+```
+
+3. Now you can see your contract on the UI.
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/data_contracts/data-contracts-ui.png"/>
+</p>
 
 ### UI
 

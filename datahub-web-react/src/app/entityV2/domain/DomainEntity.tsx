@@ -60,7 +60,14 @@ export class DomainEntity implements Entity<Domain> {
             );
         }
 
-        return <DomainIcon style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return (
+            <DomainIcon
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
+            />
+        );
     };
 
     isSearchEnabled = () => true;

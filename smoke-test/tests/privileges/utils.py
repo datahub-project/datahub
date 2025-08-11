@@ -2,83 +2,6 @@ from tests.consistency_utils import wait_for_writes_to_sync
 from tests.utils import get_admin_credentials, get_frontend_url, login_as
 
 
-def get_current_user_info(session):
-    """
-    Get information about the currently authenticated user (whoami equivalent).
-
-    Returns a dict with user info and platform privileges, or None if the query fails.
-    """
-    import sys
-
-    me_query = {
-        "query": """query me {
-            me {
-                corpUser {
-                    urn
-                    username
-                    info {
-                        fullName
-                        email
-                    }
-                }
-                platformPrivileges {
-                    managePolicies
-                    manageIdentities
-                    manageUserCredentials
-                    generatePersonalAccessTokens
-                    viewAnalytics
-                }
-            }
-        }"""
-    }
-
-    me_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=me_query)
-    print(
-        f"DEBUG: whoami (me query) status: {me_response.status_code}", file=sys.stderr
-    )
-
-    if me_response.status_code == 200:
-        me_data = me_response.json()
-        if me_data.get("data") and me_data["data"].get("me"):
-            me_info = me_data["data"]["me"]
-            corp_user = me_info.get("corpUser", {})
-            privileges = me_info.get("platformPrivileges", {})
-
-            user_info = {
-                "username": corp_user.get("username", "UNKNOWN"),
-                "urn": corp_user.get("urn", "UNKNOWN"),
-                "email": corp_user.get("info", {}).get("email", "UNKNOWN"),
-                "fullName": corp_user.get("info", {}).get("fullName", "UNKNOWN"),
-                "privileges": privileges,
-            }
-
-            print(
-                f"DEBUG: Authenticated as user: {user_info['username']}",
-                file=sys.stderr,
-            )
-            print(f"DEBUG: User URN: {user_info['urn']}", file=sys.stderr)
-            print(f"DEBUG: User email: {user_info['email']}", file=sys.stderr)
-            print(
-                f"DEBUG: managePolicies privilege: {privileges.get('managePolicies', 'UNKNOWN')}",
-                file=sys.stderr,
-            )
-            print(
-                f"DEBUG: manageIdentities privilege: {privileges.get('manageIdentities', 'UNKNOWN')}",
-                file=sys.stderr,
-            )
-
-            return user_info
-        else:
-            print(
-                f"DEBUG: me query returned unexpected structure: {me_data}",
-                file=sys.stderr,
-            )
-            return None
-    else:
-        print(f"DEBUG: me query failed: {me_response.text}", file=sys.stderr)
-        return None
-
-
 def set_base_platform_privileges_policy_status(status, session):
     base_platform_privileges = {
         "query": """mutation updatePolicy($urn: String!, $input: PolicyUpdateInput!) {\n
@@ -203,7 +126,6 @@ def create_user(session, email, password):
     res_data = remove_user(session, f"urn:li:corpuser:{email}")
     assert res_data
     assert "error" not in res_data
-
     # Get the invite token
     get_invite_token_json = {
         "query": """query getInviteToken($input: GetInviteTokenInput!) {\n
@@ -218,31 +140,6 @@ def create_user(session, email, password):
     )
     get_invite_token_response.raise_for_status()
     get_invite_token_res_data = get_invite_token_response.json()
-
-    # Log the response for debugging CI failures
-    import sys
-
-    print(
-        f"DEBUG: getInviteToken response status: {get_invite_token_response.status_code}",
-        file=sys.stderr,
-    )
-    print(
-        f"DEBUG: getInviteToken response data: {get_invite_token_res_data}",
-        file=sys.stderr,
-    )
-
-    # Check if the response structure is as expected before accessing
-    if not get_invite_token_res_data.get("data") or not get_invite_token_res_data[
-        "data"
-    ].get("getInviteToken"):
-        print(
-            f"ERROR: getInviteToken returned unexpected structure. Full response: {get_invite_token_res_data}",
-            file=sys.stderr,
-        )
-        raise RuntimeError(
-            f"getInviteToken query failed or returned null. Response: {get_invite_token_res_data}"
-        )
-
     invite_token = get_invite_token_res_data["data"]["getInviteToken"]["inviteToken"]
     assert invite_token is not None
     assert "error" not in invite_token

@@ -160,9 +160,8 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const [showAssetSearch, setShowAssetSearch] = useState(false);
 
     // Try getting the counts via the ingestion report.
-    const totalEntitiesIngested = executionResult && getTotalEntitiesIngested(executionResult, entityRegistry);
-    const entitiesIngestedByTypeFromReport =
-        executionResult && getEntitiesIngestedByTypeOrSubtype(executionResult, entityRegistry);
+    const totalEntitiesIngested = executionResult && getTotalEntitiesIngested(executionResult);
+    const entitiesIngestedByTypeFromReport = executionResult && getEntitiesIngestedByTypeOrSubtype(executionResult);
 
     // Fallback to the search across entities.
     // First thing to do is to search for all assets with the id as the run id!
@@ -206,22 +205,22 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const ingestionContents = useMemo(() => {
         if (!executionResult) return undefined;
         try {
-            return getIngestionContents(executionResult, entityRegistry);
+            return getIngestionContents(executionResult);
         } catch (err) {
             console.error('Error getting ingestion contents:', err);
             return undefined;
         }
-    }, [executionResult, entityRegistry]);
+    }, [executionResult]);
 
     const otherIngestionContents = useMemo(() => {
         if (!executionResult) return undefined;
         try {
-            return getOtherIngestionContents(executionResult, entityRegistry);
+            return getOtherIngestionContents(executionResult);
         } catch (err) {
             console.error('Error getting other ingestion contents:', err);
             return undefined;
         }
-    }, [executionResult, entityRegistry]);
+    }, [executionResult]);
 
     return (
         <>

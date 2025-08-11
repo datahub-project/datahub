@@ -136,7 +136,7 @@ class StructuredPropertiesHelper:
 
 class SchemaFieldSpecification(StrictModel):
     id: Optional[str] = None
-    urn: Optional[str] = Field(None, validate_default=True)
+    urn: Optional[str] = None
     structured_properties: Optional[StructuredProperties] = None
     type: Optional[str] = None
     nativeDataType: Optional[str] = None
@@ -382,9 +382,9 @@ class Dataset(StrictModel):
     id: Optional[str] = None
     platform: Optional[str] = None
     env: str = "PROD"
-    urn: Optional[str] = Field(None, validate_default=True)
+    urn: Optional[str] = None
     description: Optional[str] = None
-    name: Optional[str] = Field(None, validate_default=True)
+    name: Optional[str] = None
     schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
     properties: Optional[Dict[str, str]] = None

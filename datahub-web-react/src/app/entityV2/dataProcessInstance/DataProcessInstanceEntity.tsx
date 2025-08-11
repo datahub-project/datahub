@@ -46,7 +46,14 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
             return <ArrowsClockwise style={{ fontSize, color: color || '#B37FEB' }} />;
         }
 
-        return <ArrowsClockwise style={{ fontSize: fontSize || 'inherit', color: color || 'inherit' }} />;
+        return (
+            <ArrowsClockwise
+                style={{
+                    fontSize,
+                    color: color || '#BFBFBF',
+                }}
+            />
+        );
     };
 
     isSearchEnabled = () => false;

@@ -3,7 +3,6 @@ import { ReactFlowProvider } from 'reactflow';
 
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import LineageDisplay from '@app/lineageV2/LineageDisplay';
-import { useTrackLineageViewV2 } from '@app/lineageV2/LineageExplorer.hooks';
 import {
     EdgeId,
     FetchStatus,
@@ -67,8 +66,6 @@ export default function LineageExplorer(props: Props) {
     };
 
     const initialized = useInitializeNodes(context, urn, type);
-
-    useTrackLineageViewV2({ initialized, urn, type, adjacencyList, nodes, nodeVersion });
 
     return (
         <LineageNodesContext.Provider value={context}>

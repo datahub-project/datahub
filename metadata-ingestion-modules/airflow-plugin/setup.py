@@ -72,7 +72,7 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "mypy==1.17.1",
+    "mypy==1.14.1",
     "ruff==0.11.7",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",

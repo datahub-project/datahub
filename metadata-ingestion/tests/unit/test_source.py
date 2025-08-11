@@ -369,8 +369,5 @@ def test_multiple_same_aspects_count_correctly():
 
     assert source.source_report.aspects == {"dataset": {"status": 5}}
     assert source.source_report.aspects_by_subtypes == {
-        "dataset": {"unknown": {"status": 1}}
-    }
-    assert source.source_report.aspects_by_subtypes_full_count == {
         "dataset": {"unknown": {"status": 5}}
     }

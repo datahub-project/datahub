@@ -161,14 +161,14 @@ describe('PageTemplateContext', () => {
             expect(mockUseTemplateState).toHaveBeenCalledWith();
         });
 
-        it('should call useTemplateOperations with setPersonalTemplate and personalTemplate', () => {
+        it('should call useTemplateOperations', () => {
             render(
                 <PageTemplateProvider>
                     <div>Test</div>
                 </PageTemplateProvider>,
             );
 
-            expect(mockUseTemplateOperations).toHaveBeenCalledWith(mockSetPersonalTemplate, mockPersonalTemplate);
+            expect(mockUseTemplateOperations).toHaveBeenCalled();
         });
 
         it('should call useModuleOperations with correct parameters', () => {

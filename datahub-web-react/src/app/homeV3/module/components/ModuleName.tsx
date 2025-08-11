@@ -1,7 +1,5 @@
-import { colors } from '@components';
+import { Text } from '@components';
 import React from 'react';
-
-import { NameContainer } from '@app/homeV3/styledComponents';
 
 interface Props {
     text?: string;
@@ -9,16 +7,8 @@ interface Props {
 
 export default function ModuleName({ text }: Props) {
     return (
-        <NameContainer
-            ellipsis={{
-                tooltip: {
-                    color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
-                    showArrow: false,
-                },
-            }}
-        >
+        <Text color="gray" colorLevel={600} size="lg" weight="bold" lineHeight="sm">
             {text}
-        </NameContainer>
+        </Text>
     );
 }

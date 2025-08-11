@@ -33,7 +33,6 @@ export interface TreeViewContextType {
     // Expand
     getIsExpandable: (node: TreeNode) => boolean;
     getIsExpanded: (node: TreeNode) => boolean;
-    hasAnyExpanded: boolean;
     expand: (node: TreeNode) => void;
     collapse: (node: TreeNode) => void;
     toggleExpanded: (node: TreeNode) => void;

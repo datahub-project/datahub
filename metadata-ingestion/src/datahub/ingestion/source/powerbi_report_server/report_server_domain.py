@@ -27,8 +27,10 @@ class CatalogItem(BaseModel):
     is_favorite: bool = Field(alias="IsFavorite")
     user_info: Any = Field(None, alias="UserInfo")
     display_name: Optional[str] = Field(None, alias="DisplayName")
-    has_data_sources: bool = Field(False, alias="HasDataSources")
-    data_sources: Optional[List["DataSource"]] = Field(None, alias="DataSources")
+    has_data_sources: bool = Field(default=False, alias="HasDataSources")
+    data_sources: Optional[List["DataSource"]] = Field(
+        default_factory=list, alias="DataSources"
+    )
 
     @validator("display_name", always=True)
     def validate_diplay_name(cls, value, values):

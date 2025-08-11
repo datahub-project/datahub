@@ -23,14 +23,6 @@ export function getTimestampMillisNumDaysAgo(numDays) {
 }
 
 const SKIP_ONBOARDING_TOUR_KEY = "skipOnboardingTour";
-const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
-
-function notFirstTimeVisit() {
-  cy.window().then((win) => {
-    win.localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
-    win.localStorage.setItem(SKIP_WELCOME_MODAL_KEY, "true");
-  });
-}
 
 Cypress.Commands.add("login", () => {
   cy.request({
@@ -41,43 +33,29 @@ Cypress.Commands.add("login", () => {
       password: Cypress.env("ADMIN_PASSWORD"),
     },
     retryOnStatusCodeFailure: true,
-  }).then(() => notFirstTimeVisit());
+  }).then(() => localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true"));
 });
 
 Cypress.Commands.add("loginWithCredentials", (username, password) => {
   cy.visit("/login");
-  cy.get("input[data-testid=username]").type(
-    username || Cypress.env("ADMIN_USERNAME"),
-    { delay: 0 },
-  );
-  cy.get("input[data-testid=password]").type(
-    password || Cypress.env("ADMIN_PASSWORD"),
-    { delay: 0 },
-  );
+  if ((username, password)) {
+    cy.get("input[data-testid=username]").type(username);
+    cy.get("input[data-testid=password]").type(password);
+  } else {
+    cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
+    cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
+  }
   cy.contains("Sign In").click();
   cy.get(".ant-avatar-circle").should("be.visible");
-  notFirstTimeVisit();
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
 });
 
 Cypress.Commands.add("visitWithLogin", (url) => {
   cy.visit(url);
   cy.get("input[data-testid=username]").type(Cypress.env("ADMIN_USERNAME"));
   cy.get("input[data-testid=password]").type(Cypress.env("ADMIN_PASSWORD"));
-  notFirstTimeVisit();
+  localStorage.setItem(SKIP_ONBOARDING_TOUR_KEY, "true");
   cy.contains("Sign In").click();
-});
-
-// Login commands for onboarding tour testing (without setting skipOnboardingTour)
-Cypress.Commands.add("loginForOnboarding", () => {
-  cy.request({
-    method: "POST",
-    url: "/logIn",
-    body: {
-      username: Cypress.env("ADMIN_USERNAME"),
-      password: Cypress.env("ADMIN_PASSWORD"),
-    },
-    retryOnStatusCodeFailure: true,
-  });
 });
 
 Cypress.Commands.add("deleteUrn", (urn) => {

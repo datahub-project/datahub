@@ -16,7 +16,6 @@ export interface ChildrenLoaderInputType {
     maxNumberToLoad: number;
     dependenciesIsLoading?: boolean;
     orFilters?: AndFilterInput[];
-    forceHasAsyncChildren?: boolean;
 }
 
 export interface ChildrenLoaderResultType {

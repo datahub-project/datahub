@@ -194,23 +194,6 @@ export const getStructuredReport = (result: Partial<ExecutionRequestResult>): St
     return structuredReport;
 };
 
-export const getAspectsBySubtypes = (structuredReportObject: any, entityRegistry: EntityRegistry) => {
-    const searchEntityTypesInCamelCase = new Set(entityRegistry.getSearchEntityTypesAsCamelCase());
-
-    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
-    if (!aspectsBySubtypes) {
-        return null;
-    }
-    Object.keys(aspectsBySubtypes).forEach((entityName) => {
-        if (!searchEntityTypesInCamelCase.has(entityName)) {
-            // We are doing this otherwise in the UI we will show a total number
-            // On clicking view all the number will not match
-            delete aspectsBySubtypes[entityName];
-        }
-    });
-    return aspectsBySubtypes;
-};
-
 /** *
  * This function is used to get the entities ingested by type from the structured report.
  * It returns an array of objects with the entity type and the count of entities ingested.
@@ -254,7 +237,6 @@ export const getAspectsBySubtypes = (structuredReportObject: any, entityRegistry
  */
 export const getEntitiesIngestedByTypeOrSubtype = (
     result: Partial<ExecutionRequestResult>,
-    entityRegistry: EntityRegistry,
 ): EntityTypeCount[] | null => {
     const structuredReportObject = extractStructuredReportPOJO(result);
     if (!structuredReportObject) {
@@ -282,11 +264,11 @@ export const getEntitiesIngestedByTypeOrSubtype = (
          *     ...
          * }
          */
-        const entities = getAspectsBySubtypes(structuredReportObject, entityRegistry);
+        const entities = structuredReportObject.source.report.aspects_by_subtypes;
         const entitiesIngestedByType: { [key: string]: number } = {};
-        Object.entries(entities).forEach(([entityName, aspectsBySubtypes]) => {
+        Object.entries(entities).forEach(([entityName, aspects_by_subtypes]) => {
             // Use the status aspect count instead of max count
-            Object.entries(aspectsBySubtypes as any)?.forEach(([subtype, aspects]) => {
+            Object.entries(aspects_by_subtypes as any)?.forEach(([subtype, aspects]) => {
                 const statusCount = (aspects as any)?.status;
                 if (statusCount !== undefined) {
                     entitiesIngestedByType[subtype !== 'unknown' ? subtype : entityName] = statusCount;
@@ -318,8 +300,8 @@ export const getEntitiesIngestedByTypeOrSubtype = (
  * @param result - The result of the execution request.
  * @returns {number | null}
  */
-export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>, entityRegistry: EntityRegistry) => {
-    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result, entityRegistry);
+export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>) => {
+    const entityTypeCounts = getEntitiesIngestedByTypeOrSubtype(result);
     if (!entityTypeCounts) {
         return null;
     }
@@ -327,15 +309,12 @@ export const getTotalEntitiesIngested = (result: Partial<ExecutionRequestResult>
     return entityTypeCounts.reduce((total, entityType) => total + entityType.count, 0);
 };
 
-export const getOtherIngestionContents = (
-    executionResult: Partial<ExecutionRequestResult>,
-    entityRegistry: EntityRegistry,
-) => {
+export const getOtherIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
     const structuredReportObject = extractStructuredReportPOJO(executionResult);
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;
@@ -401,15 +380,12 @@ export const getOtherIngestionContents = (
     return result;
 };
 
-export const getIngestionContents = (
-    executionResult: Partial<ExecutionRequestResult>,
-    entityRegistry: EntityRegistry,
-) => {
+export const getIngestionContents = (executionResult: Partial<ExecutionRequestResult>) => {
     const structuredReportObject = extractStructuredReportPOJO(executionResult);
     if (!structuredReportObject) {
         return null;
     }
-    const aspectsBySubtypes = getAspectsBySubtypes(structuredReportObject, entityRegistry);
+    const aspectsBySubtypes = structuredReportObject?.source?.report?.aspects_by_subtypes;
 
     if (!aspectsBySubtypes || Object.keys(aspectsBySubtypes).length === 0) {
         return null;

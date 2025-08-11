@@ -370,12 +370,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             name = node["alias"]
 
         comment = node.get("comment", "")
-
-        # In dbt sources, there are two types of descriptions:
-        # - description: table-level description (specific to the source table)
-        # - sourceDescription: schema-level description (describes the overall source schema)
-        # The table-level description should take precedence since it's more specific.
-        description = node["description"] or node.get("sourceDescription", "")
+        description = node["description"]
+        if node.get("sourceDescription"):
+            description = node["sourceDescription"]
 
         if node["resourceType"] == "model":
             materialization = node["materializedType"]
