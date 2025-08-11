@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.browsepaths.BackfillBrowsePathsV2;
+import com.linkedin.datahub.upgrade.system.browsepaths.BackfillIcebergBrowsePathsV2;
 import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProcessInstances;
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
@@ -53,6 +54,17 @@ public class NonBlockingConfigs {
       @Value("${systemUpdate.browsePathsV2.batchSize}") final Integer batchSize) {
     return new BackfillBrowsePathsV2(
         opContext, entityService, searchService, enabled, reprocessEnabled, batchSize);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade backfillIcebergBrowsePathsV2(
+      final OperationContext opContext,
+      EntityService<?> entityService,
+      SearchService searchService,
+      @Value("${systemUpdate.browsePathsV2Iceberg.enabled}") final boolean enabled,
+      @Value("${systemUpdate.browsePathsV2Iceberg.batchSize}") final Integer batchSize) {
+    return new BackfillIcebergBrowsePathsV2(
+        opContext, entityService, searchService, enabled, batchSize);
   }
 
   @Bean

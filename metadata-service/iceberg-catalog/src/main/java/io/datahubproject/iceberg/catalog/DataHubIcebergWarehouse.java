@@ -39,6 +39,7 @@ public class DataHubIcebergWarehouse {
   public static final String DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME =
       "icebergWarehouseInfo";
 
+  public static final String ICEBERG_PROPERTY_PREFIX = "TBLPROPERTIES:";
   private final EntityService entityService;
 
   private final SecretService secretService;
@@ -326,6 +327,18 @@ public class DataHubIcebergWarehouse {
         new DatasetProperties()
             .setName(toTableId.name())
             .setQualifiedName(fullTableName(platformInstance, toTableId));
+
+    RecordTemplate fromDatasetPropertiesRecord =
+        entityService.getLatestAspect(operationContext, datasetUrn, DATASET_PROPERTIES_ASPECT_NAME);
+    if (fromDatasetPropertiesRecord != null) {
+      DatasetProperties fromDatasetProperties =
+          new DatasetProperties(fromDatasetPropertiesRecord.data());
+      datasetProperties.setCustomProperties(fromDatasetProperties.getCustomProperties());
+    } else {
+      // For rename, this should never be null, because at minimum, the name and qualified name
+      // must be set via datasetProperties
+      log.error("Internal error: existing dataset properties not found for dataset {}", datasetUrn);
+    }
 
     IcebergBatch.EntityBatch datasetBatch =
         icebergBatch.updateEntity(datasetUrn, DATASET_ENTITY_NAME);
