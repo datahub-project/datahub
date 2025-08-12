@@ -115,7 +115,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         assert self.account_id
         return self.account_id
 
-    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")
+    rename_host_port_to_account_id = pydantic_renamed_field("host_port", "account_id")  # type: ignore[pydantic-field]
 
     @pydantic.validator("account_id")
     def validate_account_id(cls, account_id: str) -> str:

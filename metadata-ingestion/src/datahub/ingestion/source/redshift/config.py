@@ -6,7 +6,7 @@ from pydantic import root_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -94,10 +94,9 @@ class RedshiftConfig(
     # Because of this behavior, it uses dramatically fewer round trips for
     # large Redshift warehouses. As an example, see this query for the columns:
     # https://github.com/sqlalchemy-redshift/sqlalchemy-redshift/blob/60b4db04c1d26071c291aeea52f1dcb5dd8b0eb0/sqlalchemy_redshift/dialect.py#L745.
-    scheme: str = Field(
+    scheme: HiddenFromDocs[str] = Field(
         default="redshift+redshift_connector",
         description="",
-        hidden_from_docs=True,
     )
 
     _database_alias_removed = pydantic_removed_field("database_alias")

@@ -18,6 +18,7 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -128,7 +129,7 @@ class ClickHouseConfig(
 ):
     # defaults
     host_port: str = Field(default="localhost:8123", description="ClickHouse host URL.")
-    scheme: str = Field(default="clickhouse", description="", hidden_from_docs=True)
+    scheme: HiddenFromDocs[str] = Field(default="clickhouse")
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
