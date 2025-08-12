@@ -155,3 +155,78 @@ def test_set_profiling_warehouse_id_from_global():
         }
     )
     assert config.profiling.warehouse_id == "my_global_warehouse_id"
+
+
+def test_databricks_api_page_size_default():
+    """Test that databricks_api_page_size defaults to 0."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert config.databricks_api_page_size == 0
+
+
+def test_databricks_api_page_size_valid_values():
+    """Test that databricks_api_page_size accepts valid positive integers."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "databricks_api_page_size": 100,
+        }
+    )
+    assert config.databricks_api_page_size == 100
+
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "databricks_api_page_size": 1000,
+        }
+    )
+    assert config.databricks_api_page_size == 1000
+
+
+def test_databricks_api_page_size_zero_allowed():
+    """Test that databricks_api_page_size allows zero (default behavior)."""
+    config = UnityCatalogSourceConfig.parse_obj(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "databricks_api_page_size": 0,
+        }
+    )
+    assert config.databricks_api_page_size == 0
+
+
+def test_databricks_api_page_size_negative_invalid():
+    """Test that databricks_api_page_size rejects negative values."""
+    with pytest.raises(
+        ValueError, match="ensure this value is greater than or equal to 0"
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "databricks_api_page_size": -1,
+            }
+        )
+
+    with pytest.raises(
+        ValueError, match="ensure this value is greater than or equal to 0"
+    ):
+        UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "token",
+                "workspace_url": "https://test.databricks.com",
+                "include_hive_metastore": False,
+                "databricks_api_page_size": -100,
+            }
+        )
