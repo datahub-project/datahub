@@ -746,6 +746,7 @@ class SnowflakeV2Source(
                 # For privatelink, account identifier ends with .privatelink
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
+                snowflake_domain=self.config.snowflake_domain,
             )
 
         except Exception as e:
