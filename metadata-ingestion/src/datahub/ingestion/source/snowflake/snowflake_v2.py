@@ -171,7 +171,9 @@ class SnowflakeV2Source(
         )
 
         # For database, schema, tables, views, etc
-        self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
+        self.data_dictionary = SnowflakeDataDictionary(
+            connection=self.connection, report=self.report
+        )
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
 
         self.discovered_datasets: Optional[List[str]] = None
