@@ -307,10 +307,8 @@ def test_restli_endpoints_with_valid_auth(auth_session: TestSessionWrapper) -> N
 # AUTHORIZATION TESTS (403 scenarios)
 # ===========================================
 
-def test_admin_endpoints_require_privileges(admin_privileges_ready) -> None:
+def test_admin_endpoints_require_privileges(auth_session) -> None:
     """Test that admin endpoints return 401/403 for users without admin privileges."""
-    # admin_privileges_ready fixture ensures DataHub bootstrap is complete and admin has privileges
-    logger.info(f"🔍 Admin user ready: {admin_privileges_ready['username']} ({admin_privileges_ready['email']}) - managePolicies: {admin_privileges_ready['privileges']['managePolicies']}")
     
     # Create a limited-privilege user for testing
     (admin_user, admin_pass) = get_admin_credentials()

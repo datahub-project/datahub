@@ -12,7 +12,7 @@
                 "urn:li:tag:Environment:Production"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Environment\", \"tag_value\": \"Production\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"Environment\", \"tag_value\": \"Production\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -70,7 +70,7 @@
                 "urn:li:tag:Environment:Test"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Environment\", \"tag_value\": \"Test\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"Environment\", \"tag_value\": \"Test\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -128,7 +128,7 @@
                 "urn:li:tag:Owner:DataTeam"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Owner\", \"tag_value\": \"DataTeam\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"Owner\", \"tag_value\": \"DataTeam\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -293,180 +293,6 @@
     }
 },
 {
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "123412341234.Environment:Production",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Production"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Environment\", \"tag_value\": \"Production\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "123412341234.Environment:Test",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Test"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Environment\", \"tag_value\": \"Test\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "123412341234.Owner:DataTeam",
-            "secondaryKeys": [
-                "urn:li:tag:Owner:DataTeam"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Owner\", \"tag_value\": \"DataTeam\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
     "changeType": "UPSERT",
@@ -574,180 +400,6 @@
     "aspect": {
         "json": {
             "path": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "123412341234.Environment:Production",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Production"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Production\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Environment\", \"tag_value\": \"Production\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:5deeb4819bf87899250f0da32e6af0cf",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "123412341234.Environment:Test",
-            "secondaryKeys": [
-                "urn:li:tag:Environment:Test"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Environment:Test\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Environment\", \"tag_value\": \"Test\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:fc4d54a1388a90c25f277d611d201274",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
-    "changeType": "UPSERT",
-    "aspectName": "platformResourceInfo",
-    "aspect": {
-        "json": {
-            "resourceType": "LakeFormationTagPlatformResource",
-            "primaryKey": "123412341234.Owner:DataTeam",
-            "secondaryKeys": [
-                "urn:li:tag:Owner:DataTeam"
-            ],
-            "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:Owner:DataTeam\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"Owner\", \"tag_value\": \"DataTeam\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
-                "contentType": "JSON",
-                "schemaType": "JSON",
-                "schemaRef": "LakeFormationTagPlatformResource"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "glue-source-tes",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:ecd80d8c7aa8c99d3ab7e6ca52b16b47",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
@@ -885,7 +537,7 @@
                 "urn:li:tag:DataClassification:Sensitive"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:DataClassification:Sensitive\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"DataClassification\", \"tag_value\": \"Sensitive\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:DataClassification:Sensitive\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"DataClassification\", \"tag_value\": \"Sensitive\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
@@ -943,7 +595,7 @@
                 "urn:li:tag:BusinessUnit:Finance"
             ],
             "value": {
-                "blob": "{\"datahub_urns\": {\"urns\": [\"urn:li:tag:BusinessUnit:Finance\"]}, \"managed_by_datahub\": false, \"id\": {\"tag_key\": \"BusinessUnit\", \"tag_value\": \"Finance\", \"platform_instance\": null, \"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false}, \"allowed_values\": null}",
+                "blob": "{\"allowed_values\": null, \"datahub_urns\": {\"urns\": [\"urn:li:tag:BusinessUnit:Finance\"]}, \"id\": {\"catalog\": \"123412341234\", \"exists_in_lake_formation\": false, \"persisted\": false, \"platform_instance\": null, \"tag_key\": \"BusinessUnit\", \"tag_value\": \"Finance\"}, \"managed_by_datahub\": false}",
                 "contentType": "JSON",
                 "schemaType": "JSON",
                 "schemaRef": "LakeFormationTagPlatformResource"
