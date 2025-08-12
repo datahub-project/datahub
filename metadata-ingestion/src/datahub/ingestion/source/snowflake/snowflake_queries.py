@@ -748,7 +748,7 @@ class QueryLogQueryBuilder:
         start_time: datetime,
         end_time: datetime,
         bucket_duration: BucketDuration,
-        deny_usernames: Optional[List[str]],
+        deny_usernames: Optional[List[str]] = None,
         allow_usernames: Optional[List[str]] = None,
         max_tables_per_query: int = 20,
         dedup_strategy: QueryDedupStrategyType = QueryDedupStrategyType.STANDARD,
@@ -774,7 +774,9 @@ class QueryLogQueryBuilder:
         assert self.time_bucket_size in ("HOUR", "DAY", "MONTH")
 
     def _build_user_filter(
-        self, deny_usernames: Optional[List[str]], allow_usernames: Optional[List[str]]
+        self,
+        deny_usernames: Optional[List[str]] = None,
+        allow_usernames: Optional[List[str]] = None,
     ) -> str:
         """
         Build user filter SQL condition based on deny and allow username patterns.

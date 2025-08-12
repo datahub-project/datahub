@@ -145,7 +145,6 @@ class TestBuildAccessHistoryDatabaseFilterCondition:
             start_time=datetime.datetime(year=2021, month=1, day=1),
             end_time=datetime.datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
-            deny_usernames=None,
             dedup_strategy=QueryDedupStrategyType.STANDARD,
             database_pattern=database_pattern,
             additional_database_names=additional_database_names,
@@ -174,7 +173,6 @@ class TestQueryLogQueryBuilder:
                 start_time=datetime.datetime(year=2021, month=1, day=1),
                 end_time=datetime.datetime(year=2021, month=1, day=1),
                 bucket_duration=BucketDuration.HOUR,
-                deny_usernames=None,
                 dedup_strategy=strategy,
             ).build_enriched_query_log_query()
             # SQL parsing should succeed
@@ -204,7 +202,6 @@ class TestQueryLogQueryBuilder:
             start_time=datetime.datetime(year=2021, month=1, day=1),
             end_time=datetime.datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
-            deny_usernames=None,
             dedup_strategy=QueryDedupStrategyType.NONE,
             additional_database_names=additional_database_names,
         ).build_enriched_query_log_query()
