@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import List, Optional
 
 from pydantic.fields import Field
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.sql import text
 
@@ -23,6 +24,22 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+STORED_PROCEDURES_QUERY = """
+SELECT
+    ROUTINE_SCHEMA,
+    ROUTINE_NAME,
+    ROUTINE_DEFINITION,
+    ROUTINE_COMMENT,
+    CREATED,
+    LAST_ALTERED,
+    SQL_DATA_ACCESS,
+    SECURITY_TYPE,
+    DEFINER
+FROM information_schema.ROUTINES
+WHERE ROUTINE_TYPE = 'PROCEDURE'
+AND ROUTINE_SCHEMA = :schema
+"""
+
 
 class MariaDBConfig(MySQLConfig):
     host_port: str = Field(default="localhost:3306", description="MariaDB host URL.")
@@ -37,7 +54,7 @@ class MariaDBConfig(MySQLConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class MariaDBSource(MySQLSource):
-    def get_platform(self):
+    def get_platform(self) -> str:
         return "mariadb"
 
     def _get_stored_procedures(
@@ -46,42 +63,44 @@ class MariaDBSource(MySQLSource):
         db_name: str,
         schema: str,
     ) -> List[BaseProcedure]:
-        query = text("""
-SELECT
-    ROUTINE_SCHEMA,
-    ROUTINE_NAME,
-    ROUTINE_DEFINITION,
-    ROUTINE_COMMENT,
-    CREATED,
-    LAST_ALTERED,
-    SQL_DATA_ACCESS,
-    SECURITY_TYPE,
-    DEFINER
-FROM information_schema.ROUTINES
-WHERE ROUTINE_TYPE = 'PROCEDURE'
-AND ROUTINE_SCHEMA = :schema
-        """)
+        query = text(STORED_PROCEDURES_QUERY)
 
         procedures_list = []
 
-        for row in conn.execute(query, {"schema": schema}):  # type: ignore
+        # Helper function to safely access columns that might not exist
+        def safe_get(row_obj: Row, column: str) -> Optional[str]:
+            """Safely access a column by name from SQLAlchemy Row object.
+
+            Args:
+                row_obj: SQLAlchemy Row object
+                column: Column name to access
+
+            Returns:
+                Column value as string or None if not found
+            """
             try:
-                routine_name = row["ROUTINE_NAME"]
+                # SQLAlchemy Row objects have _mapping attribute for reliable column access
+                if hasattr(row_obj, "_mapping") and column in row_obj._mapping:
+                    return row_obj._mapping[column]
+                # Fallback to direct key access
+                return row_obj[column]
+            except (KeyError, IndexError, AttributeError):
+                return None
+
+        for row in conn.execute(query, {"schema": schema}):
+            try:
+                # Access routine name with better type safety
+                routine_name = safe_get(row, "ROUTINE_NAME")
                 if not routine_name:
-                    logger.warning(f"Skipping procedure with empty name in {schema}")
+                    self.report.warning(
+                        title="Skipping procedure with empty name",
+                        message=f"Found procedure with empty name in schema {schema}",
+                        context=f"Schema: {schema}",
+                    )
                     continue
 
-                # Always extract procedure code (needed for lineage)
-                code = self._extract_procedure_definition(
-                    conn, schema, routine_name, row
-                )
-
-                # Helper function to safely access columns that might not exist
-                def safe_get(row_obj: Any, column: str) -> Optional[str]:
-                    try:
-                        return row_obj[column]
-                    except (KeyError, IndexError):
-                        return None
+                # Use ROUTINE_DEFINITION directly from information_schema (same as MySQL)
+                code = safe_get(row, "ROUTINE_DEFINITION")
 
                 procedures_list.append(
                     BaseProcedure(
@@ -107,60 +126,17 @@ AND ROUTINE_SCHEMA = :schema
                     )
                 )
             except Exception as e:
-                logger.warning(
-                    f"Error processing procedure {schema}.{routine_name if 'routine_name' in locals() else 'unknown'}: {e}"
+                procedure_name = (
+                    routine_name if "routine_name" in locals() else "unknown"
+                )
+                self.report.warning(
+                    title="Error processing stored procedure",
+                    message=f"Failed to process procedure {schema}.{procedure_name}",
+                    context=f"Schema: {schema}, Procedure: {procedure_name}",
+                    exc=e,
                 )
 
         return procedures_list
-
-    def _escape_identifier(self, identifier: str) -> str:
-        """
-        Escape SQL identifiers to prevent injection.
-
-        For MySQL/MariaDB identifiers:
-        - Replace backticks with double backticks
-        - Remove any null bytes
-        - Limit length to prevent buffer overflow attacks
-        """
-        if not identifier:
-            raise ValueError("Identifier cannot be empty")
-
-        # Remove null bytes and other control characters
-        cleaned = identifier.replace("\x00", "").replace("\r", "").replace("\n", "")
-
-        # Escape backticks
-        escaped = cleaned.replace("`", "``")
-
-        # Limit length (MySQL identifier limit is 64 characters)
-        if len(escaped) > 64:
-            raise ValueError(f"Identifier too long: {len(escaped)} > 64 characters")
-
-        return escaped
-
-    def _extract_procedure_definition(
-        self, conn: Connection, schema: str, routine_name: str, row: Any
-    ) -> str:
-        """Extract a stored procedure definition with SHOW CREATE PROCEDURE fallback."""
-        try:
-            escaped_schema = self._escape_identifier(schema)
-            escaped_routine = self._escape_identifier(routine_name)
-            show_query = text(
-                f"SHOW CREATE PROCEDURE `{escaped_schema}`.`{escaped_routine}`"
-            )
-
-            create_proc = conn.execute(show_query).fetchone()  # type: ignore
-
-            # MariaDB typically returns procedure definition at position 2
-            if create_proc and len(create_proc) > 2:
-                return create_proc[2]
-
-            # Fall back to ROUTINE_DEFINITION
-            return row["ROUTINE_DEFINITION"]
-        except Exception as e:
-            logger.warning(
-                f"Failed to get procedure definition for {schema}.{routine_name}: {e}"
-            )
-            return row["ROUTINE_DEFINITION"]
 
     @staticmethod
     def _parse_datetime(value: Optional[str]) -> Optional[datetime]:

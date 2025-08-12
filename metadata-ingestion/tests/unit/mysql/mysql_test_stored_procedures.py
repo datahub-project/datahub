@@ -1,4 +1,3 @@
-import re
 from unittest.mock import MagicMock, patch
 
 from pydantic import SecretStr
@@ -79,31 +78,80 @@ def test_stored_procedure_config():
 
 
 def test_temp_table_identification():
-    """Test temporary table identification logic"""
+    """Test MySQL temporary table pattern matching logic using the actual MySQLSource method"""
 
-    def is_temp_table(name: str) -> bool:
-        # Use regex patterns to ensure exact matches
-        patterns = [
-            r"^temp_",  # Starts with temp_
-            r"^tmp_",  # Starts with tmp_
-            r"_temp$",  # Ends with _temp
-            r"_tmp$",  # Ends with _tmp
-            r"_temp_",  # Has _temp_ in middle
-            r"_tmp_",  # Has _tmp_ in middle
-        ]
-        return any(re.search(pattern, name.lower()) for pattern in patterns)
+    # Create a MySQL source instance to test the actual method
+    config = MySQLConfig(
+        host_port="localhost:3306", username="test", password="test", database="test"
+    )
+    ctx = PipelineContext(run_id="test")
+    mysql_source = MySQLSource(config, ctx)
 
-    # Should match temporary table patterns
-    assert is_temp_table("temp_customers")
-    assert is_temp_table("TMP_DATA")
-    assert is_temp_table("my_temp_table")
-    assert is_temp_table("my_tmp_table")
+    # Test cases that SHOULD match temporary table patterns
+    temp_cases = [
+        "#temp_table",  # Starts with #
+        "#TMP_123",  # Starts with # (case insensitive)
+        "tmp_customers",  # Starts with tmp_
+        "temp_data",  # Starts with temp_
+        "TMP_STAGING",  # Starts with tmp_ (uppercase)
+        "TEMP_WORK",  # Starts with temp_ (uppercase)
+        "my_table_tmp",  # Ends with _tmp
+        "my_table_temp",  # Ends with _temp
+        "DATA_TMP",  # Ends with _tmp (uppercase)
+        "STAGING_TEMP",  # Ends with _temp (uppercase)
+        "stage_tmp_final",  # Contains _tmp_
+        "stage_temp_final",  # Contains _temp_
+        "ETL_TMP_PROCESS",  # Contains _tmp_ (uppercase)
+        "LOAD_TEMP_DATA",  # Contains _temp_ (uppercase)
+    ]
 
-    # Should not match non-temporary tables
-    assert not is_temp_table("customers")
-    assert not is_temp_table("template_table")
-    assert not is_temp_table("temperature")
-    assert not is_temp_table("temporary")
+    # Test cases that should NOT match
+    non_temp_cases = [
+        "customers",  # Regular table
+        "template_table",  # Contains "temp" but not matching pattern
+        "temperature",  # Contains "temp" but not matching pattern
+        "temporary",  # Contains "temp" but not matching pattern
+        "attempt",  # Contains "temp" but not matching pattern
+        "contempt",  # Contains "temp" but not matching pattern
+        "tmpfile",  # Starts with "tmp" but no underscore
+        "tempfile",  # Starts with "temp" but no underscore
+        "my_attempt_table",  # Contains "temp" but not in pattern
+        "contemporary_data",  # Contains "temp" but not in pattern
+    ]
+
+    # Test qualified table names (database.schema.table format)
+    qualified_temp_cases = [
+        "mydb.schema.tmp_table",  # Should extract "tmp_table"
+        "prod.public.temp_staging",  # Should extract "temp_staging"
+        "test.dbo.final_tmp",  # Should extract "final_tmp"
+        "warehouse.etl.stage_temp_work",  # Should extract "stage_temp_work"
+    ]
+
+    qualified_non_temp_cases = [
+        "mydb.schema.customers",  # Should extract "customers"
+        "prod.public.template_data",  # Should extract "template_data"
+    ]
+
+    # Run all test cases using the actual MySQLSource.is_temp_table method
+    for table_name in temp_cases:
+        assert mysql_source.is_temp_table(table_name), (
+            f"Expected '{table_name}' to be identified as temp table"
+        )
+
+    for table_name in non_temp_cases:
+        assert not mysql_source.is_temp_table(table_name), (
+            f"Expected '{table_name}' to NOT be identified as temp table"
+        )
+
+    for table_name in qualified_temp_cases:
+        assert mysql_source.is_temp_table(table_name), (
+            f"Expected qualified name '{table_name}' to be identified as temp table"
+        )
+
+    for table_name in qualified_non_temp_cases:
+        assert not mysql_source.is_temp_table(table_name), (
+            f"Expected qualified name '{table_name}' to NOT be identified as temp table"
+        )
 
 
 def test_mysql_procedure_pattern_filtering():

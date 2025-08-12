@@ -1,3 +1,4 @@
+import re
 from typing import Iterable, List, Union
 
 import pymysql  # noqa: F401
@@ -5,6 +6,7 @@ from pydantic.fields import Field
 from sqlalchemy import text, util
 from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
+from sqlalchemy.engine import Row
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.ingestion.api.decorators import (
@@ -60,6 +62,22 @@ base.ischema_names["linestring"] = LINESTRING
 base.ischema_names["polygon"] = POLYGON
 base.ischema_names["decimal128"] = DECIMAL128
 
+# SQL query constants for better maintainability
+STORED_PROCEDURES_QUERY = """
+SELECT
+    ROUTINE_NAME as name,
+    ROUTINE_DEFINITION as definition,
+    ROUTINE_COMMENT as comment,
+    CREATED,
+    LAST_ALTERED,
+    SQL_DATA_ACCESS,
+    SECURITY_TYPE,
+    DEFINER
+FROM information_schema.ROUTINES
+WHERE ROUTINE_TYPE = 'PROCEDURE'
+AND ROUTINE_SCHEMA = :schema
+"""
+
 
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
@@ -98,7 +116,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, self.get_platform())
 
-    def get_platform(self):
+    def get_platform(self) -> str:
         return "mysql"
 
     @classmethod
@@ -114,15 +132,10 @@ class MySQLSource(TwoTierSQLAlchemySource):
         # MySQL temporary table patterns
         temp_patterns = [
             r"^#.*",  # Tables starting with #
-            r"^tmp_.*",  # Tables starting with tmp_
-            r"^temp_.*",  # Tables starting with temp_
-            r".*_tmp$",  # Tables ending with _tmp
-            r".*_temp$",  # Tables ending with _temp
-            r".*_tmp_.*",  # Tables containing _tmp_
-            r".*_temp_.*",  # Tables containing _temp_
+            r"^(tmp|temp)_.*",  # Tables starting with tmp_ or temp_
+            r".*_(tmp|temp)$",  # Tables ending with _tmp or _temp
+            r".*_(tmp|temp)_.*",  # Tables containing _tmp_ or _temp_
         ]
-
-        import re
 
         table_name = name.split(".")[
             -1
@@ -221,35 +234,28 @@ class MySQLSource(TwoTierSQLAlchemySource):
         base_procedures = []
         with inspector.engine.connect() as conn:
             procedures = conn.execute(
-                text("""
-                SELECT
-                    ROUTINE_NAME as name,
-                    ROUTINE_DEFINITION as definition,
-                    ROUTINE_COMMENT as comment,
-                    CREATED,
-                    LAST_ALTERED,
-                    SQL_DATA_ACCESS,
-                    SECURITY_TYPE,
-                    DEFINER
-                FROM information_schema.ROUTINES
-                WHERE ROUTINE_TYPE = 'PROCEDURE'
-                AND ROUTINE_SCHEMA = :schema
-                """),
+                text(STORED_PROCEDURES_QUERY),
                 {"schema": schema},
             )
 
-            procedure_rows = list(procedures)
+            procedure_rows: List[Row] = list(procedures)
             for row in procedure_rows:
+                # Extract name with fallback - name is required for BaseProcedure
+                procedure_name = getattr(row, "name", None)
+                if not procedure_name:
+                    # Skip procedures without names
+                    continue
+
                 base_procedures.append(
                     BaseProcedure(
-                        name=row.name,
+                        name=procedure_name,
                         language="SQL",
                         argument_signature=None,
                         return_type=None,
-                        procedure_definition=row.definition,
-                        created=row.CREATED,
-                        last_altered=row.LAST_ALTERED,
-                        comment=row.comment,
+                        procedure_definition=getattr(row, "definition", None),
+                        created=getattr(row, "CREATED", None),
+                        last_altered=getattr(row, "LAST_ALTERED", None),
+                        comment=getattr(row, "comment", None),
                         extra_properties={
                             k: v
                             for k, v in {
