@@ -154,6 +154,7 @@ information like tokens.
 - Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
 
 - Configuring DataHub authentication token
+
   - Add below config in cluster spark config.
 
     ```text
@@ -161,6 +162,7 @@ information like tokens.
     ```
 
   - Alternatively, Databricks secrets can be used to secure token.
+
     - Create secret using Databricks CLI.
 
       ```sh
@@ -430,6 +432,7 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.17
 
 - _Major changes_:
+
   - Finegrained lineage is emitted on the DataJob and not on the emitted Datasets. This is the correct behaviour which was not correct earlier. This causes earlier emitted finegrained lineages won't be overwritten by the new ones.
     You can remove the old lineages by setting `spark.datahub.legacyLineageCleanup.enabled=true`. Make sure you have the latest server if you enable with patch support. (this was introduced since 0.2.17-rc5)
 
