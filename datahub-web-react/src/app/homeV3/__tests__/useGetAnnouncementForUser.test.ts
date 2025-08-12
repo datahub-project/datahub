@@ -46,12 +46,19 @@ const mockPosts = [
 ];
 
 describe('useGetAnnouncementsForUser', () => {
+    const refetchUser = vi.fn();
+
     beforeEach(() => {
         vi.clearAllMocks();
+
+        (useUserContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+            user: mockUser,
+            refetchUser,
+        });
     });
 
     it('should return filtered announcements and loading state', () => {
-        (useUserContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+        (useUserContext as unknown as ReturnType<typeof vi.fn>).mockReturnValueOnce({
             user: {
                 settings: {
                     homePage: {
@@ -59,6 +66,7 @@ describe('useGetAnnouncementsForUser', () => {
                     },
                 },
             },
+            refetchUser,
         });
         (useGetLastViewedAnnouncementTime as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ time: 123 });
         (useListPostsQuery as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -87,15 +95,13 @@ describe('useGetAnnouncementsForUser', () => {
 
     it('should call updateUserHomePageSettings on dismiss', async () => {
         const updateUserHomePageSettings = vi.fn().mockResolvedValue({});
-        const refetch = vi.fn();
 
-        (useUserContext as any).mockReturnValue({ user: mockUser });
         (useGetLastViewedAnnouncementTime as any).mockReturnValue({ time: 123 });
         (useListPostsQuery as any).mockReturnValue({
             data: { listPosts: { posts: mockPosts } },
             loading: false,
             error: null,
-            refetch,
+            refetch: vi.fn(),
         });
         (useUpdateUserHomePageSettingsMutation as any).mockReturnValue([updateUserHomePageSettings]);
 
@@ -111,6 +117,8 @@ describe('useGetAnnouncementsForUser', () => {
         expect(updateUserHomePageSettings).toHaveBeenCalledWith({
             variables: { input: { newDismissedAnnouncements: ['urn:2'] } },
         });
+
+        expect(refetchUser).toHaveBeenCalled();
     });
 
     it('should filter out announcements that are in newDismissedUrns', async () => {
@@ -122,6 +130,7 @@ describe('useGetAnnouncementsForUser', () => {
                     },
                 },
             },
+            refetchUser,
         });
         (useGetLastViewedAnnouncementTime as any).mockReturnValue({ time: 123 });
         (useListPostsQuery as any).mockReturnValue({
@@ -130,24 +139,24 @@ describe('useGetAnnouncementsForUser', () => {
             error: null,
             refetch: vi.fn(),
         });
-        (useUpdateUserHomePageSettingsMutation as any).mockReturnValue([vi.fn()]);
+        const mockUpdateUserHomePageSettings = vi.fn(() => Promise.resolve());
+        (useUpdateUserHomePageSettingsMutation as any).mockReturnValue([mockUpdateUserHomePageSettings]);
 
-        const { result } = renderHook(() => useGetAnnouncementsForUser());
+        const { result, waitForNextUpdate } = renderHook(() => useGetAnnouncementsForUser());
 
         expect(result.current.announcements.map((p) => p.urn)).toEqual(['urn:2', 'urn:3']);
 
         await act(async () => {
             result.current.onDismissAnnouncement('urn:2');
-            await new Promise((resolve) => {
-                setTimeout(resolve, 10);
-            });
+            await waitForNextUpdate?.();
         });
 
         expect(result.current.announcements.map((p) => p.urn)).toEqual(['urn:3']);
+        expect(refetchUser).toHaveBeenCalled();
     });
 
     it('should handle when lastViewedAnnouncementsTime is undefined', () => {
-        (useUserContext as any).mockReturnValue({ user: mockUser });
+        (useUserContext as any).mockReturnValue({ user: mockUser, refetchUser });
         (useGetLastViewedAnnouncementTime as any).mockReturnValue({});
         const useListPostsQueryMock = useListPostsQuery as unknown as ReturnType<typeof vi.fn>;
         useListPostsQueryMock.mockReturnValue({
@@ -168,7 +177,7 @@ describe('useGetAnnouncementsForUser', () => {
     });
 
     it('should skip query if user is not present', () => {
-        (useUserContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ user: null });
+        (useUserContext as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ user: null, refetchUser });
         (useGetLastViewedAnnouncementTime as unknown as ReturnType<typeof vi.fn>).mockReturnValue({ time: 123 });
         const useListPostsQueryMock = useListPostsQuery as unknown as ReturnType<typeof vi.fn>;
         useListPostsQueryMock.mockReturnValue({
@@ -184,7 +193,7 @@ describe('useGetAnnouncementsForUser', () => {
     });
 
     it('should skip query if lastViewedTimeLoading is true', () => {
-        (useUserContext as any).mockReturnValue({ user: mockUser });
+        (useUserContext as any).mockReturnValue({ user: mockUser, refetchUser });
         (useGetLastViewedAnnouncementTime as any).mockReturnValue({ time: null, loading: true });
         const useListPostsQueryMock = useListPostsQuery as unknown as ReturnType<typeof vi.fn>;
         useListPostsQueryMock.mockReturnValue({

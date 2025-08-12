@@ -587,3 +587,54 @@ def test_get_urns() -> None:
                 "skipCache": False,
             },
         )
+
+
+def test_get_urns_with_skip_cache() -> None:
+    graph = MockDataHubGraph()
+
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        result_urns = ["urn:li:corpuser:datahub"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
+
+        client = DataHubClient(graph=graph)
+        urns = client.search.get_urns(
+            filter=F.and_(
+                F.entity_type("corpuser"),
+            ),
+            skip_cache=True,
+        )
+        assert list(urns) == [Urn.from_string(urn) for urn in result_urns]
+
+        assert mock_execute_graphql.call_count == 1
+        mock_execute_graphql.assert_called_once_with(
+            unittest.mock.ANY,
+            variables={
+                "types": ["CORP_USER"],
+                "query": "*",
+                "orFilters": [
+                    {
+                        "and": [
+                            {
+                                "field": "_entityType",
+                                "condition": "EQUAL",
+                                "values": ["CORP_USER"],
+                            },
+                            {
+                                "field": "removed",
+                                "condition": "EQUAL",
+                                "values": ["true"],
+                                "negated": True,
+                            },
+                        ]
+                    }
+                ],
+                "batchSize": unittest.mock.ANY,
+                "scrollId": None,
+                "skipCache": True,
+            },
+        )
