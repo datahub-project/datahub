@@ -2,7 +2,7 @@
 
 :::note Supported Data Platforms
 Currently we support monitoring data on Snowflake, Redshift, BigQuery, and Databricks as part of DataHub Cloud Observe.
-DataHub Cloud Observe can still monitor assertions for other data platforms against dataset metrics (such as row count, or column nullness) and dataset freshenss by using the [ingested statistics](/metadata-ingestion/docs/dev_guides/sql_profiles).
+DataHub Cloud Observe can still monitor assertions for other data platforms against dataset metrics (such as row count, or column nullness) and dataset freshenss by using the [ingested statistics](/metadata-ingestion/docs/dev_guides/sql_profiles.md).
 :::
 
 An assertion is **a data quality test that finds data that violates a specified rule.**
