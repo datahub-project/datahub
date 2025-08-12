@@ -58,6 +58,7 @@ export default function ModuleMenu({ module, position }: Props) {
             module,
             position,
         });
+        setShowRemoveModuleConfirmation(false);
     }, [removeModule, module, position]);
 
     const handleMenuClick = useCallback((e: React.MouseEvent) => {

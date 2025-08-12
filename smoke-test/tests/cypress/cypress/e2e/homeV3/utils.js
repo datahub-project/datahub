@@ -54,7 +54,7 @@ export function resetToOrgDefault() {
   closeForkedHomepageToast();
   cy.getWithTestId("edit-home-page-settings").click({ force: true });
   cy.getWithTestId("reset-to-organization-default").click();
-  cy.getWithTestId("modal-confirm-button").should("be.visible").click();
+  cy.getWithTestId("modal-confirm-button").filter(":visible").click();
 }
 
 export function startEditingDefaultTemplate() {
@@ -65,7 +65,9 @@ export function startEditingDefaultTemplate() {
 }
 
 export function finishEditingDefaultTemplate() {
-  cy.getWithTestId("finish-editing-default-template").click();
+  cy.getWithTestId("finish-editing-default-template")
+    .should("be.visible")
+    .click();
   cy.getWithTestId("editing-default-template-bar").should("not.exist");
 }
 
@@ -86,6 +88,7 @@ export function removeFirstModuleWithTestId(testId) {
       cy.getWithTestId("module-options").click();
     });
   cy.getWithTestId("remove-module").click();
+  cy.getWithTestId("modal-confirm-button").filter(":visible").click();
   cy.wait(100);
 }
 

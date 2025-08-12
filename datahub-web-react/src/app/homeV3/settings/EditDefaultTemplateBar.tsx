@@ -32,7 +32,7 @@ export default function EditDefaultTemplateBar() {
     if (!isEditingGlobalTemplate) return null;
 
     return (
-        <ActionsBar>
+        <ActionsBar dataTestId="editing-default-template-bar">
             <Warning>
                 <Icon icon="ExclamationMark" color="red" weight="fill" source="phosphor" />
                 <span>Editing Organization Default Home</span>
