@@ -6,6 +6,7 @@ import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext'
 import BaseModuleModal from '@app/homeV3/moduleModals/common/BaseModuleModal';
 import ModuleDetailsForm from '@app/homeV3/moduleModals/common/ModuleDetailsForm';
 import AssetsSection from '@app/homeV3/modules/assetCollection/AssetsSection';
+import { ModalContext } from '@app/sharedV2/modals/ModalContext';
 
 import { DataHubPageModuleType } from '@types';
 
@@ -59,10 +60,12 @@ const AssetCollectionModal = () => {
             submitButtonProps={{ disabled: isDisabled }}
             bodyStyles={{ overflow: 'hidden' }}
         >
-            <ModalContent>
-                <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
-                <AssetsSection selectedAssetUrns={selectedAssetUrns} setSelectedAssetUrns={setSelectedAssetUrns} />
-            </ModalContent>
+            <ModalContext.Provider value={{ isInsideModal: true }}>
+                <ModalContent>
+                    <ModuleDetailsForm form={form} formValues={{ name: currentName }} />
+                    <AssetsSection selectedAssetUrns={selectedAssetUrns} setSelectedAssetUrns={setSelectedAssetUrns} />
+                </ModalContent>
+            </ModalContext.Provider>
         </BaseModuleModal>
     );
 };
