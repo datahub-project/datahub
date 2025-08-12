@@ -474,6 +474,13 @@ class TableauPageSizeConfig(ConfigModel):
         return self.database_table_page_size or self.page_size
 
 
+_IngestHiddenAssetsOptionsType = Literal["worksheet", "dashboard"]
+_IngestHiddenAssetsOptions: List[_IngestHiddenAssetsOptionsType] = [
+    "worksheet",
+    "dashboard",
+]
+
+
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
@@ -621,8 +628,8 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
-        default=["worksheet", "dashboard"],
+    ingest_hidden_assets: Union[List[_IngestHiddenAssetsOptionsType], bool] = Field(
+        _IngestHiddenAssetsOptions,
         description=(
             "When enabled, hidden worksheets and dashboards are ingested into Datahub."
             " If a dashboard or worksheet is hidden in Tableau the luid is blank."
