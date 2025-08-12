@@ -1,10 +1,17 @@
 import json
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 import pydantic
 from diskcache import Cache
 from mlflow.metrics.genai.prompt_template import PromptTemplate
 
+from datahub_integrations.chat.chat_history import (
+    ChatHistory,
+    ToolCallRequest,
+    ToolResult,
+    ToolResultError,
+)
+from datahub_integrations.experimentation.chatbot.chatbot import ExpectedToolCall
 from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
 
 JUDGE_CACHE_ENABLED = True
@@ -81,3 +88,126 @@ def chatbot_llm_judge_evaluation(
             choice=None,
             justification=f"Failed to parse LLM judge response: {raw_response}",
         )
+
+
+class ToolCallValidationResult(pydantic.BaseModel):
+    """Result of validating expected tool calls against chat history."""
+
+    is_valid: bool
+    justification: str
+
+
+def _arguments_match(expected_args: dict, actual_args: dict) -> bool:
+    """
+    Check if actual arguments match expected arguments.
+
+    Expected arguments can use "*" as a wildcard to indicate that
+    the argument can be any value or can be absent.
+
+    Args:
+        expected_args: Expected arguments, may contain "*" wildcards
+        actual_args: Actual arguments from tool call
+
+    Returns:
+        True if arguments match, False otherwise
+    """
+    for key, expected_value in expected_args.items():
+        if expected_value == "*":
+            # Wildcard - any value or absence is acceptable
+            continue
+
+        if key not in actual_args:
+            # Required argument is missing
+            return False
+
+        if actual_args[key] != expected_value:
+            # Argument value doesn't match
+            return False
+
+    # All expected arguments matched (wildcards or exact matches)
+    return True
+
+
+# TOOD: support wildcard / regex for string arguments in tool calls - particularly useful for siblings, search
+def validate_expected_tool_calls(
+    chat_history: ChatHistory, expected_tool_calls: List[ExpectedToolCall]
+) -> ToolCallValidationResult:
+    """
+    Validate that all expected tool calls are present in the chat history.
+
+    Uses subset matching - all expected tool calls must be present, but additional
+    tool calls are allowed. Tool arguments are matched exactly as key-value pairs,
+    with dict comparison ignoring key order.
+
+    Args:
+        chat_history: The chat history containing actual tool calls
+        expected_tool_calls: List of expected tool calls to validate
+
+    Returns:
+        ToolCallValidationResult with validation outcome and detailed justification
+    """
+    if not expected_tool_calls:
+        return ToolCallValidationResult(
+            is_valid=True, justification="No expected tool calls to validate"
+        )
+
+    # Extract actual tool calls from chat history
+    actual_tool_requests: List[ToolCallRequest] = []
+    for message in chat_history.messages:
+        if isinstance(message, (ToolResult, ToolResultError)):
+            actual_tool_requests.append(message.tool_request)
+
+    if not actual_tool_requests:
+        missing_calls = [
+            f"{call.tool_name}({call.tool_input})" for call in expected_tool_calls
+        ]
+        return ToolCallValidationResult(
+            is_valid=False,
+            justification=f"No tool calls found in chat history. Expected: {missing_calls}",
+        )
+
+    # Check each expected tool call
+    missing_tool_calls = []
+    found_tool_calls = []
+
+    for expected_call in expected_tool_calls:
+        found_match = False
+
+        for actual_call in actual_tool_requests:
+            if actual_call.tool_name == expected_call.tool_name:
+                # Check if arguments match, allowing "*" as wildcard
+                if _arguments_match(expected_call.tool_input, actual_call.tool_input):
+                    found_match = True
+                    found_tool_calls.append(
+                        f"{expected_call.tool_name}({expected_call.tool_input})"
+                    )
+                    break
+
+        if not found_match:
+            missing_tool_calls.append(
+                f"{expected_call.tool_name}({expected_call.tool_input})"
+            )
+
+    # Build detailed justification
+    if missing_tool_calls:
+        justification_parts = [f"Missing expected tool calls: {missing_tool_calls}"]
+
+        if found_tool_calls:
+            justification_parts.append(f"Found expected tool calls: {found_tool_calls}")
+
+        # Add details about what was actually called
+        actual_calls_summary = [
+            f"{call.tool_name}({call.tool_input})" for call in actual_tool_requests
+        ]
+        justification_parts.append(
+            f"Actual tool calls in history: {actual_calls_summary}"
+        )
+
+        return ToolCallValidationResult(
+            is_valid=False, justification=". ".join(justification_parts)
+        )
+
+    return ToolCallValidationResult(
+        is_valid=True,
+        justification=f"All {len(expected_tool_calls)} expected tool calls found: {found_tool_calls}",
+    )

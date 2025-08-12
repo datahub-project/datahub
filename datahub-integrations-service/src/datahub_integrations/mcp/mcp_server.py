@@ -330,13 +330,14 @@ class AssetLineageDirective(BaseModel):
     upstream: bool
     downstream: bool
     max_hops: int
+    extra_filters: Optional[Filter]
 
 
 class AssetLineageAPI:
     def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
 
-    def get_degree_filter(self, max_hops: int) -> Optional[Filter]:
+    def get_degree_filter(self, max_hops: int) -> Filter:
         """
         max_hops: Maximum number of hops to search for lineage
         """
@@ -360,8 +361,10 @@ class AssetLineageAPI:
     ) -> Dict[str, Any]:
         result: Dict[str, Any] = {}
 
-        degree_filter = self.get_degree_filter(asset_lineage_directive.max_hops)
-        types, compiled_filters = compile_filters(degree_filter)
+        filter = self.get_degree_filter(asset_lineage_directive.max_hops)
+        if asset_lineage_directive.extra_filters:
+            filter = FilterDsl.and_(filter, asset_lineage_directive.extra_filters)
+        types, compiled_filters = compile_filters(filter)
         variables = {
             "urn": asset_lineage_directive.urn,
             "start": 0,
@@ -405,18 +408,35 @@ class AssetLineageAPI:
 @mcp.tool(
     description="""\
 Use this tool to get upstream or downstream lineage for any entity, including datasets, schemaFields, dashboards, charts, etc. \
-Set upstream to True for upstream lineage, False for downstream lineage."""
+Set upstream to True for upstream lineage, False for downstream lineage.
+Set `column: null` to get lineage for entire dataset or for entity type other than dataset.
+Setting max_hops to 3 is equivalent to unlimited hops.
+Usage and format of filters is same as that in search tool.
+"""
 )
 @async_background
 def get_lineage(
-    urn: str, column: Optional[str] = None, upstream: bool = True, max_hops: int = 1
+    urn: str,
+    column: Optional[str],
+    filters: Optional[Filter | str] = None,
+    upstream: bool = True,
+    max_hops: int = 1,
 ) -> dict:
     client = get_datahub_client()
+    # NOTE: See comment in search tool for why we parse filters as strings.
+    if isinstance(filters, str):
+        # The Filter type already has a BeforeValidator that parses JSON strings.
+        filters = load_filters(filters)
+
     lineage_api = AssetLineageAPI(client._graph)
 
     urn = _maybe_convert_to_schema_field_urn(urn, column)
     asset_lineage_directive = AssetLineageDirective(
-        urn=urn, upstream=upstream, downstream=not upstream, max_hops=max_hops
+        urn=urn,
+        upstream=upstream,
+        downstream=not upstream,
+        max_hops=max_hops,
+        extra_filters=filters,
     )
     lineage = lineage_api.get_lineage(asset_lineage_directive)
     _inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])

@@ -1,21 +1,36 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 
-import json
 from typing import List, Optional
 
 import asyncer
 import mlflow
+import mlflow.metrics
 import pandas as pd
 import typer
 from loguru import logger
 from mlflow.entities import Run
 from mlflow.metrics import MetricValue
 
+from datahub_integrations.experimentation.chatbot.chatbot import (
+    Prompt,
+    prompts,
+)
+from datahub_integrations.experimentation.chatbot.eval_helpers import (
+    extract_response_from_history_json,
+)
 from datahub_integrations.experimentation.chatbot.judge import (
     CHATBOT_AI_JUDGE_MODEL,
     BedrockModel,
     LLMJudgeResponse,
     chatbot_llm_judge_evaluation,
+)
+from datahub_integrations.experimentation.chatbot.metrics import (
+    expected_tool_calls_metric_fn,
+    has_valid_links_metric_fn,
+    run_tool_eval_metric_fn,
+)
+from datahub_integrations.experimentation.mlflow_utils import (
+    get_most_recent_run_for_expt,
 )
 
 assert AI_EXPERIMENTATION_INITIALIZED
@@ -26,6 +41,7 @@ mlflow.set_experiment(EXPERIMENT_NAME)
 
 # AI judge model - using same as docs generation
 AI_JUDGE_MODEL = BedrockModel.CLAUDE_4_SONNET
+prompt_map = {p.id: p for p in prompts}
 
 
 def get_run_or_fail(run_name: str) -> Run:
@@ -43,7 +59,8 @@ def get_run_or_fail(run_name: str) -> Run:
 
 def get_ai_eval_run_name(run_name: str) -> str:
     """Generate AI evaluation run name with prefix."""
-    return f"ai_eval_{run_name}"
+    original_run_name = run_name.replace("ai_eval_", "")
+    return f"ai_eval_{original_run_name}"
 
 
 async def eval_guideline_adherence(
@@ -62,6 +79,7 @@ async def eval_guideline_adherence(
     return [result.value for result in results]
 
 
+@mlflow.trace
 def eval_single_guideline_adherence(
     prediction: str, target: str
 ) -> Optional[LLMJudgeResponse]:
@@ -70,17 +88,18 @@ def eval_single_guideline_adherence(
         return None
 
     try:
-        target_dict = json.loads(target) if isinstance(target, str) else target
-        message = target_dict.get("message", "")
-        response_guidelines = target_dict.get("response_guidelines", "")
+        prompt = Prompt.model_validate_json(target)
+        message = prompt.message
+        response_guidelines = prompt.response_guidelines
+        mlflow.update_current_trace(tags={"prompt_id": prompt.id})
 
-        if not response_guidelines:
+        if not message or not response_guidelines:
             return None
 
         judge_response: LLMJudgeResponse = chatbot_llm_judge_evaluation(
             message=message,
             response=prediction,
-            guidelines=response_guidelines,
+            guidelines=response_guidelines or "",
         )
         return judge_response
 
@@ -89,35 +108,29 @@ def eval_single_guideline_adherence(
         return None
 
 
-def _guideline_adherence_metric_fn(
+def guideline_adherence_metric_fn(
     predictions: pd.Series, targets: pd.Series
 ) -> MetricValue:
     """Evaluate responses against guidelines using LLM judge."""
-    all_scores: List[Optional[bool]] = [None] * len(predictions)
-    all_justifications: List[Optional[str]] = [None] * len(predictions)
+    responses = [extract_response_from_history_json(pred) for pred in predictions]
+
+    all_scores: List[Optional[bool]] = [None] * len(responses)
+    all_justifications: List[Optional[str]] = [None] * len(responses)
     judged_scores: List[bool] = []
 
     judge_responses = asyncer.syncify(eval_guideline_adherence, raise_sync_error=False)(
-        predictions, targets
+        responses, targets
     )
 
     for i, judge_response in enumerate(judge_responses):
         if judge_response is None:
             # Handle cases where evaluation was skipped or failed
-            if (
-                predictions.iloc[i] is None
-                or predictions.iloc[i] == ""
-                or predictions.iloc[i] == "None"
-            ):
+            if responses[i] is None or responses[i] == "" or responses[i] == "None":
                 all_justifications[i] = "No response to evaluate"
             else:
                 try:
-                    target_dict = (
-                        json.loads(targets.iloc[i])
-                        if isinstance(targets.iloc[i], str)
-                        else targets.iloc[i]
-                    )
-                    response_guidelines = target_dict.get("response_guidelines", "")
+                    prompt = Prompt.model_validate_json(targets.iloc[i])
+                    response_guidelines = prompt.response_guidelines
                     if not response_guidelines:
                         all_justifications[i] = "No guidelines provided"
                     else:
@@ -144,14 +157,6 @@ def _guideline_adherence_metric_fn(
     )
 
 
-# Create custom metrics
-guideline_adherence_metric = mlflow.metrics.make_metric(
-    eval_fn=_guideline_adherence_metric_fn,
-    greater_is_better=True,
-    name="guideline_adherence",
-)
-
-
 def model_fn(x: pd.DataFrame) -> pd.DataFrame:
     """Dummy model function required by mlflow.evaluate."""
     return x
@@ -170,15 +175,14 @@ def run_ai_evaluation(run_name: str, run_description: Optional[str] = None) -> N
     # Hack to get multiple columns from source dataframe
     # Alternatively, we can evaluate metrics outside mlflow.evaluate and just log them
     # Create target column combining message and response_guidelines for evaluation
-    def create_target_dict(row):
-        return {
-            "message": row["message"],
-            "response_guidelines": row["response_guidelines"],
-            "prompt_id": row["prompt_id"],
-            "instance": row["instance"],
-        }
+    # Using prompts from file to pick latest updated response_guidelines and expected_tool_calls
+    def create_target_column(row):
+        if row["prompt_id"] not in prompt_map:
+            raise ValueError(f"Prompt {row['prompt_id']} not found in prompt map")
+        prompt = prompt_map[row["prompt_id"]]
+        return prompt.model_dump_json()
 
-    results_df["target"] = results_df.apply(create_target_dict, axis=1)
+    results_df["target"] = results_df.apply(create_target_column, axis=1)
 
     ai_eval_run_name = get_ai_eval_run_name(run_name)
 
@@ -209,11 +213,30 @@ def run_ai_evaluation(run_name: str, run_description: Optional[str] = None) -> N
             mlflow.evaluate(
                 model=model_fn,
                 data=results_df,
-                predictions="response",
+                predictions="history",
                 evaluators="default",
                 targets="target",
                 extra_metrics=[
-                    guideline_adherence_metric,
+                    mlflow.metrics.make_metric(
+                        eval_fn=has_valid_links_metric_fn,
+                        name="has_valid_links",
+                        greater_is_better=True,
+                    ),
+                    mlflow.metrics.make_metric(
+                        eval_fn=run_tool_eval_metric_fn,
+                        name="run_tool",
+                        greater_is_better=True,
+                    ),
+                    mlflow.metrics.make_metric(
+                        eval_fn=guideline_adherence_metric_fn,
+                        greater_is_better=True,
+                        name="guideline_adherence",
+                    ),
+                    mlflow.metrics.make_metric(
+                        eval_fn=expected_tool_calls_metric_fn,
+                        name="expected_tool_calls",
+                        greater_is_better=True,
+                    ),
                 ],
             )
             logger.info("AI evaluation completed successfully")
@@ -222,8 +245,11 @@ def run_ai_evaluation(run_name: str, run_description: Optional[str] = None) -> N
             raise
 
 
-def main(run_name: str):
+def main(run_name: Optional[str] = None):
     """Main entry point that accepts run name as CLI argument."""
+
+    if run_name is None:
+        run_name = get_most_recent_run_for_expt(EXPERIMENT_NAME).info.run_name
     logger.info(f"Starting AI evaluation for run: {run_name}")
     run_ai_evaluation(run_name)
 

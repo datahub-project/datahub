@@ -16,6 +16,17 @@ mlflow.set_experiment("Chatbot")
 chatbot_experiments_dir = ROOT_DIR / "experiments/chatbot"
 
 
+class ExpectedToolCall(pydantic.BaseModel):
+    """Represents an expected tool call with name and arguments.
+
+    Arguments can be specified as exact values or as "*" to indicate
+    that the argument can be any value (present or absent).
+    """
+
+    tool_name: str
+    tool_input: dict
+
+
 class Prompt(pydantic.BaseModel):
     id: str
     instance: str
@@ -23,6 +34,7 @@ class Prompt(pydantic.BaseModel):
 
     response_guidelines: str | None = None
     tags: list[str] | None = None
+    expected_tool_calls: list[ExpectedToolCall] | None = None
 
     # TODO: add mechanism for testing follow-up questions using a starting chat history
 

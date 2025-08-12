@@ -1,10 +1,15 @@
 import re
 import urllib.parse
+from functools import lru_cache
 from typing import List
 
 from loguru import logger
 
-from datahub_integrations.chat.chat_history import ChatHistory, ToolResult
+from datahub_integrations.chat.chat_history import (
+    AssistantMessage,
+    ChatHistory,
+    ToolResult,
+)
 
 
 def _extract_urns_from_dict(data: dict) -> List[str]:
@@ -61,3 +66,29 @@ def extract_datahub_links_from_response(response: str) -> List[str]:
     pattern = r"https://[^/]+\.acryl\.io/[^/]+/([^\)]+)"
     matches = re.findall(pattern, response)
     return [urllib.parse.unquote(urn.strip("\\/")) for urn in matches]
+
+
+def extract_response_from_history(history: ChatHistory) -> str | None:
+    """Extract the response to user from chat history."""
+
+    try:
+        # Look for the last ToolResult with tool_name "respond_to_user"
+        for message in reversed(history.messages):
+            if (
+                isinstance(message, ToolResult)
+                and message.tool_request.tool_name == "respond_to_user"
+            ):
+                return message.tool_request.tool_input["response"]
+            elif len(history.messages) == 2 and isinstance(message, AssistantMessage):
+                return message.text
+        return None
+    except Exception:
+        return None
+
+
+@lru_cache(maxsize=1000)
+def extract_response_from_history_json(history_json: str) -> str | None:
+    if not history_json:
+        return None
+    history = ChatHistory.model_validate_json(history_json)
+    return extract_response_from_history(history)

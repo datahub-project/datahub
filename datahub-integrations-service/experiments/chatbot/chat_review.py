@@ -23,6 +23,9 @@ from datahub_integrations.experimentation.chatbot.judge import (
     chatbot_llm_judge_evaluation,
 )
 from datahub_integrations.experimentation.chatbot.st_chat_history import st_chat_history
+from datahub_integrations.experimentation.mlflow_utils import (
+    get_most_recent_run_for_expt,
+)
 
 st.set_page_config(layout="wide")
 
@@ -38,17 +41,7 @@ def load_run_data(run_id: str) -> pd.DataFrame:
 
 @st.cache_data()
 def get_most_recent_run() -> mlflow_entities.Run:
-    """Get the most recent MLflow run name."""
-    runs = mlflow.search_runs(
-        experiment_names=[EXPERIMENT_NAME],
-        order_by=["start_time DESC"],
-        max_results=1,
-        output_format="list",
-    )
-    assert isinstance(runs, list)
-    if not runs:
-        raise ValueError("No runs found in experiment")
-    return runs[0]
+    return get_most_recent_run_for_expt(EXPERIMENT_NAME)
 
 
 def get_run_or_fail(run_name: str) -> mlflow_entities.Run:

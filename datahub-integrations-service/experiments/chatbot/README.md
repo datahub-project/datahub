@@ -15,13 +15,9 @@ To run the bot + evals:
 - `id`: a unique identifier for the prompt
 - `instance`: the instance of the chatbot to run the prompt on
 - `message`: the prompt message
-- `response_guidelines`: the response guidelines for the prompt; passed to the LLM judge
-- `tags`: list of tags
-
-## AI Evaluation
-
-The `run_ai_eval.py` script provides automated evaluation of chatbot experiment results using MLflow's evaluation framework.
-Run with: `python run_ai_eval.py <run-name>`
+- `response_guidelines` (Optional): the response guidelines for the prompt; passed to the LLM judge
+- `tags` (Optional): list of tags
+- `expected_tool_calls` (Optional): the list of tool calls supposed to be present in chat history
 
 ## Other tools
 
