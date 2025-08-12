@@ -8,16 +8,6 @@ from datahub.ingestion.source.sql.mariadb import MariaDBConfig, MariaDBSource
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 
 
-def create_mock_row(data: dict) -> MagicMock:
-    """Create a mock Row object that behaves like SQLAlchemy Row with _mapping attribute."""
-    mock_row = MagicMock()
-    mock_row._mapping = data
-    # Also support direct key access for compatibility
-    mock_row.__getitem__ = lambda self, key: data[key]
-    mock_row.get = lambda key, default=None: data.get(key, default)
-    return mock_row
-
-
 def test_platform_correctly_set_mariadb():
     source = MariaDBSource(
         ctx=PipelineContext(run_id="mariadb-source-test"),
@@ -78,20 +68,18 @@ def test_get_stored_procedures():
     """Test fetching stored procedures from MariaDB"""
     mock_conn = MagicMock(spec=Connection)
 
-    # Create mock result for ROUTINES query using proper Row-like objects
-    test_row = create_mock_row(
-        {
-            "ROUTINE_SCHEMA": "test_db",
-            "ROUTINE_NAME": "test_proc",
-            "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-            "ROUTINE_COMMENT": "Test procedure",
-            "CREATED": "2024-01-01",
-            "LAST_ALTERED": "2024-01-02",
-            "SQL_DATA_ACCESS": "MODIFIES",
-            "SECURITY_TYPE": "DEFINER",
-            "DEFINER": "root@localhost",
-        }
-    )
+    # Create mock result for ROUTINES query using simple dict
+    test_row = {
+        "ROUTINE_SCHEMA": "test_db",
+        "ROUTINE_NAME": "test_proc",
+        "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+        "ROUTINE_COMMENT": "Test procedure",
+        "CREATED": "2024-01-01",
+        "LAST_ALTERED": "2024-01-02",
+        "SQL_DATA_ACCESS": "MODIFIES",
+        "SECURITY_TYPE": "DEFINER",
+        "DEFINER": "root@localhost",
+    }
 
     routines_result = MagicMock()
     routines_result.__iter__.return_value = [test_row].__iter__()
@@ -216,20 +204,18 @@ def test_mariadb_error_handling():
     """Test error handling in MariaDB stored procedure fetching"""
     mock_conn = MagicMock(spec=Connection)
 
-    # Create mock result for ROUTINES query using proper Row-like objects
-    test_row = create_mock_row(
-        {
-            "ROUTINE_SCHEMA": "test_db",
-            "ROUTINE_NAME": "test_proc",
-            "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
-            "ROUTINE_COMMENT": "Test procedure",
-            "CREATED": "2024-01-01",
-            "LAST_ALTERED": "2024-01-02",
-            "SQL_DATA_ACCESS": "MODIFIES",
-            "SECURITY_TYPE": "DEFINER",
-            "DEFINER": "root@localhost",
-        }
-    )
+    # Create mock result for ROUTINES query using simple dict
+    test_row = {
+        "ROUTINE_SCHEMA": "test_db",
+        "ROUTINE_NAME": "test_proc",
+        "ROUTINE_DEFINITION": "CREATE PROCEDURE test_proc() BEGIN SELECT 1; END",
+        "ROUTINE_COMMENT": "Test procedure",
+        "CREATED": "2024-01-01",
+        "LAST_ALTERED": "2024-01-02",
+        "SQL_DATA_ACCESS": "MODIFIES",
+        "SECURITY_TYPE": "DEFINER",
+        "DEFINER": "root@localhost",
+    }
 
     routines_result = MagicMock()
     routines_result.__iter__.return_value = [test_row].__iter__()

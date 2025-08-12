@@ -240,8 +240,11 @@ class MySQLSource(TwoTierSQLAlchemySource):
 
             procedure_rows: List[Row] = list(procedures)
             for row in procedure_rows:
-                # Extract name with fallback - name is required for BaseProcedure
-                procedure_name = getattr(row, "name", None)
+                # Convert SQLAlchemy Row to dict for easier and safer access
+                row_dict = dict(row)
+
+                # Extract name - name is required for BaseProcedure
+                procedure_name = row_dict.get("name")
                 if not procedure_name:
                     # Skip procedures without names
                     continue
@@ -252,18 +255,16 @@ class MySQLSource(TwoTierSQLAlchemySource):
                         language="SQL",
                         argument_signature=None,
                         return_type=None,
-                        procedure_definition=getattr(row, "definition", None),
-                        created=getattr(row, "CREATED", None),
-                        last_altered=getattr(row, "LAST_ALTERED", None),
-                        comment=getattr(row, "comment", None),
+                        procedure_definition=row_dict.get("definition"),
+                        created=row_dict.get("CREATED"),
+                        last_altered=row_dict.get("LAST_ALTERED"),
+                        comment=row_dict.get("comment"),
                         extra_properties={
                             k: v
                             for k, v in {
-                                "sql_data_access": getattr(
-                                    row, "SQL_DATA_ACCESS", None
-                                ),
-                                "security_type": getattr(row, "SECURITY_TYPE", None),
-                                "definer": getattr(row, "DEFINER", None),
+                                "sql_data_access": row_dict.get("SQL_DATA_ACCESS"),
+                                "security_type": row_dict.get("SECURITY_TYPE"),
+                                "definer": row_dict.get("DEFINER"),
                             }.items()
                             if v is not None
                         },

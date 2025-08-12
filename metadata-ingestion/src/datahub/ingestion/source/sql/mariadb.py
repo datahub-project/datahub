@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic.fields import Field
-from sqlalchemy.engine import Row
 from sqlalchemy.engine.base import Connection
 from sqlalchemy.sql import text
 
@@ -67,30 +66,13 @@ class MariaDBSource(MySQLSource):
 
         procedures_list = []
 
-        # Helper function to safely access columns that might not exist
-        def safe_get(row_obj: Row, column: str) -> Optional[str]:
-            """Safely access a column by name from SQLAlchemy Row object.
-
-            Args:
-                row_obj: SQLAlchemy Row object
-                column: Column name to access
-
-            Returns:
-                Column value as string or None if not found
-            """
-            try:
-                # SQLAlchemy Row objects have _mapping attribute for reliable column access
-                if hasattr(row_obj, "_mapping") and column in row_obj._mapping:
-                    return row_obj._mapping[column]
-                # Fallback to direct key access
-                return row_obj[column]
-            except (KeyError, IndexError, AttributeError):
-                return None
-
         for row in conn.execute(query, {"schema": schema}):
+            # Convert SQLAlchemy Row to dict for easier and safer access
+            row_dict = dict(row)
+            procedure_name = row_dict.get("ROUTINE_NAME", "unknown")
+
             try:
-                # Access routine name with better type safety
-                routine_name = safe_get(row, "ROUTINE_NAME")
+                routine_name = row_dict.get("ROUTINE_NAME")
                 if not routine_name:
                     self.report.warning(
                         title="Skipping procedure with empty name",
@@ -100,7 +82,7 @@ class MariaDBSource(MySQLSource):
                     continue
 
                 # Use ROUTINE_DEFINITION directly from information_schema (same as MySQL)
-                code = safe_get(row, "ROUTINE_DEFINITION")
+                code = row_dict.get("ROUTINE_DEFINITION")
 
                 procedures_list.append(
                     BaseProcedure(
@@ -109,26 +91,21 @@ class MariaDBSource(MySQLSource):
                         argument_signature=None,
                         return_type=None,
                         procedure_definition=code,
-                        created=self._parse_datetime(safe_get(row, "CREATED")),
-                        last_altered=self._parse_datetime(
-                            safe_get(row, "LAST_ALTERED")
-                        ),
-                        comment=safe_get(row, "ROUTINE_COMMENT"),
+                        created=self._parse_datetime(row_dict.get("CREATED")),
+                        last_altered=self._parse_datetime(row_dict.get("LAST_ALTERED")),
+                        comment=row_dict.get("ROUTINE_COMMENT"),
                         extra_properties={
                             k: v
                             for k, v in {
-                                "sql_data_access": safe_get(row, "SQL_DATA_ACCESS"),
-                                "security_type": safe_get(row, "SECURITY_TYPE"),
-                                "definer": safe_get(row, "DEFINER"),
+                                "sql_data_access": row_dict.get("SQL_DATA_ACCESS"),
+                                "security_type": row_dict.get("SECURITY_TYPE"),
+                                "definer": row_dict.get("DEFINER"),
                             }.items()
                             if v is not None
                         },
                     )
                 )
             except Exception as e:
-                procedure_name = (
-                    routine_name if "routine_name" in locals() else "unknown"
-                )
                 self.report.warning(
                     title="Error processing stored procedure",
                     message=f"Failed to process procedure {schema}.{procedure_name}",
