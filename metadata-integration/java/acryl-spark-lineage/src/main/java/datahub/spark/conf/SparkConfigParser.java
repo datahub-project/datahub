@@ -409,10 +409,10 @@ public class SparkConfigParser {
   }
 
   public static boolean isCaptureColumnLevelLineage(Config datahubConfig) {
-    if (!datahubConfig.hasPath(CAPTURE_COLUMN_LEVEL_LINEAGE)) {
-      return true;
+    if (datahubConfig.hasPath(CAPTURE_COLUMN_LEVEL_LINEAGE)) {
+      return datahubConfig.getBoolean(CAPTURE_COLUMN_LEVEL_LINEAGE);
     }
-    return datahubConfig.hasPath(CAPTURE_COLUMN_LEVEL_LINEAGE)
-        && datahubConfig.getBoolean(CAPTURE_COLUMN_LEVEL_LINEAGE);
+
+    return true;
   }
 }
