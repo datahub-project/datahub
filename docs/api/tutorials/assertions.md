@@ -215,6 +215,8 @@ This API will return a unique identifier (URN) for the new assertion if you were
 ```
 
 </TabItem>
+
+<!-- TODO: move the python examples to metadata-ingestion/examples/library -->
 <TabItem value="python" label="Python">
 
 ```python
