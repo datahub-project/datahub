@@ -16,6 +16,17 @@ This guide specifically covers how to use the [DataHub Cloud Python SDK](https:/
 - Create: create a subscription to a dataset or assertion.
 - Remove: remove a subscription.
 
+# Prerequisites
+
+- DataHub Cloud Python SDK installed (`pip install acryl-datahub-cloud`)
+- The actor making API calls must have the `Manage User Subscriptions` privilege for the datasets at hand.
+- If subscribing to a group, the actor should also be a member of the group.
+
+:::note
+Before creating subscriptions, you need to ensure the target datasets and groups are already present in your DataHub instance.
+If you attempt to create subscriptions for entities that do not exist, GMS will continuously report errors to the logs.
+:::
+
 ## Create Subscription
 
 You can create subscriptions to receive notifications when assertions change state (pass, fail, or error) or when other entity changes occur. Subscriptions can be created at the dataset level (affecting any changes on the dataset, as well as all assertions on the dataset) or at the assertion level (affecting only specific assertions).
