@@ -93,7 +93,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "method": "GET",
             "status_code": 200,
             "json": {
-                "count": 4,
+                "count": 5,
                 "result": [
                     {
                         "id": 10,
@@ -166,6 +166,20 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
                         "viz_type": "histogram",
                         "url": "/explore/test_chart_url_13",
                         "datasource_id": "20",
+                        "params": '{"metrics": [], "adhoc_filters": []}',
+                    },
+                    {
+                        "id": 14,
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
+                        },
+                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "slice_name": "test_chart_title_5",
+                        "viz_type": "table",
+                        "url": "/explore/test_chart_url_14",
+                        "datasource_id": 1,
                         "params": '{"metrics": [], "adhoc_filters": []}',
                     },
                 ],
@@ -1055,16 +1069,18 @@ def test_superset_stateful_ingest(
         )
 
         assert len(dashboard_difference_urns) == 1
-        assert len(chart_difference_urns) == 1
+        assert len(chart_difference_urns) == 2
         assert len(dataset_difference_urns) == 1
 
         urn1 = "urn:li:dashboard:(superset,2)"
         urn2 = "urn:li:chart:(superset,13)"
-        urn3 = "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
+        urn3 = "urn:li:chart:(superset,14)"
+        urn4 = "urn:li:dataset:(urn:li:dataPlatform:superset,test_database1.test_schema1.Test Table 1,PROD)"
 
         assert urn1 in dashboard_difference_urns
         assert urn2 in chart_difference_urns
-        assert urn3 in dataset_difference_urns
+        assert urn3 in chart_difference_urns
+        assert urn4 in dataset_difference_urns
 
         # Validate that all providers have committed successfully.
         validate_all_providers_have_committed_successfully(
@@ -1080,3 +1096,248 @@ def test_superset_stateful_ingest(
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "golden_test_stateful_ingest.json",
         )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_superset_aggregate_chart(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
+) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
+
+    # Register mock API with both table and pie charts
+    mock_data = {
+        "mock://mock-domain.superset.com/api/v1/chart/": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "count": 3,
+                "result": [
+                    {
+                        "id": 20,
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
+                        },
+                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "slice_name": "test_time_series_bar",
+                        "viz_type": "echarts_timeseries_bar",
+                        "url": "/explore/test_chart_url_20",
+                        "datasource_id": 1,
+                        "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "query_mode": "aggregate",
+                            "x_axis": {
+                                "expressionType": "SQL",
+                                "label": "Creation Time",
+                                "sqlExpression": "CAST(creation_time AS DATE)",
+                            },
+                            "metrics": [
+                                {
+                                    "expressionType": "SIMPLE",
+                                    "column": {"column_name": "count_metric"},
+                                    "aggregate": "COUNT",
+                                    "label": "Count",
+                                },
+                                "simple_metric",
+                            ],
+                            "groupby": [
+                                {
+                                    "label": "Complex Group",
+                                    "expressionType": "SQL",
+                                    "sqlExpression": "case when complex_group > 100 then 'Large' else 'Small' end",
+                                },
+                                "simple_group",
+                            ],
+                        },
+                    },
+                    {
+                        "id": 21,
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 2,
+                            "last_name": "Owners2",
+                        },
+                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "slice_name": "test_aggregate_pie",
+                        "viz_type": "pie",
+                        "url": "/explore/test_chart_url_21",
+                        "datasource_id": 1,
+                        "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "query_mode": "aggregate",
+                            "metrics": ["count", "total_value"],
+                            "groupby": ["internal_status"],
+                            "viz_type": "pie",
+                            "metric": "count",
+                            "show_legend": True,
+                            "legendType": "scroll",
+                            "legendOrientation": "bottom",
+                            "label_type": "key",
+                            "number_format": "SMART_NUMBER",
+                            "date_format": "smart_date",
+                            "show_labels": True,
+                            "labels_outside": True,
+                            "label_line": True,
+                            "show_total": True,
+                            "outerRadius": 70,
+                            "donut": True,
+                            "innerRadius": 30,
+                        },
+                    },
+                    {
+                        "id": 22,
+                        "changed_by": {
+                            "first_name": "Test",
+                            "id": 1,
+                            "last_name": "Owners1",
+                        },
+                        "changed_on_utc": "2020-04-14T07:00:00.000000+0000",
+                        "slice_name": "Monthly Revenue Tracker",
+                        "viz_type": "big_number",
+                        "url": "/explore/test_chart_url_22",
+                        "datasource_id": 1,
+                        "params": '{"metrics": [], "adhoc_filters": []}',
+                        "form_data": {
+                            "viz_type": "big_number",
+                            "x_axis": "creation_time",
+                            "time_grain_sqla": "P1M",
+                            "aggregation": "LAST_VALUE",
+                            "metric": {
+                                "expressionType": "SQL",
+                                "hasCustomLabel": True,
+                                "label": "Total Revenue USD",
+                                "sqlExpression": "COALESCE(SUM(revenue_amount) + SUM(tax_amount), 0)",
+                            },
+                            "adhoc_filters": [
+                                {
+                                    "clause": "WHERE",
+                                    "comparator": "No filter",
+                                    "expressionType": "SIMPLE",
+                                    "operator": "TEMPORAL_RANGE",
+                                    "subject": "creation_time",
+                                }
+                            ],
+                            "compare_lag": "",
+                            "compare_suffix": "",
+                            "show_timestamp": True,
+                            "show_trend_line": True,
+                            "start_y_axis_at_zero": True,
+                            "header_font_size": 0.4,
+                            "subheader_font_size": 0.15,
+                            "subtitle": "(month to date)",
+                            "subtitle_font_size": 0.15,
+                            "y_axis_format": "$,.2f",
+                            "time_format": "smart_date",
+                            "force_timestamp_formatting": False,
+                            "rolling_type": "None",
+                        },
+                    },
+                ],
+            },
+        },
+        "mock://mock-domain.superset.com/api/v1/dataset/1": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "result": {
+                    "columns": [
+                        {
+                            "column_name": "count_metric",
+                            "type": "INT",
+                            "description": "count description",
+                        },
+                        {
+                            "column_name": "simple_metric",
+                            "type": "INT",
+                            "description": "metric description",
+                        },
+                        {
+                            "column_name": "complex_group",
+                            "type": "STRING",
+                            "description": "group description",
+                        },
+                        {
+                            "column_name": "internal_status",
+                            "type": "STRING",
+                            "description": "Status of the transaction",
+                        },
+                        {
+                            "column_name": "creation_time",
+                            "type": "TIMESTAMP",
+                            "description": "Creation time",
+                        },
+                        {
+                            "column_name": "revenue_amount",
+                            "type": "NUMERIC",
+                            "description": "Revenue amount in USD",
+                        },
+                        {
+                            "column_name": "tax_amount",
+                            "type": "NUMERIC",
+                            "description": "Tax amount in USD",
+                        },
+                    ],
+                    "metrics": [
+                        {
+                            "metric_name": "count",
+                            "expression": "COUNT(DISTINCT request_id)",
+                            "metric_type": "COUNT_DISTINCT",
+                            "description": "Count of requests",
+                        },
+                        {
+                            "changed_on": "2024-02-10T15:30:20.123456+0000",
+                            "created_on": "2024-02-10T15:30:20.123456+0000",
+                            "currency": None,
+                            "d3format": None,
+                            "description": None,
+                            "expression": "sum(value)",
+                            "extra": None,
+                            "id": 2,
+                            "metric_name": "total_value",
+                            "metric_type": "NUMERIC",
+                            "rendered_expression": "sum(value)",
+                            "verbose_name": "Total Value",
+                            "warning_text": None,
+                        },
+                    ],
+                    "database": {"database_name": "test_db", "id": 1},
+                    "schema": "test_schema",
+                    "table_name": "test_table",
+                }
+            },
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=mock_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "superset-test",
+            "source": {
+                "type": "superset",
+                "config": {
+                    "connect_uri": "mock://mock-domain.superset.com/",
+                    "username": "test_username",
+                    "password": "test_password",
+                    "provider": "db",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/superset_aggregate_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / "superset_aggregate_mces.json",
+        golden_path=test_resources_dir / "golden_test_aggregate_ingest.json",
+    )
