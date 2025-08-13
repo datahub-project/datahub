@@ -37,7 +37,7 @@ public class OwnerServiceUtils {
     newOwner.setType(type);
     newOwner.setTypeUrn(ownershipTypeUrn);
     if (sourceType != null) {
-      newOwner.setSource(new OwnershipSource().setType(OwnershipSourceType.MANUAL));
+      newOwner.setSource(new OwnershipSource().setType(sourceType));
     }
     newOwner.setOwner(ownerUrn);
     ownerArray.add(newOwner);
