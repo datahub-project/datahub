@@ -1,25 +1,16 @@
-import { Button, Text, colors } from '@components';
-import { Alert, Divider, message } from 'antd';
-import { Info } from 'phosphor-react';
-import React from 'react';
+import { Button } from '@components';
+import { Divider, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import AssetReviewModal from '@app/govern/Dashboard/Forms/AssetReviewModal';
-import LogicalFiltersBuilder from '@app/govern/Dashboard/Forms/filters/LogicalFiltersBuilder';
-import {
-    BulkCreateDatasetAssertionsSpec,
-    MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT,
-    PREDICATE_PROPERTIES,
-} from '@app/observe/shared/bulkCreate/constants';
+import { BulkCreateDatasetAssertionsSpec } from '@app/observe/shared/bulkCreate/constants';
 import { DEFAULT_ASSET_SELECTOR_FILTERS } from '@app/observe/shared/bulkCreate/form/BulkCreateAssertionsForm.constants';
-import {
-    stateToBulkCreateDatasetAssertionsSpec,
-    validateAndTransformAssetSelectorFilters,
-} from '@app/observe/shared/bulkCreate/form/BulkCreateAssertionsForm.utils';
+import { stateToBulkCreateDatasetAssertionsSpec } from '@app/observe/shared/bulkCreate/form/BulkCreateAssertionsForm.utils';
+import { AssertionsConfiguration } from '@app/observe/shared/bulkCreate/form/steps/AssertionsConfiguration';
+import { AssetsSelection } from '@app/observe/shared/bulkCreate/form/steps/AssetsSelection';
 import { useFreshnessForm } from '@app/observe/shared/bulkCreate/form/useFreshnessForm';
 import { useVolumeForm } from '@app/observe/shared/bulkCreate/form/useVolumeForm';
 import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
-import { convertLogicalPredicateToOrFilters } from '@app/tests/builder/steps/definition/builder/utils';
 
 const Wrapper = styled.div`
     display: flex;
@@ -30,11 +21,29 @@ const CreateButton = styled(Button)`
     align-self: flex-end;
 `;
 
+const ActionButtons = styled.div`
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+`;
+
+type Steps = 'asset_selection' | 'assertion_configuration';
+const ASSET_SELECTION_STEP: Steps = 'asset_selection';
+const ASSERTION_CONFIGURATION_STEP: Steps = 'assertion_configuration';
+
 type Props = {
     onSubmit: (spec: BulkCreateDatasetAssertionsSpec) => void;
 };
 
 export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
+    const [step, setStep] = useState<Steps>(ASSET_SELECTION_STEP);
+    const onNextStep = () => {
+        setStep(step === ASSET_SELECTION_STEP ? ASSERTION_CONFIGURATION_STEP : ASSERTION_CONFIGURATION_STEP);
+    };
+    const onPrevStep = () => {
+        setStep(step === ASSERTION_CONFIGURATION_STEP ? ASSET_SELECTION_STEP : ASSET_SELECTION_STEP);
+    };
+
     // --------------------------------- Asset Selector state --------------------------------- //
     const [filters, setFilters] = React.useState<LogicalPredicate>(DEFAULT_ASSET_SELECTOR_FILTERS);
 
@@ -83,71 +92,28 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
     return (
         <Wrapper style={{ display: 'flex', flexDirection: 'column' }}>
             {/* --------------------------------- Asset Selector --------------------------------- */}
-            <Text size="lg" color="gray" colorLevel={600} weight="semiBold">
-                Select the Datasets to bulk create assertions for...
-            </Text>
-            <Text size="md" color="gray" colorLevel={1700}>
-                If more than {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} datasets are selected, only the
-                first {MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT.toLocaleString()} will be processed. Contact support if
-                you need to create more.
-            </Text>
-            <LogicalFiltersBuilder
-                filters={filters}
-                onChangeFilters={(newFilters) => {
-                    try {
-                        const transformedFilters = validateAndTransformAssetSelectorFilters(newFilters);
-                        if (transformedFilters) {
-                            setFilters(transformedFilters);
-                        }
-                    } catch (error) {
-                        if (error instanceof Error) {
-                            message.warn(error.message);
-                        } else {
-                            message.warn('An unknown error occurred while validating the filters.');
-                        }
-                    }
-                }}
-                properties={PREDICATE_PROPERTIES}
-            />
-            <AssetReviewModal
-                orFilters={convertLogicalPredicateToOrFilters(filters)}
-                maxSelectableAssets={MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT}
-            />
+            {step === 'asset_selection' && <AssetsSelection filters={filters} setFilters={setFilters} />}
 
-            <br />
-
-            {/* --------------------------------- Freshness Assertion --------------------------------- */}
-            {freshnessForm}
-            <br />
-
-            {/* --------------------------------- Volume Assertion --------------------------------- */}
-            {volumeForm}
-
-            <br />
-
-            <Alert
-                message={
-                    <div>
-                        <Text size="md" color="gray" colorLevel={600} weight="semiBold">
-                            More assertion types
-                        </Text>
-                        <Text size="sm" color="gray" colorLevel={600}>
-                            For all available assertion types, use the &apos;Quality&apos; tab on individual dataset
-                            pages.
-                        </Text>
-                    </div>
-                }
-                type="warning"
-                icon={<Info color={colors.yellow[600]} size={16} />}
-                style={{ marginTop: 16, borderRadius: 12, borderColor: colors.yellow[200] }}
-                showIcon
-            />
+            {step === 'assertion_configuration' && (
+                <AssertionsConfiguration freshnessForm={freshnessForm} volumeForm={volumeForm} />
+            )}
 
             <Divider />
 
-            <CreateButton onClick={onCreateAssertions} disabled={!freshnessAssertionEnabled && !volumeAssertionEnabled}>
-                Create Assertions
-            </CreateButton>
+            <ActionButtons>
+                <Button onClick={onPrevStep} variant="outline">
+                    Back
+                </Button>
+                {step === 'asset_selection' && <Button onClick={onNextStep}>Next</Button>}
+                {step === 'assertion_configuration' && (
+                    <CreateButton
+                        onClick={onCreateAssertions}
+                        disabled={!freshnessAssertionEnabled && !volumeAssertionEnabled}
+                    >
+                        Create Assertions
+                    </CreateButton>
+                )}
+            </ActionButtons>
         </Wrapper>
     );
 };
