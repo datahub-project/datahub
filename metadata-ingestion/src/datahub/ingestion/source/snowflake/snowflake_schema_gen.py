@@ -166,8 +166,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def __init__(
         self,
-        config: SnowflakeV2Config,
-        report: SnowflakeV2Report,
+        config: SnowflakeV2Config,  # FIXME: SnowflakeSummary is passing here SnowflakeSummaryConfig
+        report: SnowflakeV2Report,  # FIXME: SnowflakeSummary is passing here SnowflakeSummaryReport
         connection: SnowflakeConnection,
         filters: SnowflakeFilter,
         identifiers: SnowflakeIdentifierBuilder,
@@ -175,6 +175,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         profiler: Optional[SnowflakeProfiler],
         aggregator: Optional[SqlParsingAggregator],
         snowsight_url_builder: Optional[SnowsightUrlBuilder],
+        fetch_views_from_information_schema: bool = False,
     ) -> None:
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = report
@@ -183,7 +184,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self.identifiers: SnowflakeIdentifierBuilder = identifiers
 
         self.data_dictionary: SnowflakeDataDictionary = SnowflakeDataDictionary(
-            connection=self.connection, report=self.report
+            connection=self.connection,
+            report=self.report,
+            fetch_views_from_information_schema=fetch_views_from_information_schema,
         )
         self.report.data_dictionary_cache = self.data_dictionary
 

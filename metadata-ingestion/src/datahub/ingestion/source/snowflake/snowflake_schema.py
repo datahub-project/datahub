@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
-from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
@@ -240,14 +239,14 @@ class _SnowflakeTagCache:
 
 class SnowflakeDataDictionary(SupportsAsObj):
     def __init__(
-        self, connection: SnowflakeConnection, report: SnowflakeV2Report
+        self,
+        connection: SnowflakeConnection,
+        report: SnowflakeV2Report,
+        fetch_views_from_information_schema: bool = False,
     ) -> None:
         self.connection = connection
         self.report = report
-
-        self._use_information_schema_for_views = get_boolean_env_variable(
-            "DATAHUB_SNOWFLAKE_USE_INFORMATION_SCHEMA_FOR_VIEWS", default=False
-        )
+        self._fetch_views_from_information_schema = fetch_views_from_information_schema
 
     def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
@@ -266,7 +265,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         ]
 
         report: Dict[str, Any] = {
-            "use_information_schema_for_views": self._use_information_schema_for_views,
+            "fetch_views_from_information_schema": self._fetch_views_from_information_schema,
         }
         for func in lru_cache_functions:
             report[func.__name__] = func.cache_info()._asdict()  # type: ignore
@@ -440,7 +439,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_views_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeView]]]:
-        if self._use_information_schema_for_views:
+        if self._fetch_views_from_information_schema:
             return self._get_views_for_database_using_information_schema(db_name)
         else:
             return self._get_views_for_database_using_show(db_name)

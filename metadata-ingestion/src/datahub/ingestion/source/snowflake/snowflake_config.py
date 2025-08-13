@@ -218,6 +218,13 @@ class SnowflakeV2Config(
         description="If enabled, populates the ingested views' definitions.",
     )
 
+    fetch_views_from_information_schema: bool = Field(
+        default=False,
+        description="If enabled, uses information_schema.views to fetch view definitions instead of SHOW VIEWS command. "
+        "This can be more reliable for databases with large numbers of views (> 10K views), but may have different permission requirements. "
+        "When enabled, it will gracefully fall back to per-schema queries if the database-level query fails.",
+    )
+
     include_technical_schema: bool = Field(
         default=True,
         description="If enabled, populates the snowflake technical schema and descriptions.",
