@@ -130,7 +130,7 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: `Failed to remove data product. An unknown error occurred.`,
+                        content: `Failed to remove data product: ${e.message}`,
                         duration: 3,
                     });
                 }
