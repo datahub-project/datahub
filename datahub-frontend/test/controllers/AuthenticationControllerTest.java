@@ -1,9 +1,7 @@
 package controllers;
 
 import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -91,7 +89,7 @@ public class AuthenticationControllerTest {
 
     // Setup the client mock to return our redirection action
     when(mockClient.getRedirectionAction(any(CallContext.class)))
-        .thenReturn(Optional.of(redirectAction));
+            .thenReturn(Optional.of(redirectAction));
 
     // Mock auth service client
     authClient = mock(AuthServiceClient.class);
@@ -108,7 +106,7 @@ public class AuthenticationControllerTest {
   public void testRedirectCookieCreation() {
     // Create mock HTTP context
     Http.RequestBuilder requestBuilder =
-        new Http.RequestBuilder().method("GET").uri("/authenticate?redirect_uri=/dashboard");
+            new Http.RequestBuilder().method("GET").uri("/authenticate?redirect_uri=/dashboard");
 
     Http.Request request = requestBuilder.build();
 
@@ -122,9 +120,9 @@ public class AuthenticationControllerTest {
 
     // Verify the cookie was added
     Optional<Http.Cookie> redirectCookie =
-        Lists.newArrayList(result.cookies().iterator()).stream()
-            .filter(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME))
-            .findFirst();
+            Lists.newArrayList(result.cookies().iterator()).stream()
+                    .filter(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME))
+                    .findFirst();
 
     assertTrue(redirectCookie.isPresent(), "Redirect cookie should be present");
     Http.Cookie cookie = redirectCookie.get();
@@ -153,9 +151,9 @@ public class AuthenticationControllerTest {
 
     // Verify the redirect cookie is added
     Optional<Http.Cookie> redirectCookie =
-        Lists.newArrayList(result.cookies().iterator()).stream()
-            .filter(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME))
-            .findFirst();
+            Lists.newArrayList(result.cookies().iterator()).stream()
+                    .filter(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME))
+                    .findFirst();
 
     assertTrue(redirectCookie.isPresent(), "Redirect cookie should be present for SSO");
   }
@@ -167,7 +165,7 @@ public class AuthenticationControllerTest {
 
     // Create mock HTTP context
     Http.RequestBuilder requestBuilder =
-        new Http.RequestBuilder().method("GET").uri("/authenticate?redirect_uri=/dashboard");
+            new Http.RequestBuilder().method("GET").uri("/authenticate?redirect_uri=/dashboard");
 
     Http.Request request = requestBuilder.build();
 
@@ -179,9 +177,9 @@ public class AuthenticationControllerTest {
 
     // Verify the redirect cookie is added
     Optional<Http.Cookie> redirectCookie =
-        Lists.newArrayList(result.cookies().iterator()).stream()
-            .filter(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME))
-            .findFirst();
+            Lists.newArrayList(result.cookies().iterator()).stream()
+                    .filter(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME))
+                    .findFirst();
 
     assertTrue(redirectCookie.isPresent(), "Redirect cookie should be present for authenticate");
 
@@ -194,7 +192,7 @@ public class AuthenticationControllerTest {
   public void testRedirectOnlySetsSecureCookies() {
     // Create mock HTTP context
     Http.RequestBuilder requestBuilder =
-        new Http.RequestBuilder().method("GET").uri("/authenticate?redirect_uri=/dashboard");
+            new Http.RequestBuilder().method("GET").uri("/authenticate?redirect_uri=/dashboard");
 
     Http.Request request = requestBuilder.build();
 
@@ -208,8 +206,32 @@ public class AuthenticationControllerTest {
 
     // Verify all cookies are secure
     boolean allCookiesSecure =
-        Lists.newArrayList(result.cookies().iterator()).stream().allMatch(Http.Cookie::secure);
+            Lists.newArrayList(result.cookies().iterator()).stream().allMatch(Http.Cookie::secure);
 
     assertTrue(allCookiesSecure, "All cookies should be secure");
+  }
+
+  @Test
+  public void testAuthenticateWithAbsoluteRedirectUriResetsToRoot() {
+    // No SSO so we don't hit SSO branch
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    // Absolute URI triggers RedirectException in authenticate()
+    Http.Request request = new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate?redirect_uri=http://evil.com")
+            .build();
+
+    // Call method without mocking AuthUtils
+    Result result = controller.authenticate(request);
+
+    // Because RedirectException was thrown and caught, redirectPath should reset to "/"
+    assertEquals(303, result.status());
+
+    // No redirect cookie should be present
+    boolean hasRedirectCookie =
+            Lists.newArrayList(result.cookies().iterator()).stream()
+                    .anyMatch(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME));
+    assertFalse(hasRedirectCookie, "No redirect cookie expected when redirectPath reset to '/'");
   }
 }
