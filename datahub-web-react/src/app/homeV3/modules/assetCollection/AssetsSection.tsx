@@ -1,10 +1,12 @@
 import { colors } from '@components';
 import { Divider } from 'antd';
-import React from 'react';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import SelectAssetsSection from '@app/homeV3/modules/assetCollection/SelectAssetsSection';
 import SelectedAssetsSection from '@app/homeV3/modules/assetCollection/SelectedAssetsSection';
+import { SELECT_ASSET_TYPE_MANUAL } from '@app/homeV3/modules/assetCollection/constants';
+import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 const Container = styled.div`
     display: flex;
@@ -26,26 +28,48 @@ export const VerticalDivider = styled(Divider)`
 `;
 
 type Props = {
+    selectAssetType: string;
+    setSelectAssetType: (newSelectAssetType: string) => void;
     selectedAssetUrns: string[];
     setSelectedAssetUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    dynamicFilter: LogicalPredicate | null | undefined;
+    setDynamicFilter: (newDynamicFilter: LogicalPredicate | null | undefined) => void;
 };
 
-const AssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
+const AssetsSection = ({
+    selectAssetType,
+    setSelectAssetType,
+    selectedAssetUrns,
+    setSelectedAssetUrns,
+    dynamicFilter,
+    setDynamicFilter,
+}: Props) => {
+    const shouldShowSelectedAssetsSection = useMemo(
+        () => selectAssetType === SELECT_ASSET_TYPE_MANUAL,
+        [selectAssetType],
+    );
+
     return (
         <Container>
             <LeftSection>
                 <SelectAssetsSection
+                    selectAssetType={selectAssetType}
+                    setSelectAssetType={setSelectAssetType}
                     selectedAssetUrns={selectedAssetUrns}
                     setSelectedAssetUrns={setSelectedAssetUrns}
+                    dynamicFilter={dynamicFilter}
+                    setDynamicFilter={setDynamicFilter}
                 />
             </LeftSection>
             <VerticalDivider type="vertical" />
-            <RightSection>
-                <SelectedAssetsSection
-                    selectedAssetUrns={selectedAssetUrns}
-                    setSelectedAssetUrns={setSelectedAssetUrns}
-                />
-            </RightSection>
+            {shouldShowSelectedAssetsSection && (
+                <RightSection>
+                    <SelectedAssetsSection
+                        selectedAssetUrns={selectedAssetUrns}
+                        setSelectedAssetUrns={setSelectedAssetUrns}
+                    />
+                </RightSection>
+            )}
         </Container>
     );
 };
