@@ -22,7 +22,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.javatuples.Octet;
 import org.javatuples.Septet;
 import org.javatuples.Sextet;
