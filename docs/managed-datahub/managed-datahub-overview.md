@@ -102,7 +102,7 @@ know.
 | Rich In-Slack Incident management                            | ❌      | ✅            |
 | Run Data Quality checks in-VPC                               | ❌      | ✅            |
 | AI Anomaly Detection for Freshness, Volume, and Column stats | ❌      | ✅            |
-| Bulk-create field-level AI monitors                          | ❌      | ✅            |
+| Bulk-create AI Anomaly monitors                              | ❌      | ✅            |
 | Monitor Freshness SLAs                                       | ❌      | ✅            |
 | Monitor Table Schemas                                        | ❌      | ✅            |
 | Monitor Table Volume                                         | ❌      | ✅            |
