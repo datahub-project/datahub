@@ -15,7 +15,6 @@ ext {
     backend_profile_modules = [
             ':docker:elasticsearch-setup',
             ':docker:mysql-setup',
-            ':docker:kafka-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
