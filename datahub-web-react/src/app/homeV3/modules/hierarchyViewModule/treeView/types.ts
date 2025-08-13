@@ -85,8 +85,8 @@ export interface TreeViewContextProviderProps {
     selectedValues?: string[];
     // Called when selection state changed (`values` is the full list of selected values)
     updateSelectedValues?: (values: string[]) => void;
-    // If enabled all
-    expandInitialSelectedNodes?: boolean;
+    // If enabled  it expands all parent nodes of initial selected values
+    expandParentNodesOfInitialSelectedValues?: boolean;
     // If enabled it prevents selecting of all children if parent was selected
     explicitlySelectChildren?: boolean;
     // If enabled it prevents unselecting of children if parent was unselected
