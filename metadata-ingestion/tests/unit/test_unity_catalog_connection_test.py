@@ -129,7 +129,7 @@ class TestUnityCatalogConnectionTest:
                 "token": "test_token",
                 "workspace_url": "https://test.databricks.com",
                 "warehouse_id": "test_warehouse",
-                "profiling": {"enabled": False},
+                "profiling": {"enabled": False, "method": "analyze"},
             }
         )
 
