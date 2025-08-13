@@ -953,6 +953,9 @@ fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    glossaryTerms {
+        ...glossaryTerms
+    }
 }
 
 fragment entitySchemaFieldFields on SchemaField {
