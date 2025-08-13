@@ -8,8 +8,9 @@ import { Action } from '@app/tests/builder/steps/actions/types';
 import { ActionBuilder } from '@app/tests/builder/steps/definition/builder/action/ActionBuilder';
 import { AddActionButton } from '@app/tests/builder/steps/definition/builder/action/AddActionButton';
 import { ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
-import { EntityType } from '@types';
 import { filterActionTypesByEntities } from '@app/tests/builder/validation/utils';
+
+import { EntityType } from '@types';
 
 /**
  * The maximum number of sub-predicates supported in a single
