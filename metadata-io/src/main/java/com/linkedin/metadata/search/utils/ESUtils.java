@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -47,6 +48,7 @@ import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.RangeQueryBuilder;
 import org.opensearch.search.builder.PointInTimeBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.slice.SliceBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
 import org.opensearch.search.sort.ScoreSortBuilder;
 import org.opensearch.search.sort.SortOrder;
@@ -545,6 +547,13 @@ public class ESUtils {
       PointInTimeBuilder pointInTimeBuilder = new PointInTimeBuilder(pitId);
       pointInTimeBuilder.setKeepAlive(TimeValue.parseTimeValue(keepAlive, "keepAlive"));
       searchSourceBuilder.pointInTimeBuilder(pointInTimeBuilder);
+    }
+  }
+
+  public static void setSliceOptions(
+      SearchSourceBuilder searchSourceBuilder, @Nullable SliceOptions sliceOptions) {
+    if (sliceOptions != null) {
+      searchSourceBuilder.slice(new SliceBuilder(sliceOptions.getId(), sliceOptions.getMax()));
     }
   }
 

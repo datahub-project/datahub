@@ -70,10 +70,12 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.lucene.search.function.CombineFunction;
+import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.search.Scroll;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.rescore.QueryRescorerBuilder;
@@ -1240,12 +1242,14 @@ public class ESGraphQueryDAO {
       @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count) {
 
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
-    return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
+    return executeScrollSearchQuery(
+        opContext, finalQuery, sortCriteria, scrollId, keepAlive, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
@@ -1253,6 +1257,7 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count) {
 
     Object[] sort = null;
@@ -1268,8 +1273,13 @@ public class ESGraphQueryDAO {
     searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
     searchSourceBuilder.query(query);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
-    searchRequest.source(searchSourceBuilder);
+    ESUtils.setSliceOptions(
+        searchSourceBuilder, opContext.getSearchContext().getSearchFlags().getSliceOptions());
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
+    searchRequest.source(searchSourceBuilder);
+    if (keepAlive != null) {
+      searchRequest.scroll(new Scroll(TimeValue.parseTimeValue(keepAlive, "keepAlive")));
+    }
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 

@@ -334,6 +334,7 @@ public class ESGraphQueryDAOTest {
 
     String scrollId =
         "eyJzb3J0IjpbInVybjpsaTphc3NlcnRpb246NGU0NmJjYTQ2ZTlmN2I3OTlmN2UzZDQyYmRlYWFmMmMiXSwicGl0SWQiOm51bGwsImV4cGlyYXRpb25UaW1lIjowfQ==";
+    String keepAlive = "1m";
     int count = 10;
 
     // Set up mock behavior
@@ -342,7 +343,8 @@ public class ESGraphQueryDAOTest {
 
     // Call the method
     SearchResponse response =
-        dao.getSearchResponse(operationContext, graphFilters, sortCriteria, scrollId, count);
+        dao.getSearchResponse(
+            operationContext, graphFilters, sortCriteria, scrollId, keepAlive, count);
 
     // Verify the response
     Assert.assertEquals(response, mockSearchResponse);
@@ -693,7 +695,7 @@ public class ESGraphQueryDAOTest {
 
     // Call method with a count that exceeds the limit
     int requestedCount = 50; // Exceeds our limit of 25
-    dao.getSearchResponse(operationContext, graphFilters, sortCriteria, null, requestedCount);
+    dao.getSearchResponse(operationContext, graphFilters, sortCriteria, null, null, requestedCount);
 
     // Verify that search was called with the right parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
