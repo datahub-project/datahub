@@ -4,9 +4,9 @@ import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
+import auth.AuthUtils;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
@@ -18,6 +18,7 @@ import java.util.Optional;
 import org.apache.commons.compress.utils.Lists;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.CallContext;
 import org.pac4j.core.exception.http.FoundAction;
@@ -213,7 +214,7 @@ public class AuthenticationControllerTest {
 
   @Test
   public void testAuthenticateWithAbsoluteRedirectUriResetsToRoot() {
-    // No SSO so we don't hit SSO branch
+    // No SSO
     when(ssoManager.isSsoEnabled()).thenReturn(false);
 
     // Absolute URI triggers RedirectException in authenticate()
@@ -223,16 +224,21 @@ public class AuthenticationControllerTest {
             .uri("/authenticate?redirect_uri=http://evil.com")
             .build();
 
-    // Call method without mocking AuthUtils
-    Result result = controller.authenticate(request);
+    try (MockedStatic<AuthUtils> authUtilsMock = mockStatic(auth.AuthUtils.class)) {
+      // Make hasValidSessionCookie return true so we take the direct redirect path
+      authUtilsMock.when(() -> auth.AuthUtils.hasValidSessionCookie(any())).thenReturn(true);
 
-    // Because RedirectException was thrown and caught, redirectPath should reset to "/"
-    assertEquals(303, result.status());
+      Result result = controller.authenticate(request);
 
-    // No redirect cookie should be present
-    boolean hasRedirectCookie =
-        Lists.newArrayList(result.cookies().iterator()).stream()
-            .anyMatch(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME));
-    assertFalse(hasRedirectCookie, "No redirect cookie expected when redirectPath reset to '/'");
+      // Should redirect (303) to "/" after catching RedirectException
+      assertEquals(303, result.status());
+      assertEquals("/", result.redirectLocation().orElse(""));
+
+      // We should not have any redirect cookie here because we bypass SSO
+      boolean hasRedirectCookie =
+          Lists.newArrayList(result.cookies().iterator()).stream()
+              .anyMatch(cookie -> cookie.name().equals(REDIRECT_URL_COOKIE_NAME));
+      assertFalse(hasRedirectCookie, "No redirect cookie expected when redirectPath reset to '/'");
+    }
   }
 }
