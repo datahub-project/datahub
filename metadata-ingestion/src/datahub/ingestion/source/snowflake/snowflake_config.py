@@ -356,9 +356,16 @@ class SnowflakeV2Config(
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
-        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'ANALYST_%', '%_USER', 'MAIN_ACCOUNT') which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
     push_down_database_pattern_access_history: bool = Field(
