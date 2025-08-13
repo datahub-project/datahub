@@ -230,6 +230,11 @@ class UnityCatalogSourceConfig(
         description="Ingest notebooks, represented as DataHub datasets.",
     )
 
+    include_volumes: bool = pydantic.Field(
+        default=True,
+        description="Option to enable/disable volume extraction. When enabled, Unity Catalog volumes will be ingested as dataset entities with lineage to their underlying storage locations.",
+    )
+
     include_ownership: bool = pydantic.Field(
         default=False,
         description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",

@@ -9,10 +9,12 @@ from datahub.emitter.mce_builder import (
     UNKNOWN_USER,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
+    make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
     make_group_urn,
     make_schema_field_urn,
+    make_storage_urn,
     make_ts_millis,
     make_user_urn,
 )
@@ -93,6 +95,8 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
+    VolumeExternalReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -512,6 +516,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_schema_containers(schema)
                 try:
                     yield from self.process_tables(schema)
+                    if self.config.include_volumes:
+                        yield from self.process_volumes(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.report_warning(
@@ -1287,6 +1293,290 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     include_column_lineage=self.config.include_view_column_lineage,
                 )
         yield from builder.gen_workunits()
+
+    def process_volumes(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        """Process volumes in a schema and create dataset entities with lineage to storage."""
+        for volume in self.unity_catalog_api_proxy.volumes(schema=schema):
+            # Check if volume has storage location for materialization
+            if volume.storage_location and self.config.include_external_lineage:
+                # Create VolumeExternalReference for materialization
+                volume_external_ref = VolumeExternalReference.create_from_volume(volume)
+                if volume_external_ref:
+                    # Generate volume dataset entity as the Unity Catalog representation
+                    volume_dataset_urn = self._gen_volume_dataset_urn(volume)
+
+                    # Generate storage dataset entity from storage location
+                    try:
+                        storage_dataset_urn = make_storage_urn(
+                            volume.storage_location, self.config.env
+                        )
+
+                        # Create volume path dataset (volume location)
+                        volume_path_dataset_urn = make_dataset_urn(
+                            "dbfs", volume.ref.volume_path, self.config.env
+                        )
+                        yield from self._gen_volume_path_dataset_workunits(
+                            volume, volume_path_dataset_urn
+                        )
+
+                        # Create volume dataset entity
+                        yield from self._gen_volume_dataset_workunits(volume)
+
+                        # Create complete volume lineage hierarchy: Storage -> Volume Location -> Volume Dataset
+                        yield from self._gen_volume_hierarchy_lineage_workunits(
+                            volume_dataset_urn,
+                            volume_path_dataset_urn,
+                            storage_dataset_urn,
+                        )
+
+                        logger.info(
+                            f"Created volume materialization: {volume.ref.qualified_volume_name} -> {volume.storage_location}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create volume materialization for {volume.ref.qualified_volume_name}: {e}"
+                        )
+                        self.report.report_warning(
+                            "volume-materialization",
+                            f"Failed to materialize volume {volume.ref.qualified_volume_name}: {e}",
+                        )
+
+    def _gen_volume_dataset_urn(self, volume: Volume) -> str:
+        """Generate dataset URN for a Unity Catalog volume."""
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.platform_instance_name,
+            name=str(volume.ref),
+            env=self.config.env,
+        )
+
+    def _gen_volume_dataset_workunits(
+        self, volume: Volume
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate metadata workunits for a volume dataset entity."""
+        volume_urn = self._gen_volume_dataset_urn(volume)
+
+        # Create custom properties for volume
+        custom_properties = {}
+        # Add volume path property
+        custom_properties["volume_path"] = volume.ref.volume_path
+        if volume.storage_location:
+            custom_properties["storage_location"] = volume.storage_location
+        if volume.volume_type:
+            custom_properties["volume_type"] = volume.volume_type.value
+        if volume.owner:
+            custom_properties["owner"] = volume.owner
+        if volume.created_by:
+            custom_properties["created_by"] = volume.created_by
+        if volume.updated_by:
+            custom_properties["updated_by"] = volume.updated_by
+        if volume.created_at:
+            custom_properties["created_at"] = str(volume.created_at)
+        if volume.updated_at:
+            custom_properties["updated_at"] = str(volume.updated_at)
+
+        # Create timestamps
+        created: Optional[TimeStampClass] = None
+        if volume.created_at:
+            created_ts = make_ts_millis(volume.created_at)
+            if created_ts is not None:
+                created = TimeStampClass(
+                    created_ts,
+                    make_user_urn(volume.created_by) if volume.created_by else None,
+                )
+
+        last_modified = created
+        if volume.updated_at:
+            updated_ts = make_ts_millis(volume.updated_at)
+            if updated_ts is not None:
+                last_modified = TimeStampClass(
+                    updated_ts,
+                    volume.updated_by and make_user_urn(volume.updated_by),
+                )
+
+        # Create volume properties
+        volume_props = DatasetPropertiesClass(
+            name=volume.name,
+            qualifiedName=volume.ref.qualified_volume_name,
+            description=volume.comment,
+            customProperties=custom_properties,
+            created=created,
+            lastModified=last_modified,
+            externalUrl=f"{self.external_url_base}/volumes/{volume.schema.catalog.name}/{volume.schema.name}/{volume.name}",
+        )
+
+        # Create ownership
+        ownership = None
+        if volume.owner:
+            owner_urn = self.get_owner_urn(volume.owner)
+            if owner_urn:
+                ownership = OwnershipClass(
+                    owners=[
+                        OwnerClass(
+                            owner=owner_urn,
+                            type=OwnershipTypeClass.DATAOWNER,
+                        )
+                    ]
+                )
+
+        # Create sub types (mark as Volume)
+        sub_type = SubTypesClass(typeNames=[DatasetSubTypes.VOLUME])
+
+        # Create data platform instance
+        data_platform_instance = self._create_data_platform_instance_aspect()
+
+        # Add to container (schema)
+        yield from self.add_volume_to_dataset_container(volume_urn, volume.schema)
+
+        # Generate domain
+        domain = self._get_domain_aspect(dataset_name=volume.ref.qualified_volume_name)
+
+        # Create MCPs
+        if volume_props:
+            patch_builder = create_dataset_props_patch_builder(volume_urn, volume_props)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{volume_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        if ownership:
+            patch_builder = create_dataset_owners_patch_builder(volume_urn, ownership)
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{volume_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        # Create remaining aspects
+        yield from [
+            mcp.as_workunit()
+            for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=volume_urn,
+                aspects=[
+                    sub_type,
+                    domain,
+                    data_platform_instance,
+                ],
+            )
+        ]
+
+    def add_volume_to_dataset_container(
+        self, dataset_urn: str, schema: Schema
+    ) -> Iterable[MetadataWorkUnit]:
+        """Add volume to its schema container."""
+        schema_container_key = self.gen_schema_key(schema)
+        yield from add_dataset_to_container(
+            container_key=schema_container_key,
+            dataset_urn=dataset_urn,
+        )
+
+    def _gen_volume_path_dataset_workunits(
+        self, volume: Volume, volume_path_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate metadata workunits for the volume path dataset entity."""
+        # Create custom properties for volume path
+        custom_properties = {
+            "volume_path": volume.ref.volume_path,
+            "volume_reference": volume.ref.qualified_volume_name,
+        }
+        if volume.storage_location:
+            custom_properties["storage_location"] = volume.storage_location
+        if volume.volume_type:
+            custom_properties["volume_type"] = volume.volume_type.value
+
+        # Create volume path properties
+        volume_path_props = DatasetPropertiesClass(
+            name=volume.ref.volume_path.split("/")[-1],  # Last part of path
+            qualifiedName=volume.ref.volume_path,
+            description=f"DBFS path for Unity Catalog volume: {volume.ref.qualified_volume_name}",
+            customProperties=custom_properties,
+        )
+
+        # Create sub types (mark as Volume path)
+        sub_type = SubTypesClass(typeNames=[DatasetSubTypes.VOLUME])
+
+        # Create data platform instance
+        data_platform_instance = self._create_data_platform_instance_aspect()
+
+        # Create ownership (inherit from volume)
+        ownership = None
+        if volume.owner:
+            owner_urn = self.get_owner_urn(volume.owner)
+            if owner_urn:
+                ownership = OwnershipClass(
+                    owners=[
+                        OwnerClass(
+                            owner=owner_urn,
+                            type=OwnershipTypeClass.DATAOWNER,
+                        )
+                    ]
+                )
+
+        # Generate domain
+        domain = self._get_domain_aspect(dataset_name=volume.ref.qualified_volume_name)
+
+        # Create MCPs using patch builders for properties and ownership
+        if volume_path_props:
+            patch_builder = create_dataset_props_patch_builder(
+                volume_path_urn, volume_path_props
+            )
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{volume_path_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        if ownership:
+            patch_builder = create_dataset_owners_patch_builder(
+                volume_path_urn, ownership
+            )
+            for patch_mcp in patch_builder.build():
+                yield MetadataWorkUnit(
+                    id=f"{volume_path_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
+                )
+
+        # Create remaining aspects
+        yield from [
+            mcp.as_workunit()
+            for mcp in MetadataChangeProposalWrapper.construct_many(
+                entityUrn=volume_path_urn,
+                aspects=[
+                    sub_type,
+                    domain,
+                    data_platform_instance,
+                ],
+            )
+        ]
+
+    def _gen_volume_lineage_workunits(
+        self, volume_urn: str, storage_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate lineage workunits from storage to Unity Catalog volume."""
+        yield MetadataChangeProposalWrapper(
+            entityUrn=volume_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=storage_urn,
+                        type=DatasetLineageTypeClass.COPY,
+                    )
+                ]
+            ),
+        ).as_workunit()
+
+    def _gen_volume_hierarchy_lineage_workunits(
+        self,
+        volume_dataset_urn: str,
+        volume_path_dataset_urn: str,
+        storage_dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Generate complete volume lineage hierarchy: Storage -> Volume Location -> Volume Dataset."""
+        # Step 1: Volume Location has Storage Location as upstream
+        yield from self._gen_volume_lineage_workunits(
+            volume_path_dataset_urn, storage_dataset_urn
+        )
+        # Step 2: Volume Dataset has Volume Location as upstream
+        yield from self._gen_volume_lineage_workunits(
+            volume_dataset_urn, volume_path_dataset_urn
+        )
 
     def close(self):
         if self.hive_metastore_proxy:
