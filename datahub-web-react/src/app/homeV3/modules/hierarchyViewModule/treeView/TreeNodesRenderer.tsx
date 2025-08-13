@@ -21,7 +21,7 @@ export default function TreeNodesRenderer() {
 
     return (
         <InlineBlockWrapper $hasExpanded={hasAnyExpanded}>
-            <Wrapper>
+            <Wrapper data-testid="hierarchy-module-nodes">
                 {nodes.map((node) => (
                     <TreeNodeRenderer node={node} depth={0} key={node.value} />
                 ))}

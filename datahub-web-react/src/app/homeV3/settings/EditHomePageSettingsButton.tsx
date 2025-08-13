@@ -73,6 +73,7 @@ export default function EditHomePageSettingsButton() {
                               fontSize: '14px',
                           },
                           onClick: startGlobalTemplateEdit,
+                          'data-testid': 'edit-organization-default',
                       },
                   ]
                 : []),
@@ -86,6 +87,7 @@ export default function EditHomePageSettingsButton() {
                               fontSize: '14px',
                           },
                           onClick: () => setShowConfirmResetModal(true),
+                          'data-testid': 'reset-to-organization-default',
                       },
                   ]
                 : []),
@@ -100,7 +102,13 @@ export default function EditHomePageSettingsButton() {
                     trigger={['click']}
                     dropdownRender={(menuNode) => <DropdownContainer>{menuNode}</DropdownContainer>}
                 >
-                    <StyledIcon icon="Gear" color="gray" source="phosphor" size="4xl" />
+                    <StyledIcon
+                        icon="Gear"
+                        color="gray"
+                        source="phosphor"
+                        size="4xl"
+                        data-testid="edit-home-page-settings"
+                    />
                 </Dropdown>
             </ButtonWrapper>
             <ConfirmationModal

@@ -23,7 +23,7 @@ export default function YourAssetsModule(props: ModuleProps) {
     }, [history]);
 
     return (
-        <LargeModule {...props} loading={loading} onClickViewAll={searchForYourAssets}>
+        <LargeModule {...props} loading={loading} onClickViewAll={searchForYourAssets} dataTestId="your-assets-module">
             {originEntities.length === 0 ? (
                 <EmptyContent
                     icon="User"
@@ -33,9 +33,11 @@ export default function YourAssetsModule(props: ModuleProps) {
                     onLinkClick={navigateToSearch}
                 />
             ) : (
-                originEntities.map((entity) => (
-                    <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
-                ))
+                <div data-testid="user-owned-entities">
+                    {originEntities.map((entity) => (
+                        <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
+                    ))}
+                </div>
             )}
         </LargeModule>
     );
