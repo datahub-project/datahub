@@ -633,7 +633,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
         self, *, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         cur = self.connection.query(
-            SnowflakeQuery.get_views_for_schema(schema_name, db_name),
+            SnowflakeQuery.get_views_for_schema(
+                db_name=db_name, schema_name=schema_name
+            ),
         )
 
         views: List[SnowflakeView] = []
