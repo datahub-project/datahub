@@ -25,7 +25,7 @@ import {
     IncidentTable,
     IncidentTableRow,
 } from '@app/entityV2/shared/tabs/Incident/types';
-import { getPlatformName } from '@app/entityV2/shared/utils';
+import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
 import { SortingState } from '@src/alchemy-components/components/Table/types';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
@@ -548,7 +548,7 @@ export const useSiblingOptionsForIncidentBuilder = (
         optionsToAuthorOn.push({
             urn: sibling.urn,
             title:
-                getPlatformName(sibling) ??
+                getPlatformNameFromEntityData(sibling) ??
                 sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,

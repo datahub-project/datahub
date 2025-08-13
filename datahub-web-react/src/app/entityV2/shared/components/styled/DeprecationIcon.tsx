@@ -5,6 +5,7 @@ import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
@@ -75,16 +76,6 @@ const IconGroup = styled.div`
     }
 `;
 
-const StyledDeprecatedIcon = styled(DeprecatedIcon)`
-    color: inherit;
-    path {
-        fill: currentColor;
-    }
-    && {
-        fill: currentColor;
-    }
-`;
-
 type Props = {
     urn: string;
     subResource?: string | null;
@@ -142,6 +133,12 @@ export const DeprecationIcon = ({
                 if (!errors) {
                     message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
+                    analytics.event({
+                        type: EventType.SetDeprecation,
+                        entityUrns: [urn],
+                        deprecated: false,
+                        resources: subResource ? [{ resourceUrn: urn, subResource, subResourceType }] : undefined,
+                    });
                 }
             })
             .catch((e) => {
@@ -218,7 +215,7 @@ export const DeprecationIcon = ({
             }
         >
             <DeprecatedContainer>
-                <StyledDeprecatedIcon />
+                <DeprecatedIcon />
                 {showText ? 'Deprecated' : null}
             </DeprecatedContainer>
         </StructuredPopover>

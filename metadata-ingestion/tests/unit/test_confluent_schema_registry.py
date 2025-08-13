@@ -74,6 +74,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
 
         def new_get_latest_version(subject_name: str) -> RegisteredSchema:
             return RegisteredSchema(
+                guid=None,
                 schema_id="schema_id_1",
                 schema=Schema(schema_str=schema_str_ref, schema_type="AVRO"),
                 subject="test",

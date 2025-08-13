@@ -2,7 +2,6 @@ package com.linkedin.metadata.search.elasticsearch;
 
 import static org.testng.Assert.assertNotNull;
 
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.TestEntityTestBase;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -26,7 +25,6 @@ public class TestEntityElasticSearchTest extends TestEntityTestBase {
   @Autowired private RestHighLevelClient searchClient;
   @Autowired private ESBulkProcessor bulkProcessor;
   @Autowired private ESIndexBuilder esIndexBuilder;
-  @Autowired private SearchConfiguration searchConfiguration;
 
   @Autowired
   @Qualifier("defaultTestCustomSearchConfig")
@@ -48,12 +46,6 @@ public class TestEntityElasticSearchTest extends TestEntityTestBase {
   @Override
   protected ESIndexBuilder getIndexBuilder() {
     return esIndexBuilder;
-  }
-
-  @NotNull
-  @Override
-  protected SearchConfiguration getSearchConfiguration() {
-    return searchConfiguration;
   }
 
   @Test

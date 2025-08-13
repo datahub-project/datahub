@@ -30,6 +30,7 @@ import com.linkedin.schema.EditableSchemaMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -234,7 +235,7 @@ public class LabelUtils {
   }
 
   public static boolean isAuthorizedToUpdateTags(
-      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
+      @Nonnull QueryContext context, Urn targetUrn, String subResource, Collection<Urn> tagUrns) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
     // Decide whether the current principal should be allowed to update the Dataset.
@@ -250,8 +251,8 @@ public class LabelUtils {
                             ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType()
                             : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))));
 
-    return AuthorizationUtils.isAuthorized(
-        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+    return AuthorizationUtils.isAuthorizedForTags(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups, tagUrns);
   }
 
   public static boolean isAuthorizedToUpdateTerms(

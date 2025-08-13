@@ -1,27 +1,30 @@
 package com.linkedin.metadata.systemmetadata;
 
-import static io.datahubproject.metadata.context.TraceContext.TELEMETRY_TRACE_KEY;
+import static io.datahubproject.metadata.context.SystemTelemetryContext.TELEMETRY_TRACE_KEY;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
@@ -35,6 +38,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchResponse;
@@ -57,6 +61,7 @@ public class ElasticSearchSystemMetadataService
   private final ESSystemMetadataDAO _esDAO;
   private final ESIndexBuilder _indexBuilder;
   @Nonnull private final String elasticIdHashAlgo;
+  @Getter private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
@@ -86,6 +91,14 @@ public class ElasticSearchSystemMetadataService
     document.put("registryName", systemMetadata.getRegistryName());
     document.put("registryVersion", systemMetadata.getRegistryVersion());
     document.put("removed", false);
+    if (systemMetadata.getAspectCreated() != null) {
+      document.put("aspectCreatedTime", systemMetadata.getAspectCreated().getTime());
+      document.put("aspectCreatedActor", systemMetadata.getAspectCreated().getActor().toString());
+    }
+    if (systemMetadata.getAspectModified() != null) {
+      document.put("aspectModifiedTime", systemMetadata.getAspectModified().getTime());
+      document.put("aspectModifiedActor", systemMetadata.getAspectModified().getActor().toString());
+    }
     if (systemMetadata.getProperties() != null
         && systemMetadata.getProperties().containsKey(TELEMETRY_TRACE_KEY)) {
       document.put(TELEMETRY_TRACE_KEY, systemMetadata.getProperties().get(TELEMETRY_TRACE_KEY));
@@ -132,7 +145,11 @@ public class ElasticSearchSystemMetadataService
     // If status.removed -> false (from removed to not removed) --> get soft deleted entities.
     // If status.removed -> true (from not removed to removed) --> do not get soft deleted entities.
     final List<AspectRowSummary> aspectList =
-        findByParams(ImmutableMap.of("urn", urn), !removed, 0, ESUtils.MAX_RESULT_SIZE);
+        findByParams(
+            ImmutableMap.of("urn", urn),
+            !removed,
+            0,
+            systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
     // for each -> toDocId and set removed to true for all
     aspectList.forEach(
         aspect -> {
@@ -157,20 +174,23 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public List<AspectRowSummary> findByRunId(
-      String runId, boolean includeSoftDeleted, int from, int size) {
+      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size) {
     return findByParams(
         Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
   }
 
   @Override
   public List<AspectRowSummary> findByUrn(
-      String urn, boolean includeSoftDeleted, int from, int size) {
+      String urn, boolean includeSoftDeleted, int from, @Nullable Integer size) {
     return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted, from, size);
   }
 
   @Override
   public List<AspectRowSummary> findByParams(
-      Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size) {
+      Map<String, String> systemMetaParams,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     SearchResponse searchResponse =
         _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
     return toAspectRowSummary(searchResponse);
@@ -189,7 +209,11 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public List<AspectRowSummary> findByRegistry(
-      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size) {
+      String registryName,
+      String registryVersion,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     Map<String, String> registryParams = new HashMap<>();
     registryParams.put(FIELD_REGISTRY_NAME, registryName);
     registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
@@ -253,6 +277,79 @@ public class ElasticSearchSystemMetadataService
   public void clear() {
     _esBulkProcessor.deleteByQuery(
         QueryBuilders.matchAllQuery(), true, _indexConvention.getIndexName(INDEX_NAME));
+  }
+
+  @Override
+  public Map<Urn, Map<String, Map<String, Object>>> raw(
+      OperationContext opContext, Map<String, Set<String>> urnAspects) {
+
+    if (urnAspects == null || urnAspects.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    Map<Urn, Map<String, Map<String, Object>>> result = new HashMap<>();
+
+    // Build a list of all document IDs we need to fetch
+    List<String> docIds = new ArrayList<>();
+    for (Map.Entry<String, Set<String>> entry : urnAspects.entrySet()) {
+      String urnString = entry.getKey();
+      Set<String> aspects = entry.getValue();
+
+      if (aspects != null && !aspects.isEmpty()) {
+        for (String aspect : aspects) {
+          docIds.add(toDocId(urnString, aspect));
+        }
+      }
+    }
+
+    if (docIds.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    // Query for all documents by their IDs
+    BoolQueryBuilder query = QueryBuilders.boolQuery();
+    query.filter(QueryBuilders.idsQuery().addIds(docIds.toArray(new String[0])));
+
+    // Use scroll to retrieve all matching documents
+    SearchResponse searchResponse =
+        _esDAO.scroll(
+            query,
+            true,
+            null, // scrollId
+            null, // pitId
+            null, // keepAlive
+            systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
+
+    if (searchResponse != null && searchResponse.getHits() != null) {
+      SearchHits hits = searchResponse.getHits();
+
+      // Process each hit
+      Arrays.stream(hits.getHits())
+          .forEach(
+              hit -> {
+                Map<String, Object> sourceMap = hit.getSourceAsMap();
+                String urnString = (String) sourceMap.get(FIELD_URN);
+                String aspectName = (String) sourceMap.get(FIELD_ASPECT);
+
+                if (urnString != null && aspectName != null) {
+                  try {
+                    Urn urn = UrnUtils.getUrn(urnString);
+
+                    // Get or create the aspect map for this URN
+                    Map<String, Map<String, Object>> aspectDocuments =
+                        result.computeIfAbsent(urn, k -> new HashMap<>());
+
+                    // Store the raw document for this aspect
+                    aspectDocuments.put(aspectName, sourceMap);
+
+                  } catch (Exception e) {
+                    log.error("Error parsing URN {} in raw method: {}", urnString, e.getMessage());
+                  }
+                }
+              });
+    }
+
+    return result;
   }
 
   private static List<AspectRowSummary> toAspectRowSummary(SearchResponse searchResponse) {

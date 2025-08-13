@@ -245,6 +245,7 @@ export default class EntityRegistry {
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
+            // TODO: Clean up redundant values
             exists: genericEntityProperties.exists,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,
@@ -254,6 +255,7 @@ export default class EntityRegistry {
             lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
             structuredProperties: genericEntityProperties.structuredProperties ?? undefined,
             versionProperties: genericEntityProperties.versionProperties ?? undefined,
+            genericEntityProperties,
         };
     }
 
@@ -353,6 +355,26 @@ export default class EntityRegistry {
         | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.useEntityQuery;
+    }
+
+    /**
+     * Converts an EntityType enum value to camelCase string representation.
+     * e.g. EntityType.DataPlatform (DATA_PLATFORM) -> 'dataPlatform'
+     */
+    getEntityTypeAsCamelCase(type: EntityType): string {
+        return type
+            .toLowerCase()
+            .split('_')
+            .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+            .join('');
+    }
+
+    /**
+     * Gets all search entity types converted to camelCase strings.
+     * Useful for comparing with backend data that uses camelCase entity names.
+     */
+    getSearchEntityTypesAsCamelCase(): Array<string> {
+        return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
     }
 }
 

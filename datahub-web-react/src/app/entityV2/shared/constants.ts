@@ -1,6 +1,7 @@
 import { EntityType } from '@types';
 
 // TODO(Gabe): integrate this w/ the theme
+// These colors are deprecated, use the colors in @components/theme/foundations/colors
 export const REDESIGN_COLORS = {
     BACKGROUND: '#F4F5F7',
     GREY: '#e5e5e5',
@@ -171,6 +172,10 @@ export const EMPTY_MESSAGES = {
     dataProduct: {
         title: 'No product yet',
         description: 'Group related entities based on shared characteristics by adding them to a Data Product.',
+    },
+    application: {
+        title: 'No application yet',
+        description: 'Associate entities with applications to track ownership and lifecycle.',
     },
     contains: {
         title: 'Does not Contain any Glossary Terms',

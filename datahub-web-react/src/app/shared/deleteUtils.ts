@@ -1,6 +1,7 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PageRoutes } from '@conf/Global';
 
+import { useDeleteApplicationMutation } from '@graphql/application.generated';
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { useDeleteBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
 import { useDeleteDataProductMutation } from '@graphql/dataProduct.generated';
@@ -21,6 +22,7 @@ export const getEntityProfileDeleteRedirectPath = (type: EntityType, entityData:
     switch (type) {
         case EntityType.CorpGroup:
         case EntityType.CorpUser:
+        case EntityType.Application:
         case EntityType.Tag:
             // Return Home.
             return '/';
@@ -69,6 +71,8 @@ export const getDeleteEntityMutation = (type: EntityType) => {
             return useDeleteDataProductMutation;
         case EntityType.BusinessAttribute:
             return useDeleteBusinessAttributeMutation;
+        case EntityType.Application:
+            return useDeleteApplicationMutation;
         default:
             return () => undefined;
     }

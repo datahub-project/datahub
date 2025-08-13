@@ -55,7 +55,7 @@ def evaluate_test(auth_session, test_name, test_data):
             if "wait" in req_resp["request"]:
                 time.sleep(req_resp["request"]["wait"])
                 continue
-            url = req_resp["request"]["url"]
+
             actual_resp = execute_request(auth_session, req_resp["request"])
             diff = None
             try:
@@ -84,13 +84,15 @@ def evaluate_test(auth_session, test_name, test_data):
                         logger.warning("No expected response json found")
             except Exception as e:
                 logger.error(
-                    f"Error executing step: {idx}, url: {url}, test: {test_name}"
+                    f"Error executing step: {idx}, url: {actual_resp.url}, test: {test_name}"
                 )
                 if description:
                     logger.error(f"Step {idx} Description: {description}")
                 if diff:
                     logger.error(f"Unexpected diff: {diff}")
-                logger.debug(f"Response content: {actual_resp.content}")
+                    logger.error(f"Response content: {actual_resp.content}")
+                else:
+                    logger.debug(f"Response content: {actual_resp.content}")
                 raise e
     except Exception as e:
         logger.error(f"Error executing test: {test_name}")

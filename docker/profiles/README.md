@@ -14,6 +14,15 @@ $ cd docker/profiles
 $ docker compose --profile <profile name> up
 ```
 
+Alternatively, you can use the gradle tasks defined in `docker/build.gradle`:
+
+```bash
+# Run from the project root
+./gradlew quickstart          # Uses the 'quickstart' profile
+./gradlew quickstartDebug     # Uses the 'debug' profile
+./gradlew quickstartCypress   # Uses the 'debug' profile with custom project name 'dh-cypress'
+```
+
 Use Control-c (`^c`) to terminate the running system. This will automatically stop all running containers.
 
 To remove the containers use the following:
@@ -93,18 +102,31 @@ Run everything except for the `frontend` component. Useful for running just a lo
 
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
 
+### `quickstartCypress`
+
+Runs the same configuration as `debug` but uses a custom project name (`dh-cypress`) instead of the default `datahub` project name. This is useful for Cypress testing scenarios where you need to isolate the docker compose project from other running instances.
+
+To load test data for Cypress testing, you can use the `:smoke-test:cypressData` gradle task:
+
+```bash
+./gradlew :smoke-test:cypressData
+```
+
+This will populate the running DataHub instance with sample data suitable for Cypress testing scenarios.
+
 ### Development Profiles Table
 
-| Profile Name        | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch |
-| ------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- |
-| debug               | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |
-| debug-frontend      | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |
-| debug-backend       | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |
-| debug-postgres      |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |               |
-| debug-cassandra     |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |
-| debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |
-| debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |
-| debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |
+| Profile Name        | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch | Elasticsearch | Localstack (AWS) |
+| ------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- | ------------- | ---------------- |
+| debug               | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-frontend      | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |               |                  |
+| debug-backend       | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-postgres      |       | X        |           |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-cassandra     |       |          | X         |       | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
+| debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
+| debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-backend-aws   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups
 

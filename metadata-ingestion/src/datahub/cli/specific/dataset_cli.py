@@ -14,7 +14,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
-from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
 logger = logging.getLogger(__name__)
@@ -33,8 +32,6 @@ def dataset() -> None:
 @click.option(
     "-n", "--dry-run", type=bool, is_flag=True, default=False, help="Perform a dry run"
 )
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def upsert(file: Path, dry_run: bool) -> None:
     """Upsert attributes to a Dataset in DataHub."""
     # Call the sync command with to_datahub=True to perform the upsert operation
@@ -48,7 +45,6 @@ def upsert(file: Path, dry_run: bool) -> None:
 @click.option("--urn", required=True, type=str)
 @click.option("--to-file", required=False, type=str)
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get a Dataset from DataHub"""
 
@@ -77,7 +73,7 @@ def get(urn: str, to_file: str) -> None:
     help="URN of secondary sibling(s)",
     multiple=True,
 )
-@telemetry.with_telemetry()
+@upgrade.check_upgrade
 def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
     all_urns = set()
     all_urns.add(urn)
@@ -117,8 +113,6 @@ def _get_existing_siblings(graph: DataHubGraph, urn: str) -> Set[str]:
 @click.option("--lintCheck", required=False, is_flag=True)
 @click.option("--lintFix", required=False, is_flag=True)
 @click.argument("file", type=click.Path(exists=True))
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
 def file(lintcheck: bool, lintfix: bool, file: str) -> None:
     """Operate on a Dataset file"""
 
@@ -175,7 +169,6 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
     "-n", "--dry-run", type=bool, is_flag=True, default=False, help="Perform a dry run"
 )
 @upgrade.check_upgrade
-@telemetry.with_telemetry()
 def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
     """Sync a Dataset file to/from DataHub"""
 

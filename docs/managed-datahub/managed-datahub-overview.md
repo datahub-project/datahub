@@ -1,4 +1,8 @@
-# How DataHub Cloud compares to DataHub
+---
+title: "How DataHub Cloud compares to DataHub OSS"
+---
+
+# How DataHub Cloud compares to DataHub OSS
 
 ## DataHub Cloud: AI & Data Context Platform
 
@@ -161,5 +165,5 @@ Fill out
 
 ## More Ways to Act on Metadata
 
-- [Approval Workflows](docs/managed-datahub/approval-workflows.md)
+- [Approval Workflows](docs/managed-datahub/change-proposals.md)
 - [Metadata Tests](docs/tests/metadata-tests.md) -->

@@ -33,7 +33,7 @@ public class EbeanAspectMigrationsDaoTest extends AspectMigrationsDaoTest<EbeanA
     Database server =
         EbeanTestUtils.createTestServer(EbeanAspectMigrationsDaoTest.class.getSimpleName());
     _mockProducer = mock(EventProducer.class);
-    EbeanAspectDao dao = new EbeanAspectDao(server, EbeanConfiguration.testDefault);
+    EbeanAspectDao dao = new EbeanAspectDao(server, EbeanConfiguration.testDefault, null);
     dao.setConnectionValidated(true);
     _mockUpdateIndicesService = mock(UpdateIndicesService.class);
     PreProcessHooks preProcessHooks = new PreProcessHooks();
