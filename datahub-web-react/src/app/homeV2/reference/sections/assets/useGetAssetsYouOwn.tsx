@@ -40,6 +40,8 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
     } = useGetSearchResultsForMultipleQuery({
         variables: getInputVariables(0, initialCount),
         skip: !user?.urn || groupDataLoading,
+        fetchPolicy: 'cache-and-network',
+        nextFetchPolicy: 'cache-first',
     });
 
     const entityRegistry = useEntityRegistryV2();
