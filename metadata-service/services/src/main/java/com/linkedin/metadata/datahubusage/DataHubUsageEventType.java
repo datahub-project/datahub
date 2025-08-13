@@ -101,6 +101,8 @@ public enum DataHubUsageEventType {
   FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
   DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent"),
   SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
+  NAV_BAR_EXPAND_COLLAPSE_EVENT("NavBarExpandCollapseEvent"),
+  NAV_BAR_ITEM_CLICK_EVENT("NavBarItemClickEvent"),
   LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
   HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
