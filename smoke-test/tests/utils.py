@@ -352,3 +352,77 @@ class TestSessionWrapper:
                 f"{self._frontend_url}/api/v2/graphql", json=json
             )
             response.raise_for_status()
+
+
+def execute_graphql_query(
+    auth_session,
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    expected_data_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Execute a GraphQL query with standard error handling and assertions.
+
+    Args:
+        auth_session: Authenticated session object
+        query: GraphQL query string
+        variables: Optional variables for the query
+        expected_data_key: Optional key to validate exists in response data
+
+    Returns:
+        Complete response JSON dictionary
+    """
+    json_payload: Dict[str, Any] = {"query": query}
+    if variables:
+        json_payload["variables"] = variables
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_payload
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    # Standard response validation
+    assert res_data
+    assert res_data["data"]
+    assert "errors" not in res_data
+
+    # Optional specific data key validation
+    if expected_data_key:
+        assert res_data["data"][expected_data_key] is not None
+
+    return res_data
+
+
+def execute_graphql_mutation(
+    auth_session, mutation: str, variables: Dict[str, Any], expected_data_key: str
+) -> Dict[str, Any]:
+    """Execute a GraphQL mutation with standard error handling.
+
+    Args:
+        auth_session: Authenticated session object
+        mutation: GraphQL mutation string
+        variables: Variables for the mutation
+        expected_data_key: Key to validate exists in response data
+
+    Returns:
+        Complete response JSON dictionary
+    """
+    return execute_graphql_query(auth_session, mutation, variables, expected_data_key)
+
+
+def assert_graphql_response_success(
+    res_data: Dict[str, Any], expected_data_keys: Optional[List[str]] = None
+) -> None:
+    """Standard GraphQL response validation.
+
+    Args:
+        res_data: Response data dictionary
+        expected_data_keys: Optional list of keys to validate exist in response data
+    """
+    assert res_data
+    assert res_data["data"]
+    assert "errors" not in res_data
+
+    if expected_data_keys:
+        for key in expected_data_keys:
+            assert res_data["data"][key] is not None

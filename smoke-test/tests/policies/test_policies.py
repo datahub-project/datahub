@@ -1,7 +1,7 @@
 import pytest
 import tenacity
 
-from tests.utils import get_root_urn, get_sleep_info
+from tests.utils import execute_graphql_query, get_root_urn, get_sleep_info
 
 TEST_POLICY_NAME = "Updated Platform Policy"
 
@@ -165,45 +165,38 @@ def test_frontend_policy_operations(auth_session):
 
 
 def listPolicies(auth_session):
-    json = {
-        "query": """query listPolicies($input: ListPoliciesInput!) {\n
-            listPolicies(input: $input) {\n
-                start\n
-                count\n
-                total\n
-                policies {\n
-                    urn\n
-                    type\n
-                    name\n
-                    description\n
-                    state\n
-                    resources {\n
-                      type\n
-                      allResources\n
-                      resources\n
-                    }\n
-                    privileges\n
-                    actors {\n
-                      users\n
-                      groups\n
-                      allUsers\n
-                      allGroups\n
-                      resourceOwners\n
-                    }\n
-                    editable\n
-                }\n
-            }\n
-        }""",
-        "variables": {
-            "input": {
-                "start": 0,
-                "count": 20,
+    list_policies_query = """query listPolicies($input: ListPoliciesInput!) {
+        listPolicies(input: $input) {
+            start
+            count
+            total
+            policies {
+                urn
+                type
+                name
+                description
+                state
+                resources {
+                  type
+                  allResources
+                  resources
+                }
+                privileges
+                actors {
+                  users
+                  groups
+                  allUsers
+                  allGroups
+                  resourceOwners
+                }
+                editable
             }
-        },
-    }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
-    )
-    response.raise_for_status()
+        }
+    }"""
 
-    return response.json()
+    return execute_graphql_query(
+        auth_session,
+        list_policies_query,
+        variables={"input": {"start": 0, "count": 20}},
+        expected_data_key="listPolicies",
+    )

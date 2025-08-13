@@ -1,7 +1,13 @@
 import pytest
 import tenacity
 
-from tests.utils import delete_urns_from_file, get_sleep_info, ingest_file_via_rest
+from tests.utils import (
+    delete_urns_from_file,
+    execute_graphql_mutation,
+    execute_graphql_query,
+    get_sleep_info,
+    ingest_file_via_rest,
+)
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -18,18 +24,16 @@ def ingest_cleanup_data(auth_session, graph_client, request):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_more_domains(auth_session, list_domains_json, before_count):
+def _ensure_more_domains(
+    auth_session, list_domains_query, list_domains_variables, before_count
+):
     # Get new count of Domains
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_domains_json
+    res_data = execute_graphql_query(
+        auth_session,
+        list_domains_query,
+        variables=list_domains_variables,
+        expected_data_key="listDomains",
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listDomains"]["total"] is not None
-    assert "errors" not in res_data
 
     # Assert that there are more domains now.
     after_count = res_data["data"]["listDomains"]["total"]
@@ -45,34 +49,27 @@ def test_create_list_get_domain(auth_session):
         json={"urn": "urn:li:domain:test id"},
     )
 
-    # Get count of existing secrets
-    list_domains_json = {
-        "query": """query listDomains($input: ListDomainsInput!) {\n
-            listDomains(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              domains {\n
-                urn\n
-                properties {\n
-                  name\n
-                }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"input": {"start": 0, "count": 20}},
-    }
+    # Get count of existing domains
+    list_domains_query = """query listDomains($input: ListDomainsInput!) {
+        listDomains(input: $input) {
+          start
+          count
+          total
+          domains {
+            urn
+            properties {
+              name
+            }
+          }
+        }
+    }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=list_domains_json
+    res_data = execute_graphql_query(
+        auth_session,
+        list_domains_query,
+        variables={"input": {"start": 0, "count": 20}},
+        expected_data_key="listDomains",
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listDomains"]["total"] is not None
-    assert "errors" not in res_data
     print(f"domains resp is {res_data}")
 
     before_count = res_data["data"]["listDomains"]["total"]
@@ -83,63 +80,49 @@ def test_create_list_get_domain(auth_session):
     domain_description = "test description"
 
     # Create new Domain
-    create_domain_json = {
-        "query": """mutation createDomain($input: CreateDomainInput!) {\n
-            createDomain(input: $input)
-        }""",
-        "variables": {
-            "input": {
-                "id": domain_id,
-                "name": domain_name,
-                "description": domain_description,
-            }
-        },
+    create_domain_mutation = """mutation createDomain($input: CreateDomainInput!) {
+        createDomain(input: $input)
+    }"""
+
+    create_domain_variables = {
+        "input": {
+            "id": domain_id,
+            "name": domain_name,
+            "description": domain_description,
+        }
     }
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=create_domain_json
+    res_data = execute_graphql_mutation(
+        auth_session, create_domain_mutation, create_domain_variables, "createDomain"
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["createDomain"] is not None
-    assert "errors" not in res_data
 
     domain_urn = res_data["data"]["createDomain"]
 
     _ensure_more_domains(
         auth_session=auth_session,
-        list_domains_json=list_domains_json,
+        list_domains_query=list_domains_query,
+        list_domains_variables={"input": {"start": 0, "count": 20}},
         before_count=before_count,
     )
 
     # Get the domain value back
-    get_domain_json = {
-        "query": """query domain($urn: String!) {\n
-            domain(urn: $urn) {\n
-              urn\n
-              id\n
-              properties {\n
-                name\n
-                description\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": domain_urn},
-    }
+    get_domain_query = """query domain($urn: String!) {
+        domain(urn: $urn) {
+          urn
+          id
+          properties {
+            name
+            description
+          }
+        }
+    }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_domain_json
+    res_data = execute_graphql_query(
+        auth_session,
+        get_domain_query,
+        variables={"urn": domain_urn},
+        expected_data_key="domain",
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["domain"] is not None
-    assert "errors" not in res_data
 
     domain = res_data["data"]["domain"]
     assert domain["urn"] == f"urn:li:domain:{domain_id}"
@@ -166,66 +149,51 @@ def test_set_unset_domain(auth_session, ingest_cleanup_data):
     domain_urn = "urn:li:domain:engineering"
 
     # First unset to be sure.
-    unset_domain_json = {
-        "query": """mutation unsetDomain($entityUrn: String!) {\n
-            unsetDomain(entityUrn: $entityUrn)}""",
-        "variables": {"entityUrn": dataset_urn},
-    }
+    unset_domain_mutation = """mutation unsetDomain($entityUrn: String!) {
+        unsetDomain(entityUrn: $entityUrn)
+    }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=unset_domain_json
+    res_data = execute_graphql_mutation(
+        auth_session, unset_domain_mutation, {"entityUrn": dataset_urn}, "unsetDomain"
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["unsetDomain"] is True
-    assert "errors" not in res_data
 
     # Set a new domain
-    set_domain_json = {
-        "query": """mutation setDomain($entityUrn: String!, $domainUrn: String!) {\n
-            setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)}""",
-        "variables": {"entityUrn": dataset_urn, "domainUrn": domain_urn},
-    }
+    set_domain_mutation = """mutation setDomain($entityUrn: String!, $domainUrn: String!) {
+        setDomain(entityUrn: $entityUrn, domainUrn: $domainUrn)
+    }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=set_domain_json
+    res_data = execute_graphql_mutation(
+        auth_session,
+        set_domain_mutation,
+        {"entityUrn": dataset_urn, "domainUrn": domain_urn},
+        "setDomain",
     )
-    response.raise_for_status()
-    res_data = response.json()
 
-    assert res_data
-    assert res_data["data"]
     assert res_data["data"]["setDomain"] is True
-    assert "errors" not in res_data
 
     # Now, fetch the dataset's domain and confirm it was set.
-    get_dataset_json = {
-        "query": """query dataset($urn: String!) {\n
-            dataset(urn: $urn) {\n
-              urn\n
-              domain {\n
-                domain {\n
-                  urn\n
-                  properties{\n
-                    name\n
-                  }\n
-                }\n
-              }\n
-            }\n
-        }""",
-        "variables": {"urn": dataset_urn},
-    }
+    get_dataset_query = """query dataset($urn: String!) {
+        dataset(urn: $urn) {
+          urn
+          domain {
+            domain {
+              urn
+              properties{
+                name
+              }
+            }
+          }
+        }
+    }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=get_dataset_json
+    res_data = execute_graphql_query(
+        auth_session,
+        get_dataset_query,
+        variables={"urn": dataset_urn},
+        expected_data_key="dataset",
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
     assert res_data["data"]["dataset"]["domain"]["domain"]["urn"] == domain_urn
     assert (
         res_data["data"]["dataset"]["domain"]["domain"]["properties"]["name"]

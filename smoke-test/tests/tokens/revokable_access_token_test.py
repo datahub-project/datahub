@@ -3,6 +3,8 @@ import os
 import pytest
 
 from tests.utils import (
+    execute_graphql_mutation,
+    execute_graphql_query,
     get_admin_credentials,
     get_frontend_url,
     login_as,
@@ -441,41 +443,37 @@ def listAccessTokens(session, filters):
     if filters:
         input["filters"] = filters
 
-    json = {
-        "query": """query listAccessTokens($input: ListAccessTokenInput!) {
-            listAccessTokens(input: $input) {
-              start
-              count
-              total
-              tokens {
-                urn
-                id
-                actorUrn
-                ownerUrn
-              }
-            }
-        }""",
-        "variables": {"input": input},
-    }
+    list_access_tokens_query = """query listAccessTokens($input: ListAccessTokenInput!) {
+        listAccessTokens(input: $input) {
+          start
+          count
+          total
+          tokens {
+            urn
+            id
+            actorUrn
+            ownerUrn
+          }
+        }
+    }"""
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    return response.json()
+    return execute_graphql_query(
+        session,
+        list_access_tokens_query,
+        variables={"input": input},
+        expected_data_key="listAccessTokens",
+    )
 
 
 def revokeAccessToken(session, tokenId):
     # Revoke token
-    json = {
-        "query": """mutation revokeAccessToken($tokenId: String!) {
-            revokeAccessToken(tokenId: $tokenId)
-        }""",
-        "variables": {"tokenId": tokenId},
-    }
+    revoke_access_token_mutation = """mutation revokeAccessToken($tokenId: String!) {
+        revokeAccessToken(tokenId: $tokenId)
+    }"""
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-
-    return response.json()
+    return execute_graphql_mutation(
+        session, revoke_access_token_mutation, {"tokenId": tokenId}, "revokeAccessToken"
+    )
 
 
 def getAccessTokenMetadata(session, token):

@@ -3,7 +3,7 @@ from urllib.parse import quote
 import pytest
 
 from tests.test_result_msg import add_datahub_stats
-from tests.utils import get_gms_url
+from tests.utils import execute_graphql_query, get_gms_url
 
 BASE_URL_V3 = f"{get_gms_url()}/openapi/v3"
 
@@ -32,29 +32,26 @@ ENTITY_TO_MAP = {
 
 
 def _get_search_result(auth_session, entity: str):
-    json = {
-        "query": """
-        query search($input: SearchInput!) {
-            search(input: $input) {
-                total
-                searchResults {
-                    entity {
-                        urn
-                    }
+    search_query = """
+    query search($input: SearchInput!) {
+        search(input: $input) {
+            total
+            searchResults {
+                entity {
+                    urn
                 }
             }
         }
-        """,
-        "variables": {"input": {"type": ENTITY_TO_MAP.get(entity), "query": "*"}},
     }
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    """
+
+    res_data = execute_graphql_query(
+        auth_session,
+        search_query,
+        variables={"input": {"type": ENTITY_TO_MAP.get(entity), "query": "*"}},
+        expected_data_key="search",
     )
-    print(f"Response text was {response.text}")
-    res_data = response.json()
-    assert res_data, f"response data was {res_data}"
-    assert res_data["data"], f"response data was {res_data}"
-    assert res_data["data"]["search"], f"response data was {res_data}"
+    print(f"Response text was {res_data}")
     return res_data["data"]["search"]
 
 
@@ -91,27 +88,20 @@ def test_search_works(auth_session, entity_type, api_name):
 
     first_urn = entities[0]["entity"]["urn"]
 
-    json = {
-        "query": """
-            query """
-        + api_name
-        + """($input: String!) {
-                """
-        + api_name
-        + """(urn: $input) {
-                    urn
-                }
-            }
-        """,
-        "variables": {"input": first_urn},
-    }
+    entity_query = f"""
+        query {api_name}($input: String!) {{
+            {api_name}(urn: $input) {{
+                urn
+            }}
+        }}
+    """
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json
+    res_data = execute_graphql_query(
+        auth_session,
+        entity_query,
+        variables={"input": first_urn},
+        expected_data_key=api_name,
     )
-    response.raise_for_status()
-    res_data = response.json()
-    assert res_data["data"], f"res_data was {res_data}"
     assert res_data["data"][api_name]["urn"] == first_urn, f"res_data was {res_data}"
 
 

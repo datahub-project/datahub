@@ -3,36 +3,29 @@ import json
 import pytest
 import tenacity
 
-from tests.utils import get_sleep_info
+from tests.utils import execute_graphql_query, get_sleep_info
 
 sleep_sec, sleep_times = get_sleep_info()
 
 
 def _get_ingestionSources(auth_session):
-    json_q = {
-        "query": """query listIngestionSources($input: ListIngestionSourcesInput!) {\n
-            listIngestionSources(input: $input) {\n
-              start\n
-              count\n
-              total\n
-              ingestionSources {\n
-                urn\n
-              }\n
-            }\n
-        }""",
-        "variables": {"input": {"start": 0, "count": 20}},
-    }
+    list_ingestion_sources_query = """query listIngestionSources($input: ListIngestionSourcesInput!) {
+        listIngestionSources(input: $input) {
+          start
+          count
+          total
+          ingestionSources {
+            urn
+          }
+        }
+    }"""
 
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/v2/graphql", json=json_q
+    res_data = execute_graphql_query(
+        auth_session,
+        list_ingestion_sources_query,
+        variables={"input": {"start": 0, "count": 20}},
+        expected_data_key="listIngestionSources",
     )
-    response.raise_for_status()
-    res_data = response.json()
-
-    assert res_data
-    assert res_data["data"]
-    assert res_data["data"]["listIngestionSources"]["total"] is not None
-    assert "errors" not in res_data
     return res_data
 
 
