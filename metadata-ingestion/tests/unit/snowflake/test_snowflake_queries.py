@@ -8,6 +8,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.snowflake_config import QueryDedupStrategyType
 from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -344,3 +345,69 @@ class TestBuildUserFilter:
 
         result = builder._build_user_filter(deny_usernames, allow_usernames)
         assert result == expected
+
+
+class TestSnowflakeViewQueries:
+    def test_get_views_for_database_query_syntax(self):
+        query = SnowflakeQuery.get_views_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Validate SQL structure
+        statement = parsed[0]
+        assert statement is not None
+        assert statement.find(sqlglot.exp.Select) is not None
+
+        # Check that it's selecting from information_schema.views in the correct database
+        from_clause = statement.find(sqlglot.exp.From)
+        assert from_clause is not None
+        table_name = str(from_clause.this).replace('"', "")
+        assert table_name == "TEST_DB.information_schema.views"
+
+    def test_get_views_for_schema_query_syntax(self):
+        query = SnowflakeQuery.get_views_for_schema("TEST_DB", "PUBLIC")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Validate SQL structure
+        statement = parsed[0]
+        assert statement is not None
+        assert statement.find(sqlglot.exp.Select) is not None
+
+        # Check that it's selecting from information_schema.views in the correct database
+        from_clause = statement.find(sqlglot.exp.From)
+        assert from_clause is not None
+        table_name = str(from_clause.this).replace('"', "")
+        assert table_name == "TEST_DB.information_schema.views"
+
+        # Check that it has a WHERE clause filtering by schema
+        where_clause = statement.find(sqlglot.exp.Where)
+        assert where_clause is not None
+        where_str = str(where_clause).upper()
+        assert "TABLE_SCHEMA" in where_str and "PUBLIC" in where_str
+
+    def test_show_single_view_for_database_and_schema_query_syntax(self):
+        query = SnowflakeQuery.show_single_view_for_database_and_schema(
+            "TEST_DB", "PUBLIC", "MY_VIEW"
+        )
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Validate it's a SHOW statement (not a SELECT)
+        statement = parsed[0]
+        assert statement is not None
+        query_upper = query.upper()
+        assert "SHOW VIEWS" in query_upper
+        assert "TEST_DB.PUBLIC" in query
+        assert "MY_VIEW" in query
+
+        # Check that it has LIMIT clause
+        limit_clause = statement.find(sqlglot.exp.Limit)
+        assert limit_clause is not None
+        assert str(limit_clause.expression) == "1"
