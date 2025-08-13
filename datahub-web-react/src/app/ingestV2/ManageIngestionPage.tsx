@@ -102,15 +102,32 @@ export const ManageIngestionPage = () => {
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            if (showIngestionTab) {
+            const currentPath = window.location.pathname;
+
+            // Check if current URL matches any tab URL
+            const currentTab = Object.entries(tabUrlMap).find(([, url]) => url === currentPath)?.[0] as TabType;
+
+            if (currentTab) {
+                // We're on a valid tab URL, set that tab
+                setSelectedTab(currentTab);
+            } else if (showIngestionTab) {
+                // We're not on a tab URL, default to Sources tab
                 setSelectedTab(TabType.Sources);
             } else if (showSecretsTab) {
+                // We're not on a tab URL, default to Secrets tab
                 setSelectedTab(TabType.Secrets);
             } else {
                 setSelectedTab(null);
+                return;
+            }
+
+            // If we're on the base /ingestion path, redirect to the appropriate default tab
+            if (currentPath === '/ingestion') {
+                const defaultTabType = showIngestionTab ? TabType.Sources : TabType.Secrets;
+                history.replace(tabUrlMap[defaultTabType]);
             }
         }
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
+    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab, history]);
 
     const tabs: Tab[] = [
         showIngestionTab && {

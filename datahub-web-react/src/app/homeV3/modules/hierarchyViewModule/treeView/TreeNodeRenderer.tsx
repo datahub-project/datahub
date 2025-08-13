@@ -42,6 +42,7 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
         getHasSelectedChildren,
         select,
         explicitlySelectChildren,
+        enableIntermediateSelectState,
         toggleSelected,
         getIsChildrenLoading,
         getNumberOfNotLoadedChildren,
@@ -55,6 +56,10 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
     const isSelectable = useMemo(() => getIsSelectable(node), [node, getIsSelectable]);
     const isSelected = useMemo(() => getIsSelected(node), [node, getIsSelected]);
     const hasSelectedChildren = useMemo(() => getHasSelectedChildren(node), [node, getHasSelectedChildren]);
+    const isIntermediatelySelected = useMemo(
+        () => !isSelected && hasSelectedChildren && !!enableIntermediateSelectState,
+        [isSelected, hasSelectedChildren, enableIntermediateSelectState],
+    );
 
     const isChildrenLoading = useMemo(() => getIsChildrenLoading(node), [node, getIsChildrenLoading]);
 
@@ -107,7 +112,7 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
                         <Checkbox
                             isChecked={isSelected}
                             setIsChecked={() => toggleSelected(node)}
-                            isIntermediate={!isSelected && hasSelectedChildren}
+                            isIntermediate={isIntermediatelySelected}
                         />
                     </>
                 )}
@@ -127,8 +132,8 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
                 <Row>
                     <DepthMargin depth={depth + 1} />
                     <ExpandToggler expandable={false} />
-                    <Button onClick={() => loadChildren(node)} variant="link">
-                        Load {maxNumberOfChildrenToLoad} more
+                    <Button onClick={() => loadChildren(node)} variant="link" color="gray">
+                        Show {maxNumberOfChildrenToLoad} more
                     </Button>
                 </Row>
             )}

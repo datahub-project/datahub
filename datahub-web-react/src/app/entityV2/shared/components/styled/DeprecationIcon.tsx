@@ -5,6 +5,7 @@ import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
@@ -134,6 +135,12 @@ export const DeprecationIcon = ({
                 if (!errors) {
                     message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
+                    analytics.event({
+                        type: EventType.SetDeprecation,
+                        entityUrns: [urn],
+                        deprecated: false,
+                        resources: subResource ? [{ resourceUrn: urn, subResource, subResourceType }] : undefined,
+                    });
                 }
                 setShowUndeprecateModal(false);
             })

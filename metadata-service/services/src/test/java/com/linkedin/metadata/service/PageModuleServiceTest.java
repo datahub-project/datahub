@@ -13,6 +13,9 @@ import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
+import com.datahub.authentication.Authentication;
 import com.datahub.authorization.AuthUtil;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -214,14 +217,12 @@ public class PageModuleServiceTest {
         .getPageModuleProperties(mockOpContext, moduleUrn);
 
     // Mock actor context and actor URN
-    io.datahubproject.metadata.context.ActorContext mockActorContext =
-        org.mockito.Mockito.mock(io.datahubproject.metadata.context.ActorContext.class);
-    org.mockito.Mockito.when(mockOpContext.getActorContext()).thenReturn(mockActorContext);
-    org.mockito.Mockito.when(mockActorContext.getActorUrn())
-        .thenReturn(UrnUtils.getUrn("urn:li:corpuser:test-user"));
+    Authentication mockSessionAuth = org.mockito.Mockito.mock(Authentication.class);
+    org.mockito.Mockito.when(mockOpContext.getSessionAuthentication()).thenReturn(mockSessionAuth);
+    org.mockito.Mockito.when(mockSessionAuth.getActor())
+        .thenReturn(new Actor(ActorType.USER, "test-user"));
 
-    // Mock AuthUtil to return false for MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE (should not have
-    // permission)
+    // Mock AuthUtil to return false for MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE
     try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
       authUtilMock
           .when(
@@ -305,11 +306,10 @@ public class PageModuleServiceTest {
         .getPageModuleProperties(mockOpContext, moduleUrn);
 
     // Mock actor context and actor URN (the actor is NOT the creator)
-    io.datahubproject.metadata.context.ActorContext mockActorContext =
-        org.mockito.Mockito.mock(io.datahubproject.metadata.context.ActorContext.class);
-    org.mockito.Mockito.when(mockOpContext.getActorContext()).thenReturn(mockActorContext);
-    org.mockito.Mockito.when(mockActorContext.getActorUrn())
-        .thenReturn(UrnUtils.getUrn("urn:li:corpuser:test-user"));
+    Authentication mockSessionAuth = org.mockito.Mockito.mock(Authentication.class);
+    org.mockito.Mockito.when(mockOpContext.getSessionAuthentication()).thenReturn(mockSessionAuth);
+    org.mockito.Mockito.when(mockSessionAuth.getActor())
+        .thenReturn(new Actor(ActorType.USER, "test-user"));
 
     // Mock AuthUtil to return false for MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE (should not have
     // permission)
@@ -337,48 +337,8 @@ public class PageModuleServiceTest {
   }
 
   @Test
-  public void testDeleteGlobalPageModuleWithManagePermissionThrowsUnauthorized() throws Exception {
-    // Arrange
-    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
-    PageModuleService spyService = org.mockito.Mockito.spy(service);
-    // Create properties with GLOBAL scope
-    DataHubPageModuleProperties properties = createTestModuleProperties();
-    properties.getVisibility().setScope(com.linkedin.module.PageModuleScope.GLOBAL);
-    org.mockito.Mockito.doReturn(properties)
-        .when(spyService)
-        .getPageModuleProperties(mockOpContext, moduleUrn);
-
-    // Mock actor context and actor URN
-    io.datahubproject.metadata.context.ActorContext mockActorContext =
-        org.mockito.Mockito.mock(io.datahubproject.metadata.context.ActorContext.class);
-    org.mockito.Mockito.when(mockOpContext.getActorContext()).thenReturn(mockActorContext);
-    org.mockito.Mockito.when(mockActorContext.getActorUrn())
-        .thenReturn(UrnUtils.getUrn("urn:li:corpuser:test-user"));
-
-    // Mock AuthUtil to return true for MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE
-    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
-      authUtilMock
-          .when(
-              () ->
-                  AuthUtil.isAuthorized(
-                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
-          .thenReturn(true);
-
-      // Act & Assert
-      try {
-        spyService.deletePageModule(mockOpContext, moduleUrn);
-        fail(
-            "Should throw UnauthorizedException when user has manage privilege for personal module");
-      } catch (RuntimeException ex) {
-        assertTrue(ex.getCause() instanceof UnauthorizedException);
-        assertTrue(
-            ex.getCause().getMessage().contains("User is unauthorized to delete global modules"));
-      }
-    }
-  }
-
-  @Test
-  public void testDeleteGlobalPageModuleWithoutManagePermissionSuccess() throws Exception {
+  public void testDeleteGlobalPageModuleWithoutManagePermissionThrowsUnauthorized()
+      throws Exception {
     // Arrange
     Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
     PageModuleService spyService = org.mockito.Mockito.spy(service);
@@ -404,6 +364,47 @@ public class PageModuleServiceTest {
                   AuthUtil.isAuthorized(
                       mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
           .thenReturn(false);
+
+      // Act & Assert
+      try {
+        spyService.deletePageModule(mockOpContext, moduleUrn);
+        fail(
+            "Should throw UnauthorizedException when user has manage privilege for personal module");
+      } catch (RuntimeException ex) {
+        assertTrue(ex.getCause() instanceof UnauthorizedException);
+        assertTrue(
+            ex.getCause().getMessage().contains("User is unauthorized to delete global modules"));
+      }
+    }
+  }
+
+  @Test
+  public void testDeleteGlobalPageModuleWithManagePermissionSuccess() throws Exception {
+    // Arrange
+    Urn moduleUrn = UrnUtils.getUrn(TEST_MODULE_URN);
+    PageModuleService spyService = org.mockito.Mockito.spy(service);
+    // Create properties with GLOBAL scope
+    DataHubPageModuleProperties properties = createTestModuleProperties();
+    properties.getVisibility().setScope(com.linkedin.module.PageModuleScope.GLOBAL);
+    org.mockito.Mockito.doReturn(properties)
+        .when(spyService)
+        .getPageModuleProperties(mockOpContext, moduleUrn);
+
+    // Mock actor context and actor URN
+    io.datahubproject.metadata.context.ActorContext mockActorContext =
+        org.mockito.Mockito.mock(io.datahubproject.metadata.context.ActorContext.class);
+    org.mockito.Mockito.when(mockOpContext.getActorContext()).thenReturn(mockActorContext);
+    org.mockito.Mockito.when(mockActorContext.getActorUrn())
+        .thenReturn(UrnUtils.getUrn("urn:li:corpuser:test-user"));
+
+    // Mock AuthUtil to return true for MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(true);
 
       // Act
       spyService.deletePageModule(mockOpContext, moduleUrn);

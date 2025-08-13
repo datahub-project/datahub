@@ -85,7 +85,10 @@ public class PageModuleParamsMapper
       hierarchyViewParams.setShowRelatedEntities(
           params.getHierarchyViewParams().isShowRelatedEntities());
 
-      // TODO: add relatedEntitiesFilter
+      if (params.getHierarchyViewParams().getRelatedEntitiesFilterJson() != null) {
+        hierarchyViewParams.setRelatedEntitiesFilterJson(
+            params.getHierarchyViewParams().getRelatedEntitiesFilterJson());
+      }
 
       result.setHierarchyViewParams(hierarchyViewParams);
     }

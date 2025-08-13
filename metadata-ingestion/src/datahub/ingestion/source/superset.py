@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import dateutil.parser as dp
 import requests
+import sqlglot
 from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
@@ -75,6 +76,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -131,8 +133,11 @@ FIELD_TYPE_MAPPING = {
     "STRING": StringTypeClass,
     "FLOAT": NumberTypeClass,
     "DATETIME": DateTypeClass,
+    "TIMESTAMP": TimeTypeClass,
     "BOOLEAN": BooleanTypeClass,
     "SQL": StringTypeClass,
+    "NUMERIC": NumberTypeClass,
+    "TEXT": StringTypeClass,
 }
 
 
@@ -633,74 +638,130 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         return input_fields
 
-    def construct_chart_cll(
-        self,
-        chart_data: dict,
-        datasource_urn: Union[str, None],
-        datasource_id: Union[Any, int],
-    ) -> List[InputField]:
-        column_data: List[Union[str, dict]] = chart_data.get("form_data", {}).get(
-            "all_columns", []
-        )
+    def _extract_columns_from_sql(self, sql_expr: Optional[str]) -> List[str]:
+        if not sql_expr:
+            return []
 
-        # the second field represents whether its a SQL expression,
-        # false being just regular column and true being SQL col
-        chart_column_data: List[Tuple[str, bool]] = [
-            (column, False)
-            if isinstance(column, str)
-            else (column.get("label", ""), True)
-            for column in column_data
-        ]
+        try:
+            parsed_expr = sqlglot.parse_one(sql_expr)
 
-        dataset_columns: List[Tuple[str, str, str]] = []
+            column_refs = set()
+            for node in parsed_expr.walk():
+                if isinstance(node, sqlglot.exp.Column):
+                    column_name = node.name
+                    column_refs.add(column_name)
 
-        # parses the superset dataset's column info, to build type and description info
-        if datasource_id:
-            dataset_info = self.get_dataset_info(datasource_id).get("result", {})
-            dataset_column_info = dataset_info.get("columns", [])
-            dataset_metric_info = dataset_info.get("metrics", [])
+            return list(column_refs)
+        except Exception as e:
+            self.report.warning(f"Failed to parse SQL expression '{sql_expr}': {e}")
+            return []
 
-            for column in dataset_column_info:
-                col_name = column.get("column_name", "")
-                col_type = column.get("type", "")
-                col_description = column.get("description", "")
+    def _process_column_item(
+        self, item: Union[str, dict], unique_columns: Dict[str, bool]
+    ) -> None:
+        """Process a single column item and add to unique_columns."""
 
-                # if missing column name or column type, cannot construct the column,
-                # so we skip this column, missing description is fine
-                if col_name == "" or col_type == "":
-                    logger.info(f"could not construct column lineage for {column}")
-                    continue
+        def add_column(col_name: str, is_sql: bool) -> None:
+            if not col_name:
+                return
+            # Always set to False if any non-SQL seen, else keep as is_sql
+            unique_columns[col_name] = unique_columns.get(col_name, True) and is_sql
 
-                dataset_columns.append((col_name, col_type, col_description))
+        if isinstance(item, str):
+            add_column(item, False)
+        elif isinstance(item, dict):
+            if item.get("expressionType") == "SIMPLE":
+                # For metrics with SIMPLE expression type
+                add_column(item.get("column", {}).get("column_name", ""), False)
+            elif item.get("expressionType") == "SQL":
+                sql_expr = item.get("sqlExpression")
+                column_refs = self._extract_columns_from_sql(sql_expr)
+                for col in column_refs:
+                    add_column(col, False)
+                if not column_refs:
+                    add_column(item.get("label", ""), True)
 
-            for metric in dataset_metric_info:
-                metric_name = metric.get("metric_name", "")
-                metric_type = metric.get("metric_type", "")
-                metric_description = metric.get("description", "")
+    def _collect_all_unique_columns(self, form_data: dict) -> Dict[str, bool]:
+        """Collect all unique column names from form_data, distinguishing SQL vs non-SQL."""
+        unique_columns: Dict[str, bool] = {}
 
-                if metric_name == "" or metric_type == "":
-                    logger.info(f"could not construct metric lineage for {metric}")
-                    continue
+        # Process regular columns
+        for column in form_data.get("all_columns", []):
+            self._process_column_item(column, unique_columns)
 
-                dataset_columns.append((metric_name, metric_type, metric_description))
+        # Process metrics
+        # For charts with a single metric, the metric is stored in the form_data as a string in the 'metric' key
+        # For charts with multiple metrics, the metrics are stored in the form_data as a list of strings in the 'metrics' key
+        if "metric" in form_data:
+            metrics_data = [form_data.get("metric")]
         else:
-            # if no datasource id, cannot build cll, just return
+            metrics_data = form_data.get("metrics", [])
+
+        for metric in metrics_data:
+            if metric is not None:
+                self._process_column_item(metric, unique_columns)
+
+        # Process group by columns
+        for group in form_data.get("groupby", []):
+            self._process_column_item(group, unique_columns)
+
+        # Process x-axis columns
+        x_axis_data = form_data.get("x_axis")
+        if x_axis_data is not None:
+            self._process_column_item(x_axis_data, unique_columns)
+
+        return unique_columns
+
+    def _fetch_dataset_columns(
+        self, datasource_id: Union[Any, int]
+    ) -> List[Tuple[str, str, str]]:
+        """Fetch dataset columns and metrics from Superset API."""
+        if not datasource_id:
             logger.warning(
                 "no datasource id was found, cannot build column level lineage"
             )
             return []
 
+        dataset_info = self.get_dataset_info(datasource_id).get("result", {})
+        dataset_column_info = dataset_info.get("columns", [])
+        dataset_metric_info = dataset_info.get("metrics", [])
+
+        dataset_columns: List[Tuple[str, str, str]] = []
+        for column in dataset_column_info:
+            col_name = column.get("column_name", "")
+            col_type = column.get("type", "")
+            col_description = column.get("description", "")
+
+            if col_name == "" or col_type == "":
+                logger.info(f"could not construct column lineage for {column}")
+                continue
+
+            dataset_columns.append((col_name, col_type, col_description))
+
+        for metric in dataset_metric_info:
+            metric_name = metric.get("metric_name", "")
+            metric_type = metric.get("metric_type", "")
+            metric_description = metric.get("description", "")
+
+            if metric_name == "" or metric_type == "":
+                logger.info(f"could not construct metric lineage for {metric}")
+                continue
+
+            dataset_columns.append((metric_name, metric_type, metric_description))
+
+        return dataset_columns
+
+    def _match_chart_columns_with_dataset(
+        self,
+        unique_chart_columns: Dict[str, bool],
+        dataset_columns: List[Tuple[str, str, str]],
+    ) -> List[Tuple[str, str, str]]:
+        """Match chart columns with dataset columns, preserving SQL/non-SQL status."""
         chart_columns: List[Tuple[str, str, str]] = []
-        for chart_col in chart_column_data:
-            chart_col_name, is_sql = chart_col
+
+        for chart_col_name, is_sql in unique_chart_columns.items():
             if is_sql:
-                chart_columns.append(
-                    (
-                        chart_col_name,
-                        "SQL",
-                        "",
-                    )
-                )
+                chart_columns.append((chart_col_name, "SQL", ""))
                 continue
 
             # find matching upstream column
@@ -711,13 +772,36 @@ class SupersetSource(StatefulIngestionSourceBase):
                 if dataset_col_name == chart_col_name:
                     chart_columns.append(
                         (chart_col_name, dataset_col_type, dataset_col_description)
-                    )  # column name, column type, description
+                    )
                     break
-
-            # if no matching upstream column was found
-            if len(chart_columns) == 0 or chart_columns[-1][0] != chart_col_name:
+            else:
                 chart_columns.append((chart_col_name, "", ""))
 
+        return chart_columns
+
+    def construct_chart_cll(
+        self,
+        chart_data: dict,
+        datasource_urn: Union[str, None],
+        datasource_id: Union[Any, int],
+    ) -> List[InputField]:
+        """Construct column-level lineage for a chart."""
+        form_data = chart_data.get("form_data", {})
+
+        # Extract and process all columns in one go
+        unique_columns = self._collect_all_unique_columns(form_data)
+
+        # Fetch dataset columns
+        dataset_columns = self._fetch_dataset_columns(datasource_id)
+        if not dataset_columns:
+            return []
+
+        # Match chart columns with dataset columns
+        chart_columns = self._match_chart_columns_with_dataset(
+            unique_columns, dataset_columns
+        )
+
+        # Build input fields
         return self.build_input_fields(chart_columns, datasource_urn)
 
     def construct_chart_from_chart_data(

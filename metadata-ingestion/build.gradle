@@ -140,20 +140,20 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format --check scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
+    "ruff check scripts/ scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format --check scripts/ scripts/tests/ src/ tests/ examples/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/ examples/"
 }
 
 task lintFix(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     venv_activate_command +
-    "ruff check --fix scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ && " +
-    "ruff format scripts/capability_summary.py scripts/tests/ src/ tests/ examples/ "
+    "ruff check --fix scripts/ scripts/tests/ src/ tests/ examples/ && " +
+    "ruff format scripts/ scripts/tests/ src/ tests/ examples/ "
 }
 
-def pytest_default_env = "PYTHONDEVMODE=1"
-def pytest_default_args = "--durations=30 -vv --continue-on-collection-errors"
+def pytest_default_env = ""  // set to "PYTHONDEVMODE=1" to warn on unclosed sockets
+def pytest_default_args = "--durations=20 -vv --continue-on-collection-errors"
 
 task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJsonSchema']) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
@@ -191,23 +191,15 @@ task testSingle(dependsOn: [installDevTest]) {
   }
 }
 
-task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch0")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_0' --junit-xml=junit.integrationbatch0.xml"
-}
-task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch1")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_1' --junit-xml=junit.integrationbatch1.xml"
-}
-task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_args("intBatch2")
-  commandLine 'bash', '-c',
-    venv_activate_command +
-    "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_2' --junit-xml=junit.integrationbatch2.xml"
+// Create testIntegrationBatch0 through testIntegrationBatch5 tasks
+(0..5).each { batchNum ->
+    tasks.register("testIntegrationBatch${batchNum}", Exec) {
+        dependsOn installDevTest
+        def cvg_arg = get_coverage_args("intBatch${batchNum}")
+        commandLine 'bash', '-c',
+            venv_activate_command +
+            "${pytest_default_env} pytest ${cvg_arg} ${pytest_default_args} -m 'integration_batch_${batchNum}' --junit-xml=junit.integrationbatch${batchNum}.xml"
+    }
 }
 
 task testFull(type: Exec, dependsOn: [installDevTest]) {

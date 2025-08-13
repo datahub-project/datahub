@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ClickOutside from '@app/shared/ClickOutside';
@@ -10,7 +11,8 @@ import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
-import { getModalDomContainer } from '@utils/focus';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import { getModalDomContainer } from '@src/utils/focus';
 
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
@@ -33,6 +35,7 @@ type SelectedDomain = {
 
 export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
     const entityRegistry = useEntityRegistry();
+    const { entityType } = useEntityContext();
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [selectedDomain, setSelectedDomain] = useState<SelectedDomain | undefined>(
@@ -103,6 +106,25 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
         setSelectedDomain(undefined);
     };
 
+    const sendAnalytics = () => {
+        const isBatchAction = urns.length > 1;
+
+        if (isBatchAction) {
+            analytics.event({
+                type: EventType.BatchEntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityUrns: urns,
+            });
+        } else {
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                actionType: EntityActionType.SetDomain,
+                entityType,
+                entityUrn: urns[0],
+            });
+        }
+    };
+
     const onOk = () => {
         if (!selectedDomain) {
             return;
@@ -125,6 +147,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                 if (!errors) {
                     message.success({ content: 'Updated Domain!', duration: 2 });
                     refetch?.();
+                    sendAnalytics();
                     onModalClose();
                     setSelectedDomain(undefined);
                 }

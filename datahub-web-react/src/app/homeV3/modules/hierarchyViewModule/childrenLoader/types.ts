@@ -1,5 +1,7 @@
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 
+import { AndFilterInput } from '@types';
+
 export interface ChildrenLoaderMetadata {
     totalNumberOfChildren?: number;
     numberOfLoadedChildren?: number;
@@ -13,6 +15,8 @@ export interface ChildrenLoaderInputType {
     metadata?: ChildrenLoaderMetadata;
     maxNumberToLoad: number;
     dependenciesIsLoading?: boolean;
+    orFilters?: AndFilterInput[];
+    forceHasAsyncChildren?: boolean;
 }
 
 export interface ChildrenLoaderResultType {

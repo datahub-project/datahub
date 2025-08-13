@@ -3741,6 +3741,7 @@ export const mocks = [
                         viewStructuredPropertiesPage: true,
                         manageApplications: true,
                         manageFeatures: true,
+                        manageHomePageTemplates: true,
                     },
                 },
             },
@@ -4027,6 +4028,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewStructuredPropertiesPage: true,
     manageApplications: true,
     manageFeatures: true,
+    manageHomePageTemplates: true,
 };
 
 export const DomainMock1 = {
@@ -4349,4 +4351,26 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
             ],
         },
     ],
+};
+
+export const useEntityDataFunc = () => {
+    const value = {
+        entityData: {
+            parentContainers: {
+                containers: [
+                    {
+                        properties: {
+                            name: 'name1',
+                        },
+                    },
+                    {
+                        properties: {
+                            name: 'name2',
+                        },
+                    },
+                ],
+            },
+        },
+    };
+    return value;
 };

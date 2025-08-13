@@ -1,6 +1,7 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import { handleBatchError } from '@app/entityV2/shared/utils';
@@ -34,6 +35,11 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                 if (!errors) {
                     message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
+                    analytics.event({
+                        type: EventType.SetDeprecation,
+                        entityUrns: urns,
+                        deprecated: false,
+                    });
                 }
             })
             .catch((e) => {

@@ -27,7 +27,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.testing import mce_helpers
-from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
+from tests.integration.snowflake.common import (
+    FROZEN_TIME,
+    default_query_results,
+)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -281,7 +284,8 @@ def test_snowflake_private_link_and_incremental_mcps(
                         account_id="ABC12345.ap-south-1.privatelink",
                         username="TST_USR",
                         password="TST_PWD",
-                        schema_pattern=AllowDenyPattern(allow=["test_schema"]),
+                        schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+                        match_fully_qualified_names=True,
                         include_technical_schema=True,
                         include_table_lineage=True,
                         include_column_lineage=False,

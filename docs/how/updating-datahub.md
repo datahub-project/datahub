@@ -20,6 +20,7 @@
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 - #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
+- #14162: Added fields to SystemMetadata updating the MCP Avro schema which can affect users of external schema registries with mixed version deployments.
 
 -->
 
@@ -28,6 +29,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 ### Breaking Changes
+
+- #13852 `snowflake` connector has `match_fully_qualified_names` which has been present for backward compatibility. If you are using `schema_pattern` but have not set `match_fully_qualified_names: true` please change it to `match_fully_qualified_names: true` and update your `schema_pattern` to match against fully qualified schema names `<catalog_name>.<schema_name>`. We were printing warnings earlier for this. We are making this backward incompatible breaking change to make this consistent with all other sources.
 
 ### Known Issues
 
