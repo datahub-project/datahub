@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
+import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
@@ -32,14 +32,18 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHan
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -56,15 +60,118 @@ import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.core.CountRequest;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.ParseField;
+import org.opensearch.core.xcontent.ContextParser;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchModule;
+import org.opensearch.search.aggregations.Aggregation;
+import org.opensearch.search.aggregations.bucket.adjacency.AdjacencyMatrixAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.adjacency.ParsedAdjacencyMatrix;
+import org.opensearch.search.aggregations.bucket.composite.CompositeAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.composite.ParsedComposite;
+import org.opensearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.filter.FiltersAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.filter.ParsedFilter;
+import org.opensearch.search.aggregations.bucket.filter.ParsedFilters;
+import org.opensearch.search.aggregations.bucket.global.GlobalAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.global.ParsedGlobal;
+import org.opensearch.search.aggregations.bucket.histogram.AutoDateHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.HistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.histogram.ParsedAutoDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.ParsedDateHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.ParsedHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.ParsedVariableWidthHistogram;
+import org.opensearch.search.aggregations.bucket.histogram.VariableWidthHistogramAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.missing.MissingAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
+import org.opensearch.search.aggregations.bucket.nested.NestedAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.nested.ParsedNested;
+import org.opensearch.search.aggregations.bucket.nested.ParsedReverseNested;
+import org.opensearch.search.aggregations.bucket.nested.ReverseNestedAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.range.DateRangeAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.range.GeoDistanceAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.range.IpRangeAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.range.ParsedBinaryRange;
+import org.opensearch.search.aggregations.bucket.range.ParsedDateRange;
+import org.opensearch.search.aggregations.bucket.range.ParsedGeoDistance;
+import org.opensearch.search.aggregations.bucket.range.ParsedRange;
+import org.opensearch.search.aggregations.bucket.range.RangeAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.sampler.InternalSampler;
+import org.opensearch.search.aggregations.bucket.sampler.ParsedSampler;
+import org.opensearch.search.aggregations.bucket.terms.DoubleTerms;
+import org.opensearch.search.aggregations.bucket.terms.LongRareTerms;
+import org.opensearch.search.aggregations.bucket.terms.LongTerms;
+import org.opensearch.search.aggregations.bucket.terms.MultiTermsAggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.ParsedDoubleTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedLongRareTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedLongTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedMultiTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedSignificantLongTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedSignificantStringTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedStringRareTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedStringTerms;
+import org.opensearch.search.aggregations.bucket.terms.ParsedUnsignedLongTerms;
+import org.opensearch.search.aggregations.bucket.terms.SignificantLongTerms;
+import org.opensearch.search.aggregations.bucket.terms.SignificantStringTerms;
+import org.opensearch.search.aggregations.bucket.terms.StringRareTerms;
+import org.opensearch.search.aggregations.bucket.terms.StringTerms;
+import org.opensearch.search.aggregations.bucket.terms.UnsignedLongTerms;
+import org.opensearch.search.aggregations.matrix.stats.MatrixStatsAggregationBuilder;
+import org.opensearch.search.aggregations.matrix.stats.ParsedMatrixStats;
+import org.opensearch.search.aggregations.metrics.AvgAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.CardinalityAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ExtendedStatsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.GeoCentroidAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.InternalHDRPercentileRanks;
+import org.opensearch.search.aggregations.metrics.InternalHDRPercentiles;
+import org.opensearch.search.aggregations.metrics.InternalTDigestPercentileRanks;
+import org.opensearch.search.aggregations.metrics.InternalTDigestPercentiles;
+import org.opensearch.search.aggregations.metrics.MaxAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.MedianAbsoluteDeviationAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.MinAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ParsedAvg;
+import org.opensearch.search.aggregations.metrics.ParsedCardinality;
+import org.opensearch.search.aggregations.metrics.ParsedExtendedStats;
+import org.opensearch.search.aggregations.metrics.ParsedGeoCentroid;
+import org.opensearch.search.aggregations.metrics.ParsedHDRPercentileRanks;
+import org.opensearch.search.aggregations.metrics.ParsedHDRPercentiles;
+import org.opensearch.search.aggregations.metrics.ParsedMax;
+import org.opensearch.search.aggregations.metrics.ParsedMedianAbsoluteDeviation;
+import org.opensearch.search.aggregations.metrics.ParsedMin;
+import org.opensearch.search.aggregations.metrics.ParsedScriptedMetric;
+import org.opensearch.search.aggregations.metrics.ParsedStats;
+import org.opensearch.search.aggregations.metrics.ParsedSum;
+import org.opensearch.search.aggregations.metrics.ParsedTDigestPercentileRanks;
+import org.opensearch.search.aggregations.metrics.ParsedTDigestPercentiles;
+import org.opensearch.search.aggregations.metrics.ParsedTopHits;
+import org.opensearch.search.aggregations.metrics.ParsedValueCount;
+import org.opensearch.search.aggregations.metrics.ParsedWeightedAvg;
+import org.opensearch.search.aggregations.metrics.ScriptedMetricAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.StatsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.SumAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.ValueCountAggregationBuilder;
+import org.opensearch.search.aggregations.metrics.WeightedAvgAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.DerivativePipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.ExtendedStatsBucketPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.InternalBucketMetricValue;
+import org.opensearch.search.aggregations.pipeline.InternalSimpleValue;
+import org.opensearch.search.aggregations.pipeline.MinBucketPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.ParsedBucketMetricValue;
+import org.opensearch.search.aggregations.pipeline.ParsedDerivative;
+import org.opensearch.search.aggregations.pipeline.ParsedExtendedStatsBucket;
+import org.opensearch.search.aggregations.pipeline.ParsedPercentilesBucket;
+import org.opensearch.search.aggregations.pipeline.ParsedSimpleValue;
+import org.opensearch.search.aggregations.pipeline.ParsedStatsBucket;
+import org.opensearch.search.aggregations.pipeline.PercentilesBucketPipelineAggregationBuilder;
+import org.opensearch.search.aggregations.pipeline.StatsBucketPipelineAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 
 /** A search DAO for Elasticsearch backend. */
@@ -72,16 +179,9 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @RequiredArgsConstructor
 @Accessors(chain = true)
 public class ESSearchDAO {
-  private static final NamedXContentRegistry X_CONTENT_REGISTRY;
 
-  static {
-    SearchModule searchModule = new SearchModule(Settings.EMPTY, Collections.emptyList());
-    X_CONTENT_REGISTRY = new NamedXContentRegistry(searchModule.getNamedXContents());
-  }
-
-  private final RestHighLevelClient client;
+  private final SearchClientShim<?> client;
   private final boolean pointInTimeCreationEnabled;
-  private final String elasticSearchImpl;
   @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
@@ -89,9 +189,8 @@ public class ESSearchDAO {
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
   public ESSearchDAO(
-      RestHighLevelClient client,
+      SearchClientShim<?> client,
       boolean pointInTimeCreationEnabled,
-      String elasticSearchImpl,
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
@@ -99,7 +198,6 @@ public class ESSearchDAO {
     this(
         client,
         pointInTimeCreationEnabled,
-        elasticSearchImpl,
         searchConfiguration,
         customSearchConfiguration,
         queryFilterRewriteChain,
@@ -649,15 +747,13 @@ public class ESSearchDAO {
     if (hasSliceOptions && isSliceDisabled()) {
       throw new IllegalStateException(
           "Slice options are not supported with the current ES implementation: "
-              + elasticSearchImpl
+              + client.getEngineType()
               + ". Please disable slice options in the search flags.");
     }
 
     boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
     String pitId =
-        usePIT
-            ? ESUtils.computePointInTime(scrollId, keepAlive, elasticSearchImpl, client, indexArray)
-            : null;
+        usePIT ? ESUtils.computePointInTime(scrollId, keepAlive, client, indexArray) : null;
     Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
     SearchRequest searchRequest =
@@ -751,7 +847,7 @@ public class ESSearchDAO {
   }
 
   private boolean isSliceDisabled() {
-    return ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl);
+    return SearchClientShim.SearchEngineType.ELASTICSEARCH_7.equals(client.getEngineType());
   }
 
   public ExplainResponse explain(
