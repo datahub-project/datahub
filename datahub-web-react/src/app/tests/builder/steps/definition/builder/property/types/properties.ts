@@ -77,6 +77,10 @@ export const commonProps: Property[] = [
                     id: 'container',
                     displayName: 'Container',
                 },
+                {
+                    id: 'glossaryTerm',
+                    displayName: 'Glossary Term',
+                },
             ],
         },
     },
@@ -92,6 +96,54 @@ export const commonProps: Property[] = [
     //     description: 'The description text for the asset, as displayed inside the Documentation tab.',
     //     valueType: ValueTypeId.STRING,
     // },
+    {
+        id: 'ownership.owners.owner',
+        displayName: 'Owners',
+        description: 'The owners of the asset.',
+        valueType: ValueTypeId.URN_LIST,
+        valueOptions: {
+            entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+    {
+        id: 'deprecation.deprecated',
+        displayName: 'Deprecated',
+        description: 'Whether the asset is deprecated or not.',
+        valueType: ValueTypeId.BOOLEAN,
+    },
+    {
+        id: 'status.removed',
+        displayName: 'Removed',
+        description: 'Whether the asset has been removed/soft-deleted.',
+        valueType: ValueTypeId.BOOLEAN,
+    },
+    {
+        id: '__firstSynchronized',
+        displayName: 'First Synchronized',
+        description: 'The time at which the asset was first ingested into DataHub (ms).',
+        valueType: ValueTypeId.TIMESTAMP,
+    },
+    {
+        id: '__lastSynchronized',
+        displayName: 'Last Synchronized',
+        description: 'The time at which the asset was last ingested into DataHub (ms).',
+        valueType: ValueTypeId.TIMESTAMP,
+    },
+    {
+        id: '__lastObserved',
+        displayName: 'Last Observed',
+        description: 'The time at which the asset was last observed by DataHub (ms).',
+        valueType: ValueTypeId.TIMESTAMP,
+    },
+];
+
+/**
+ * Properties that are common across most entity types but not necessarily all
+ * (e.g., platform might not apply to glossaryTerm)
+ */
+export const baseEntityProps: Property[] = [
+    ...commonProps,
     {
         id: 'dataPlatformInstance.platform',
         displayName: 'Platform',
@@ -109,6 +161,23 @@ export const commonProps: Property[] = [
         valueType: ValueTypeId.URN_LIST,
         valueOptions: {
             entityTypes: [EntityType.Tag],
+            mode: SelectInputMode.MULTIPLE,
+        },
+    },
+
+    {
+        id: 'subTypes.typeNames',
+        displayName: 'Subtypes',
+        description: 'The subtype(s) of the asset.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'ownership.owners.typeUrn',
+        displayName: 'Ownership Types',
+        description: 'The types of ownership assigned to the asset (e.g., Technical Owner, Business Owner).',
+        valueType: ValueTypeId.URN_LIST,
+        valueOptions: {
+            entityTypes: [EntityType.CustomOwnershipType],
             mode: SelectInputMode.MULTIPLE,
         },
     },
@@ -132,26 +201,13 @@ export const commonProps: Property[] = [
             mode: SelectInputMode.MULTIPLE,
         },
     },
-    {
-        id: 'domains.domains',
-        displayName: 'Domain',
-        description: 'The domain that the asset is a part of.',
-        valueType: ValueTypeId.URN,
-        valueOptions: {
-            entityTypes: [EntityType.Domain],
-            mode: SelectInputMode.SINGLE,
-        },
-    },
-    {
-        id: 'ownership.owners.owner',
-        displayName: 'Owners',
-        description: 'The owners of the asset.',
-        valueType: ValueTypeId.URN_LIST,
-        valueOptions: {
-            entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
-            mode: SelectInputMode.MULTIPLE,
-        },
-    },
+];
+
+/**
+ * Properties that are specific to data entities (datasets, dashboards, charts, etc.)
+ * but not applicable to other entities like glossaryTerm
+ */
+export const dataEntityProps: Property[] = [
     {
         id: 'browsePathsV2.path.urn',
         displayName: 'Browse Path container',
@@ -173,33 +229,26 @@ export const commonProps: Property[] = [
         },
     },
     {
-        id: 'deprecation.deprecated',
-        displayName: 'Deprecated',
-        description: 'Whether the asset is deprecated or not.',
-        valueType: ValueTypeId.BOOLEAN,
+        id: 'domains.domains',
+        displayName: 'Domain',
+        description: 'The domain that the asset is a part of.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.Domain],
+            mode: SelectInputMode.SINGLE,
+        },
     },
     {
-        id: '__firstSynchronized',
-        displayName: 'First Synchronized',
-        description: 'The time at which the asset was first ingested into DataHub (ms).',
-        valueType: ValueTypeId.TIMESTAMP,
-    },
-    {
-        id: '__lastSynchronized',
-        displayName: 'Last Synchronized',
-        description: 'The time at which the asset was last ingested into DataHub (ms).',
-        valueType: ValueTypeId.TIMESTAMP,
-    },
-    {
-        id: '__lastObserved',
-        displayName: 'Last Observed',
-        description: 'The time at which the asset was last observed by DataHub (ms).',
-        valueType: ValueTypeId.TIMESTAMP,
+        id: 'upstreamLineage.upstreams',
+        displayName: 'Upstream Assets',
+        description: 'Assets that this entity depends on (upstream in the data lineage).',
+        valueType: ValueTypeId.EXISTS_LIST,
     },
 ];
 
 const datasetProps: Property[] = [
-    ...commonProps,
+    ...baseEntityProps,
+    ...dataEntityProps,
     {
         id: 'datasetDescription',
         displayName: 'Description',
@@ -219,9 +268,15 @@ const datasetProps: Property[] = [
         ],
     },
     {
-        id: 'subTypes.typeNames',
-        displayName: 'Subtype',
-        description: 'The subtype of the asset.',
+        id: 'datasetProperties.name',
+        displayName: 'Dataset Name',
+        description: 'The name of the dataset as defined in the source platform.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'datasetProperties.qualifiedName',
+        displayName: 'Qualified Name',
+        description: 'The fully-qualified name of the dataset.',
         valueType: ValueTypeId.STRING,
     },
     {
@@ -369,7 +424,8 @@ const datasetProps: Property[] = [
 ];
 
 const dataJobProps = [
-    ...commonProps,
+    ...baseEntityProps,
+    ...dataEntityProps,
     {
         id: 'dataJobDescription',
         displayName: 'Description',
@@ -388,10 +444,23 @@ const dataJobProps = [
             },
         ],
     },
+    {
+        id: 'dataJobInfo.name',
+        displayName: 'Job Name',
+        description: 'The name of the job as defined in the source platform.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'dataJobInfo.type',
+        displayName: 'Job Type',
+        description: 'The type of the data job (e.g., batch, streaming).',
+        valueType: ValueTypeId.STRING,
+    },
 ];
 
 const dataFlowProps = [
-    ...commonProps,
+    ...baseEntityProps,
+    ...dataEntityProps,
     {
         id: 'dataFlowDescription',
         displayName: 'Description',
@@ -410,10 +479,17 @@ const dataFlowProps = [
             },
         ],
     },
+    {
+        id: 'dataFlowInfo.name',
+        displayName: 'Flow Name',
+        description: 'The name of the data flow as defined in the source platform.',
+        valueType: ValueTypeId.STRING,
+    },
 ];
 
 const dashboardProps = [
-    ...commonProps,
+    ...baseEntityProps,
+    ...dataEntityProps,
     {
         id: 'dashboardDescription',
         displayName: 'Description',
@@ -431,6 +507,12 @@ const dashboardProps = [
                 valueType: ValueTypeId.STRING,
             },
         ],
+    },
+    {
+        id: 'dashboardInfo.title',
+        displayName: 'Dashboard Name',
+        description: 'The name of the dashboard as defined in the source platform.',
+        valueType: ValueTypeId.STRING,
     },
     {
         id: 'dashboardMetrics',
@@ -476,7 +558,8 @@ const dashboardProps = [
 ];
 
 const chartProps = [
-    ...commonProps,
+    ...baseEntityProps,
+    ...dataEntityProps,
     {
         id: 'chartDescription',
         displayName: 'Description',
@@ -494,6 +577,18 @@ const chartProps = [
                 valueType: ValueTypeId.STRING,
             },
         ],
+    },
+    {
+        id: 'chartInfo.title',
+        displayName: 'Chart Name',
+        description: 'The name of the chart as defined in the source platform.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'chartInfo.type',
+        displayName: 'Chart Type',
+        description: 'The type of the chart (e.g., line, bar, pie).',
+        valueType: ValueTypeId.STRING,
     },
     {
         id: 'chartMetrics',
@@ -540,7 +635,8 @@ const chartProps = [
 ];
 
 const containerProps = [
-    ...commonProps,
+    ...baseEntityProps,
+    ...dataEntityProps,
     {
         id: 'containerDescription',
         displayName: 'Description',
@@ -560,10 +656,48 @@ const containerProps = [
         ],
     },
     {
-        id: 'subTypes.typeNames',
-        displayName: 'Subtypes',
-        description: 'The subtype(s) of the asset.',
+        id: 'containerProperties.name',
+        displayName: 'Native Platform Name',
+        description: 'The name of the container as defined in the source platform.',
         valueType: ValueTypeId.STRING,
+    },
+];
+
+const glossaryTermProps = [
+    ...commonProps,
+    {
+        id: 'glossaryTermInfo.name',
+        displayName: 'Name',
+        description: 'The name of the glossary term.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'glossaryTermInfo.description',
+        displayName: 'Description',
+        description: 'The description of the glossary term.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'glossaryTermInfo.definition',
+        displayName: 'Definition',
+        description: 'The definition of the glossary term.',
+        valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'glossaryTermInfo.parentNode',
+        displayName: 'Parent Term Group',
+        description: 'The parent term group of this glossary term.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.GlossaryNode],
+            mode: SelectInputMode.SINGLE,
+        },
+    },
+    {
+        id: 'glossaryTermInfo.customProperties',
+        displayName: 'Custom Properties',
+        description: 'Custom properties defined for this glossary term.',
+        valueType: ValueTypeId.ENTRY_LIST,
     },
 ];
 
@@ -595,5 +729,9 @@ export const entityProperties = [
     {
         type: EntityType.Container,
         properties: containerProps,
+    },
+    {
+        type: EntityType.GlossaryTerm,
+        properties: glossaryTermProps,
     },
 ];

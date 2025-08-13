@@ -3,6 +3,31 @@ import { SelectInputMode, ValueTypeId } from '@app/tests/builder/steps/definitio
 import { EntityType } from '@types';
 
 /**
+ * Entity type groups for action support
+ */
+export const ENTITY_GROUPS = {
+    /** Data entities that support most metadata operations */
+    DATA_ENTITIES: [
+        EntityType.Dataset,
+        EntityType.Dashboard,
+        EntityType.Chart,
+        EntityType.DataFlow,
+        EntityType.DataJob,
+        EntityType.Container,
+    ],
+    /** All entities including metadata entities */
+    ALL_ENTITIES: [
+        EntityType.Dataset,
+        EntityType.Dashboard,
+        EntityType.Chart,
+        EntityType.DataFlow,
+        EntityType.DataJob,
+        EntityType.Container,
+        EntityType.GlossaryTerm,
+    ],
+} as const;
+
+/**
  * An action to be taken on failure or success of a passing test
  */
 export enum ActionId {
@@ -25,6 +50,8 @@ export type ActionType = {
     valueType?: ValueTypeId;
     valueOptions?: any;
     additionalParams?: Record<string, any>;
+    /** Entity types that support this action */
+    supportedEntityTypes?: readonly EntityType[];
 };
 
 /**
@@ -40,6 +67,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.DATA_ENTITIES, // GlossaryTerm excluded - doesn't support tag operations
     },
     {
         id: ActionId.REMOVE_TAGS,
@@ -50,6 +78,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.DATA_ENTITIES, // GlossaryTerm excluded - doesn't support tag operations
     },
     {
         id: ActionId.ADD_GLOSSARY_TERMS,
@@ -60,6 +89,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.DATA_ENTITIES, // GlossaryTerm excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.REMOVE_GLOSSARY_TERMS,
@@ -70,6 +100,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.DATA_ENTITIES, // GlossaryTerm excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.ADD_OWNERS,
@@ -83,6 +114,7 @@ export const ACTION_TYPES: ActionType[] = [
         additionalParams: {
             ownerType: 'TECHNICAL_OWNER',
         },
+        supportedEntityTypes: ENTITY_GROUPS.ALL_ENTITIES,
     },
     {
         id: ActionId.REMOVE_OWNERS,
@@ -93,6 +125,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
             mode: SelectInputMode.MULTIPLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.ALL_ENTITIES,
     },
     {
         id: ActionId.SET_DOMAIN,
@@ -103,6 +136,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.SINGLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.ALL_ENTITIES,
     },
     {
         id: ActionId.UNSET_DOMAIN,
@@ -113,6 +147,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.SINGLE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.ALL_ENTITIES,
     },
     {
         id: ActionId.DEPRECATE,
@@ -122,6 +157,7 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             mode: SelectInputMode.NONE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.ALL_ENTITIES,
     },
     {
         id: ActionId.UN_DEPRECATE,
@@ -131,5 +167,6 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             mode: SelectInputMode.NONE,
         },
+        supportedEntityTypes: ENTITY_GROUPS.ALL_ENTITIES,
     },
 ];

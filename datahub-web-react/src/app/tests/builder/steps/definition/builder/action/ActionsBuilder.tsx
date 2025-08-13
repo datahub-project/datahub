@@ -8,6 +8,8 @@ import { Action } from '@app/tests/builder/steps/actions/types';
 import { ActionBuilder } from '@app/tests/builder/steps/definition/builder/action/ActionBuilder';
 import { AddActionButton } from '@app/tests/builder/steps/definition/builder/action/AddActionButton';
 import { ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { EntityType } from '@types';
+import { filterActionTypesByEntities } from '@app/tests/builder/validation/utils';
 
 /**
  * The maximum number of sub-predicates supported in a single
@@ -61,6 +63,7 @@ type Props = {
     selectedActions: Action[];
     onChangeActions: (newActions: Action[]) => void;
     actionTypes: ActionType[];
+    entityTypes?: EntityType[];
     disabled?: boolean;
     options?: Options;
 };
@@ -72,11 +75,14 @@ export const ActionsBuilder = ({
     selectedActions,
     onChangeActions,
     actionTypes,
+    entityTypes = [],
     disabled = false,
     options = {
         maxActions: 10,
     },
 }: Props) => {
+    // Filter actions based on entity types
+    const filteredActionTypes = filterActionTypesByEntities(actionTypes, entityTypes);
     const onAddAction = () => {
         const newActions = [...selectedActions, EMPTY_ACTION];
         onChangeActions(newActions);
@@ -102,7 +108,7 @@ export const ActionsBuilder = ({
                 <ActionWrapper>
                     <ActionBuilder
                         selectedAction={action}
-                        actionTypes={actionTypes}
+                        actionTypes={filteredActionTypes}
                         onChangeAction={(newAction) => onChangeAction(newAction, index)}
                     />
                     <DeleteButton type="text">

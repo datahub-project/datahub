@@ -19,6 +19,8 @@ import { graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
 import { ValidateTestModal } from '@app/tests/builder/steps/validate/ValidateTestModal';
 import { StepProps, TestBuilderStep } from '@app/tests/builder/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { ValidationWarning } from '@app/tests/builder/validation/ValidationWarning';
+import { getValidationWarnings, getPropertiesFromPredicate } from '@app/tests/builder/validation/utils';
 
 const BuilderWrapper = styled.div`
     margin-bottom: 28px;
@@ -75,7 +77,54 @@ export const RulesStep = ({ state, updateState, prev, goTo }: StepProps) => {
         updateState(newState);
     };
 
+    const onResetRules = () => {
+        const newDefinition = {
+            ...testDefinition,
+            rules: [], // Clear all rules
+        };
+        const newState = {
+            ...state,
+            definition: {
+                json: serializeTestDefinition(newDefinition),
+            },
+        };
+        updateState(newState);
+    };
+
+    const onResetActions = () => {
+        const newDefinition = {
+            ...testDefinition,
+            actions: {
+                passing: [],
+                failing: [],
+            },
+        };
+        const newState = {
+            ...state,
+            definition: {
+                json: serializeTestDefinition(newDefinition),
+            },
+        };
+        updateState(newState);
+    };
+
     const selectedEntityTypes = graphNamesToEntityTypes(testDefinition.on?.types || [], entityRegistry);
+
+    // Get validation warnings for current configuration (memoized for proper re-evaluation)
+    const validationWarnings = useMemo(() => {
+        const currentRulesPredicate = convertTestPredicateToLogicalPredicate(testDefinition.rules) as LogicalPredicate;
+        const usedRulesProperties = getPropertiesFromPredicate(currentRulesPredicate);
+        const currentActions = [
+            ...(testDefinition.actions?.passing || []),
+            ...(testDefinition.actions?.failing || []),
+        ];
+        return getValidationWarnings(selectedEntityTypes, usedRulesProperties, currentActions);
+    }, [
+        selectedEntityTypes.join(','), // Convert array to string for stable comparison
+        JSON.stringify(testDefinition.rules), // Stringify for stable comparison
+        JSON.stringify(testDefinition.actions), // Stringify for stable comparison
+        JSON.stringify(testDefinition.on?.types || []), // Include types for entity changes
+    ]);
 
     return (
         <>
@@ -98,6 +147,19 @@ export const RulesStep = ({ state, updateState, prev, goTo }: StepProps) => {
                     </Tooltip>
                 </Title>
                 <SubTitle type="secondary">What criteria must each selected asset meet?</SubTitle>
+                
+                {/* Show validation warnings if any */}
+                {validationWarnings.length > 0 && (
+                    <ValidationWarning
+                        key={`validation-rules-${selectedEntityTypes.join('-')}-${validationWarnings.length}`}
+                        warnings={validationWarnings}
+                        onResetFilters={onResetRules}
+                        onResetActions={onResetActions}
+                        showResetFilters={true}
+                        showResetActions={true}
+                    />
+                )}
+                
                 <BuilderWrapper>
                     <LogicalPredicateBuilder
                         selectedPredicate={

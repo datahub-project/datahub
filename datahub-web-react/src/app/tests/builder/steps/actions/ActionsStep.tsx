@@ -8,7 +8,9 @@ import { Action } from '@app/tests/builder/steps/actions/types';
 import { ActionsBuilder } from '@app/tests/builder/steps/definition/builder/action/ActionsBuilder';
 import { ACTION_TYPES } from '@app/tests/builder/steps/definition/builder/property/types/action';
 import { deserializeTestDefinition, serializeTestDefinition } from '@app/tests/builder/steps/definition/utils';
+import { graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
 import { TestBuilderState } from '@app/tests/builder/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const ActionSection = styled.div`
     margin-bottom: 20px;
@@ -62,7 +64,11 @@ type Props = {
 };
 
 export const ActionsStep = ({ state, updateState }: Props) => {
+    const entityRegistry = useEntityRegistry();
     const testDefinition = useMemo(() => deserializeTestDefinition(state?.definition?.json || '{}'), [state]);
+
+    // Get selected entity types for filtering actions
+    const selectedEntityTypes = graphNamesToEntityTypes(testDefinition.on?.types || [], entityRegistry);
 
     const selectedPassingActions = testDefinition.actions?.passing || [];
     const selectedFailingActions = testDefinition.actions?.failing || [];
@@ -115,6 +121,7 @@ export const ActionsStep = ({ state, updateState }: Props) => {
                     </ActionSectionTitle>
                     <ActionsBuilder
                         actionTypes={ACTION_TYPES}
+                        entityTypes={selectedEntityTypes}
                         selectedActions={selectedPassingActions}
                         onChangeActions={onSetPassingActions}
                     />
@@ -127,6 +134,7 @@ export const ActionsStep = ({ state, updateState }: Props) => {
                     <ActionSelect>
                         <ActionsBuilder
                             actionTypes={ACTION_TYPES}
+                            entityTypes={selectedEntityTypes}
                             selectedActions={selectedFailingActions}
                             onChangeActions={onSetFailingActions}
                         />

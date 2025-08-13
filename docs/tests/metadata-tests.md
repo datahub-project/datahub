@@ -54,7 +54,7 @@ What you need to manage Metadata Tests on DataHub:
 This Platform Privilege allows users to create, edit, and remove all Metadata Tests on DataHub. Therefore, it should only be
 given to those users who will be serving as metadata Admins of the platform. The default `Admin` role has this Privilege.
 
-> Note that the Metadata Tests feature is currently limited in support for the following DataHub Asset Types:
+> Note that the Metadata Tests feature currently supports the following DataHub Asset Types:
 >
 > - Dataset
 > - Dashboard
@@ -62,6 +62,7 @@ given to those users who will be serving as metadata Admins of the platform. The
 > - Data Flow (e.g. Pipeline)
 > - Data Job (e.g. Task)
 > - Container (Database, Schema, Project)
+> - Glossary Term
 >
 > If you'd like to see Metadata Tests for other asset types, please let your DataHub Cloud CustomerSuccess partner know!
 

@@ -19,6 +19,8 @@ import { YamlStep } from '@app/tests/builder/steps/definition/yaml/YamlStep';
 import { entityTypesToGraphNames, graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
 import { StepProps, TestBuilderStep } from '@app/tests/builder/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { ValidationWarning } from '@app/tests/builder/validation/ValidationWarning';
+import { getValidationWarnings, getPropertiesFromPredicate } from '@app/tests/builder/validation/utils';
 
 import { EntityType } from '@types';
 
@@ -97,10 +99,40 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
         updateState(newState);
     };
 
+    const onResetFilters = () => {
+        const newDefinition = {
+            ...testDefinition,
+            on: {
+                types: testDefinition.on?.types || [],
+                conditions: [], // Clear all conditions
+            },
+        };
+        const newState = {
+            ...state,
+            definition: {
+                json: serializeTestDefinition(newDefinition),
+            },
+        };
+        updateState(newState);
+    };
+
     const testEntities: EntityType[] = Array.from(
         entityRegistry.getTypesWithSupportedCapabilities(EntityCapabilityType.TEST),
     );
     const selectedEntityTypes = graphNamesToEntityTypes(testDefinition.on?.types || [], entityRegistry);
+
+    // Get validation warnings for current configuration (memoized for proper re-evaluation)
+    const validationWarnings = useMemo(() => {
+        const currentPredicate = convertTestPredicateToLogicalPredicate(testDefinition.on?.conditions || []) as LogicalPredicate;
+        const usedProperties = getPropertiesFromPredicate(currentPredicate);
+        return getValidationWarnings(selectedEntityTypes, usedProperties, []);
+    }, [
+        selectedEntityTypes.join(','), // Convert array to string for stable comparison
+        JSON.stringify(testDefinition.on?.conditions || []), // Stringify for stable comparison
+        JSON.stringify(testDefinition.on?.types || []), // Include types for entity changes
+    ]);
+    
+
 
     return (
         <>
@@ -117,6 +149,17 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
                     entityTypes={testEntities}
                     onChangeTypes={onChangeTypes}
                 />
+                
+                {/* Show validation warnings if any */}
+                {validationWarnings.length > 0 && (
+                    <ValidationWarning
+                        key={`validation-${selectedEntityTypes.join('-')}-${validationWarnings.length}`}
+                        warnings={validationWarnings}
+                        onResetFilters={onResetFilters}
+                        showResetFilters={true}
+                    />
+                )}
+                
                 {selectedEntityTypes.length > 0 && (
                     <Section>
                         <AdditionalFilters>
