@@ -197,6 +197,7 @@ class SnowflakeV2Source(
                 ),
                 generate_usage_statistics=False,
                 generate_operations=False,
+                generate_queries=self.config.include_queries,
                 format_queries=self.config.format_sql_queries,
                 is_temp_table=self._is_temp_table,
                 is_allowed_table=self._is_allowed_table,
