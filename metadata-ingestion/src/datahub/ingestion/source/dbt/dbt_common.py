@@ -91,7 +91,6 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
-    SiblingsClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -99,6 +98,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingDebugInfo,
@@ -1451,10 +1451,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if view_prop_aspect:
                 aspects.append(view_prop_aspect)
 
-            if node.exists_in_target_platform:
-                sibling_aspect = self._create_sibling_aspect_for_dbt_entity(node)
-                if sibling_aspect:
-                    aspects.append(sibling_aspect)
+            # Note: Sibling relationships are now created using patches in create_target_platform_mces
+            # This avoids the upsert approach and allows proper multi-project sibling merging
 
             # Generate main MCE.
             if self.config.entities_enabled.can_emit_node_type(node.node_type):
@@ -1621,14 +1619,40 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=upstreams_lineage_class,
                     ).as_workunit(is_primary_source=False)
 
-                    sibling_aspect = self._create_sibling_aspect_for_target_entity(
-                        node, upstream_dbt_urn
+                # Use patch to add sibling relationship instead of upsert
+                # This preserves existing siblings from multi-project setups
+                if self._should_create_sibling_for_target_entity(node):
+                    node.get_urn(
+                        self.config.target_platform,
+                        self.config.env,
+                        self.config.target_platform_instance,
                     )
-                    if sibling_aspect:
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=node_datahub_urn,
-                            aspect=sibling_aspect,
-                        ).as_workunit()
+
+                    # Create patch for target platform entity
+                    target_patch = DatasetPatchBuilder(node_datahub_urn)
+                    target_patch.add_sibling(
+                        upstream_dbt_urn, primary=not self.config.dbt_is_primary_sibling
+                    )
+
+                    for mcp in target_patch.build():
+                        yield MetadataWorkUnit(
+                            id=MetadataWorkUnit.generate_workunit_id(mcp),
+                            mcp_raw=mcp,
+                            is_primary_source=False,
+                        )
+
+                    # Create patch for dbt entity
+                    dbt_patch = DatasetPatchBuilder(upstream_dbt_urn)
+                    dbt_patch.add_sibling(
+                        node_datahub_urn, primary=self.config.dbt_is_primary_sibling
+                    )
+
+                    for mcp in dbt_patch.build():
+                        yield MetadataWorkUnit(
+                            id=MetadataWorkUnit.generate_workunit_id(mcp),
+                            mcp_raw=mcp,
+                            is_primary_source=False,
+                        )
 
     def extract_query_tag_aspects(
         self,
@@ -2154,53 +2178,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     term_id_set.add(existing_term.urn)
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
-    def _create_sibling_aspect_for_dbt_entity(self, node: DBTNode) -> Optional[Any]:
-        """Create sibling aspect for dbt entity pointing to target platform entity."""
+    def _should_create_sibling_for_target_entity(self, node: DBTNode) -> bool:
+        """Determine if we should create sibling relationships for this node."""
 
         if not self.config.entities_enabled.can_emit_node_type(node.node_type):
-            return None
+            return False
 
-        # Only create explicit sibling relationships when needed
-        if not self.config.dbt_is_primary_sibling:
-            # When target platform should be primary
-            should_create_sibling = True
-            is_primary = False
-        else:
-            # Default case: dbt is primary, existing relationships are sufficient
-            return None
+        # Only create siblings for entities that exist in target platform
+        if not node.exists_in_target_platform:
+            return False
 
-        if not should_create_sibling:
-            return None
-
-        target_urn = node.get_urn(
-            self.config.target_platform,
-            self.config.env,
-            self.config.target_platform_instance,
-        )
-
-        return SiblingsClass(primary=is_primary, siblings=[target_urn])
-
-    def _create_sibling_aspect_for_target_entity(
-        self, node: DBTNode, dbt_urn: str
-    ) -> Optional[Any]:
-        """Create sibling aspect for target platform entity pointing to dbt entity."""
-
-        if not self.config.entities_enabled.can_emit_node_type(node.node_type):
-            return None
-
-        # Only create explicit sibling relationships when needed
-        if not self.config.dbt_is_primary_sibling:
-            # When target platform should be primary
-            should_create_sibling = True
-            is_primary = True
-        else:
-            # Default case: dbt is primary, existing relationships are sufficient
-            return None
-
-        if not should_create_sibling:
-            return None
-
-        return SiblingsClass(primary=is_primary, siblings=[dbt_urn])
+        # Only create sibling patches when dbt_is_primary_sibling is explicitly set to False
+        # When True (default), let SiblingAssociationHook handle sibling creation
+        return self.config.dbt_is_primary_sibling is False
 
     def get_report(self):
         return self.report
