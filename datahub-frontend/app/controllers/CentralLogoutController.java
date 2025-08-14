@@ -28,7 +28,9 @@ public class CentralLogoutController extends LogoutController {
   public Result executeLogout(Http.Request request) {
     if (ssoManager.isSsoEnabled()) {
       try {
-        return logout(request).toCompletableFuture().get().withNewSession();
+        //return logout(request).toCompletableFuture().get().withNewSession();
+        // Customize: solve logout issue (https://github.com/datahub-project/datahub/issues/8369)
+        logout(request).toCompletableFuture().get();        
       } catch (Exception e) {
         log.error(
             "Caught exception while attempting to perform SSO logout! It's likely that SSO integration is mis-configured.",
