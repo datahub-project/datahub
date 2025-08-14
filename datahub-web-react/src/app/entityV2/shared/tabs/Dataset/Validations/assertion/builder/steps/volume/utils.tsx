@@ -26,16 +26,17 @@ export type VolumeSourceType = {
 export const VOLUME_SOURCE_TYPES: Record<DatasetVolumeSourceType, VolumeSourceType> = {
     [DatasetVolumeSourceType.InformationSchema]: {
         label: 'Information Schema',
-        description: 'Use the information schema or system metadata tables to determine the row count',
+        description: 'Pre-computed by the source system, cost-effective, and reliably up-to-date and accurate.',
     },
     [DatasetVolumeSourceType.Query]: {
         label: 'Query',
-        description: 'Determine the table row count by issuing a COUNT(*) query',
+        description:
+            'Calculated every time the assertion runs by issuing a count(*) query; most accurate, but will incur additional costs in the source system.',
     },
     [DatasetVolumeSourceType.DatahubDatasetProfile]: {
         label: 'DataHub Dataset Profile',
         description:
-            'Use the DataHub Dataset Profile to determine the table row count. Note that this requires that dataset profiling statistics are up-to-date as of the assertion run time. Profiling settings for a given integration can be configured on the Ingestion page.',
+            'Uses row counts from DataHub profiling runs, avoiding additional source system costs. Requires profiling enabled during ingestion and may be less reliable due to scheduling differences and ingestion failures.',
     },
 };
 

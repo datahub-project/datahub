@@ -63,6 +63,15 @@ export const FieldMetricSourceBuilder = ({ value, onChange, disabled }: Props) =
             <Typography.Paragraph type="secondary">
                 Select the mechanism used to determine how the metric is calculated.
             </Typography.Paragraph>
+            <Typography.Paragraph italic>
+                <a
+                    href="https://docs.datahub.com/docs/managed-datahub/observe/column-assertions#10-optional-click-advanced-to-further-customize-the-column-assertion"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Learn more about these options
+                </a>
+            </Typography.Paragraph>
             <StyledSelect
                 value={
                     sourceType === DatasetFieldAssertionSourceType.DatahubDatasetProfile

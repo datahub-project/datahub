@@ -173,6 +173,15 @@ export const DatasetFreshnessSourceBuilder = ({
             <Typography.Paragraph type="secondary">
                 Select the mechanism used to determine whether a change has been made to this dataset.
             </Typography.Paragraph>
+            <Typography.Paragraph italic>
+                <a
+                    href="https://docs.datahub.com/docs/managed-datahub/observe/freshness-assertions#3-change-source"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Learn more about these options
+                </a>
+            </Typography.Paragraph>
             <StyledSelect
                 value={selectedSourceOption.name}
                 onChange={(sourceOption) => updateSourceType(sourceOption as string)}

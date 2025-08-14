@@ -325,9 +325,10 @@ const PLATFORM_ASSERTION_CONFIGS = {
 /** Configuration object for all possible source options */
 const allSourceOptions: SourceOption[] = [
     {
-        type: DatasetFreshnessSourceType.AuditLog,
-        name: 'Audit Log',
-        description: 'Use operations logged in platform audit logs to determine whether the asset has changed',
+        type: DatasetFreshnessSourceType.InformationSchema,
+        name: 'Information Schema',
+        description:
+            'Uses inexpensive system metadata to detect changes, balancing reliability and cost-effectiveness. Updated within minutes on most Data Platforms.',
         allowedScheduleTypes: [
             FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
             FreshnessAssertionScheduleBuilderTypeOptions.Cron,
@@ -336,9 +337,10 @@ const allSourceOptions: SourceOption[] = [
         ],
     },
     {
-        type: DatasetFreshnessSourceType.InformationSchema,
-        name: 'Information Schema',
-        description: 'Use the information schema or system metadata tables to determine whether the asset has changed',
+        type: DatasetFreshnessSourceType.AuditLog,
+        name: 'Audit Log',
+        description:
+            'Uses platform activity logs to detect changes, offering high accuracy with slightly higher costs. May have up to two-hours of delay depending on platform.',
         allowedScheduleTypes: [
             FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
             FreshnessAssertionScheduleBuilderTypeOptions.Cron,
@@ -361,7 +363,7 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.FieldValue,
         name: 'Last Modified Column',
         description:
-            'Use an audit column which represents the "last modified" time of an individual row to determine whether the dataset has changed.',
+            'Queries timestamp data directly from your dataset for maximum accuracy, but may incur additional source system costs.',
         secondaryDescription:
             'Select a column containing the last modified time for a given row. This column must have type TIMESTAMP, DATE, or DATETIME.',
         field: {
@@ -379,7 +381,7 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.FieldValue,
         name: 'High Watermark Column',
         description:
-            'Use a sortable column with a continuously increasing value, such as a partition date, timestamp, or an incrementing id, to determine whether the dataset has changed. Only available when "Since the previous check" is selected.',
+            'Queries a continually incrementing column (dates, IDs) directly from your dataset for maximum accuracy, but may incur additional source system costs. Only available for "Since the previous check" mode. Not available for "Fixed interval" mode.',
         secondaryDescription:
             'Select a sortable, incrementing column used to track changes in the dataset. This column must have type INTEGER, TIMESTAMP, DATE, or DATETIME.',
         field: {
@@ -396,7 +398,7 @@ const allSourceOptions: SourceOption[] = [
         type: DatasetFreshnessSourceType.DatahubOperation,
         name: 'DataHub Operation',
         description:
-            'Use the DataHub "Operation" Aspect to determine whether the table has changed. This avoids the requirement to contact your data platform to determine evaluate Freshness Assertions. Note that this relies on operations being reported to DataHub, either via ingestion or via use of the DataHub APIs (reportOperation).',
+            "Uses DataHub's change tracking to detect updates, avoiding additional source system costs. Least reliable option due to dependency on DataHub ingestion.",
         allowedScheduleTypes: [
             FreshnessAssertionScheduleBuilderTypeOptions.FixedInterval,
             FreshnessAssertionScheduleBuilderTypeOptions.Cron,

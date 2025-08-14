@@ -80,6 +80,15 @@ export const VolumeSourceTypeBuilder = ({ entityUrn, platformUrn, value, onChang
             <Typography.Paragraph>
                 Select the mechanism used to determine the table&apos;s row count
             </Typography.Paragraph>
+            <Typography.Paragraph italic>
+                <a
+                    href="https://docs.datahub.com/docs/managed-datahub/observe/volume-assertions#3-volume-source"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Learn more about these options
+                </a>
+            </Typography.Paragraph>
             <StyledSelect
                 value={value}
                 onChange={(newValue) => onChange(newValue as DatasetVolumeSourceType)}

@@ -606,14 +606,15 @@ export const getFieldMetricSourceTypeOptions = () => {
     return [
         {
             label: 'Query',
-            description: 'Determine the metric value by issuing a query against the dataset',
+            description:
+                'Calculates the field value every time the assertion runs by querying the dataset directly; most accurate, but may incur additional costs in the source system.',
             value: DatasetFieldAssertionSourceType.AllRowsQuery,
             requiresConnection: true,
         },
         {
             label: 'DataHub Dataset Profile',
             description:
-                'Use the DataHub Dataset Profile to determine the metric value. Note that this requires that dataset profiling statistics are up-to-date as of the assertion run time. Profiling settings for a given integration can be configured on the Ingestion page.',
+                'Uses field statistics generated during DataHub profiling runs, avoiding additional source system costs. Requires profiling enabled for this dataset during ingestion and may be less reliable due to different scheduling cadences.',
             value: DatasetFieldAssertionSourceType.DatahubDatasetProfile,
             requiresConnection: false,
         },
