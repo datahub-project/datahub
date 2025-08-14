@@ -4,6 +4,7 @@ import React, { ReactNode } from 'react';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -15,6 +16,7 @@ import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/p
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import OneLineMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/OneLineMarkdownViewer';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import { CompactView } from '@app/previewV2/CompactView';
@@ -24,6 +26,7 @@ import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTermAssets } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
@@ -105,8 +108,15 @@ const InsightIconContainer = styled.span`
     margin-right: 4px;
 `;
 
-const Documentation = styled.div`
+const DocumentationTopMarginWrapper = styled.div`
     margin-top: 8px;
+`
+
+const ShortDocumentation = styled(DocumentationTopMarginWrapper)`
+    width: 100%;
+`
+
+const Documentation = styled(DocumentationTopMarginWrapper)`
     max-height: 300px;
     overflow-y: auto;
 `;
@@ -117,6 +127,7 @@ const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
     EntityType.DataProduct,
     EntityType.Domain,
     EntityType.Tag,
+    EntityType.Dataset,
 ]);
 
 interface Props {
@@ -218,6 +229,16 @@ export default function DefaultPreviewCard({
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
+    const { config } = useAppConfig();
+    // TODO:: !config.searchCardConfig.showDescription; revert condition
+    // TODO:: adjust logic after resolving open questions
+    const shouldShowOneLineDescription = !config.searchCardConfig.showDescription;
+    const shouldShowDescriptionsForSearch =
+        previewType === PreviewType.SEARCH && !config.searchCardConfig.showDescription;
+    const shouldShowDescription =
+        previewType === PreviewType.HOVER_CARD ||
+        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) ||
+        shouldShowDescriptionsForSearch;
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -261,6 +282,12 @@ export default function DefaultPreviewCard({
             previewData={previewData}
         />
     );
+
+    console.log('>>>DEFAULT_PREVIEW_CARD', {
+        name,
+        description,
+        isFullViewCard,
+    });
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
@@ -311,13 +338,17 @@ export default function DefaultPreviewCard({
                             entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
                         />
                     </RowContainer>
-                    {(previewType === PreviewType.HOVER_CARD ||
-                        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType)) &&
-                    description ? (
-                        <Documentation>
-                            <CompactMarkdownViewer content={description} />
-                        </Documentation>
-                    ) : null}
+                    {shouldShowDescription &&
+                        !!description &&
+                        (shouldShowOneLineDescription ? (
+                            <ShortDocumentation>
+                                <OneLineMarkdownViewer content={description} clearMarkdown />
+                            </ShortDocumentation>
+                        ) : (
+                            <Documentation>
+                                <CompactMarkdownViewer content={removeMarkdown(description)} />
+                            </Documentation>
+                        ))}
                     {shouldShowDPIinfo && (
                         <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
                             <DataProcessInstanceInfo {...lastRunEvent} />
