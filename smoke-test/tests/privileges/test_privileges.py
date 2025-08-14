@@ -17,6 +17,7 @@ from tests.privileges.utils import (
     set_view_entity_profile_privileges_policy_status,
 )
 from tests.utils import (
+    execute_graphql_mutation,
     get_admin_credentials,
     get_frontend_session,
     get_frontend_url,
@@ -71,8 +72,11 @@ def privileges_and_test_user_setup(admin_session):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_cant_perform_action(session, json, assertion_key):
-    action_response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+def _ensure_cant_perform_action(session, query, variables, assertion_key):
+    action_response = session.post(
+        f"{get_frontend_url()}/api/v2/graphql",
+        json={"query": query, "variables": variables},
+    )
     action_response.raise_for_status()
     action_data = action_response.json()
 
@@ -86,34 +90,21 @@ def _ensure_cant_perform_action(session, json, assertion_key):
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_can_create_secret(session, json, urn):
-    create_secret_success = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json
-    )
-    create_secret_success.raise_for_status()
-    secret_data = create_secret_success.json()
+def _ensure_can_create_secret(session, mutation, variables, urn):
+    secret_data = execute_graphql_mutation(session, mutation, variables, "createSecret")
 
-    assert secret_data
-    assert secret_data["data"]
-    assert secret_data["data"]["createSecret"]
     assert secret_data["data"]["createSecret"] == urn
 
 
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(10), wait=tenacity.wait_fixed(sleep_sec)
 )
-def _ensure_can_create_ingestion_source(session, json):
-    create_ingestion_success = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=json
+def _ensure_can_create_ingestion_source(session, mutation, variables):
+    ingestion_data = execute_graphql_mutation(
+        session, mutation, variables, "createIngestionSource"
     )
-    create_ingestion_success.raise_for_status()
-    ingestion_data = create_ingestion_success.json()
 
-    assert ingestion_data
-    assert ingestion_data["data"]
-    assert ingestion_data["data"]["createIngestionSource"]
     assert ingestion_data["data"]["createIngestionSource"] is not None
-
     return ingestion_data["data"]["createIngestionSource"]
 
 
@@ -156,18 +147,19 @@ def test_privilege_to_create_and_manage_secrets():
     secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets
-    create_secret = {
-        "query": """mutation createSecret($input: CreateSecretInput!) {\n
-            createSecret(input: $input)\n}""",
-        "variables": {
-            "input": {
-                "name": "TestSecretName",
-                "value": "Test Secret Value",
-                "description": "Test Secret Description",
-            }
-        },
+    create_secret_mutation = """mutation createSecret($input: CreateSecretInput!) {
+        createSecret(input: $input)
+    }"""
+    create_secret_variables = {
+        "input": {
+            "name": "TestSecretName",
+            "value": "Test Secret Value",
+            "description": "Test Secret Description",
+        }
     }
-    _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+    _ensure_cant_perform_action(
+        user_session, create_secret_mutation, create_secret_variables, "createSecret"
+    )
 
     # Assign privileges to the new user to manage secrets
     policy_urn = create_user_policy(
@@ -176,31 +168,28 @@ def test_privilege_to_create_and_manage_secrets():
 
     # Verify new user can create and manage secrets
     # Create a secret
-    _ensure_can_create_secret(user_session, create_secret, secret_urn)
+    _ensure_can_create_secret(
+        user_session, create_secret_mutation, create_secret_variables, secret_urn
+    )
 
     # Remove a secret
-    remove_secret = {
-        "query": """mutation deleteSecret($urn: String!) {\n
-            deleteSecret(urn: $urn)\n}""",
-        "variables": {"urn": secret_urn},
-    }
+    remove_secret_mutation = """mutation deleteSecret($urn: String!) {
+        deleteSecret(urn: $urn)
+    }"""
 
-    remove_secret_response = user_session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_secret
+    secret_data = execute_graphql_mutation(
+        user_session, remove_secret_mutation, {"urn": secret_urn}, "deleteSecret"
     )
-    remove_secret_response.raise_for_status()
-    secret_data = remove_secret_response.json()
 
-    assert secret_data
-    assert secret_data["data"]
-    assert secret_data["data"]["deleteSecret"]
     assert secret_data["data"]["deleteSecret"] == secret_urn
 
     # Remove the policy
     remove_policy(policy_urn, admin_session)
 
     # Ensure user can't create secret after policy is removed
-    _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+    _ensure_cant_perform_action(
+        user_session, create_secret_mutation, create_secret_variables, "createSecret"
+    )
 
 
 def test_privilege_to_create_and_manage_ingestion_source():
@@ -234,7 +223,10 @@ def test_privilege_to_create_and_manage_ingestion_source():
     }
 
     _ensure_cant_perform_action(
-        user_session, create_ingestion_source, "createIngestionSource"
+        user_session,
+        create_ingestion_source["query"],
+        create_ingestion_source["variables"],
+        "createIngestionSource",
     )
 
     # Assign privileges to the new user to manage ingestion source
@@ -244,7 +236,9 @@ def test_privilege_to_create_and_manage_ingestion_source():
 
     # Verify new user can create and manage ingestion source(edit, delete)
     ingestion_source_urn = _ensure_can_create_ingestion_source(
-        user_session, create_ingestion_source
+        user_session,
+        create_ingestion_source["query"],
+        create_ingestion_source["variables"],
     )
 
     # Edit ingestion source
@@ -307,7 +301,10 @@ def test_privilege_to_create_and_manage_ingestion_source():
 
     # Ensure that user can't create ingestion source after policy is removed
     _ensure_cant_perform_action(
-        user_session, create_ingestion_source, "createIngestionSource"
+        user_session,
+        create_ingestion_source["query"],
+        create_ingestion_source["variables"],
+        "createIngestionSource",
     )
 
 
@@ -331,7 +328,12 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
         },
     }
 
-    _ensure_cant_perform_action(user_session, create_access_token, "createAccessToken")
+    _ensure_cant_perform_action(
+        user_session,
+        create_access_token["query"],
+        create_access_token["variables"],
+        "createAccessToken",
+    )
 
     # Assign privileges to the new user to create and manage access tokens
     policy_urn = create_user_policy(
@@ -393,7 +395,12 @@ def test_privilege_to_create_and_revoke_personal_access_tokens():
     remove_policy(policy_urn, admin_session)
 
     # Ensure that user can't create access token after policy is removed
-    _ensure_cant_perform_action(user_session, create_access_token, "createAccessToken")
+    _ensure_cant_perform_action(
+        user_session,
+        create_access_token["query"],
+        create_access_token["variables"],
+        "createAccessToken",
+    )
 
 
 def test_privilege_to_create_and_manage_policies():
@@ -424,7 +431,9 @@ def test_privilege_to_create_and_manage_policies():
         },
     }
 
-    _ensure_cant_perform_action(user_session, create_policy, "createPolicy")
+    _ensure_cant_perform_action(
+        user_session, create_policy["query"], create_policy["variables"], "createPolicy"
+    )
 
     # Assign privileges to the new user to create and manage policies
     admin_policy_urn = create_user_policy(
@@ -488,7 +497,9 @@ def test_privilege_to_create_and_manage_policies():
     remove_policy(admin_policy_urn, admin_session)
 
     # Ensure that user can't create a policy after privilege is removed by admin
-    _ensure_cant_perform_action(user_session, create_policy, "createPolicy")
+    _ensure_cant_perform_action(
+        user_session, create_policy["query"], create_policy["variables"], "createPolicy"
+    )
 
 
 def test_privilege_from_group_role_can_create_and_manage_secret():
@@ -509,7 +520,9 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
             }
         },
     }
-    _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+    _ensure_cant_perform_action(
+        user_session, create_secret["query"], create_secret["variables"], "createSecret"
+    )
 
     # Create group and grant it the admin role.
     group_urn = create_group(admin_session, "Test Group")
@@ -522,7 +535,9 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
 
     # Verify new user with admin group can create and manage secrets
     # Create a secret
-    _ensure_can_create_secret(user_session, create_secret, secret_urn)
+    _ensure_can_create_secret(
+        user_session, create_secret["query"], create_secret["variables"], secret_urn
+    )
 
     # Remove a secret
     remove_secret = {
@@ -546,4 +561,6 @@ def test_privilege_from_group_role_can_create_and_manage_secret():
     remove_group(admin_session, group_urn)
 
     # Ensure user can't create secret after policy is removed
-    _ensure_cant_perform_action(user_session, create_secret, "createSecret")
+    _ensure_cant_perform_action(
+        user_session, create_secret["query"], create_secret["variables"], "createSecret"
+    )

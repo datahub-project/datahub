@@ -406,32 +406,34 @@ def test_non_admin_can_not_generate_tokens_for_others():
 
 def generateAccessToken_v2(session, actorUrn):
     # Create new token
-    json = {
-        "query": """mutation createAccessToken($input: CreateAccessTokenInput!) {
-            createAccessToken(input: $input) {
-              accessToken
-              metadata {
-                id
-                actorUrn
-                ownerUrn
-                name
-                description
-              }
-            }
-        }""",
-        "variables": {
-            "input": {
-                "type": "PERSONAL",
-                "actorUrn": actorUrn,
-                "duration": "ONE_HOUR",
-                "name": "my token",
-            }
-        },
+    create_access_token_mutation = """mutation createAccessToken($input: CreateAccessTokenInput!) {
+        createAccessToken(input: $input) {
+          accessToken
+          metadata {
+            id
+            actorUrn
+            ownerUrn
+            name
+            description
+          }
+        }
+    }"""
+
+    create_access_token_variables = {
+        "input": {
+            "type": "PERSONAL",
+            "actorUrn": actorUrn,
+            "duration": "ONE_HOUR",
+            "name": "my token",
+        }
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
-    return response.json()
+    return execute_graphql_mutation(
+        session,
+        create_access_token_mutation,
+        create_access_token_variables,
+        "createAccessToken",
+    )
 
 
 def listAccessTokens(session, filters):
@@ -477,18 +479,17 @@ def revokeAccessToken(session, tokenId):
 
 
 def getAccessTokenMetadata(session, token):
-    json = {
-        "query": """
-        query getAccessTokenMetadata($token: String!) {
-            getAccessTokenMetadata(token: $token) {
-                id
-                ownerUrn
-                actorUrn
-            }
-        }""",
-        "variables": {"token": token},
-    }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-    response.raise_for_status()
+    get_access_token_metadata_query = """query getAccessTokenMetadata($token: String!) {
+        getAccessTokenMetadata(token: $token) {
+            id
+            ownerUrn
+            actorUrn
+        }
+    }"""
 
-    return response.json()
+    return execute_graphql_query(
+        session,
+        get_access_token_metadata_query,
+        variables={"token": token},
+        expected_data_key="getAccessTokenMetadata",
+    )
