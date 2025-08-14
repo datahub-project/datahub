@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
@@ -10,6 +11,8 @@ import { CorpUser, Entity } from '@types';
 const MAX_ASSETS_TO_FETCH = 50;
 
 export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_ASSETS_TO_FETCH) => {
+    const { reloadHomepageModules, setReloadHomepageModules } = usePageTemplateContext();
+
     const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(user?.urn);
 
     const getInputVariables = useCallback(
@@ -40,8 +43,10 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
     } = useGetSearchResultsForMultipleQuery({
         variables: getInputVariables(0, initialCount),
         skip: !user?.urn || groupDataLoading,
-        fetchPolicy: 'cache-and-network',
-        nextFetchPolicy: 'cache-first',
+        fetchPolicy: reloadHomepageModules ? 'cache-and-network' : 'cache-first',
+        onCompleted: () => {
+            if (reloadHomepageModules) setReloadHomepageModules(false);
+        },
     });
 
     const entityRegistry = useEntityRegistryV2();
