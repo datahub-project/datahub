@@ -335,9 +335,17 @@ class TestSessionWrapper:
             f"{self._frontend_url}/api/v2/graphql", json=json
         )
         response.raise_for_status()
+
+        response_json = response.json()
+        if response_json.get("errors"):
+            raise Exception(f"GraphQL errors: {response_json['errors']}")
+
+        if not response_json.get("data"):
+            raise Exception(f"No data in GraphQL response: {response_json}")
+
         return (
-            response.json()["data"]["createAccessToken"]["metadata"]["id"],
-            response.json()["data"]["createAccessToken"]["accessToken"],
+            response_json["data"]["createAccessToken"]["metadata"]["id"],
+            response_json["data"]["createAccessToken"]["accessToken"],
         )
 
     def destroy(self):
