@@ -107,6 +107,9 @@ public enum DataHubUsageEventType {
   SEARCH_BAR_FILTER("SearchBarFilter"),
   FILTER_STATS_PAGE_EVENT("FilterStatsPage"),
   FILTER_STATS_CHART_LOOK_BACK_EVENT("FilterStatsChartLookBack"),
+  CLICK_USER_PROFILE("ClickUserProfile"),
+  CLICK_VIEW_DOCUMENTATION("ClickViewDocumentation"),
+  CLICK_PRODUCT_UPDATE("ClickProductUpdate"),
   HOME_PAGE_TEMPLATE_MODULE_CREATE_EVENT("HomePageTemplateModuleCreate"),
   HOME_PAGE_TEMPLATE_MODULE_ADD_EVENT("HomePageTemplateModuleAdd"),
   HOME_PAGE_TEMPLATE_MODULE_UPDATE_EVENT("HomePageTemplateModuleUpdate"),
@@ -125,6 +128,7 @@ public enum DataHubUsageEventType {
   HOME_PAGE_TEMPLATE_MODULE_VIEW_ALL_CLICK_EVENT("HomePageTemplateModuleViewAllClick"),
   HOME_PAGE_TEMPLATE_MODULE_LINK_CLICK_EVENT("HomePageTemplateModuleLinkClick"),
   HOME_PAGE_TEMPLATE_MODULE_ANNOUNCEMENT_DISMISS_EVENT("HomePageTemplateModuleAnnouncementDismiss"),
+  SET_DEPRECATION("SetDeprecation"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),
