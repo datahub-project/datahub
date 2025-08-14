@@ -7,7 +7,8 @@ import { ValidationWarning as ValidationWarningType } from '@app/tests/builder/v
 import { Button, colors } from '@src/alchemy-components';
 
 const StyledAlert = styled(Alert)`
-    margin-bottom: 16px;
+    margin-top: 24px;
+    margin-bottom: 24px;
     border-radius: 6px;
     border: 1px solid ${colors.yellow[200]};
     background-color: ${colors.yellow[0]};
@@ -53,6 +54,10 @@ const ActionContainer = styled.div`
     gap: 8px;
     padding-top: 8px;
     border-top: 1px solid ${colors.gray[100]};
+`;
+
+const StyledButton = styled(Button)`
+    border: 1px solid ${colors.gray[200]} !important;
 `;
 
 interface Props {
@@ -110,16 +115,16 @@ export const ValidationWarning: React.FC<Props> = ({
                     {shouldShowActionContainer ? (
                         <ActionContainer>
                             {shouldShowResetFilters ? (
-                                <Button size="sm" variant="outline" onClick={onResetFilters}>
+                                <StyledButton size="sm" variant="filled" color="white" onClick={onResetFilters}>
                                     <ArrowClockwise size={14} />
                                     Reset Filters
-                                </Button>
+                                </StyledButton>
                             ) : null}
                             {shouldShowResetActions ? (
-                                <Button size="sm" variant="outline" onClick={onResetActions}>
+                                <StyledButton size="sm" variant="filled" color="white" onClick={onResetActions}>
                                     <ArrowClockwise size={14} />
                                     Reset Actions
-                                </Button>
+                                </StyledButton>
                             ) : null}
                         </ActionContainer>
                     ) : null}
