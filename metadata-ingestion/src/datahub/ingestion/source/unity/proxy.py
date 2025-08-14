@@ -1003,6 +1003,29 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
         return result_dict
 
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_volume_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Get volume tags using databricks-sql"""
+        logger.info(f"Fetching volume tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.volume_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, volume_name, tag_name, tag_value = row
+            volume_key = f"{catalog_name}.{schema_name}.{volume_name}"
+
+            if volume_key not in result_dict:
+                result_dict[volume_key] = []
+
+            result_dict[volume_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
+            )
+
+        return result_dict
+
     def volumes(self, schema: Schema) -> Iterable[Volume]:
         """Get volumes in a schema using Unity Catalog information_schema."""
         if (

@@ -235,6 +235,11 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable volume extraction. When enabled, Unity Catalog volumes will be ingested as dataset entities with lineage to their underlying storage locations.",
     )
 
+    ingest_volume_location_lineage: bool = pydantic.Field(
+        default=False,
+        description="Option to enable/disable detailed volume location lineage. When enabled, creates a three-tier lineage hierarchy (Storage Location -> Volume Location -> Volume Dataset). When disabled, only creates the volume dataset without intermediate lineage. In lineage storage location/volume path will be referenced as even though the location is container in DataHub. Only applicable when include_volumes=True.",
+    )
+
     include_ownership: bool = pydantic.Field(
         default=False,
         description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",

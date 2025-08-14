@@ -39,6 +39,23 @@ class TestUnityCatalogVolumeLineage:
                 "include_hive_metastore": False,
                 "include_volumes": True,
                 "include_external_lineage": True,
+                "ingest_volume_location_lineage": True,  # Default enabled
+                "env": "PROD",
+            }
+        )
+
+    @pytest.fixture
+    def mock_config_disabled_lineage(self):
+        """Create a mock config with volume location lineage disabled."""
+        return UnityCatalogSourceConfig.parse_obj(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "include_volumes": True,
+                "include_external_lineage": True,
+                "ingest_volume_location_lineage": False,  # Disabled
                 "env": "PROD",
             }
         )
@@ -600,3 +617,186 @@ class TestUnityCatalogVolumeLineage:
 
         external_ref = VolumeExternalReference.create_from_volume(volume_no_storage)
         assert external_ref is None
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch.object(UnityCatalogSource, "gen_schema_key")
+    @patch.object(UnityCatalogSource, "get_owner_urn", return_value=None)
+    @patch.object(UnityCatalogSource, "_get_domain_aspect", return_value=None)
+    def test_process_volumes_with_disabled_volume_location_lineage(
+        self,
+        mock_domain,
+        mock_owner,
+        mock_schema_key,
+        mock_proxy,
+        mock_config_disabled_lineage,
+        sample_volume,
+    ):
+        """Test that only volume dataset is created when ingest_volume_location_lineage is disabled."""
+        # Setup mocks
+        mock_proxy_instance = Mock()
+        mock_proxy.return_value = mock_proxy_instance
+        mock_proxy_instance.volumes.return_value = [sample_volume]
+
+        # Mock schema key to avoid container creation
+        mock_schema_key.return_value = Mock()
+
+        # Create source with disabled volume location lineage
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource(ctx=ctx, config=mock_config_disabled_lineage)
+        source.unity_catalog_api_proxy = mock_proxy_instance
+
+        # Process volumes
+        work_units = list(source.process_volumes(sample_volume.schema))
+
+        # Extract lineage work units
+        lineage_work_units = [
+            wu
+            for wu in work_units
+            if isinstance(wu, MetadataWorkUnit)
+            and wu.metadata
+            and isinstance(
+                wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            )
+            and wu.metadata.aspect
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+        ]
+
+        # Should have no lineage work units when volume location lineage is disabled
+        assert len(lineage_work_units) == 0, (
+            f"Expected 0 lineage work units when volume location lineage is disabled, got {len(lineage_work_units)}"
+        )
+
+        # Verify that only the volume dataset exists in work units (not the volume path dataset)
+        volume_urns = set()
+        for wu in work_units:
+            if isinstance(wu, MetadataWorkUnit):
+                if (
+                    wu.metadata
+                    and isinstance(
+                        wu.metadata,
+                        (MetadataChangeProposal, MetadataChangeProposalWrapper),
+                    )
+                    and wu.metadata.entityUrn
+                ):
+                    volume_urns.add(wu.metadata.entityUrn)
+
+        # Expected URNs
+        volume_path_urn = make_dataset_urn(
+            "dbfs", "/Volumes/test_catalog/test_schema/test_volume", "PROD"
+        )
+        volume_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,metastore_id.test_catalog.test_schema.test_volume,PROD)"
+        storage_urn = make_storage_urn("s3://my-bucket/volume-data", "PROD")
+
+        # Volume dataset should exist
+        assert volume_dataset_urn in volume_urns, (
+            f"Volume dataset URN not found in {volume_urns}"
+        )
+
+        # Volume path and storage datasets should NOT exist when volume location lineage is disabled
+        assert volume_path_urn not in volume_urns, (
+            f"Volume path URN should not exist when volume location lineage is disabled, but found in {volume_urns}"
+        )
+        assert storage_urn not in volume_urns, (
+            f"Storage URN should not exist when volume location lineage is disabled, but found in {volume_urns}"
+        )
+
+        # Verify there are still work units (for the volume dataset itself)
+        assert len(work_units) > 0, (
+            "Should have some work units for the volume dataset even when volume location lineage is disabled"
+        )
+
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch.object(UnityCatalogSource, "gen_schema_key")
+    @patch.object(UnityCatalogSource, "get_owner_urn", return_value=None)
+    @patch.object(UnityCatalogSource, "_get_domain_aspect", return_value=None)
+    def test_process_volumes_with_enabled_volume_location_lineage(
+        self,
+        mock_domain,
+        mock_owner,
+        mock_schema_key,
+        mock_proxy,
+        mock_config,
+        sample_volume,
+    ):
+        """Test that volume location lineage is created when ingest_volume_location_lineage is enabled (default behavior)."""
+        # Setup mocks
+        mock_proxy_instance = Mock()
+        mock_proxy.return_value = mock_proxy_instance
+        mock_proxy_instance.volumes.return_value = [sample_volume]
+
+        # Mock schema key to avoid container creation
+        mock_schema_key.return_value = Mock()
+
+        # Create source with enabled volume location lineage (default)
+        ctx = PipelineContext(run_id="test_run")
+        source = UnityCatalogSource(ctx=ctx, config=mock_config)
+        source.unity_catalog_api_proxy = mock_proxy_instance
+
+        # Process volumes
+        work_units = list(source.process_volumes(sample_volume.schema))
+
+        # Extract lineage work units
+        lineage_work_units = [
+            wu
+            for wu in work_units
+            if isinstance(wu, MetadataWorkUnit)
+            and wu.metadata
+            and isinstance(
+                wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            )
+            and wu.metadata.aspect
+            and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+        ]
+
+        # Should have lineage work units when volume location lineage is enabled
+        assert len(lineage_work_units) == 2, (
+            f"Expected 2 lineage work units when volume location lineage is enabled, got {len(lineage_work_units)}"
+        )
+
+        # Verify that volume and volume path datasets exist in work units
+        # Note: storage dataset is NOT materialized as an entity, only referenced in lineage
+        volume_urns = set()
+        for wu in work_units:
+            if isinstance(wu, MetadataWorkUnit):
+                if (
+                    wu.metadata
+                    and isinstance(
+                        wu.metadata,
+                        (MetadataChangeProposal, MetadataChangeProposalWrapper),
+                    )
+                    and wu.metadata.entityUrn
+                ):
+                    volume_urns.add(wu.metadata.entityUrn)
+
+        # Expected URNs
+        volume_path_urn = make_dataset_urn(
+            "dbfs", "/Volumes/test_catalog/test_schema/test_volume", "PROD"
+        )
+        volume_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:databricks,metastore_id.test_catalog.test_schema.test_volume,PROD)"
+
+        # Volume and volume path datasets should exist
+        assert volume_dataset_urn in volume_urns, (
+            f"Volume dataset URN not found in {volume_urns}"
+        )
+        assert volume_path_urn in volume_urns, (
+            f"Volume path URN not found in {volume_urns}"
+        )
+
+        # Verify storage URN appears in lineage relationships (but not as a materialized entity)
+        storage_urn = make_storage_urn("s3://my-bucket/volume-data", "PROD")
+        storage_referenced_in_lineage = False
+        for wu in lineage_work_units:
+            # Type narrowing - we know these are the correct types from the filter above
+            assert isinstance(
+                wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+            )
+            assert isinstance(wu.metadata.aspect, UpstreamLineageClass)
+
+            for upstream in wu.metadata.aspect.upstreams:
+                if upstream.dataset == storage_urn:
+                    storage_referenced_in_lineage = True
+                    break
+
+        assert storage_referenced_in_lineage, (
+            f"Storage URN {storage_urn} should be referenced in lineage relationships"
+        )

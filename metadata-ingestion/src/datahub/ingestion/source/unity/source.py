@@ -1003,6 +1003,43 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         all_tags = self.unity_catalog_api_proxy.get_column_tags(catalog)
         return all_tags.get(f"{catalog}.{schema}.{table}.{column}", [])
 
+    def _get_volume_tags(
+        self, catalog: str, schema: str, volume: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_volume_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}.{volume}", [])
+
+    def _extract_volume_tags(
+        self, volume: Volume
+    ) -> Optional[Tuple[GlobalTags, Iterable[MetadataWorkUnit]]]:
+        """Extract tags for a volume and return GlobalTags aspect and platform resource work units."""
+        try:
+            volume_tags = self._get_volume_tags(
+                volume.ref.catalog, volume.ref.schema, volume.ref.volume
+            )
+            if volume_tags:
+                logger.debug(f"Volume tags for {volume.ref}: {volume_tags}")
+                attribution = MetadataAttribution(
+                    # source="unity-catalog",
+                    actor="urn:li:corpuser:datahub",
+                    time=int(time.time() * 1000),
+                )
+                tags = GlobalTags(
+                    tags=[
+                        TagAssociation(
+                            tag=tag.to_datahub_tag_urn().urn(),
+                            attribution=attribution,
+                        )
+                        for tag in volume_tags
+                    ]
+                )
+                platform_resources = self.gen_platform_resources(volume_tags)
+                return tags, platform_resources
+            return None
+        except Exception as e:
+            logger.exception(f"Error fetching volume {volume.ref} tags", exc_info=e)
+            return None
+
     def _create_table_property_aspect(self, table: Table) -> DatasetPropertiesClass:
         custom_properties: dict = {}
         if table.storage_location is not None:
@@ -1311,23 +1348,25 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                             volume.storage_location, self.config.env
                         )
 
-                        # Create volume path dataset (volume location)
-                        volume_path_dataset_urn = make_dataset_urn(
-                            "dbfs", volume.ref.volume_path, self.config.env
-                        )
-                        yield from self._gen_volume_path_dataset_workunits(
-                            volume, volume_path_dataset_urn
-                        )
-
-                        # Create volume dataset entity
+                        # Create volume dataset entity (always created)
                         yield from self._gen_volume_dataset_workunits(volume)
 
-                        # Create complete volume lineage hierarchy: Storage -> Volume Location -> Volume Dataset
-                        yield from self._gen_volume_hierarchy_lineage_workunits(
-                            volume_dataset_urn,
-                            volume_path_dataset_urn,
-                            storage_dataset_urn,
-                        )
+                        # Only create detailed volume location lineage if configured to do so
+                        if self.config.ingest_volume_location_lineage:
+                            # Create volume path dataset (volume location)
+                            volume_path_dataset_urn = make_dataset_urn(
+                                "dbfs", volume.ref.volume_path, self.config.env
+                            )
+                            yield from self._gen_volume_path_dataset_workunits(
+                                volume, volume_path_dataset_urn
+                            )
+
+                            # Create complete volume lineage hierarchy: Storage -> Volume Location -> Volume Dataset
+                            yield from self._gen_volume_hierarchy_lineage_workunits(
+                                volume_dataset_urn,
+                                volume_path_dataset_urn,
+                                storage_dataset_urn,
+                            )
 
                         logger.info(
                             f"Created volume materialization: {volume.ref.qualified_volume_name} -> {volume.storage_location}"
@@ -1419,6 +1458,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ]
                 )
 
+        # Extract volume tags
+        tags = None
+        if self.config.include_tags:
+            tags_result = self._extract_volume_tags(volume)
+            if tags_result:
+                tags, platform_resources = tags_result
+                yield from platform_resources
+
         # Create sub types (mark as Volume)
         sub_type = SubTypesClass(typeNames=[DatasetSubTypes.VOLUME])
 
@@ -1455,6 +1502,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     sub_type,
                     domain,
                     data_platform_instance,
+                    tags,
                 ],
             )
         ]
