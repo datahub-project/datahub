@@ -143,7 +143,7 @@ def _ensure_can_create_user_policy(session, json):
 def test_privilege_to_create_and_manage_secrets():
     (admin_user, admin_pass) = get_admin_credentials()
     admin_session = login_as(admin_user, admin_pass)
-    user_session = login_as("user", "user")
+    user_session = login_as("user", "user", check_errors=False)
     secret_urn = "urn:li:dataHubSecret:TestSecretName"
 
     # Verify new user can't create secrets

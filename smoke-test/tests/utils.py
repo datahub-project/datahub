@@ -26,11 +26,11 @@ def get_frontend_session():
     return login_as(username, password)
 
 
-def login_as(username: str, password: str):
+def login_as(username: str, password: str, check_errors: bool = True):
     session = cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
     )
-    return TestSessionWrapper(session)
+    return TestSessionWrapper(session, check_errors)
 
 
 def get_admin_username() -> str:
@@ -247,11 +247,12 @@ class TestSessionWrapper:
     to simulate sync requests.
     """
 
-    def __init__(self, requests_session):
+    def __init__(self, requests_session, check_errors: bool = True):
         self._upstream = requests_session
         self._frontend_url = get_frontend_url()
         self._gms_url = get_gms_url()
         self._gms_token_id, self._gms_token = self._generate_gms_token()
+        self._check_errors = check_errors
 
     def __getattr__(self, name):
         # Intercept method calls
@@ -337,10 +338,10 @@ class TestSessionWrapper:
         response.raise_for_status()
 
         response_json = response.json()
-        if response_json.get("errors"):
+        if response_json.get("errors") and self._check_errors:
             raise Exception(f"GraphQL errors: {response_json['errors']}")
 
-        if not response_json.get("data"):
+        if not response_json.get("data") and self._check_errors:
             raise Exception(f"No data in GraphQL response: {response_json}")
 
         return (
