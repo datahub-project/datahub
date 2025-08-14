@@ -395,7 +395,9 @@ def test_admin_can_manage_tokens_generated_by_other_user(auth_exclude_filter):
 def test_non_admin_can_not_generate_tokens_for_others():
     user_session = login_as("user", "user")
     # Normal user should not be able to generate token for another user
-    res_data = generateAccessToken_v2(user_session, f"urn:li:corpuser:{admin_user}")
+    res_data = generateAccessToken_v2(
+        user_session, f"urn:li:corpuser:{admin_user}", check_errors=False
+    )
     assert res_data
     assert res_data["errors"]
     assert (
@@ -404,7 +406,7 @@ def test_non_admin_can_not_generate_tokens_for_others():
     )
 
 
-def generateAccessToken_v2(session, actorUrn):
+def generateAccessToken_v2(session, actorUrn, check_errors=True):
     # Create new token
     create_access_token_mutation = """mutation createAccessToken($input: CreateAccessTokenInput!) {
         createAccessToken(input: $input) {
@@ -433,6 +435,7 @@ def generateAccessToken_v2(session, actorUrn):
         create_access_token_mutation,
         create_access_token_variables,
         "createAccessToken",
+        check_errors=check_errors,
     )
 
 

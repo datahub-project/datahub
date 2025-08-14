@@ -368,6 +368,7 @@ def execute_graphql_query(
     query: str,
     variables: Optional[Dict[str, Any]] = None,
     expected_data_key: Optional[str] = None,
+    check_errors: bool = True,
 ) -> Dict[str, Any]:
     """Execute a GraphQL query with standard error handling and assertions.
 
@@ -393,6 +394,8 @@ def execute_graphql_query(
     # Standard response validation
     assert res_data
     assert res_data["data"]
+    if not check_errors:
+        return res_data
     assert "errors" not in res_data
 
     # Optional specific data key validation
@@ -403,7 +406,11 @@ def execute_graphql_query(
 
 
 def execute_graphql_mutation(
-    auth_session, mutation: str, variables: Dict[str, Any], expected_data_key: str
+    auth_session,
+    mutation: str,
+    variables: Dict[str, Any],
+    expected_data_key: str,
+    check_errors: bool = True,
 ) -> Dict[str, Any]:
     """Execute a GraphQL mutation with standard error handling.
 
@@ -416,7 +423,9 @@ def execute_graphql_mutation(
     Returns:
         Complete response JSON dictionary
     """
-    return execute_graphql_query(auth_session, mutation, variables, expected_data_key)
+    return execute_graphql_query(
+        auth_session, mutation, variables, expected_data_key, check_errors
+    )
 
 
 def assert_graphql_response_success(
