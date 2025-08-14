@@ -122,7 +122,7 @@ class Mapper:
             lastModified=self._change_audit_stamps(
                 created_at=project.created_at, last_edited_at=project.last_edited_at
             ),
-            externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{project.id}",
+            externalUrl=self._get_project_or_component_external_url(project),
             customProperties=dict(id=project.id),
             datasetEdges=self._dataset_edges(project.upstream_datasets),
             # TODO: support schema field upstream, maybe InputFields?
@@ -173,7 +173,7 @@ class Mapper:
             lastModified=self._change_audit_stamps(
                 created_at=component.created_at, last_edited_at=component.last_edited_at
             ),
-            externalUrl=f"{self._base_url}/{self._workspace_name}/hex/{component.id}",
+            externalUrl=self._get_project_or_component_external_url(component),
             customProperties=dict(id=component.id),
         )
 
@@ -241,6 +241,20 @@ class Mapper:
         dashboard_urn = Urn.from_string(dashboard_urn_str)
         assert isinstance(dashboard_urn, DashboardUrn)
         return dashboard_urn
+
+    def _get_project_or_component_external_url(
+        self,
+        project_or_component: Union[Project, Component],
+    ) -> Optional[str]:
+        if project_or_component.last_published_at is None:
+            return (
+                f"{self._base_url}/{self._workspace_name}/hex/{project_or_component.id}"
+            )
+        else:
+            # published Projects/Components have a different URL that everybody, not just editors, can access
+            return (
+                f"{self._base_url}/{self._workspace_name}/app/{project_or_component.id}"
+            )
 
     def _change_audit_stamps(
         self, created_at: Optional[datetime], last_edited_at: Optional[datetime]

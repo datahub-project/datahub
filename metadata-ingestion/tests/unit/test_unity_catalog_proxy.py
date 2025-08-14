@@ -576,3 +576,220 @@ class TestUnityCatalogProxy:
         assert len(table.external_upstreams) == 0
         assert len(table.upstream_notebooks) == 0
         assert len(table.downstream_notebooks) == 0
+
+    def test_constructor_with_databricks_api_page_size(self):
+        """Test UnityCatalogApiProxy constructor with databricks_api_page_size parameter."""
+        with patch("datahub.ingestion.source.unity.proxy.WorkspaceClient"):
+            # Test with default page size (0)
+            proxy = UnityCatalogApiProxy(
+                workspace_url="https://test.databricks.com",
+                personal_access_token="test_token",
+                warehouse_id="test_warehouse",
+                report=UnityCatalogReport(),
+            )
+            assert proxy.databricks_api_page_size == 0
+
+            # Test with custom page size
+            proxy = UnityCatalogApiProxy(
+                workspace_url="https://test.databricks.com",
+                personal_access_token="test_token",
+                warehouse_id="test_warehouse",
+                report=UnityCatalogReport(),
+                databricks_api_page_size=500,
+            )
+            assert proxy.databricks_api_page_size == 500
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_check_basic_connectivity_with_page_size(self, mock_workspace_client):
+        """Test check_basic_connectivity passes page size to catalogs.list()."""
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.catalogs.list.return_value = ["catalog1"]
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=100,
+        )
+
+        result = proxy.check_basic_connectivity()
+
+        assert result is True
+        mock_client.catalogs.list.assert_called_once_with(
+            include_browse=True, max_results=100
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_catalogs_with_page_size(self, mock_workspace_client):
+        """Test catalogs() method passes page size to catalogs.list()."""
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.catalogs.list.return_value = []
+        mock_client.metastores.summary.return_value = None
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=200,
+        )
+
+        list(proxy.catalogs(metastore=None))
+
+        mock_client.catalogs.list.assert_called_with(
+            include_browse=True, max_results=200
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_schemas_with_page_size(self, mock_workspace_client):
+        """Test schemas() method passes page size to schemas.list()."""
+        from datahub.ingestion.source.unity.proxy_types import Catalog, Metastore
+
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.schemas.list.return_value = []
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=300,
+        )
+
+        # Create test catalog
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+
+        list(proxy.schemas(catalog))
+
+        mock_client.schemas.list.assert_called_with(
+            catalog_name="test_catalog", include_browse=True, max_results=300
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_tables_with_page_size(self, mock_workspace_client):
+        """Test tables() method passes page size to tables.list()."""
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+        )
+
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.tables.list.return_value = []
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=400,
+        )
+
+        # Create test schema
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="test_catalog",
+            name="test_catalog",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="test_schema",
+            name="test_schema",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        list(proxy.tables(schema))
+
+        mock_client.tables.list.assert_called_with(
+            catalog_name="test_catalog",
+            schema_name="test_schema",
+            include_browse=True,
+            max_results=400,
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_workspace_notebooks_with_page_size(self, mock_workspace_client):
+        """Test workspace_notebooks() method passes page size to workspace.list()."""
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.workspace.list.return_value = []
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=250,
+        )
+
+        list(proxy.workspace_notebooks())
+
+        mock_client.workspace.list.assert_called_with(
+            "/", recursive=True, max_results=250
+        )
+
+    @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
+    def test_query_history_with_page_size(self, mock_workspace_client):
+        """Test _query_history() method uses databricks_api_page_size for max_results."""
+        from datahub.ingestion.source.unity.proxy import QueryFilterWithStatementTypes
+
+        # Setup mock
+        mock_client = mock_workspace_client.return_value
+        mock_client.api_client.do.return_value = {"res": []}
+
+        proxy = UnityCatalogApiProxy(
+            workspace_url="https://test.databricks.com",
+            personal_access_token="test_token",
+            warehouse_id="test_warehouse",
+            report=UnityCatalogReport(),
+            databricks_api_page_size=150,
+        )
+
+        from databricks.sdk.service.sql import QueryStatementType
+
+        filter_query = QueryFilterWithStatementTypes(
+            statement_types=[QueryStatementType.SELECT]
+        )
+
+        list(proxy._query_history(filter_query))
+
+        # Verify the API call was made with the correct max_results
+        mock_client.api_client.do.assert_called_once()
+        call_args = mock_client.api_client.do.call_args
+        assert call_args[1]["body"]["max_results"] == 150

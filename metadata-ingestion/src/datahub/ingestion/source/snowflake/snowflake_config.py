@@ -135,10 +135,12 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             and match_fully_qualified_names is not None
             and not match_fully_qualified_names
         ):
-            logger.warning(
-                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
-                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+            raise ValueError(
+                "`match_fully_qualified_names: False` is no longer supported. "
+                "Please set `match_fully_qualified_names: True` and update your `schema_pattern` "
+                "to match against fully qualified schema names `<catalog_name>.<schema_name>`. "
+                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will assume `match_fully_qualified_names: True`."
+                "match_fully_qualified_names False was there to maintain backward compatibility."
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
@@ -356,9 +358,16 @@ class SnowflakeV2Config(
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],
-        description="List of snowflake usernames which will not be considered for lineage/usage/queries extraction. "
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'SERVICE_%', '%_PROD', 'TEST_USER') which will NOT be considered for lineage/usage/queries extraction. "
         "This is primarily useful for improving performance by filtering out users with extremely high query volumes. "
         "Only applicable if `use_queries_v2` is enabled.",
+    )
+
+    pushdown_allow_usernames: List[str] = Field(
+        default=[],
+        description="List of snowflake usernames (SQL LIKE patterns, e.g., 'ANALYST_%', '%_USER', 'MAIN_ACCOUNT') which WILL be considered for lineage/usage/queries extraction. "
+        "This is primarily useful for improving performance by filtering in only specific users. "
+        "Only applicable if `use_queries_v2` is enabled. If not specified, all users not in deny list are included.",
     )
 
     push_down_database_pattern_access_history: bool = Field(

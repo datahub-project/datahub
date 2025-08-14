@@ -60,7 +60,7 @@ describe("create and manage group", () => {
     cy.clickOptionWithText(group_name);
     cy.get(".ant-typography").contains(group_name).should("be.visible");
     cy.get(".ant-tabs-tab").contains("Members").click();
-    cy.waitTextVisible("No members in this group yet.");
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
     cy.clickOptionWithText("Add Member");
     cy.contains("Search for users...").click({ force: true });
     cy.focused().type(username);

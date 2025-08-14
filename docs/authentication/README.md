@@ -1,3 +1,7 @@
+---
+title: "DataHub Authentication Overview"
+---
+
 # Overview
 
 Authentication is the process of verifying the identity of a user or service. There are two

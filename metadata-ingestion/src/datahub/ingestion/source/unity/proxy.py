@@ -141,6 +141,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         report: UnityCatalogReport,
         hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
         lineage_data_source: LineageDataSource = LineageDataSource.AUTO,
+        databricks_api_page_size: int = 0,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url,
@@ -152,6 +153,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
         self.lineage_data_source = lineage_data_source
+        self.databricks_api_page_size = databricks_api_page_size
         self._sql_connection_params = {
             "server_hostname": self._workspace_client.config.host.replace(
                 "https://", ""
@@ -161,7 +163,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         }
 
     def check_basic_connectivity(self) -> bool:
-        return bool(self._workspace_client.catalogs.list(include_browse=True))
+        return bool(
+            self._workspace_client.catalogs.list(
+                include_browse=True, max_results=self.databricks_api_page_size
+            )
+        )
 
     def assigned_metastore(self) -> Optional[Metastore]:
         response = self._workspace_client.metastores.summary()
@@ -171,7 +177,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         if self.hive_metastore_proxy:
             yield self.hive_metastore_proxy.hive_metastore_catalog(metastore)
 
-        response = self._workspace_client.catalogs.list(include_browse=True)
+        response = self._workspace_client.catalogs.list(
+            include_browse=True, max_results=self.databricks_api_page_size
+        )
         if not response:
             logger.info("Catalogs not found")
             return
@@ -203,7 +211,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             yield from self.hive_metastore_proxy.hive_metastore_schemas(catalog)
             return
         response = self._workspace_client.schemas.list(
-            catalog_name=catalog.name, include_browse=True
+            catalog_name=catalog.name,
+            include_browse=True,
+            max_results=self.databricks_api_page_size,
         )
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
@@ -225,6 +235,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 catalog_name=schema.catalog.name,
                 schema_name=schema.name,
                 include_browse=True,
+                max_results=self.databricks_api_page_size,
             )
             if not response:
                 logger.info(f"Tables not found for schema {schema.id}")
@@ -257,7 +268,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         return group_list
 
     def workspace_notebooks(self) -> Iterable[Notebook]:
-        for obj in self._workspace_client.workspace.list("/", recursive=True):
+        workspace_objects_iter = self._workspace_client.workspace.list(
+            "/", recursive=True, max_results=self.databricks_api_page_size
+        )
+        for obj in workspace_objects_iter:
             if obj.object_type == ObjectType.NOTEBOOK and obj.object_id and obj.path:
                 yield Notebook(
                     id=obj.object_id,
@@ -299,7 +313,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     def _query_history(
         self,
         filter_by: QueryFilterWithStatementTypes,
-        max_results: int = 1000,
         include_metrics: bool = False,
     ) -> Iterable[QueryInfo]:
         """Manual implementation of the query_history.list() endpoint.
@@ -311,9 +324,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         """
         method = "GET"
         path = "/api/2.0/sql/history/queries"
+
         body: Dict[str, Any] = {
             "include_metrics": include_metrics,
-            "max_results": max_results,  # Max batch size
+            "max_results": self.databricks_api_page_size,  # Max batch size
         }
 
         response: dict = self._workspace_client.api_client.do(  # type: ignore
