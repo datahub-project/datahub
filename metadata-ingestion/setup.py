@@ -445,7 +445,7 @@ plugins: Dict[str, Set[str]] = {
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
-    "dremio": {"requests"} | sql_common,
+    "dremio": {"certifi", "requests"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
