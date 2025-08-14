@@ -375,7 +375,10 @@ databricks = {
     "pandas<2.2.0",
 }
 
-mysql = {"pymysql>=1.0.2"}
+mysql = {
+    "certifi",
+    "pymysql>=1.0.2",
+}
 
 sac = {
     "requests",
