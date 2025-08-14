@@ -98,7 +98,6 @@
         "users": []
       },
       "privileges": [
-        "VIEW_ANALYTICS",
         "GENERATE_PERSONAL_ACCESS_TOKENS"
       ],
       "displayName": "All Users - Base Platform Privileges",

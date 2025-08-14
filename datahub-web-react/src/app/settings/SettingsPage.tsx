@@ -23,6 +23,7 @@ import { AccessTokens } from '@app/settings/AccessTokens';
 import { Preferences } from '@app/settings/Preferences';
 import { Features } from '@app/settings/features/Features';
 import ManagePosts from '@app/settings/posts/ManagePosts';
+import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 
 const MenuItem = styled(Menu.Item)`
@@ -79,35 +80,24 @@ const NewTag = styled.span`
 `;
 
 /**
- * URL Paths for each settings page.
+ * All possible URL Paths for settings pages with their privilege requirements
  */
-const PATHS = [
-    { path: 'tokens', content: <AccessTokens /> },
-    { path: 'identities', content: <ManageIdentities version="v1" /> },
-    { path: 'permissions', content: <ManagePermissions /> },
-    { path: 'preferences', content: <Preferences /> },
-    { path: 'views', content: <ManageViews /> },
-    { path: 'ownership', content: <ManageOwnership /> },
-    { path: 'posts', content: <ManagePosts /> },
-    { path: 'features', content: <Features /> },
+const ALL_PATHS = [
+    { path: 'tokens', content: <AccessTokens />, requiresPrivilege: 'generatePersonalAccessTokens' },
+    { path: 'identities', content: <ManageIdentities version="v1" />, requiresPrivilege: 'manageIdentities' },
+    { path: 'permissions', content: <ManagePermissions />, requiresPrivilege: 'managePolicies' },
+    { path: 'preferences', content: <Preferences />, requiresPrivilege: null }, // Always accessible
+    { path: 'views', content: <ManageViews />, requiresPrivilege: null }, // Controlled by feature flag
+    { path: 'ownership', content: <ManageOwnership />, requiresPrivilege: 'manageOwnershipTypes' },
+    { path: 'posts', content: <ManagePosts />, requiresPrivilege: 'manageGlobalAnnouncements' },
+    { path: 'features', content: <Features />, requiresPrivilege: 'manageIngestion' },
 ];
-
-/**
- * The default selected path
- */
-const DEFAULT_PATH = PATHS[0];
 
 export const SettingsPage = () => {
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
 
     const history = useHistory();
-    const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
-    const currPathName = pathname.replace(path, '');
-    const trimmedPathName = currPathName.endsWith('/') ? pathname.slice(0, pathname.length - 1) : currPathName;
-    const splitPathName = trimmedPathName.split('/');
-    const providedPath = splitPathName[1];
-    const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
 
     const me = useUserContext();
     const { config } = useAppConfig();
@@ -123,6 +113,51 @@ export const SettingsPage = () => {
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
+
+    // Filter paths based on privileges and feature flags
+    const PATHS = ALL_PATHS.filter((pathConfig) => {
+        const { path: pathKey, requiresPrivilege } = pathConfig;
+        
+        // Apply existing logic for feature flags and specific conditions
+        if (pathKey === 'permissions' && !showPolicies) return false;
+        if (pathKey === 'identities' && !showUsersGroups) return false;
+        if (pathKey === 'views' && !showViews) return false;
+        if (pathKey === 'ownership' && !showOwnershipTypes) return false;
+        if (pathKey === 'posts' && !showHomePagePosts) return false;
+        if (pathKey === 'features' && !showFeatures) return false;
+        
+        // For other paths, check the privilege requirement
+        if (requiresPrivilege && me?.platformPrivileges) {
+            return Boolean(me.platformPrivileges[requiresPrivilege]);
+        }
+        
+        // Always allow paths without privilege requirements
+        return true;
+    });
+
+    const DEFAULT_PATH = PATHS[0] || { path: 'preferences', content: <Preferences /> };
+    
+    const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
+    const currPathName = pathname.replace(path, '');
+    const trimmedPathName = currPathName.endsWith('/') ? pathname.slice(0, pathname.length - 1) : currPathName;
+    const splitPathName = trimmedPathName.split('/');
+    const providedPath = splitPathName[1];
+    const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
+
+    // Check if user is trying to access an unauthorized route
+    const isUnauthorizedRoute = () => {
+        const currentPath = splitPathName[1];
+        if (!currentPath) return false;
+        
+        // Check if the requested path exists in allowed PATHS
+        const isAllowedPath = PATHS.some(p => p.path === currentPath);
+        
+        // Check if it's a known restricted path that was filtered out
+        const restrictedPaths = ['permissions', 'identities', 'tokens', 'ownership', 'posts', 'features'];
+        const isRestrictedPath = restrictedPaths.includes(currentPath);
+        
+        return isRestrictedPath && !isAllowedPath;
+    };
 
     return (
         <PageContainer>
@@ -205,6 +240,8 @@ export const SettingsPage = () => {
                 {PATHS.map((p) => (
                     <Route path={`${path}/${p.path.replace('/', '')}`} render={() => p.content} key={p.path} />
                 ))}
+                {/* Fallback for unauthorized access to known restricted routes */}
+                <Route render={() => isUnauthorizedRoute() ? <NoPageFound /> : <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
             </Switch>
         </PageContainer>
     );
