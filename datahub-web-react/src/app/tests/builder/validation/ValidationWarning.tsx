@@ -1,22 +1,15 @@
-import { ExclamationCircleOutlined, ReloadOutlined } from '@ant-design/icons';
-import { Alert, Button } from 'antd';
+import { Alert } from 'antd';
+import { ArrowClockwise, Warning } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ValidationWarning as ValidationWarningType } from '@app/tests/builder/validation/utils';
-import { colors } from '@src/alchemy-components';
-
-// Use consistent warning colors from DataHub's design system
-const WARNING_COLOR_HEX = '#FA8C16'; // Consistent with other warning components
-const applyOpacity = (color: string, opacity: number) =>
-    `${color}${Math.round(opacity * 2.55)
-        .toString(16)
-        .padStart(2, '0')}`;
+import { Button, colors } from '@src/alchemy-components';
 
 const StyledAlert = styled(Alert)`
     margin-bottom: 16px;
     border-radius: 6px;
-    border: 1px solid ${applyOpacity(WARNING_COLOR_HEX, 20)};
+    border: 1px solid ${colors.yellow[200]};
     background-color: ${colors.yellow[0]};
 
     .ant-alert-message {
@@ -32,7 +25,7 @@ const StyledAlert = styled(Alert)`
     }
 
     .ant-alert-icon {
-        color: ${WARNING_COLOR_HEX};
+        color: ${colors.yellow[600]};
     }
 `;
 
@@ -47,7 +40,7 @@ const WarningList = styled.div`
 
         &::before {
             content: '•';
-            color: ${WARNING_COLOR_HEX};
+            color: ${colors.yellow[600]};
             margin-right: 8px;
             font-weight: bold;
         }
@@ -85,10 +78,14 @@ export const ValidationWarning: React.FC<Props> = ({
     const hasPropertyWarnings = propertyWarnings.length > 0;
     const hasActionWarnings = actionWarnings.length > 0;
 
+    const shouldShowResetFilters = showResetFilters && hasPropertyWarnings && onResetFilters;
+    const shouldShowResetActions = showResetActions && hasActionWarnings && onResetActions;
+    const shouldShowActionContainer = shouldShowResetFilters || shouldShowResetActions;
+
     return (
         <StyledAlert
             type="warning"
-            icon={<ExclamationCircleOutlined />}
+            icon={<Warning size={16} />}
             message="Invalid Configuration Detected"
             description={
                 <div>
@@ -110,20 +107,22 @@ export const ValidationWarning: React.FC<Props> = ({
                         ))}
                     </WarningList>
 
-                    {(showResetFilters || showResetActions) && (hasPropertyWarnings || hasActionWarnings) && (
+                    {shouldShowActionContainer ? (
                         <ActionContainer>
-                            {showResetFilters && hasPropertyWarnings && onResetFilters && (
-                                <Button size="small" type="default" icon={<ReloadOutlined />} onClick={onResetFilters}>
+                            {shouldShowResetFilters ? (
+                                <Button size="sm" variant="outline" onClick={onResetFilters}>
+                                    <ArrowClockwise size={14} />
                                     Reset Filters
                                 </Button>
-                            )}
-                            {showResetActions && hasActionWarnings && onResetActions && (
-                                <Button size="small" type="default" icon={<ReloadOutlined />} onClick={onResetActions}>
+                            ) : null}
+                            {shouldShowResetActions ? (
+                                <Button size="sm" variant="outline" onClick={onResetActions}>
+                                    <ArrowClockwise size={14} />
                                     Reset Actions
                                 </Button>
-                            )}
+                            ) : null}
                         </ActionContainer>
-                    )}
+                    ) : null}
                 </div>
             }
         />

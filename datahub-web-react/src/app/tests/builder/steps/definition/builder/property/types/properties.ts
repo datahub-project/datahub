@@ -84,18 +84,6 @@ export const commonProps: Property[] = [
             ],
         },
     },
-    // {
-    //     id: 'name', // --> TODO Determine what this means for Datasets.
-    //     displayName: 'Name',
-    //     description: 'The name of the asset, as defined at the source.',
-    //     valueType: ValueTypeId.STRING,
-    // },
-    // {
-    //     id: 'editableDatasetProperties.description',
-    //     displayName: 'Description',
-    //     description: 'The description text for the asset, as displayed inside the Documentation tab.',
-    //     valueType: ValueTypeId.STRING,
-    // },
     {
         id: 'ownership.owners.owner',
         displayName: 'Owners',
@@ -139,10 +127,10 @@ export const commonProps: Property[] = [
 ];
 
 /**
- * Properties that are common across most entity types but not necessarily all
+ * Properties that are common across most asset types but not necessarily all
  * (e.g., platform might not apply to glossaryTerm)
  */
-export const baseEntityProps: Property[] = [
+export const assetProps: Property[] = [
     ...commonProps,
     {
         id: 'dataPlatformInstance.platform',
@@ -204,10 +192,10 @@ export const baseEntityProps: Property[] = [
 ];
 
 /**
- * Properties that are specific to data entities (datasets, dashboards, charts, etc.)
+ * Properties that are specific to data assets (datasets, dashboards, charts, etc.)
  * but not applicable to other entities like glossaryTerm
  */
-export const dataEntityProps: Property[] = [
+export const dataAssetProps: Property[] = [
     {
         id: 'browsePathsV2.path.urn',
         displayName: 'Browse Path container',
@@ -238,17 +226,11 @@ export const dataEntityProps: Property[] = [
             mode: SelectInputMode.SINGLE,
         },
     },
-    {
-        id: 'upstreamLineage.upstreams',
-        displayName: 'Upstream Assets',
-        description: 'Assets that this entity depends on (upstream in the data lineage).',
-        valueType: ValueTypeId.EXISTS_LIST,
-    },
 ];
 
 const datasetProps: Property[] = [
-    ...baseEntityProps,
-    ...dataEntityProps,
+    ...assetProps,
+    ...dataAssetProps,
     {
         id: 'datasetDescription',
         displayName: 'Description',
@@ -272,6 +254,12 @@ const datasetProps: Property[] = [
         displayName: 'Dataset Name',
         description: 'The name of the dataset as defined in the source platform.',
         valueType: ValueTypeId.STRING,
+    },
+    {
+        id: 'upstreamLineage.upstreams',
+        displayName: 'Upstream Assets',
+        description: 'Assets that this dataset depends on (upstream in the data lineage).',
+        valueType: ValueTypeId.EXISTS_LIST,
     },
     {
         id: 'datasetProperties.qualifiedName',
@@ -424,8 +412,8 @@ const datasetProps: Property[] = [
 ];
 
 const dataJobProps = [
-    ...baseEntityProps,
-    ...dataEntityProps,
+    ...assetProps,
+    ...dataAssetProps,
     {
         id: 'dataJobDescription',
         displayName: 'Description',
@@ -450,17 +438,11 @@ const dataJobProps = [
         description: 'The name of the job as defined in the source platform.',
         valueType: ValueTypeId.STRING,
     },
-    {
-        id: 'dataJobInfo.type',
-        displayName: 'Job Type',
-        description: 'The type of the data job (e.g., batch, streaming).',
-        valueType: ValueTypeId.STRING,
-    },
 ];
 
 const dataFlowProps = [
-    ...baseEntityProps,
-    ...dataEntityProps,
+    ...assetProps,
+    ...dataAssetProps,
     {
         id: 'dataFlowDescription',
         displayName: 'Description',
@@ -488,8 +470,8 @@ const dataFlowProps = [
 ];
 
 const dashboardProps = [
-    ...baseEntityProps,
-    ...dataEntityProps,
+    ...assetProps,
+    ...dataAssetProps,
     {
         id: 'dashboardDescription',
         displayName: 'Description',
@@ -558,8 +540,8 @@ const dashboardProps = [
 ];
 
 const chartProps = [
-    ...baseEntityProps,
-    ...dataEntityProps,
+    ...assetProps,
+    ...dataAssetProps,
     {
         id: 'chartDescription',
         displayName: 'Description',
@@ -584,12 +566,7 @@ const chartProps = [
         description: 'The name of the chart as defined in the source platform.',
         valueType: ValueTypeId.STRING,
     },
-    {
-        id: 'chartInfo.type',
-        displayName: 'Chart Type',
-        description: 'The type of the chart (e.g., line, bar, pie).',
-        valueType: ValueTypeId.STRING,
-    },
+
     {
         id: 'chartMetrics',
         displayName: 'Metrics',
@@ -635,8 +612,8 @@ const chartProps = [
 ];
 
 const containerProps = [
-    ...baseEntityProps,
-    ...dataEntityProps,
+    ...assetProps,
+    ...dataAssetProps,
     {
         id: 'containerDescription',
         displayName: 'Description',
@@ -672,17 +649,12 @@ const glossaryTermProps = [
         valueType: ValueTypeId.STRING,
     },
     {
-        id: 'glossaryTermInfo.description',
+        id: 'glossaryTermInfo.definition',
         displayName: 'Description',
         description: 'The description of the glossary term.',
         valueType: ValueTypeId.STRING,
     },
-    {
-        id: 'glossaryTermInfo.definition',
-        displayName: 'Definition',
-        description: 'The definition of the glossary term.',
-        valueType: ValueTypeId.STRING,
-    },
+
     {
         id: 'glossaryTermInfo.parentNode',
         displayName: 'Parent Term Group',

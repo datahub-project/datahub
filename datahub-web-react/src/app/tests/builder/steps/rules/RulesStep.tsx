@@ -8,7 +8,6 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { ActionsStep } from '@app/tests/builder/steps/actions/ActionsStep';
 import { LogicalPredicateBuilder } from '@app/tests/builder/steps/definition/builder/LogicalPredicateBuilder';
 import { getPropertiesForEntityTypes } from '@app/tests/builder/steps/definition/builder/property/utils';
-import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
 import {
     convertLogicalPredicateToTestPredicate,
     convertTestPredicateToLogicalPredicate,
@@ -19,7 +18,7 @@ import { graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
 import { ValidateTestModal } from '@app/tests/builder/steps/validate/ValidateTestModal';
 import { StepProps, TestBuilderStep } from '@app/tests/builder/types';
 import { ValidationWarning } from '@app/tests/builder/validation/ValidationWarning';
-import { getPropertiesFromPredicate, getValidationWarnings } from '@app/tests/builder/validation/utils';
+import { validateCompleteTestDefinition } from '@app/tests/builder/validation/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const BuilderWrapper = styled.div`
@@ -112,11 +111,8 @@ export const RulesStep = ({ state, updateState, prev, goTo }: StepProps) => {
 
     // Get validation warnings for current configuration (memoized for proper re-evaluation)
     const validationWarnings = useMemo(() => {
-        const currentRulesPredicate = convertTestPredicateToLogicalPredicate(testDefinition.rules) as LogicalPredicate;
-        const usedRulesProperties = getPropertiesFromPredicate(currentRulesPredicate);
-        const currentActions = [...(testDefinition.actions?.passing || []), ...(testDefinition.actions?.failing || [])];
-        return getValidationWarnings(selectedEntityTypes, usedRulesProperties, currentActions);
-    }, [selectedEntityTypes, testDefinition.rules, testDefinition.actions?.passing, testDefinition.actions?.failing]);
+        return validateCompleteTestDefinition(selectedEntityTypes, testDefinition);
+    }, [selectedEntityTypes, testDefinition]);
 
     return (
         <>
@@ -141,7 +137,7 @@ export const RulesStep = ({ state, updateState, prev, goTo }: StepProps) => {
                 <SubTitle type="secondary">What criteria must each selected asset meet?</SubTitle>
 
                 {/* Show validation warnings if any */}
-                {validationWarnings.length > 0 && (
+                {validationWarnings.length > 0 ? (
                     <ValidationWarning
                         key={`validation-rules-${selectedEntityTypes.join('-')}-${validationWarnings.length}`}
                         warnings={validationWarnings}
@@ -150,13 +146,11 @@ export const RulesStep = ({ state, updateState, prev, goTo }: StepProps) => {
                         showResetFilters
                         showResetActions
                     />
-                )}
+                ) : null}
 
                 <BuilderWrapper>
                     <LogicalPredicateBuilder
-                        selectedPredicate={
-                            convertTestPredicateToLogicalPredicate(testDefinition.rules) as LogicalPredicate
-                        }
+                        selectedPredicate={convertTestPredicateToLogicalPredicate(testDefinition.rules)}
                         onChangePredicate={onChangePredicate}
                         properties={getPropertiesForEntityTypes(selectedEntityTypes)}
                         options={{

@@ -9,7 +9,6 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { LogicalPredicateBuilder } from '@app/tests/builder/steps/definition/builder/LogicalPredicateBuilder';
 import { EntityTypeSelect } from '@app/tests/builder/steps/definition/builder/property/input/EntityTypeSelect';
 import { getPropertiesForEntityTypes } from '@app/tests/builder/steps/definition/builder/property/utils';
-import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
 import {
     convertLogicalPredicateToTestPredicate,
     convertTestPredicateToLogicalPredicate,
@@ -19,7 +18,7 @@ import { YamlStep } from '@app/tests/builder/steps/definition/yaml/YamlStep';
 import { entityTypesToGraphNames, graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
 import { StepProps, TestBuilderStep } from '@app/tests/builder/types';
 import { ValidationWarning } from '@app/tests/builder/validation/ValidationWarning';
-import { getPropertiesFromPredicate, getValidationWarnings } from '@app/tests/builder/validation/utils';
+import { validateCompleteTestDefinition } from '@app/tests/builder/validation/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -99,7 +98,7 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
         updateState(newState);
     };
 
-    const onResetFilters = () => {
+    const onResetConditions = () => {
         const newDefinition = {
             ...testDefinition,
             on: {
@@ -123,12 +122,8 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
 
     // Get validation warnings for current configuration (memoized for proper re-evaluation)
     const validationWarnings = useMemo(() => {
-        const currentPredicate = convertTestPredicateToLogicalPredicate(
-            testDefinition.on?.conditions || [],
-        ) as LogicalPredicate;
-        const usedProperties = getPropertiesFromPredicate(currentPredicate);
-        return getValidationWarnings(selectedEntityTypes, usedProperties, []);
-    }, [selectedEntityTypes, testDefinition.on?.conditions]);
+        return validateCompleteTestDefinition(selectedEntityTypes, testDefinition);
+    }, [selectedEntityTypes, testDefinition]);
 
     return (
         <>
@@ -147,16 +142,16 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
                 />
 
                 {/* Show validation warnings if any */}
-                {validationWarnings.length > 0 && (
+                {validationWarnings.length > 0 ? (
                     <ValidationWarning
                         key={`validation-${selectedEntityTypes.join('-')}-${validationWarnings.length}`}
                         warnings={validationWarnings}
-                        onResetFilters={onResetFilters}
+                        onResetFilters={onResetConditions}
                         showResetFilters
                     />
-                )}
+                ) : null}
 
-                {selectedEntityTypes.length > 0 && (
+                {selectedEntityTypes.length > 0 ? (
                     <Section>
                         <AdditionalFilters>
                             <AdditionalFiltersTitle>
@@ -172,11 +167,9 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
                         </AdditionalFilters>
                         <BuilderWrapper>
                             <LogicalPredicateBuilder
-                                selectedPredicate={
-                                    convertTestPredicateToLogicalPredicate(
-                                        testDefinition.on.conditions || [],
-                                    ) as LogicalPredicate
-                                }
+                                selectedPredicate={convertTestPredicateToLogicalPredicate(
+                                    testDefinition.on.conditions || [],
+                                )}
                                 onChangePredicate={onChangePredicate}
                                 properties={getPropertiesForEntityTypes(selectedEntityTypes)}
                                 disabled={!testDefinition.on?.types || testDefinition.on?.types?.length === 0}
@@ -186,7 +179,7 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
                             />
                         </BuilderWrapper>
                     </Section>
-                )}
+                ) : null}
             </YamlStep>
         </>
     );

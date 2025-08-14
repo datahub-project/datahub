@@ -2,14 +2,12 @@ import { Form, Input, Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
-import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
-import { convertTestPredicateToLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
 import { deserializeTestDefinition } from '@app/tests/builder/steps/definition/utils';
 import { CategorySelect } from '@app/tests/builder/steps/name/CategorySelect';
 import { graphNamesToEntityTypes } from '@app/tests/builder/steps/select/utils';
 import { StepProps } from '@app/tests/builder/types';
 import { ValidationWarning } from '@app/tests/builder/validation/ValidationWarning';
-import { getPropertiesFromPredicate, getValidationWarnings } from '@app/tests/builder/validation/utils';
+import { validateCompleteTestDefinition } from '@app/tests/builder/validation/utils';
 import { DEFAULT_TEST_CATEGORY, TestCategory } from '@app/tests/constants';
 import { isCustomCategory, isSupportedCategory } from '@app/tests/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -39,29 +37,8 @@ export const NameStep = ({ state, updateState, prev, submit }: StepProps) => {
 
     // Get validation warnings (memoized for proper re-evaluation)
     const validationWarnings = useMemo(() => {
-        // Validate selection filters
-        const selectionPredicate = convertTestPredicateToLogicalPredicate(
-            testDefinition.on?.conditions || [],
-        ) as LogicalPredicate;
-        const selectionProperties = getPropertiesFromPredicate(selectionPredicate);
-
-        // Validate rules
-        const rulesPredicate = convertTestPredicateToLogicalPredicate(testDefinition.rules) as LogicalPredicate;
-        const rulesProperties = getPropertiesFromPredicate(rulesPredicate);
-
-        // Validate actions
-        const allActions = [...(testDefinition.actions?.passing || []), ...(testDefinition.actions?.failing || [])];
-
-        // Get all validation warnings
-        const allProperties = [...selectionProperties, ...rulesProperties];
-        return getValidationWarnings(selectedEntityTypes, allProperties, allActions);
-    }, [
-        selectedEntityTypes,
-        testDefinition.on?.conditions,
-        testDefinition.rules,
-        testDefinition.actions?.passing,
-        testDefinition.actions?.failing,
-    ]);
+        return validateCompleteTestDefinition(selectedEntityTypes, testDefinition);
+    }, [selectedEntityTypes, testDefinition]);
 
     const setName = (name: string) => {
         updateState({
@@ -106,14 +83,14 @@ export const NameStep = ({ state, updateState, prev, submit }: StepProps) => {
     return (
         <>
             {/* Show validation warnings if any */}
-            {validationWarnings.length > 0 && (
+            {validationWarnings.length > 0 ? (
                 <ValidationWarning
                     key={`validation-final-${selectedEntityTypes.join('-')}-${validationWarnings.length}`}
                     warnings={validationWarnings}
                     showResetFilters={false}
                     showResetActions={false}
                 />
-            )}
+            ) : null}
 
             <StyledForm layout="vertical">
                 <Form.Item required label={<Typography.Text strong>Name</Typography.Text>}>

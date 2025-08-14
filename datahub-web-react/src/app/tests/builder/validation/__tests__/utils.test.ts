@@ -1,11 +1,11 @@
-import { ActionId } from '@app/tests/builder/steps/definition/builder/property/types/action';
+import { ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
 import {
     LogicalOperatorType,
     LogicalPredicate,
     PropertyPredicate,
 } from '@app/tests/builder/steps/definition/builder/types';
 import {
-    getPropertiesFromPredicate,
+    getPropertiesFromLogicalPredicate,
     getValidationWarnings,
     isActionSupportedForEntities,
     isPropertySupportedForEntities,
@@ -83,7 +83,7 @@ describe('Validation Utils', () => {
         });
     });
 
-    describe('getPropertiesFromPredicate', () => {
+    describe('getPropertiesFromLogicalPredicate', () => {
         it('should extract properties from a simple property predicate', () => {
             const predicate: PropertyPredicate = {
                 type: 'property',
@@ -91,7 +91,7 @@ describe('Validation Utils', () => {
                 operator: 'exists',
             };
 
-            expect(getPropertiesFromPredicate(predicate)).toEqual(['datasetProperties.description']);
+            expect(getPropertiesFromLogicalPredicate(predicate)).toEqual(['datasetProperties.description']);
         });
 
         it('should extract properties from a logical predicate with AND operator', () => {
@@ -112,7 +112,7 @@ describe('Validation Utils', () => {
                 ],
             };
 
-            const properties = getPropertiesFromPredicate(predicate);
+            const properties = getPropertiesFromLogicalPredicate(predicate);
             expect(properties).toHaveLength(2);
             expect(properties).toContain('datasetProperties.description');
             expect(properties).toContain('ownership.owners.owner');
@@ -148,14 +148,14 @@ describe('Validation Utils', () => {
                 ],
             };
 
-            const properties = getPropertiesFromPredicate(predicate);
+            const properties = getPropertiesFromLogicalPredicate(predicate);
             expect(properties).toHaveLength(2); // Should deduplicate
             expect(properties).toContain('datasetProperties.description');
             expect(properties).toContain('ownership.owners.owner');
         });
 
         it('should return empty array for null predicate', () => {
-            expect(getPropertiesFromPredicate(null)).toEqual([]);
+            expect(getPropertiesFromLogicalPredicate(null)).toEqual([]);
         });
 
         it('should handle property predicates without property field', () => {
@@ -164,7 +164,7 @@ describe('Validation Utils', () => {
                 operator: 'exists',
             };
 
-            expect(getPropertiesFromPredicate(predicate)).toEqual([]);
+            expect(getPropertiesFromLogicalPredicate(predicate)).toEqual([]);
         });
     });
 
@@ -186,7 +186,7 @@ describe('Validation Utils', () => {
             const warnings3 = getValidationWarnings(
                 [EntityType.Dataset, EntityType.Chart],
                 [],
-                [{ type: ActionId.ADD_TAGS }],
+                [{ id: ActionId.ADD_TAGS } as ActionType],
             );
             expect(warnings3).toHaveLength(0);
         });
@@ -211,7 +211,7 @@ describe('Validation Utils', () => {
             const warnings = getValidationWarnings(
                 [EntityType.Dataset, EntityType.GlossaryTerm],
                 [],
-                [{ type: ActionId.ADD_TAGS }],
+                [{ id: ActionId.ADD_TAGS } as ActionType],
             );
 
             expect(warnings).toHaveLength(1);
@@ -226,7 +226,7 @@ describe('Validation Utils', () => {
             const warnings = getValidationWarnings(
                 [EntityType.Dataset, EntityType.GlossaryTerm],
                 ['datasetProperties.description'],
-                [{ type: ActionId.ADD_TAGS }],
+                [{ id: ActionId.ADD_TAGS } as ActionType],
             );
 
             expect(warnings).toHaveLength(2);
@@ -245,7 +245,7 @@ describe('Validation Utils', () => {
             const warnings = getValidationWarnings(
                 [],
                 ['datasetProperties.description'],
-                [{ type: ActionId.ADD_TAGS }],
+                [{ id: ActionId.ADD_TAGS } as ActionType],
             );
             expect(warnings).toHaveLength(0);
         });

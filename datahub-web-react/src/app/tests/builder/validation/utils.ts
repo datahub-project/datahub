@@ -1,22 +1,34 @@
 import { ACTION_TYPES, ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
 import {
     Property,
-    baseEntityProps,
+    assetProps,
     commonProps,
-    dataEntityProps,
+    dataAssetProps,
     entityProperties,
 } from '@app/tests/builder/steps/definition/builder/property/types/properties';
 import { LogicalPredicate, PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
+import { convertTestPredicateToLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
+import { TestDefinition } from '@app/tests/types';
 
 import { EntityType } from '@types';
 
 /**
- * Utility functions for validating metadata test configurations
- * These are automatically derived from the property definitions in properties.ts
+ * METADATA TEST VALIDATION UTILITIES
+ *
+ * These utils provide validation for metadata test configurations by checking:
+ * 1. Property compatibility: Whether selected properties work with chosen entity types
+ * 2. Action compatibility: Whether selected actions work with chosen entity types
+ *
+ *
+ * All mappings are automatically derived from properties.ts and action.ts to ensure consistency.
  */
 
+// =============================================================================
+// PROPERTY ANALYSIS HELPERS
+// =============================================================================
+
 /**
- * Recursively extract from a property
+ * Recursively extract property IDs from a property definition
  */
 function extractFromProperty(prop: Property, ids: Set<string>) {
     ids.add(prop.id);
@@ -35,17 +47,22 @@ function extractPropertyIds(properties: Property[]): Set<string> {
     return ids;
 }
 
+// =============================================================================
+// AUTOMATIC CONFIGURATION DERIVATION
+// =============================================================================
+
 /**
  * Automatically derived property support sets from properties.ts
+ * This creates a map showing which property categories are supported by which entity types.
  */
 const AUTO_PROPERTY_SUPPORT = {
     // Properties from commonProps - supported by all entities
     UNIVERSAL: extractPropertyIds(commonProps),
-    // Properties from baseEntityProps (excluding commonProps) - not supported by metadata entities like glossaryTerm
+    // Properties from assetProps (excluding commonProps) - not supported by metadata entities like glossaryTerm
     BASE_ENTITY_ONLY: (() => {
         const baseIds = new Set<string>();
-        // Extract only the properties that are in baseEntityProps but not in commonProps
-        baseEntityProps.forEach((prop) => {
+        // Extract only the properties that are in assetProps but not in commonProps
+        assetProps.forEach((prop) => {
             // Skip properties that are also in commonProps
             if (!commonProps.some((commonProp) => commonProp.id === prop.id)) {
                 extractFromProperty(prop, baseIds);
@@ -53,14 +70,14 @@ const AUTO_PROPERTY_SUPPORT = {
         });
         return baseIds;
     })(),
-    // Properties from dataEntityProps - only supported by data entities
-    DATA_ENTITY_ONLY: extractPropertyIds(dataEntityProps),
+    // Properties from dataAssetProps - only supported by data assets
+    DATA_ASSET_ONLY: extractPropertyIds(dataAssetProps),
     // Entity-specific properties - only supported by specific entity types
     ENTITY_SPECIFIC: (() => {
         const entitySpecificIds = new Set<string>();
         const universalIds = extractPropertyIds(commonProps);
-        const baseEntityIds = extractPropertyIds(baseEntityProps);
-        const dataEntityIds = extractPropertyIds(dataEntityProps);
+        const baseEntityIds = extractPropertyIds(assetProps);
+        const dataAssetIds = extractPropertyIds(dataAssetProps);
 
         // Extract properties that are specific to individual entities
         entityProperties.forEach((entityProp) => {
@@ -68,7 +85,7 @@ const AUTO_PROPERTY_SUPPORT = {
 
             entityPropertyIds.forEach((propId) => {
                 // Check if this property is NOT in any of the general categories
-                if (!universalIds.has(propId) && !baseEntityIds.has(propId) && !dataEntityIds.has(propId)) {
+                if (!universalIds.has(propId) && !baseEntityIds.has(propId) && !dataAssetIds.has(propId)) {
                     entitySpecificIds.add(propId);
                 }
             });
@@ -78,29 +95,30 @@ const AUTO_PROPERTY_SUPPORT = {
 };
 
 /**
- * Automatically derived entity categories based on which properties they support
+ * Automatically derived asset categories based on which properties they support.
+ * This groups entity types into data assets vs metadata assets.
  */
-const AUTO_ENTITY_CATEGORIES = (() => {
+const AUTO_ASSET_CATEGORIES = (() => {
     const categories = {
-        DATA_ENTITIES: new Set<EntityType>(),
-        METADATA_ENTITIES: new Set<EntityType>(),
-        ALL_ENTITIES: new Set<EntityType>(),
+        DATA_ASSETS: new Set<EntityType>(),
+        METADATA_ASSETS: new Set<EntityType>(),
+        ALL_ASSETS: new Set<EntityType>(),
     };
 
     entityProperties.forEach((entityProp) => {
-        categories.ALL_ENTITIES.add(entityProp.type);
+        categories.ALL_ASSETS.add(entityProp.type);
 
         const entityPropertyIds = extractPropertyIds(entityProp.properties);
 
-        // Check if this entity supports data entity properties
-        const supportsDataEntityProps = Array.from(AUTO_PROPERTY_SUPPORT.DATA_ENTITY_ONLY).some((propId) =>
+        // Check if this entity supports data asset properties
+        const supportsDataAssetProps = Array.from(AUTO_PROPERTY_SUPPORT.DATA_ASSET_ONLY).some((propId) =>
             entityPropertyIds.has(propId),
         );
 
-        if (supportsDataEntityProps) {
-            categories.DATA_ENTITIES.add(entityProp.type);
+        if (supportsDataAssetProps) {
+            categories.DATA_ASSETS.add(entityProp.type);
         } else {
-            categories.METADATA_ENTITIES.add(entityProp.type);
+            categories.METADATA_ASSETS.add(entityProp.type);
         }
     });
 
@@ -108,32 +126,24 @@ const AUTO_ENTITY_CATEGORIES = (() => {
 })();
 
 /**
- * Automatically derived action support based on ACTION_TYPES configuration
+ * Automatically derived action support based on ACTION_TYPES configuration.
+ * This creates a map showing which actions are supported by which entity types.
  */
 const AUTO_ACTION_SUPPORT = (() => {
     const support: Record<ActionId, Set<EntityType>> = {} as Record<ActionId, Set<EntityType>>;
 
     // Extract action support from ACTION_TYPES configuration
     ACTION_TYPES.forEach((actionType) => {
-        if (actionType.supportedEntityTypes) {
-            support[actionType.id] = new Set(actionType.supportedEntityTypes);
+        if (actionType.entityTypes) {
+            support[actionType.id] = new Set(actionType.entityTypes);
         } else {
-            // If no supportedEntityTypes specified, assume it supports all entities
-            support[actionType.id] = new Set(AUTO_ENTITY_CATEGORIES.ALL_ENTITIES);
+            // If no entityTypes specified, assume it supports all entities
+            support[actionType.id] = new Set(AUTO_ASSET_CATEGORIES.ALL_ASSETS);
         }
     });
 
     return support;
 })();
-
-/**
- * Export automatically derived action support sets
- */
-export const TAG_SUPPORTED_ENTITIES = AUTO_ACTION_SUPPORT[ActionId.ADD_TAGS];
-export const GLOSSARY_TERM_SUPPORTED_ENTITIES = AUTO_ACTION_SUPPORT[ActionId.ADD_GLOSSARY_TERMS];
-export const DOMAIN_SUPPORTED_ENTITIES = AUTO_ACTION_SUPPORT[ActionId.SET_DOMAIN];
-export const OWNERSHIP_SUPPORTED_ENTITIES = AUTO_ACTION_SUPPORT[ActionId.ADD_OWNERS];
-export const DEPRECATION_SUPPORTED_ENTITIES = AUTO_ACTION_SUPPORT[ActionId.DEPRECATE];
 
 /**
  * Check if an action is supported for the given entity types
@@ -158,41 +168,14 @@ export function filterActionTypesByEntities(actionTypes: ActionType[], entityTyp
     return actionTypes.filter((actionType) => isActionSupportedForEntities(actionType.id, entityTypes));
 }
 
-/**
- * Export the automatically derived categories and property support for external use
- */
-export const ENTITY_CATEGORIES = AUTO_ENTITY_CATEGORIES;
-export const PROPERTY_SUPPORT = {
-    UNIVERSAL: AUTO_PROPERTY_SUPPORT.UNIVERSAL,
-    DATA_ENTITY_COMMON: AUTO_PROPERTY_SUPPORT.BASE_ENTITY_ONLY,
-    DATA_ENTITY_SPECIFIC: new Set([
-        ...AUTO_PROPERTY_SUPPORT.DATA_ENTITY_ONLY,
-        ...AUTO_PROPERTY_SUPPORT.ENTITY_SPECIFIC,
-    ]),
-};
+// =============================================================================
+// PUBLIC API - EXPORTED CONSTANTS AND FUNCTIONS
+// =============================================================================
 
 /**
- * Debug function to check what we automatically derived (temporary)
+ * Export the automatically derived categories for external use
  */
-export function debugValidationConfig() {
-    const config = {
-        entityCategories: {
-            dataEntities: Array.from(ENTITY_CATEGORIES.DATA_ENTITIES),
-            metadataEntities: Array.from(ENTITY_CATEGORIES.METADATA_ENTITIES),
-            allEntities: Array.from(ENTITY_CATEGORIES.ALL_ENTITIES),
-        },
-        propertySupport: {
-            universal: Array.from(PROPERTY_SUPPORT.UNIVERSAL),
-            dataEntityCommon: Array.from(PROPERTY_SUPPORT.DATA_ENTITY_COMMON),
-            dataEntitySpecific: Array.from(PROPERTY_SUPPORT.DATA_ENTITY_SPECIFIC),
-        },
-        actionSupport: Object.fromEntries(
-            Object.entries(AUTO_ACTION_SUPPORT).map(([actionId, entitySet]) => [actionId, Array.from(entitySet)]),
-        ),
-    };
-
-    return config;
-}
+export const ASSET_CATEGORIES = AUTO_ASSET_CATEGORIES;
 
 /**
  * Check if a property is supported for the given entity types
@@ -201,19 +184,22 @@ export function isPropertySupportedForEntities(propertyId: string, entityTypes: 
     if (entityTypes.length === 0) return true; // No entities selected, allow all properties
 
     // Universal properties are supported by all entities
-    if (PROPERTY_SUPPORT.UNIVERSAL.has(propertyId)) {
+    if (AUTO_PROPERTY_SUPPORT.UNIVERSAL.has(propertyId)) {
         return true;
     }
 
-    // Check if property requires data entity support
-    if (PROPERTY_SUPPORT.DATA_ENTITY_COMMON.has(propertyId)) {
-        // All selected entities must be data entities (not metadata entities like glossaryTerm)
-        return entityTypes.every((type) => ENTITY_CATEGORIES.DATA_ENTITIES.has(type));
+    // Check if property requires data asset support
+    if (AUTO_PROPERTY_SUPPORT.BASE_ENTITY_ONLY.has(propertyId)) {
+        // All selected entities must be data assets (not metadata entities like glossaryTerm)
+        return entityTypes.every((type) => AUTO_ASSET_CATEGORIES.DATA_ASSETS.has(type));
     }
 
-    // Check if property requires data entity specific support
-    if (PROPERTY_SUPPORT.DATA_ENTITY_SPECIFIC.has(propertyId)) {
-        // For data entity specific properties, check if ALL selected entities actually support this property
+    // Check if property requires data asset specific support
+    if (
+        AUTO_PROPERTY_SUPPORT.DATA_ASSET_ONLY.has(propertyId) ||
+        AUTO_PROPERTY_SUPPORT.ENTITY_SPECIFIC.has(propertyId)
+    ) {
+        // For data asset specific properties, check if ALL selected entities actually support this property
         return entityTypes.every((entityType) => {
             const entityConfig = entityProperties.find((ep) => ep.type === entityType);
             if (!entityConfig) return false;
@@ -232,6 +218,10 @@ export function isPropertySupportedForEntities(propertyId: string, entityTypes: 
         return entityPropertyIds.has(propertyId);
     });
 }
+
+// =============================================================================
+// INTERNAL HELPER FUNCTIONS
+// =============================================================================
 
 /**
  * Helper function to format entity names for display (pluralize and format)
@@ -267,38 +257,6 @@ function formatEntityName(entityType: EntityType, pluralize = false): string {
     }
 
     return formatted;
-}
-
-/**
- * Helper function to get display name for actions
- */
-function getActionDisplayName(actionId: ActionId): string {
-    switch (actionId) {
-        case ActionId.ADD_TAGS:
-            return 'Add Tags';
-        case ActionId.REMOVE_TAGS:
-            return 'Remove Tags';
-        case ActionId.ADD_GLOSSARY_TERMS:
-            return 'Add Glossary Terms';
-        case ActionId.REMOVE_GLOSSARY_TERMS:
-            return 'Remove Glossary Terms';
-        case ActionId.SET_DOMAIN:
-            return 'Set Domain';
-        case ActionId.UNSET_DOMAIN:
-            return 'Unset Domain';
-        case ActionId.ADD_OWNERS:
-            return 'Add Owners';
-        case ActionId.REMOVE_OWNERS:
-            return 'Remove Owners';
-        case ActionId.DEPRECATE:
-            return 'Mark as Deprecated';
-        case ActionId.UN_DEPRECATE:
-            return 'Remove Deprecated Status';
-        default:
-            return String(actionId)
-                .replace(/_/g, ' ')
-                .replace(/\b\w/g, (l) => l.toUpperCase());
-    }
 }
 
 /**
@@ -339,10 +297,39 @@ export interface ValidationWarning {
     actionId?: ActionId;
 }
 
+/**
+ * Extract and validate all properties and actions from a complete test definition.
+ * This is a comprehensive validation that checks selection filters, rules, and actions.
+ */
+export function validateCompleteTestDefinition(
+    entityTypes: EntityType[],
+    testDefinition: TestDefinition,
+): ValidationWarning[] {
+    // Validate selection filters
+    const selectionPredicate = convertTestPredicateToLogicalPredicate(testDefinition.on?.conditions || []);
+    const selectionProperties = getPropertiesFromLogicalPredicate(selectionPredicate);
+
+    // Validate rules
+    const rulesPredicate = convertTestPredicateToLogicalPredicate(testDefinition.rules);
+    const rulesProperties = getPropertiesFromLogicalPredicate(rulesPredicate);
+
+    // Extract actions (convert from TestAction to ActionType format)
+    const passingActions = testDefinition.actions?.passing || [];
+    const failingActions = testDefinition.actions?.failing || [];
+    const allActions: ActionType[] = [
+        ...passingActions.map((action) => ({ id: action.type }) as ActionType),
+        ...failingActions.map((action) => ({ id: action.type }) as ActionType),
+    ];
+
+    // Get all validation warnings
+    const allProperties = [...selectionProperties, ...rulesProperties];
+    return getValidationWarnings(entityTypes, allProperties, allActions);
+}
+
 export function getValidationWarnings(
     entityTypes: EntityType[],
     properties: string[],
-    actions: { type: string }[],
+    actions: ActionType[],
 ): ValidationWarning[] {
     const warnings: ValidationWarning[] = [];
 
@@ -377,12 +364,13 @@ export function getValidationWarnings(
 
     // Check for invalid actions
     actions.forEach((action) => {
-        const actionId = action.type as ActionId;
+        const actionId = action.id;
         const isActionSupported = isActionSupportedForEntities(actionId, entityTypes);
 
         if (!isActionSupported) {
             const unsupportedEntities = getUnsupportedEntitiesForAction(actionId, entityTypes);
-            const actionDisplayName = getActionDisplayName(actionId);
+            const actionType = ACTION_TYPES.find((at) => at.id === actionId);
+            const actionDisplayName = actionType?.displayName || actionId;
 
             warnings.push({
                 type: 'action',
@@ -398,7 +386,7 @@ export function getValidationWarnings(
 /**
  * Extract all property IDs used in a logical predicate
  */
-export function getPropertiesFromPredicate(predicate: LogicalPredicate | PropertyPredicate | null): string[] {
+export function getPropertiesFromLogicalPredicate(predicate: LogicalPredicate | PropertyPredicate | null): string[] {
     if (!predicate) return [];
 
     const properties: string[] = [];
