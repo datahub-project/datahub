@@ -409,6 +409,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force 'org.mozilla:rhino:1.7.12'
     resolutionStrategy.force 'commons-beanutils:commons-beanutils:1.11.0'
     resolutionStrategy.force 'org.apache.commons:commons-collections4:4.5.0'
+    resolutionStrategy.force 'org.iq80.snappy:snappy:0.5'
     resolutionStrategy {
       force "org.eclipse.jetty:jetty-security:${jettyVersion}"
       force "org.eclipse.jetty:jetty-server:${jettyVersion}"
