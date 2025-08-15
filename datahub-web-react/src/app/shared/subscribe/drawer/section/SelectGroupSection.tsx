@@ -2,10 +2,11 @@ import { Select, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
+import { getGroupOptions } from '@app/shared/subscribe/drawer/section/SelectGroupSection.utils';
 import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { CorpGroup, EntityRelationship, EntityType } from '@types';
+import { EntityRelationshipsResult } from '@types';
 
 const SelectGroupContainer = styled.div`
     margin-top: 32px;
@@ -31,26 +32,21 @@ interface Props {
 }
 
 export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
-    const { relationships } = useGroupRelationships();
+    const { relationships, ownedGroupSearchResults } = useGroupRelationships();
     const entityRegistry = useEntityRegistry();
 
-    const convertGroupRelationshipToOption = (relationship: EntityRelationship) => {
-        const group: CorpGroup = relationship?.entity as CorpGroup;
-        return {
-            label: entityRegistry.getDisplayName(EntityType.CorpGroup, group),
-            value: group?.urn,
-        };
-    };
-
-    const options = relationships
-        ?.filter((relationship) => !!relationship)
-        .map((relationship) => convertGroupRelationshipToOption(relationship as EntityRelationship));
+    const options = getGroupOptions(
+        relationships as EntityRelationshipsResult['relationships'],
+        ownedGroupSearchResults,
+        entityRegistry,
+    );
 
     useEffect(() => {
-        if (!groupUrn && options && options.length === 1) {
+        if (!groupUrn && options.length === 1) {
             setGroupUrn?.(options[0].value);
         }
-    }, [groupUrn, options, setGroupUrn]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [groupUrn, options.length, setGroupUrn]);
 
     return (
         <>

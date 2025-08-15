@@ -1,5 +1,6 @@
 import { useUserContext } from '@app/context/useUserContext';
 
+import { useGetOwnedGroupsQuery } from '@graphql/group.generated';
 import { useGetUserGroupsQuery } from '@graphql/user.generated';
 
 const useGroupRelationships = ({ count = 100 } = {}) => {
@@ -8,12 +9,19 @@ const useGroupRelationships = ({ count = 100 } = {}) => {
         skip: !authenticatedUserUrn,
         variables: { urn: authenticatedUserUrn as string, start: 0, count },
     });
+    const { data: ownedGroupsData } = useGetOwnedGroupsQuery({
+        skip: !authenticatedUserUrn,
+        variables: { userUrn: authenticatedUserUrn || '', start: 0, count },
+    });
 
     const relationships = groupsData?.corpUser?.relationships?.relationships?.filter((relationship) => !!relationship);
 
-    const hasGroupRelationships = relationships && relationships.length > 0;
+    const ownedGroupSearchResults = ownedGroupsData?.search?.searchResults;
 
-    return { hasGroupRelationships, relationships } as const;
+    const hasGroupRelationships =
+        (relationships && relationships.length > 0) || (ownedGroupSearchResults && ownedGroupSearchResults.length > 0);
+
+    return { hasGroupRelationships, relationships, ownedGroupSearchResults } as const;
 };
 
 export default useGroupRelationships;

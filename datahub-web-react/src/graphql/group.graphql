@@ -261,6 +261,39 @@ query listGroups($input: ListGroupsInput!) {
     }
 }
 
+query getOwnedGroups($userUrn: String!, $start: Int!, $count: Int!) {
+    search(
+        input: {
+            type: CORP_GROUP
+            query: ""
+            start: $start
+            count: $count
+            filters: [{ field: "owners", values: [$userUrn] }]
+        }
+    ) {
+        searchResults {
+            entity {
+                ... on CorpGroup {
+                    urn
+                    type
+                    name
+                    info {
+                        displayName
+                        description
+                        email
+                    }
+                    properties {
+                        displayName
+                        description
+                        email
+                        slack
+                    }
+                }
+            }
+        }
+    }
+}
+
 mutation addGroupMembers($groupUrn: String!, $userUrns: [String!]!) {
     addGroupMembers(input: { groupUrn: $groupUrn, userUrns: $userUrns })
 }
