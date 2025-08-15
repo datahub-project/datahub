@@ -12,6 +12,7 @@ import {
     PropertyCardinality,
     PropertyValueInput,
     RecommendationRenderType,
+    ResourceRefInput,
     ScenarioType,
     SearchBarApi,
 } from '@types';
@@ -120,6 +121,10 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    FilterStatsPage,
+    FilterStatsChartLookBack,
+    ClickUserProfile,
+    ClickViewDocumentation,
     ClickProductUpdate,
     HomePageTemplateModuleCreate,
     HomePageTemplateModuleAdd,
@@ -137,6 +142,7 @@ export enum EventType {
     HomePageTemplateModuleExpandClick,
     HomePageTemplateModuleLinkClick,
     HomePageTemplateModuleAnnouncementDismiss,
+    SetDeprecation,
     WelcomeToDataHubModalViewEvent,
     WelcomeToDataHubModalInteractEvent,
     WelcomeToDataHubModalExitEvent,
@@ -392,6 +398,8 @@ export const EntityActionType = {
     UpdateDocumentation: 'UpdateDocumentation',
     UpdateDescription: 'UpdateDescription',
     UpdateProperties: 'UpdateProperties',
+    SetDomain: 'SetDomain',
+    SetDataProduct: 'SetDataProduct',
     UpdateSchemaDescription: 'UpdateSchemaDescription',
     UpdateSchemaTags: 'UpdateSchemaTags',
     UpdateSchemaTerms: 'UpdateSchemaTerms',
@@ -893,6 +901,17 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     uiLocation: 'preview' | 'more-options';
 }
 
+export interface ClickUserProfileEvent extends BaseEvent {
+    type: EventType.ClickUserProfile;
+    location?: 'statsTabTopUsers'; // add more locations here
+}
+
+export interface ClickViewDocumentationEvent extends BaseEvent {
+    type: EventType.ClickViewDocumentation;
+    link: string;
+    location: 'statsTab'; // add more locations here
+}
+
 export enum HomePageModule {
     YouRecentlyViewed = 'YouRecentlyViewed',
     Discover = 'Discover',
@@ -913,6 +932,17 @@ export interface SearchBarFilterEvent extends BaseEvent {
     type: EventType.SearchBarFilter;
     field: string; // the filter field
     values: string[]; // the values being filtered for
+}
+
+export interface FilterStatsPageEvent extends BaseEvent {
+    type: EventType.FilterStatsPage;
+    platform: string | null;
+}
+
+export interface FilterStatsChartLookBackEvent extends BaseEvent {
+    type: EventType.FilterStatsChartLookBack;
+    lookBackValue: string;
+    chartName: string;
 }
 
 export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
@@ -1035,6 +1065,13 @@ export interface HomePageTemplateModuleAnnouncementDismissEvent extends BaseEven
     type: EventType.HomePageTemplateModuleAnnouncementDismiss;
 }
 
+export interface SetDeprecationEvent extends BaseEvent {
+    type: EventType.SetDeprecation;
+    entityUrns: string[];
+    deprecated: boolean;
+    resources?: ResourceRefInput[];
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1139,6 +1176,10 @@ export type Event =
     | ShowAllVersionsEvent
     | HomePageClickEvent
     | SearchBarFilterEvent
+    | FilterStatsPageEvent
+    | FilterStatsChartLookBackEvent
+    | ClickUserProfileEvent
+    | ClickViewDocumentationEvent
     | ClickProductUpdateEvent
     | HomePageTemplateModuleCreateEvent
     | HomePageTemplateModuleAddEvent
@@ -1156,6 +1197,7 @@ export type Event =
     | HomePageTemplateModuleViewAllClickEvent
     | HomePageTemplateModuleLinkClickEvent
     | HomePageTemplateModuleAnnouncementDismissEvent
+    | SetDeprecationEvent
     | WelcomeToDataHubModalViewEvent
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
