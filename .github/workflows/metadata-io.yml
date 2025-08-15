@@ -9,6 +9,7 @@ on:
       - "li-utils/**"
       - "metadata-models/**"
       - "metadata-io/**"
+      - "metadata-service/configuration/**"
       - ".github/workflows/metadata-io.yml"
   pull_request:
     branches:
@@ -18,6 +19,7 @@ on:
       - "li-utils/**"
       - "metadata-models/**"
       - "metadata-io/**"
+      - "metadata-service/configuration/**"
       - ".github/workflows/metadata-io.yml"
   release:
     types: [published]

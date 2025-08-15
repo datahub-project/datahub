@@ -120,7 +120,7 @@
         "format-check-file": "prettier --check",
         "lint-fix-file": "eslint --ext .ts,.tsx --quiet --fix",
         "format-check": "prettier --check src",
-        "format": "prettier --write src",
+        "format": "prettier --write src --list-different",
         "format-file": "prettier --write",
         "type-check": "tsc --noEmit",
         "type-watch": "tsc -w --noEmit",
