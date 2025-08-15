@@ -4,13 +4,6 @@ source:
     # This option is recommended to be used to ingest all lineage on the first run.
     ignore_start_time_lineage: true
 
-    # This has the default of `false` for backward compatibility but we are making a breaking change so add it here
-    # in case you wish to use schema_pattern
-    match_fully_qualified_names: true
-
-    # This flag tells the snowflake ingestion to use the more advanced query parsing. This will become the default eventually.
-    use_queries_v2: true
-
     # Coordinates
     account_id: "abc48144"
     warehouse: "COMPUTE_WH"
