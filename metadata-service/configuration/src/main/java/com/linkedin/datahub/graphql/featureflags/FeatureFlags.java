@@ -48,4 +48,5 @@ public class FeatureFlags {
   private boolean showProductUpdates = false;
   private boolean logicalModelsEnabled = false;
   private boolean showHomepageUserRole = false;
+  private boolean assetSummaryPageV1 = false;
 }
