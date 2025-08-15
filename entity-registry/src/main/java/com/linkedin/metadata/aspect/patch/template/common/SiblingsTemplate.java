@@ -8,6 +8,16 @@ import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
+/**
+ * Template for applying JSON patches to the Siblings aspect.
+ *
+ * <p>This template handles the merging logic for sibling relationships, allowing additive updates
+ * to the siblings list while preserving existing relationships. It supports both primary
+ * designation and sibling list management.
+ *
+ * <p>Used by the DataHub GMS backend when processing PATCH operations on the siblings aspect,
+ * typically from dbt ingestion with dbt_is_primary_sibling=false.
+ */
 public class SiblingsTemplate implements ArrayMergingTemplate<Siblings> {
 
   private static final String SIBLINGS_FIELD_NAME = "siblings";

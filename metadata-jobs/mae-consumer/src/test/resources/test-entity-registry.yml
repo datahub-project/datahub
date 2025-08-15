@@ -22,7 +22,6 @@ entities:
     keyAspect: datasetKey
     aspects:
       - upstreamLineage
-      - siblings
   - name: chart
     keyAspect: chartKey
     aspects:

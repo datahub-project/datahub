@@ -9,6 +9,23 @@ import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import javax.annotation.Nonnull;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
 
+/**
+ * Builder for creating JSON patch operations on the Siblings aspect.
+ *
+ * <p>Provides fluent API for constructing sibling relationship patches, including adding/removing
+ * siblings and setting primary designation. Follows the builder pattern consistent with other
+ * DataHub patch builders.
+ *
+ * <p>Example usage:
+ *
+ * <pre>
+ *   SiblingsPatchBuilder builder = new SiblingsPatchBuilder()
+ *       .urn(datasetUrn)
+ *       .addSibling(siblingUrn, true)
+ *       .setPrimary(true);
+ *   JsonPatch patch = builder.build();
+ * </pre>
+ */
 public class SiblingsPatchBuilder extends AbstractMultiFieldPatchBuilder<SiblingsPatchBuilder> {
 
   private static final String BASE_PATH = "/siblings/";

@@ -377,9 +377,10 @@ class DBTCommonConfig(
 
     dbt_is_primary_sibling: bool = Field(
         default=True,
-        description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. "
-        "When disabled, target platform nodes are treated as primary and DBT nodes as secondary. Whether to ingest workspace app. "
-        "Requires DataHub server 1.3.0+.",
+        description="Controls sibling relationship primary designation between dbt entities and target platform entities. "
+        "When True (default), dbt entities are primary and target platform entities are secondary. "
+        "When False, target platform entities are primary and dbt entities are secondary. "
+        "Uses aspect patches for precise control. Requires DataHub server 1.3.0+.",
     )
 
     drop_duplicate_sources: bool = Field(
@@ -1442,21 +1443,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             # Upstream lineage.
-            # Skip lineage creation for source nodes when dbt_is_primary_sibling=false
-            # to prevent SiblingAssociationHook from overriding our explicit sibling patches
-            should_create_lineage = True
-            if (
-                node.node_type == "source"
-                and self.config.dbt_is_primary_sibling is False
-            ):
-                should_create_lineage = False
-
-            if should_create_lineage:
-                upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
-                    node, all_nodes_map
-                )
-                if upstream_lineage_class:
-                    aspects.append(upstream_lineage_class)
+            upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
+                node, all_nodes_map
+            )
+            if upstream_lineage_class:
+                aspects.append(upstream_lineage_class)
 
             # View properties.
             view_prop_aspect = self._create_view_properties_aspect(node)
@@ -1497,13 +1488,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 dataset_snapshot = DatasetSnapshot(
                     urn=node_datahub_urn, aspects=list(snapshot_aspects)
                 )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                if self.config.write_semantics == "PATCH":
-                    mce = self.get_patched_mce(mce)
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-
-                # Emit siblings patches when dbt_is_primary_sibling=false to establish explicit primary/secondary relationships
-                # The SiblingAssociationHook will respect these existing siblings
+                # Emit sibling patches BEFORE the MCE to prevent hook conflicts.
+                # The MCE contains SubTypes aspect that triggers SiblingAssociationHook.
+                # Patches must be processed first so hook can detect explicit primary settings.
                 if self._should_create_sibling_for_target_entity(node):
                     # Get the target platform URN
                     target_platform_urn = node.get_urn(
@@ -1537,6 +1524,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             mcp_raw=mcp,
                             is_primary_source=False,
                         )
+
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                if self.config.write_semantics == "PATCH":
+                    mce = self.get_patched_mce(mce)
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -1666,40 +1658,6 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
                     ).as_workunit(is_primary_source=False)
-
-            # when dbt_is_primary_sibling=false
-            if self._should_create_sibling_for_target_entity(node):
-                dbt_urn = node.get_urn(
-                    DBT_PLATFORM,
-                    self.config.env,
-                    self.config.platform_instance,
-                )
-
-                # Create patch for target platform entity (this entity - make it primary when dbt_is_primary_sibling=False)
-                target_patch = DatasetPatchBuilder(node_datahub_urn)
-                target_patch.add_sibling(
-                    dbt_urn, primary=not self.config.dbt_is_primary_sibling
-                )
-
-                for mcp in target_patch.build():
-                    yield MetadataWorkUnit(
-                        id=MetadataWorkUnit.generate_workunit_id(mcp),
-                        mcp_raw=mcp,
-                        is_primary_source=False,
-                    )
-
-                # Create patch for dbt source entity (make it secondary when dbt_is_primary_sibling=False)
-                dbt_patch = DatasetPatchBuilder(dbt_urn)
-                dbt_patch.add_sibling(
-                    node_datahub_urn, primary=self.config.dbt_is_primary_sibling
-                )
-
-                for mcp in dbt_patch.build():
-                    yield MetadataWorkUnit(
-                        id=MetadataWorkUnit.generate_workunit_id(mcp),
-                        mcp_raw=mcp,
-                        is_primary_source=False,
-                    )
 
     def extract_query_tag_aspects(
         self,
@@ -2226,8 +2184,19 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         return [GlossaryTermAssociation(term_urn) for term_urn in sorted(term_id_set)]
 
     def _should_create_sibling_for_target_entity(self, node: DBTNode) -> bool:
-        """Determine if we should create sibling relationships for this node."""
+        """
+        Determines whether to emit sibling relationship patches for a dbt node.
 
+        Sibling patches are only emitted when dbt_is_primary_sibling=False to establish
+        explicit primary/secondary relationships. When dbt_is_primary_sibling=True,
+        the SiblingAssociationHook handles sibling creation automatically.
+
+        Args:
+            node: The dbt node to evaluate
+
+        Returns:
+            True if sibling patches should be emitted for this node
+        """
         if not self.config.entities_enabled.can_emit_node_type(node.node_type):
             return False
 
@@ -2235,8 +2204,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if not node.exists_in_target_platform:
             return False
 
-        # Only create sibling patches when dbt_is_primary_sibling is explicitly set to False
-        # When True (default), let SiblingAssociationHook handle sibling creation
+        # Only emit patches when explicit primary/secondary control is needed
         return self.config.dbt_is_primary_sibling is False
 
     def get_report(self):

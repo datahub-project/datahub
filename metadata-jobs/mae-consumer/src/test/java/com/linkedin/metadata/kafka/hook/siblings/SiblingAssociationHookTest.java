@@ -110,7 +110,7 @@ public class SiblingAssociationHookTest {
                     ImmutableList.of(
                         Urn.createFromString(
                             "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj.jaffle_shop.customers,PROD)"))))
-            .setPrimary(true);
+            .setPrimary(true); // traditional hook behavior: dbt is primary
 
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(
@@ -131,7 +131,7 @@ public class SiblingAssociationHookTest {
                     ImmutableList.of(
                         Urn.createFromString(
                             "urn:li:dataset:(urn:li:dataPlatform:dbt,my-proj.jaffle_shop.customers,PROD)"))))
-            .setPrimary(false);
+            .setPrimary(false); // traditional hook behavior: warehouse is secondary
 
     final MetadataChangeProposal proposal2 = new MetadataChangeProposal();
     proposal2.setEntityUrn(
