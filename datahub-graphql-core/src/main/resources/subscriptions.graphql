@@ -29,6 +29,11 @@ extend type Mutation {
   updateSubscription(input: UpdateSubscriptionInput!): DataHubSubscription!
 
   """
+  Syncs a subscription. If it doesn't exist, it will be created. If it does, parameters will be merged into existing subscription.
+  """
+  syncSubscription(input: SyncSubscriptionInput!): DataHubSubscription!
+
+  """
   Delete a subscription.
   """
   deleteSubscription(input: DeleteSubscriptionInput!): Boolean!
@@ -170,6 +175,30 @@ input UpdateSubscriptionInput {
 
   """
   (Optional) Notification configuration. Will replace existing notification configuration.
+  """
+  notificationConfig: SubscriptionNotificationConfigInput
+}
+
+input SyncSubscriptionInput {
+  """
+  The urn of the entity that the subscription is for.
+  """
+  entityUrn: String!
+
+  """
+  Actor urn. Group or User.
+  """
+  actorUrn: String!
+
+  """
+  Change types that trigger a notification for the subscription.
+  If subscription already exists, this will add to existing change types.
+  """
+  entityChangeTypes: [EntityChangeDetailsInput!]!
+
+  """
+  Notification configuration.
+  If subscription already exists, this will replace existing notification configuration.
   """
   notificationConfig: SubscriptionNotificationConfigInput
 }

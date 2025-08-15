@@ -114,6 +114,7 @@ import com.linkedin.datahub.graphql.resolvers.subscription.DeleteSubscriptionRes
 import com.linkedin.datahub.graphql.resolvers.subscription.GetEntitySubscriptionSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.GetSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.ListSubscriptionsResolver;
+import com.linkedin.datahub.graphql.resolvers.subscription.SyncSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.subscription.UpdateSubscriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.test.BatchTestRunEventsResolver;
 import com.linkedin.datahub.graphql.resolvers.test.CreateTestResolver;
@@ -462,6 +463,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "createSubscription", new CreateSubscriptionResolver(this.subscriptionService))
                 .dataFetcher(
                     "updateSubscription", new UpdateSubscriptionResolver(this.subscriptionService))
+                .dataFetcher(
+                    "syncSubscription", new SyncSubscriptionResolver(this.subscriptionService))
                 .dataFetcher(
                     "deleteSubscription",
                     new DeleteSubscriptionResolver(this.subscriptionService, this.entityClient))

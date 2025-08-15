@@ -52,6 +52,12 @@ mutation updateSubscription($input: UpdateSubscriptionInput!) {
     }
 }
 
+mutation syncSubscription($input: SyncSubscriptionInput!) {
+    syncSubscription(input: $input) {
+        ...subscriptionFields
+    }
+}
+
 mutation deleteSubscription($input: DeleteSubscriptionInput!) {
     deleteSubscription(input: $input)
 }
