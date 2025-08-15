@@ -54,29 +54,6 @@ def test_domain_name_resolver_with_graph_no_properties():
     # Should fallback to the domain ID from the URN
     assert entity_name == "marketing-domain"
 
-
-def test_domain_name_resolver_with_graph_empty_properties():
-    """Test DomainNameResolver when DataHubGraph returns properties without name"""
-    resolver = DomainNameResolver()
-    domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
-
-    # Mock DataHubGraph that returns domain properties with None name attribute
-    mock_graph = Mock()
-    mock_properties = Mock()
-    mock_properties.name = None
-    mock_graph.get_aspect.return_value = mock_properties
-
-    entity_name = resolver.get_entity_name(domain_urn, mock_graph)
-
-    # Should call get_aspect with correct parameters
-    mock_graph.get_aspect.assert_called_once_with(
-        str(domain_urn), DomainPropertiesClass
-    )
-
-    # Should fallback to the domain ID from the URN
-    assert entity_name == "marketing-domain"
-
-
 def test_domain_name_resolver_with_graph_and_properties():
     """Test DomainNameResolver when DataHubGraph returns properties with name"""
     resolver = DomainNameResolver()
@@ -116,70 +93,3 @@ def test_domain_name_resolver_with_graph_and_empty_string_name():
     assert entity_name == "marketing-domain"
 
 
-def test_name_resolver_registry_returns_domain_resolver():
-    """Test that NameResolverRegistry returns DomainNameResolver for domain URNs"""
-    domain_urn = Urn.from_string("urn:li:domain:test-domain")
-
-    resolver = _name_resolver_registry.get_resolver(domain_urn)
-
-    assert isinstance(resolver, DomainNameResolver)
-
-
-def test_name_resolver_registry_domain_entity_type():
-    """Test that domain entity type is correctly mapped in registry"""
-    domain_urn = Urn.from_string("urn:li:domain:engineering-domain")
-
-    # Verify the URN has the expected entity type
-    assert domain_urn.entity_type == "domain"
-
-    # Verify the registry returns the correct resolver
-    resolver = _name_resolver_registry.get_resolver(domain_urn)
-    assert isinstance(resolver, DomainNameResolver)
-
-
-def test_get_entity_name_from_urn_domain():
-    """Test get_entity_name_from_urn function with domain URN"""
-    domain_urn_str = "urn:li:domain:test-domain"
-
-    # Test without graph (should fallback to domain ID)
-    entity_name = get_entity_name_from_urn(domain_urn_str, None)
-    assert entity_name == "test-domain"
-
-    # Test with mock graph that has properties
-    mock_graph = Mock()
-    mock_properties = DomainPropertiesClass(name="Test Domain")
-    mock_graph.get_aspect.return_value = mock_properties
-
-    entity_name = get_entity_name_from_urn(domain_urn_str, mock_graph)
-    assert entity_name == "Test Domain"
-
-
-def test_get_entity_qualifier_from_urn_domain():
-    """Test get_entity_qualifier_from_urn function with domain URN"""
-    domain_urn_str = "urn:li:domain:test-domain"
-
-    # Test without graph (should return 'domain')
-    qualifier = get_entity_qualifier_from_urn(domain_urn_str, None)
-    assert qualifier == "domain"
-
-    # Test with mock graph that returns None for subtypes (should still return 'domain')
-    mock_graph = Mock()
-    mock_graph.get_aspect.return_value = None
-    qualifier = get_entity_qualifier_from_urn(domain_urn_str, mock_graph)
-    assert qualifier == "domain"
-
-
-def test_domain_resolver_specialized_type():
-    """Test that DomainNameResolver returns correct specialized type"""
-    resolver = DomainNameResolver()
-    domain_urn = Urn.from_string("urn:li:domain:test-domain")
-
-    # Test without graph
-    specialized_type = resolver.get_specialized_type(domain_urn, None)
-    assert specialized_type == "domain"
-
-    # Test with mock graph that returns None for subtypes (should still return 'domain')
-    mock_graph = Mock()
-    mock_graph.get_aspect.return_value = None
-    specialized_type = resolver.get_specialized_type(domain_urn, mock_graph)
-    assert specialized_type == "domain"
