@@ -101,15 +101,6 @@ The nuke tasks provide a way to completely remove DataHub containers and volumes
 - Isolating different project instances
 - Troubleshooting container issues
 
-### Note: Different Nuke Systems
-
-This document describes the **Gradle nuke tasks** (e.g., `./gradlew quickstartDebugNuke`). There are also other nuke systems available:
-
-- **CLI nuke command**: `datahub docker nuke` (see [quickstart guide](../../docs/quickstart.md))
-- **DataHub Lite nuke**: `datahub lite nuke` (see [DataHub Lite guide](../../docs/datahub_lite.md))
-
-The Gradle nuke tasks are designed for development workflows and provide more granular control over specific configurations.
-
 ## Available Tasks
 
 ### All Configurations Have Nuke Tasks
