@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import Field
+from pydantic import Field, PositiveInt
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
@@ -8,12 +8,70 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+
+class ProfilerConfig(GEProfilingConfig):
+    """
+    Kafka-specific profiling configuration that extends GEProfilingConfig.
+
+    Inherits ALL standard profiling functionality from GEProfilingConfig including:
+    - operation_config.lower_freq_profile_enabled: Whether to do profiling at lower frequency
+    - operation_config.profile_day_of_week: Day of week to run profiling (0=Monday, 6=Sunday)
+    - operation_config.profile_date_of_month: Date of month to run profiling (1-31)
+    - All include_field_* flags (null_count, distinct_count, min/max/mean/median/stddev, etc.)
+    - turn_off_expensive_profiling_metrics, field_sample_values_limit, max_number_of_fields_to_profile
+    - report_dropped_profiles, catch_exceptions, tags_to_ignore_sampling
+    - profile_nested_fields (useful for complex JSON/Avro), query_combiner_enabled
+
+    Additional Kafka-specific profiling options:
+    """
+
+    max_sample_time_seconds: PositiveInt = Field(
+        default=60,
+        description="Maximum time to spend sampling messages in seconds",
+    )
+    sampling_strategy: str = Field(
+        default="latest",
+        description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
+    )
+    cache_sample_results: bool = Field(
+        default=True,
+        description="Whether to cache sample results between runs for the same topic",
+    )
+    cache_ttl_seconds: PositiveInt = Field(
+        default=3600,
+        description="How long to keep cached sample results in seconds",
+    )
+    batch_size: PositiveInt = Field(
+        default=100,
+        description="Number of messages to fetch in a single batch (for more efficient reading)",
+    )
+
+    # Override sample_size from base class with Kafka-appropriate default
+    sample_size: int = Field(
+        default=1000,
+        description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process.",
+    )
+
+    # Override max_workers with Kafka-appropriate default (GEProfilingConfig defaults to 5 * cpu_count)
+    max_workers: int = Field(
+        default=1,
+        description="Number of worker threads to use for profiling. Kafka profiling can now be parallelized.",
+    )
+
+    # Kafka-specific field for handling complex nested JSON/Avro structures
+    flatten_max_depth: int = Field(
+        default=5,
+        description="Maximum recursion depth when flattening nested JSON structures. Lower values prevent recursion errors but may truncate deeply nested data.",
+    )
 
 
 class KafkaSourceConfig(
@@ -64,6 +122,10 @@ class KafkaSourceConfig(
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
+    enable_schemaless_fallback: bool = Field(
+        default=True,
+        description="When enabled, automatically falls back to schema-less processing for topics not found in the schema registry. This allows DataHub to extract schema information from actual message data instead of failing.",
+    )
     disable_topic_record_naming_strategy: bool = Field(
         default=False,
         description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
@@ -76,3 +138,13 @@ class KafkaSourceConfig(
         default=None,
         description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
     )
+    profiling: ProfilerConfig = Field(
+        default=ProfilerConfig(),
+        description="Settings for message sampling and profiling",
+    )
+
+    def is_profiling_enabled(self) -> bool:
+        """Check if profiling is enabled, respecting operation_config like SQL connectors."""
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )

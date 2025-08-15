@@ -57,6 +57,152 @@ def test_kafka_source_configuration(mock_kafka):
 
 
 @patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_profiling_enabled_check(mock_kafka):
+    """Test is_profiling_enabled method in KafkaSource"""
+    ctx = PipelineContext(run_id="test")
+
+    # Test with profiling disabled
+    config = KafkaSourceConfig.parse_obj(
+        {"connection": {"bootstrap": "localhost:9092"}, "profiling": {"enabled": False}}
+    )
+    kafka_source = KafkaSource(config, ctx)
+    assert not kafka_source.source_config.is_profiling_enabled()
+    kafka_source.close()
+
+    # Test with profiling enabled
+    config = KafkaSourceConfig.parse_obj(
+        {"connection": {"bootstrap": "localhost:9092"}, "profiling": {"enabled": True}}
+    )
+    kafka_source = KafkaSource(config, ctx)
+    assert kafka_source.source_config.is_profiling_enabled()
+    kafka_source.close()
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_profiling_config_inheritance(mock_kafka):
+    """Test that Kafka source properly uses GEProfilingConfig inheritance"""
+    ctx = PipelineContext(run_id="test")
+
+    config = KafkaSourceConfig.parse_obj(
+        {
+            "connection": {"bootstrap": "localhost:9092"},
+            "profiling": {
+                "enabled": True,
+                "turn_off_expensive_profiling_metrics": True,
+                "field_sample_values_limit": 50,
+                "max_number_of_fields_to_profile": 20,
+                "profile_nested_fields": True,
+                "max_workers": 4,
+                "flatten_max_depth": 3,
+            },
+        }
+    )
+
+    kafka_source = KafkaSource(config, ctx)
+
+    # Check that GE profiling config is properly inherited
+    profiling_config = kafka_source.source_config.profiling
+    assert profiling_config.enabled
+    assert profiling_config.turn_off_expensive_profiling_metrics
+    assert profiling_config.field_sample_values_limit == 50
+    assert profiling_config.max_number_of_fields_to_profile == 20
+    assert profiling_config.profile_nested_fields
+
+    # Check Kafka-specific config
+    assert profiling_config.max_workers == 4
+    assert profiling_config.flatten_max_depth == 3
+
+    kafka_source.close()
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.KafkaProfiler.profile_topic")
+def test_kafka_source_create_profiling_wu(mock_profile_topic, mock_kafka):
+    """Test create_profiling_wu method uses static profiler method"""
+    from datahub.metadata.schema_classes import (
+        DatasetProfileClass,
+        PartitionSpecClass,
+        PartitionTypeClass,
+    )
+
+    ctx = PipelineContext(run_id="test")
+    config = KafkaSourceConfig.parse_obj(
+        {"connection": {"bootstrap": "localhost:9092"}, "profiling": {"enabled": True}}
+    )
+
+    kafka_source = KafkaSource(config, ctx)
+
+    # Mock the profile_topic static method
+    mock_profile = DatasetProfileClass(
+        timestampMillis=1234567890,
+        rowCount=100,
+        columnCount=5,
+        partitionSpec=PartitionSpecClass(
+            partition="SAMPLE (100 messages)", type=PartitionTypeClass.QUERY
+        ),
+    )
+    mock_profile_topic.return_value = mock_profile
+
+    # Mock get_sample_messages to return sample data
+    with patch.object(kafka_source, "get_sample_messages") as mock_get_samples:
+        mock_get_samples.return_value = [
+            {"id": 1, "name": "test"},
+            {"id": 2, "name": "test2"},
+        ]
+
+        # Call create_profiling_wu
+        workunits = list(
+            kafka_source.create_profiling_wu(
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,test_topic,PROD)",
+                "test_topic",
+                None,
+            )
+        )
+
+        # Should have one workunit
+        assert len(workunits) == 1
+
+        # Should have called the static method
+        mock_profile_topic.assert_called_once()
+        call_args = mock_profile_topic.call_args
+        assert call_args[0][0] == "test_topic"  # topic_name
+        assert len(call_args[0][1]) == 2  # samples
+        assert call_args[0][2] is None  # schema_metadata
+        assert call_args[0][3] == kafka_source.source_config.profiling  # config
+
+    kafka_source.close()
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
+def test_kafka_source_uses_is_profiling_enabled(mock_kafka):
+    """Test that KafkaSource uses is_profiling_enabled method"""
+    ctx = PipelineContext(run_id="test")
+
+    # Test with profiling disabled
+    config = KafkaSourceConfig.parse_obj(
+        {"connection": {"bootstrap": "localhost:9092"}, "profiling": {"enabled": False}}
+    )
+
+    kafka_source = KafkaSource(config, ctx)
+
+    # Mock get_sample_messages to verify it's not called when profiling disabled
+    with patch.object(kafka_source, "get_sample_messages") as mock_get_samples:
+        workunits = list(
+            kafka_source.create_profiling_wu(
+                "urn:li:dataset:(urn:li:dataPlatform:kafka,test_topic,PROD)",
+                "test_topic",
+                None,
+            )
+        )
+
+        # Should have no workunits and no sampling when profiling disabled
+        assert len(workunits) == 0
+        mock_get_samples.assert_not_called()
+
+    kafka_source.close()
+
+
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -236,8 +382,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicNameStrategy is used for subject
         "topic1": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_2",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -246,8 +392,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_1",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Value", "namespace": "test.acryl", "fields": [{"name":"t1value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -259,8 +405,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # RecordNameStrategy is used for subject
         "topic2": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_3",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Key", "namespace": "test.acryl", "fields": [{"name":"t2key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -269,8 +415,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_4",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic2Value", "namespace": "test.acryl", "fields": [{"name":"t2value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -282,8 +428,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
         # TopicRecordNameStrategy is used for subject
         "topic3": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_4",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Key", "namespace": "test.acryl", "fields": [{"name":"t3key", "type": "string"}]}',
                     schema_type="AVRO",
@@ -292,8 +438,8 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_5",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic3Value", "namespace": "test.acryl", "fields": [{"name":"t3value", "type": "string"}]}',
                     schema_type="AVRO",
@@ -571,8 +717,8 @@ def test_kafka_source_topic_meta_mappings(
     topic_subject_schema_map: Dict[str, Tuple[RegisteredSchema, RegisteredSchema]] = {
         "topic1": (
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_2",
+                guid=None,
                 schema=Schema(
                     schema_str='{"type":"record", "name":"Topic1Key", "namespace": "test.acryl", "fields": [{"name":"t1key", "type": "string"}]}',
                     schema_type="AVRO",
