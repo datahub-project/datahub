@@ -107,9 +107,7 @@ function EntityName(props: Props) {
                 onStart: handleStartEditing,
             }}
             $showEntityLink={showEntityLink}
-            ellipsis={{
-                tooltip: { showArrow: false, color: 'white', overlayInnerStyle: { color: colors.gray[1700] } },
-            }}
+
         >
             {updatedName}
         </EntityTitle>
