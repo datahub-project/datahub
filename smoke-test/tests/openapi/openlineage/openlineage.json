@@ -1,0 +1,34 @@
+[
+  {
+    "request": {
+      "url": "/openapi/openlineage/api/v1/lineage",
+      "description": "Post openlineage",
+      "json": {
+        "eventType": "START",
+        "eventTime": "2020-12-28T19:52:00.001+10:00",
+        "run": {
+          "runId": "d46e465b-d358-4d32-83d4-df660ff614dd"
+        },
+        "job": {
+          "namespace": "workshop",
+          "name": "process_taxes"
+        },
+        "inputs": [
+          {
+            "namespace": "postgres://workshop-db:None",
+            "name": "workshop.public.taxes",
+            "facets": {
+              "dataSource": {
+                "_producer": "https://github.com/OpenLineage/OpenLineage/tree/0.10.0/integration/airflow",
+                "_schemaURL": "https://raw.githubusercontent.com/OpenLineage/OpenLineage/main/spec/OpenLineage.json#/definitions/DataSourceDatasetFacet",
+                "name": "postgres://workshop-db:None",
+                "uri": "workshop-db"
+              }
+            }
+          }
+        ],
+        "producer": "https://github.com/OpenLineage/OpenLineage/blob/v1-0-0/client"
+      }
+    }
+  }
+]

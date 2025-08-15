@@ -22,6 +22,48 @@
   },
   {
     "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentValueType",
+      "description": "Remove test structured property for nonExistentValueType",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeValueType",
+      "description": "Remove test structured property for invalidEntityTypeValueType",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnValueType",
+      "description": "Remove test structured property for invalidUrnValueType",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentEntityTypes",
+      "description": "Remove test structured property for nonExistentEntityTypes",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeEntityTypes",
+      "description": "Remove test structured property for invalidEntityTypeEntityTypes",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnEntityTypes",
+      "description": "Remove test structured property for invalidUrnEntityTypes",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
       "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.v3.retentionTime/propertyDefinition",
       "description": "Create structured property definition",
       "params": {
@@ -325,6 +367,186 @@
             ]
           }
         }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentValueType/propertyDefinition",
+      "description": "Create nonExistent ValueType structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.nonExistentValueType",
+          "valueType": "urn:li:dataType:datahub.DOEST_NOT_EXIST",
+          "description": "Invalid value type",
+          "displayName": "Invalid Value Type",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeValueType/propertyDefinition",
+      "description": "Create invalidEntity ValueType structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidEntityTypeValueType",
+          "valueType": "urn:li:container:datahub.string",
+          "description": "Invalid value type",
+          "displayName": "Invalid Value Type",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnValueType/propertyDefinition",
+      "description": "Create invalidUrn ValueType structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidUrnValueType",
+          "valueType": "urn:li:dataType:(datahub.string",
+          "description": "Invalid value type",
+          "displayName": "Invalid Value Type",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.nonExistentEntityTypes/propertyDefinition",
+      "description": "Create nonExistent EntityTypes structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.nonExistentEntityTypes",
+          "description": "Invalid EntityTypes",
+          "displayName": "Invalid EntityTypes",
+          "valueType": "urn:li:dataType:datahub.string",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:datahub.DOEST_NOT_EXIST"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidEntityTypeEntityTypes/propertyDefinition",
+      "description": "Create invalidEntity EntityTypes structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidEntityTypeEntityTypes",
+          "valueType": "urn:li:dataType:datahub.string",
+          "description": "Invalid EntityTypes",
+          "displayName": "Invalid EntityTypes",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:container:datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.invalidUrnEntityTypes/propertyDefinition",
+      "description": "Create invalidUrn EntityTypes structured property definition",
+      "params": {
+        "createIfNotExists": "false"
+      },
+      "json": {
+        "value": {
+          "qualifiedName": "io.acryl.invalidUrnEntityTypes",
+          "valueType": "urn:li:dataType:datahub.string",
+          "description": "Invalid EntityTypes",
+          "displayName": "Invalid EntityTypes",
+          "entityTypes": [
+            "urn:li:entityType:datahub.dataset",
+            "urn:li:entityType:(datahub.dataFlow"
+          ]
+        }
+      }
+    },
+    "response": {
+      "status_codes": [400],
+      "exclude_regex_paths": [
+        "root\\['message'\\]"
+      ],
+      "json": {
+        "error": "Validation Error"
       }
     }
   }

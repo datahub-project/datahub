@@ -30,6 +30,8 @@ public class RestEmitterConfig {
   Integer timeoutSec;
   @Builder.Default boolean disableSslVerification = false;
 
+  @Builder.Default boolean disableChunkedEncoding = false;
+
   @Builder.Default int maxRetries = 0;
 
   @Builder.Default int retryIntervalSec = 10;

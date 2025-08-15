@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canV
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
+import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
@@ -12,6 +13,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
@@ -71,13 +73,23 @@ public class DomainMapper {
     if (envelopedStructuredProps != null) {
       result.setStructuredProperties(
           StructuredPropertiesMapper.map(
-              context, new StructuredProperties(envelopedStructuredProps.getValue().data())));
+              context,
+              new StructuredProperties(envelopedStructuredProps.getValue().data()),
+              entityUrn));
     }
 
     final EnvelopedAspect envelopedForms = aspects.get(FORMS_ASPECT_NAME);
     if (envelopedForms != null) {
       result.setForms(
           FormsMapper.map(new Forms(envelopedForms.getValue().data()), entityUrn.toString()));
+    }
+
+    final EnvelopedAspect envelopedDisplayProperties =
+        aspects.get(Constants.DISPLAY_PROPERTIES_ASPECT_NAME);
+    if (envelopedDisplayProperties != null) {
+      result.setDisplayProperties(
+          DisplayPropertiesMapper.map(
+              context, new DisplayProperties(envelopedDisplayProperties.getValue().data())));
     }
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {

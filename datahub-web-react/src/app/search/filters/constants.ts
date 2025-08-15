@@ -1,4 +1,3 @@
-import { EntityType } from '../../../types.generated';
 import {
     CONTAINER_FILTER_NAME,
     DOMAINS_FILTER_NAME,
@@ -9,7 +8,9 @@ import {
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-} from '../utils/constants';
+} from '@app/search/utils/constants';
+
+import { EntityType } from '@types';
 
 export const SORTED_FILTERS = [
     PLATFORM_FILTER_NAME,

@@ -1,6 +1,10 @@
 package com.linkedin.metadata.aspect.patch.template.datajob;
 
+import static com.fasterxml.jackson.databind.node.JsonNodeFactory.*;
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.common.DatasetUrnArray;
 import com.linkedin.common.EdgeArray;
@@ -9,6 +13,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
+import com.linkedin.metadata.aspect.patch.template.FineGrainedLineageTemplateHelper;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
@@ -22,6 +27,8 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
 
   private static final String INPUT_DATASET_FIELDS_FIELD_NAME = "inputDatasetFields";
   private static final String OUTPUT_DATASET_FIELDS_FIELD_NAME = "outputDatasetFields";
+
+  private static final String FINE_GRAINED_LINEAGES_FIELD_NAME = "fineGrainedLineages";
 
   @Override
   public DataJobInputOutput getSubtype(RecordTemplate recordTemplate) throws ClassCastException {
@@ -81,6 +88,12 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
     transformedNode =
         arrayFieldToMap(transformedNode, OUTPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
 
+    ((ObjectNode) transformedNode)
+        .set(
+            FINE_GRAINED_LINEAGES_FIELD_NAME,
+            FineGrainedLineageTemplateHelper.combineAndTransformFineGrainedLineages(
+                transformedNode.get(FINE_GRAINED_LINEAGES_FIELD_NAME)));
+
     return transformedNode;
   }
 
@@ -111,6 +124,12 @@ public class DataJobInputOutputTemplate implements ArrayMergingTemplate<DataJobI
     rebasedNode =
         transformedMapToArray(
             rebasedNode, OUTPUT_DATASET_FIELDS_FIELD_NAME, Collections.emptyList());
+
+    ((ObjectNode) rebasedNode)
+        .set(
+            FINE_GRAINED_LINEAGES_FIELD_NAME,
+            FineGrainedLineageTemplateHelper.reconstructFineGrainedLineages(
+                rebasedNode.get(FINE_GRAINED_LINEAGES_FIELD_NAME)));
 
     return rebasedNode;
   }

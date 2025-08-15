@@ -1,8 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils.isAuthorizedToEditBusinessAttribute;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
@@ -23,6 +26,8 @@ import com.linkedin.schema.NumberType;
 import com.linkedin.schema.SchemaFieldDataType;
 import com.linkedin.schema.StringType;
 import com.linkedin.schema.TimeType;
+import java.net.URISyntaxException;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -103,6 +108,16 @@ public class BusinessAttributeUtils {
         return schemaFieldDataType;
       default:
         return null;
+    }
+  }
+
+  public static void validateInputResources(List<ResourceRefInput> resources, QueryContext context)
+      throws URISyntaxException {
+    for (ResourceRefInput resource : resources) {
+      if (!isAuthorizedToEditBusinessAttribute(context, resource.getResourceUrn())) {
+        throw new AuthorizationException(
+            "Unauthorized to perform this action. Please contact your DataHub administrator.");
+      }
     }
   }
 }

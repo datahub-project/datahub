@@ -1,6 +1,6 @@
-import { useHistory, useLocation } from 'react-router';
 import * as QueryString from 'query-string';
 import { useEffect } from 'react';
+import { useHistory, useLocation } from 'react-router';
 
 export default function useUpdateSchemaFilterQueryString(filterText: string) {
     const location = useLocation();

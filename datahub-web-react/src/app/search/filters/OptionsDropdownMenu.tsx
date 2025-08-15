@@ -2,9 +2,13 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import styled from 'styled-components/macro';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { SearchBar } from '../SearchBar';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
+
+import { SearchBar } from '@app/search/SearchBar';
+import DateRangeMenu from '@app/search/filters/DateRangeMenu/DateRangeMenu';
+import { getIsDateRangeFilter } from '@app/search/filters/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -17,7 +21,10 @@ const StyledButton = styled(Button)`
 export const DropdownMenu = styled.div`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    box-shadow:
+        0 3px 6px -4px rgba(0, 0, 0, 0.12),
+        0 6px 16px 0 rgba(0, 0, 0, 0.08),
+        0 9px 28px 8px rgba(0, 0, 0, 0.05);
     overflow: hidden;
     min-width: 200px;
 
@@ -53,6 +60,8 @@ interface Props {
     updateSearchQuery: (query: string) => void;
     searchPlaceholder?: string;
     style?: CSSProperties;
+    filter?: FacetMetadata;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function OptionsDropdownMenu({
@@ -63,10 +72,20 @@ export default function OptionsDropdownMenu({
     updateSearchQuery,
     searchPlaceholder,
     style,
+    filter,
+    manuallyUpdateFilters,
 }: Props) {
     const entityRegistry = useEntityRegistry();
 
     useEnterKeyListener({ querySelectorToExecuteClick: '#updateFiltersButton' });
+
+    if (filter && manuallyUpdateFilters && getIsDateRangeFilter(filter)) {
+        return (
+            <DropdownMenu data-testid="filter-dropdown" style={style}>
+                <DateRangeMenu field={filter} manuallyUpdateFilters={manuallyUpdateFilters} />
+            </DropdownMenu>
+        );
+    }
 
     return (
         <DropdownMenu data-testid="filter-dropdown" style={style}>

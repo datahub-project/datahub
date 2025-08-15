@@ -1,5 +1,6 @@
 package com.linkedin.entity.client;
 
+import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
@@ -70,11 +71,12 @@ import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposalArray;
 import com.linkedin.mxe.PlatformEvent;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.platform.PlatformDoProducePlatformEventRequestBuilder;
 import com.linkedin.platform.PlatformRequestBuilders;
 import com.linkedin.r2.RemoteInvocationException;
@@ -83,26 +85,30 @@ import com.linkedin.restli.client.RestLiResponseException;
 import com.linkedin.restli.common.HttpStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.http.MethodNotSupportedException;
 import org.opensearch.core.common.util.CollectionUtils;
 
 @Slf4j
@@ -120,18 +126,40 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       new PlatformRequestBuilders();
   private static final RunsRequestBuilders RUNS_REQUEST_BUILDERS = new RunsRequestBuilders();
 
-  private final int batchGetV2Size;
-  private final int batchGetV2Concurrency;
+  private final ExecutorService batchGetV2Pool;
+  private final ExecutorService batchIngestPool;
 
   public RestliEntityClient(
       @Nonnull final Client restliClient,
-      @Nonnull final BackoffPolicy backoffPolicy,
-      int retryCount,
-      int batchGetV2Size,
-      int batchGetV2Concurrency) {
-    super(restliClient, backoffPolicy, retryCount);
-    this.batchGetV2Size = Math.max(1, batchGetV2Size);
-    this.batchGetV2Concurrency = batchGetV2Concurrency;
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils) {
+    super(restliClient, entityClientConfig);
+    this.batchGetV2Pool =
+        new ThreadPoolExecutor(
+            entityClientConfig.getBatchGetV2Concurrency(), // core threads
+            entityClientConfig.getBatchGetV2Concurrency(), // max threads
+            entityClientConfig.getBatchGetV2KeepAlive(),
+            TimeUnit.SECONDS, // thread keep-alive time
+            new ArrayBlockingQueue<>(
+                entityClientConfig.getBatchGetV2QueueSize()), // fixed size queue
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "entity-client-get", this.batchGetV2Pool, metricUtils.getRegistry().orElse(null));
+    }
+    this.batchIngestPool =
+        new ThreadPoolExecutor(
+            entityClientConfig.getBatchIngestConcurrency(), // core threads
+            entityClientConfig.getBatchIngestConcurrency(), // max threads
+            entityClientConfig.getBatchIngestKeepAlive(),
+            TimeUnit.SECONDS, // thread keep-alive time
+            new ArrayBlockingQueue<>(
+                entityClientConfig.getBatchIngestQueueSize()), // fixed size queue
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "entity-client-ingest", this.batchIngestPool, metricUtils.getRegistry().orElse(null));
+    }
   }
 
   @Override
@@ -140,20 +168,23 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final EntitiesV2GetRequestBuilder requestBuilder =
-        ENTITIES_V2_REQUEST_BUILDERS.get().aspectsParam(aspectNames).id(urn.toString());
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+        ENTITIES_V2_REQUEST_BUILDERS
+            .get()
+            .aspectsParam(aspectNames)
+            .id(urn.toString())
+            .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect);
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
   @Nonnull
   public Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException {
-    return sendClientRequest(
-            ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()),
-            opContext.getSessionAuthentication())
+    return sendClientRequest(ENTITIES_REQUEST_BUILDERS.get().id(urn.toString()), opContext)
         .getEntity();
   }
 
@@ -188,7 +219,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
               .batchGet()
               .ids(urnsInBatch.stream().map(Urn::toString).collect(Collectors.toSet()));
       final Map<Urn, Entity> batchResponse =
-          sendClientRequest(batchGetRequestBuilder, opContext.getSessionAuthentication())
+          sendClientRequest(batchGetRequestBuilder, opContext)
               .getEntity()
               .getResults()
               .entrySet()
@@ -225,58 +256,55 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
-    ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
 
-    try {
-      Iterable<List<Urn>> iterable = () -> Iterators.partition(urns.iterator(), batchGetV2Size);
-      List<Future<Map<Urn, EntityResponse>>> futures =
-          StreamSupport.stream(iterable.spliterator(), false)
-              .map(
-                  batch ->
-                      executor.submit(
-                          () -> {
-                            try {
-                              log.debug("Executing batchGetV2 with batch size: {}", batch.size());
-                              final EntitiesV2BatchGetRequestBuilder requestBuilder =
-                                  ENTITIES_V2_REQUEST_BUILDERS
-                                      .batchGet()
-                                      .aspectsParam(aspectNames)
-                                      .ids(
-                                          batch.stream()
-                                              .map(Urn::toString)
-                                              .collect(Collectors.toList()));
+    Iterable<List<Urn>> iterable =
+        () -> Iterators.partition(urns.iterator(), entityClientConfig.getBatchGetV2Size());
+    List<Future<Map<Urn, EntityResponse>>> futures =
+        StreamSupport.stream(iterable.spliterator(), false)
+            .map(
+                batch ->
+                    batchGetV2Pool.submit(
+                        () -> {
+                          try {
+                            log.debug("Executing batchGetV2 with batch size: {}", batch.size());
+                            final EntitiesV2BatchGetRequestBuilder requestBuilder =
+                                ENTITIES_V2_REQUEST_BUILDERS
+                                    .batchGet()
+                                    .aspectsParam(aspectNames)
+                                    .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect)
+                                    .ids(
+                                        batch.stream()
+                                            .map(Urn::toString)
+                                            .collect(Collectors.toList()));
 
-                              return sendClientRequest(
-                                      requestBuilder, opContext.getSessionAuthentication())
-                                  .getEntity()
-                                  .getResults()
-                                  .entrySet()
-                                  .stream()
-                                  .collect(
-                                      Collectors.toMap(
-                                          entry -> UrnUtils.getUrn(entry.getKey()),
-                                          entry -> entry.getValue().getEntity()));
-                            } catch (RemoteInvocationException e) {
-                              throw new RuntimeException(e);
-                            }
-                          }))
-              .collect(Collectors.toList());
+                            return sendClientRequest(requestBuilder, opContext)
+                                .getEntity()
+                                .getResults()
+                                .entrySet()
+                                .stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        entry -> UrnUtils.getUrn(entry.getKey()),
+                                        entry -> entry.getValue().getEntity()));
+                          } catch (RemoteInvocationException e) {
+                            throw new RuntimeException(e);
+                          }
+                        }))
+            .collect(Collectors.toList());
 
-      futures.forEach(
-          result -> {
-            try {
-              responseMap.putAll(result.get());
-            } catch (InterruptedException | ExecutionException e) {
-              throw new RuntimeException(e);
-            }
-          });
-    } finally {
-      executor.shutdown();
-    }
+    futures.forEach(
+        result -> {
+          try {
+            responseMap.putAll(result.get());
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     return responseMap;
   }
@@ -298,62 +326,55 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable final Set<String> aspectNames) {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
-    ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, batchGetV2Concurrency));
 
-    try {
-      Iterable<List<VersionedUrn>> iterable =
-          () -> Iterators.partition(versionedUrns.iterator(), batchGetV2Size);
-      List<Future<Map<Urn, EntityResponse>>> futures =
-          StreamSupport.stream(iterable.spliterator(), false)
-              .map(
-                  batch ->
-                      executor.submit(
-                          () -> {
-                            try {
-                              log.debug(
-                                  "Executing batchGetVersionedV2 with batch size: {}",
-                                  batch.size());
-                              final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
-                                  ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
-                                      .batchGet()
-                                      .aspectsParam(aspectNames)
-                                      .entityTypeParam(entityName)
-                                      .ids(
-                                          batch.stream()
-                                              .map(
-                                                  versionedUrn ->
-                                                      com.linkedin.common.urn.VersionedUrn.of(
-                                                          versionedUrn.getUrn().toString(),
-                                                          versionedUrn.getVersionStamp()))
-                                              .collect(Collectors.toSet()));
+    Iterable<List<VersionedUrn>> iterable =
+        () -> Iterators.partition(versionedUrns.iterator(), entityClientConfig.getBatchGetV2Size());
+    List<Future<Map<Urn, EntityResponse>>> futures =
+        StreamSupport.stream(iterable.spliterator(), false)
+            .map(
+                batch ->
+                    batchGetV2Pool.submit(
+                        () -> {
+                          try {
+                            log.debug(
+                                "Executing batchGetVersionedV2 with batch size: {}", batch.size());
+                            final EntitiesVersionedV2BatchGetRequestBuilder requestBuilder =
+                                ENTITIES_VERSIONED_V2_REQUEST_BUILDERS
+                                    .batchGet()
+                                    .aspectsParam(aspectNames)
+                                    .entityTypeParam(entityName)
+                                    .ids(
+                                        batch.stream()
+                                            .map(
+                                                versionedUrn ->
+                                                    com.linkedin.common.urn.VersionedUrn.of(
+                                                        versionedUrn.getUrn().toString(),
+                                                        versionedUrn.getVersionStamp()))
+                                            .collect(Collectors.toSet()));
 
-                              return sendClientRequest(
-                                      requestBuilder, opContext.getSessionAuthentication())
-                                  .getEntity()
-                                  .getResults()
-                                  .entrySet()
-                                  .stream()
-                                  .collect(
-                                      Collectors.toMap(
-                                          entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
-                                          entry -> entry.getValue().getEntity()));
-                            } catch (RemoteInvocationException e) {
-                              throw new RuntimeException(e);
-                            }
-                          }))
-              .collect(Collectors.toList());
+                            return sendClientRequest(requestBuilder, opContext)
+                                .getEntity()
+                                .getResults()
+                                .entrySet()
+                                .stream()
+                                .collect(
+                                    Collectors.toMap(
+                                        entry -> UrnUtils.getUrn(entry.getKey().getUrn()),
+                                        entry -> entry.getValue().getEntity()));
+                          } catch (RemoteInvocationException e) {
+                            throw new RuntimeException(e);
+                          }
+                        }))
+            .collect(Collectors.toList());
 
-      futures.forEach(
-          result -> {
-            try {
-              responseMap.putAll(result.get());
-            } catch (InterruptedException | ExecutionException e) {
-              throw new RuntimeException(e);
-            }
-          });
-    } finally {
-      executor.shutdown();
-    }
+    futures.forEach(
+        result -> {
+          try {
+            responseMap.putAll(result.get());
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        });
 
     return responseMap;
   }
@@ -375,7 +396,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit,
+      @Nullable Integer limit,
       @Nullable String field)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
@@ -386,7 +407,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .fieldParam(field)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -405,7 +426,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entityType,
       @Nonnull String query,
       @Nullable Filter requestFilters,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     EntitiesDoAutocompleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -414,7 +435,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .queryParam(query)
             .filterParam(filterOrDefaultEmptyFilter(requestFilters))
             .limitParam(limit);
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -435,7 +456,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String path,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int limit)
+      @Nullable Integer limit)
       throws RemoteInvocationException {
     EntitiesDoBrowseRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -447,7 +468,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (requestFilters != null) {
       requestBuilder.filterParam(newFilter(requestFilters));
     }
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -469,7 +490,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count) {
+      @Nullable Integer count) {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
 
@@ -482,7 +503,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nonnull String input,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     throw new NotImplementedException("BrowseV2 is not implemented in Restli yet");
   }
@@ -492,7 +513,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoIngestRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionIngest().entityParam(entity);
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -512,7 +533,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .entityParam(entity)
             .systemMetadataParam(systemMetadata);
 
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -521,7 +542,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     EntitiesDoBatchIngestRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionBatchIngest().entitiesParam(new EntityArray(entities));
 
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   /**
@@ -542,7 +563,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -558,7 +579,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .countParam(count);
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -577,7 +598,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String entity,
       @Nullable Map<String, String> requestFilters,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     final EntitiesDoListRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -587,7 +608,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .startParam(start)
             .countParam(count);
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -610,7 +631,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
@@ -638,22 +659,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       }
     }
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
-  }
-
-  @Override
-  @Nonnull
-  public SearchResult searchAcrossEntities(
-      @Nonnull OperationContext opContext,
-      @Nonnull List<String> entities,
-      @Nonnull String input,
-      @Nullable Filter filter,
-      int start,
-      int count,
-      List<SortCriterion> sortCriteria)
-      throws RemoteInvocationException {
-    return searchAcrossEntities(
-        opContext, entities, input, filter, start, count, sortCriteria, null);
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -676,7 +682,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable List<String> facets)
       throws RemoteInvocationException {
@@ -704,10 +710,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
-  @Nonnull
   @Override
   public ScrollResult scrollAcrossEntities(
       @Nonnull OperationContext opContext,
@@ -716,7 +721,9 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      List<SortCriterion> sortCriteria,
+      @Nullable Integer count,
+      @Nullable List<String> facets)
       throws RemoteInvocationException {
     final SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
     final EntitiesDoScrollAcrossEntitiesRequestBuilder requestBuilder =
@@ -738,7 +745,12 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.keepAliveParam(keepAlive);
     }
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    if (!CollectionUtils.isEmpty(sortCriteria)) {
+      requestBuilder.sortParam(sortCriteria.get(0));
+      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
+    }
+
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Nonnull
@@ -753,7 +765,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nullable Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
 
     final EntitiesDoSearchAcrossLineageRequestBuilder requestBuilder =
@@ -786,7 +798,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -802,7 +814,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nonnull String keepAlive,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     final EntitiesDoScrollAcrossLineageRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -837,7 +849,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
 
     requestBuilder.searchFlagsParam(opContext.getSearchContext().getSearchFlags());
 
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -853,7 +865,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoGetBrowsePathsRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionGetBrowsePaths().urnParam(urn);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -861,7 +873,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoSetWritableRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionSetWritable().valueParam(canWrite);
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -879,7 +891,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         ENTITIES_REQUEST_BUILDERS
             .actionBatchGetTotalEntityCount()
             .entitiesParam(new StringArray(entityName));
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /** List all urns existing for a particular Entity type. */
@@ -888,7 +900,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       final int start,
-      final int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     EntitiesDoListUrnsRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -896,7 +908,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .entityParam(entityName)
             .startParam(start)
             .countParam(count);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /** Hard delete an entity with a particular urn. */
@@ -905,7 +917,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoDeleteRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionDelete().urnParam(urn.toString());
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   /** Delete all references to a particular entity. */
@@ -914,7 +926,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws RemoteInvocationException {
     EntitiesDoDeleteReferencesRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS.actionDeleteReferences().urnParam(urn.toString());
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Nonnull
@@ -925,7 +937,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull Filter filter,
       List<SortCriterion> sortCriteria,
       int start,
-      int count)
+      @Nullable Integer count)
       throws RemoteInvocationException {
     EntitiesDoFilterRequestBuilder requestBuilder =
         ENTITIES_REQUEST_BUILDERS
@@ -938,7 +950,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sortCriteria.get(0));
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
-    return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   @Override
@@ -956,7 +968,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .actionExists()
             .urnParam(urn.toString())
             .includeSoftDeleteParam(includeSoftDeleted);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -978,7 +990,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     AspectsGetRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 
   /**
@@ -1000,7 +1012,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     AspectsGetRequestBuilder requestBuilder =
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
     try {
-      return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+      return sendClientRequest(requestBuilder, opContext).getEntity();
     } catch (RestLiResponseException e) {
       if (e.getStatus() == HttpStatus.S_404_NOT_FOUND.getCode()) {
         // Then the aspect was not found. Return null.
@@ -1063,9 +1075,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sort);
     }
 
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication())
-        .getEntity()
-        .getValues();
+    return sendClientRequest(requestBuilder, opContext).getEntity().getValues();
   }
 
   @Nonnull
@@ -1075,29 +1085,66 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull Collection<MetadataChangeProposal> metadataChangeProposals,
       boolean async)
       throws RemoteInvocationException {
-    final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
-        ASPECTS_REQUEST_BUILDERS
-            .actionIngestProposalBatch()
-            .proposalsParam(new MetadataChangeProposalArray(metadataChangeProposals))
-            .asyncParam(String.valueOf(async));
-    String result =
-        sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
-    return metadataChangeProposals.stream()
-        .map(
-            proposal -> {
-              if ("success".equals(result)) {
-                if (proposal.getEntityUrn() != null) {
-                  return proposal.getEntityUrn().toString();
-                } else {
-                  EntitySpec entitySpec =
-                      opContext.getEntityRegistry().getEntitySpec(proposal.getEntityType());
-                  return EntityKeyUtils.getUrnFromProposal(proposal, entitySpec.getKeyAspectSpec())
-                      .toString();
-                }
-              }
-              return null;
-            })
-        .collect(Collectors.toList());
+
+    List<String> response = new ArrayList<>();
+
+    Iterable<List<MetadataChangeProposal>> iterable =
+        () ->
+            Iterators.partition(
+                metadataChangeProposals.iterator(), entityClientConfig.getBatchIngestSize());
+    List<Future<List<String>>> futures =
+        StreamSupport.stream(iterable.spliterator(), false)
+            .map(
+                batch ->
+                    batchIngestPool.submit(
+                        () -> {
+                          try {
+                            log.debug(
+                                "Executing batchIngestProposals with batch size: {}", batch.size());
+                            final AspectsDoIngestProposalBatchRequestBuilder requestBuilder =
+                                ASPECTS_REQUEST_BUILDERS
+                                    .actionIngestProposalBatch()
+                                    .proposalsParam(
+                                        new MetadataChangeProposalArray(metadataChangeProposals))
+                                    .asyncParam(String.valueOf(async));
+                            String result =
+                                sendClientRequest(requestBuilder, opContext).getEntity();
+
+                            if (RESTLI_SUCCESS.equals(result)) {
+                              return batch.stream()
+                                  .map(
+                                      mcp -> {
+                                        if (mcp.getEntityUrn() != null) {
+                                          return mcp.getEntityUrn().toString();
+                                        } else {
+                                          EntitySpec entitySpec =
+                                              opContext
+                                                  .getEntityRegistry()
+                                                  .getEntitySpec(mcp.getEntityType());
+                                          return EntityKeyUtils.getUrnFromProposal(
+                                                  mcp, entitySpec.getKeyAspectSpec())
+                                              .toString();
+                                        }
+                                      })
+                                  .collect(Collectors.toList());
+                            }
+                            return Collections.<String>emptyList();
+                          } catch (RemoteInvocationException e) {
+                            throw new RuntimeException(e);
+                          }
+                        }))
+            .collect(Collectors.toList());
+
+    futures.forEach(
+        result -> {
+          try {
+            response.addAll(result.get());
+          } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+          }
+        });
+
+    return response;
   }
 
   @Override
@@ -1113,8 +1160,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
         ASPECTS_REQUEST_BUILDERS.get().id(urn).aspectParam(aspect).versionParam(version);
 
     try {
-      VersionedAspect entity =
-          sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+      VersionedAspect entity = sendClientRequest(requestBuilder, opContext).getEntity();
       if (entity.hasAspect()) {
         DataMap rawAspect = ((DataMap) entity.data().get("aspect"));
         if (rawAspect.containsKey(aspectClass.getCanonicalName())) {
@@ -1143,7 +1189,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String aspect,
       @Nonnull Long version)
       throws RemoteInvocationException {
-    throw new MethodNotSupportedException();
+    throw new MethodNotSupportedException("Method not supported");
   }
 
   @Override
@@ -1158,7 +1204,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
     if (key != null) {
       requestBuilder.keyParam(key);
     }
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   @Override
@@ -1167,7 +1213,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       throws Exception {
     final RunsDoRollbackRequestBuilder requestBuilder =
         RUNS_REQUEST_BUILDERS.actionRollback().runIdParam(runId).dryRunParam(false);
-    sendClientRequest(requestBuilder, opContext.getSessionAuthentication());
+    sendClientRequest(requestBuilder, opContext);
   }
 
   // TODO: Refactor QueryUtils inside of metadata-io to extract these methods into a single shared

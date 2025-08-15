@@ -46,6 +46,7 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
                 input.getDeprecated(),
                 input.getNote(),
                 input.getDecommissionTime(),
+                input.getReplacement(),
                 resources,
                 context);
             return true;
@@ -84,20 +85,24 @@ public class BatchUpdateDeprecationResolver implements DataFetcher<CompletableFu
       boolean deprecated,
       @Nullable String note,
       @Nullable Long decommissionTime,
+      @Nullable String replacementUrn,
       List<ResourceRefInput> resources,
       QueryContext context) {
     log.debug(
-        "Batch updating deprecation. deprecated: {}, note: {}, decommissionTime: {}, resources: {}",
+        "Batch updating deprecation. deprecated: {}, note: {}, decommissionTime: {}, resources: {}"
+            + "replacementUrn: {}, notificationConfig: {}",
         deprecated,
         note,
         decommissionTime,
-        resources);
+        resources,
+        replacementUrn);
     try {
       DeprecationUtils.updateDeprecationForResources(
           context.getOperationContext(),
           deprecated,
           note,
           decommissionTime,
+          replacementUrn,
           resources,
           UrnUtils.getUrn(context.getActorUrn()),
           _entityService);

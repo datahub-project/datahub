@@ -1,7 +1,7 @@
 [
 {
     "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
     "changeType": "UPSERT",
     "aspectName": "corpUserKey",
     "aspect": {
@@ -17,7 +17,7 @@
 },
 {
     "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
     "changeType": "UPSERT",
     "aspectName": "corpUserKey",
     "aspect": {
@@ -39,8 +39,9 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "createdFrom": "Dataset",
-                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445"
+                "createdFrom": "Report",
+                "datasetId": "05169CD2-E713-41E6-9600-1D8066D95445",
+                "reportId": "5b218778-e7a5-4d73-8187-f10824047715"
             },
             "title": "test_tile",
             "description": "test_tile",
@@ -402,11 +403,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:users.User1@foo.com",
+                    "owner": "urn:li:corpuser:User1@foo.com",
                     "type": "NONE"
                 },
                 {
-                    "owner": "urn:li:corpuser:users.User2@foo.com",
+                    "owner": "urn:li:corpuser:User2@foo.com",
                     "type": "NONE"
                 }
             ],
@@ -445,7 +446,7 @@
 },
 {
     "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -461,7 +462,7 @@
 },
 {
     "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

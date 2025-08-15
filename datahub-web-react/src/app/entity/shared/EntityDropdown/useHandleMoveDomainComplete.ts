@@ -1,9 +1,11 @@
 import { useApolloClient } from '@apollo/client';
-import { removeFromListDomainsCache, updateListDomainsCache } from '../../../domain/utils';
-import { useDomainsContext } from '../../../domain/DomainsContext';
-import { Domain } from '../../../../types.generated';
-import analytics from '../../../analytics/analytics';
-import { EventType } from '../../../analytics';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import { removeFromListDomainsCache, updateListDomainsCache } from '@app/domain/utils';
+
+import { Domain } from '@types';
 
 export function useHandleMoveDomainComplete() {
     const client = useApolloClient();
@@ -13,7 +15,7 @@ export function useHandleMoveDomainComplete() {
         if (!entityData) return;
 
         const domain = entityData as Domain;
-        const oldParentUrn = domain.parentDomains?.domains.length ? domain.parentDomains.domains[0].urn : undefined;
+        const oldParentUrn = domain.parentDomains?.domains?.length ? domain.parentDomains.domains[0].urn : undefined;
 
         analytics.event({
             type: EventType.MoveDomainEvent,

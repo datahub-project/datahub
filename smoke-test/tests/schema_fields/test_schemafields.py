@@ -4,15 +4,15 @@ import tempfile
 import time
 from random import randint
 
-import datahub.metadata.schema_classes as models
 import pytest
+
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import FileSink, FileSinkConfig
-
 from tests.utils import (
     delete_urns_from_file,
     get_sleep_info,

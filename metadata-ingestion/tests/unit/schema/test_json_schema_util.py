@@ -81,7 +81,7 @@ def json_schema_to_schema_fields(schema):
 )
 def test_json_schema_to_events_with_nullable_fields(schema):
     fields = json_schema_to_schema_fields(schema)
-    assert 1 == len(fields)
+    assert len(fields) == 1
     assert fields[0].nullable
 
 

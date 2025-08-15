@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
+import static utils.FrontendConstants.SSO_LOGIN;
 
 import auth.CookieConfigs;
 import auth.sso.SsoManager;
@@ -130,8 +131,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     CallContext ctx = ctxResult.getFirst();
     Result result = (Result) ctxResult.getSecond();
 
-    setContextRedirectUrl(ctx);
-
     // Handle OIDC authentication errors.
     if (OidcResponseErrorHandler.isError(ctx)) {
       return OidcResponseErrorHandler.handleError(ctx);
@@ -191,6 +190,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
                 ctx, config, profile, saveProfileInSession, multiProfile, renewSession);
           }
         }
+
+        // Set the redirect url from cookie before creating action
+        setContextRedirectUrl(ctx);
 
         action = this.redirectToOriginallyRequestedUrl(ctx, defaultUrl);
       }
@@ -289,7 +291,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       log.info("OIDC callback authentication successful for user: {}", userName);
 
       // Successfully logged in - Generate GMS login token
-      final String accessToken = authClient.generateSessionTokenForUser(corpUserUrn.getId());
+      final String accessToken =
+          authClient.generateSessionTokenForUser(corpUserUrn.getId(), SSO_LOGIN);
       return result
           .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
           .withCookies(

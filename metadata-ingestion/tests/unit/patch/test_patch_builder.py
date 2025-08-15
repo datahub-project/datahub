@@ -1,5 +1,6 @@
 import json
 import pathlib
+from typing import Any, Dict, Union
 
 import pytest
 from freezegun.api import freeze_time
@@ -15,7 +16,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetLineageTypeClass,
+    EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -28,7 +31,7 @@ from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 def test_basic_dataset_patch_builder():
@@ -77,7 +80,7 @@ def test_complex_dataset_patch(
                 type=DatasetLineageTypeClass.TRANSFORMED,
             )
         )
-        .add_fine_grained_upstream_lineage(
+        .add_fine_grained_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                 downstreams=[
@@ -105,7 +108,7 @@ def test_complex_dataset_patch(
                 confidenceScore=1.0,
             )
         )
-        .add_fine_grained_upstream_lineage(
+        .add_fine_grained_lineage(
             fine_grained_lineage=FineGrainedLineageClass(
                 upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
                 upstreams=[
@@ -182,24 +185,171 @@ def test_basic_dashboard_patch_builder():
     ]
 
 
+@pytest.mark.parametrize(
+    "created_on,last_modified,expected_actor",
+    [
+        (1586847600000, 1586847600000, "urn:li:corpuser:datahub"),
+        (None, None, "urn:li:corpuser:datahub"),
+        (1586847600000, None, "urn:li:corpuser:datahub"),
+        (None, 1586847600000, "urn:li:corpuser:datahub"),
+    ],
+    ids=["both_timestamps", "no_timestamps", "only_created", "only_modified"],
+)
 @freeze_time("2020-04-14 07:00:00")
-def test_datajob_patch_builder():
+def test_datajob_patch_builder(created_on, last_modified, expected_actor):
+    def make_edge_or_urn(urn: str) -> Union[EdgeClass, str]:
+        if created_on or last_modified:
+            return EdgeClass(
+                destinationUrn=str(urn),
+                created=(
+                    AuditStampClass(
+                        time=created_on,
+                        actor=expected_actor,
+                    )
+                    if created_on
+                    else None
+                ),
+                lastModified=(
+                    AuditStampClass(
+                        time=last_modified,
+                        actor=expected_actor,
+                    )
+                    if last_modified
+                    else None
+                ),
+            )
+        return urn
+
+    def get_edge_expectation(urn: str) -> Dict[str, Any]:
+        if created_on or last_modified:
+            expected = {
+                "destinationUrn": str(urn),
+                "created": (
+                    AuditStampClass(
+                        time=created_on,
+                        actor=expected_actor,
+                    ).to_obj()
+                    if created_on
+                    else None
+                ),
+                "lastModified": (
+                    AuditStampClass(
+                        time=last_modified,
+                        actor=expected_actor,
+                    ).to_obj()
+                    if last_modified
+                    else None
+                ),
+            }
+            # filter out None values
+            return {k: v for k, v in expected.items() if v is not None}
+        return {"destinationUrn": str(urn)}
+
     flow_urn = make_data_flow_urn(
         orchestrator="nifi", flow_id="252C34e5af19-0192-1000-b248-b1abee565b5d"
     )
     job_urn = make_data_job_urn_with_flow(
         flow_urn, "5ca6fee7-0192-1000-f206-dfbc2b0d8bfb"
     )
-    patcher = DataJobPatchBuilder(job_urn)
 
+    patcher = DataJobPatchBuilder(job_urn)
     patcher.add_output_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
-    )
-    patcher.add_output_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
-    )
-    patcher.add_output_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+        make_edge_or_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+        )
+    ).add_output_dataset(
+        make_edge_or_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+        )
+    ).add_output_dataset(
+        make_edge_or_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+        )
+    ).add_fine_grained_lineage(
+        fine_grained_lineage=FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="hive",
+                        name="fct_users_created_upstream",
+                        env="PROD",
+                    ),
+                    field_path="bar",
+                )
+            ],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="hive",
+                        name="fct_users_created",
+                        env="PROD",
+                    ),
+                    field_path="foo",
+                )
+            ],
+            transformOperation="TRANSFORM",
+            confidenceScore=1.0,
+        )
+    ).add_fine_grained_lineage(
+        fine_grained_lineage=FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.DATASET,
+            upstreams=[
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="s3",
+                        name="my-bucket/my-folder/my-file.txt",
+                        env="PROD",
+                    ),
+                    field_path="foo",
+                )
+            ],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD_SET,
+            downstreams=[
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="hive",
+                        name="fct_users_created",
+                        env="PROD",
+                    ),
+                    field_path="foo",
+                )
+            ],
+        )
+    ).remove_fine_grained_lineage(
+        fine_grained_lineage=FineGrainedLineageClass(
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="hive",
+                        name="fct_users_deprecated",
+                        env="PROD",
+                    ),
+                    field_path="users",
+                ),
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="hive",
+                        name="fct_users_deprecated",
+                        env="PROD",
+                    ),
+                    field_path="users_old",
+                ),
+            ],
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[
+                make_schema_field_urn(
+                    make_dataset_urn(
+                        platform="hive",
+                        name="fct_users_created",
+                        env="PROD",
+                    ),
+                    field_path="users",
+                )
+            ],
+        )
     )
 
     assert patcher.build() == [
@@ -214,47 +364,43 @@ def test_datajob_patch_builder():
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder1,DEV)",
-                            "value": {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                            },
+                            "value": get_edge_expectation(
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+                            ),
                         },
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder3,DEV)",
-                            "value": {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                            },
+                            "value": get_edge_expectation(
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+                            ),
                         },
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder2,DEV)",
-                            "value": {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                            },
+                            "value": get_edge_expectation(
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+                            ),
+                        },
+                        {
+                            "op": "add",
+                            "path": "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD),bar)",
+                            "value": {"confidenceScore": 1.0},
+                        },
+                        {
+                            "op": "add",
+                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket~1my-folder~1my-file.txt,PROD),foo)",
+                            "value": {"confidenceScore": 1.0},
+                        },
+                        {
+                            "op": "remove",
+                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),users)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deprecated,PROD),users)",
+                            "value": {},
+                        },
+                        {
+                            "op": "remove",
+                            "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),users)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deprecated,PROD),users_old)",
+                            "value": {},
                         },
                     ]
                 ).encode("utf-8"),

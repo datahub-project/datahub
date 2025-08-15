@@ -1,5 +1,5 @@
-import { Dataset, InstitutionalMemory, InstitutionalMemoryMetadata } from '../../types.generated';
-import { findDatasetByURN } from '../fixtures/searchResult/datasetSearchResult';
+import { findDatasetByURN } from '@graphql-mock/fixtures/searchResult/datasetSearchResult';
+import { Dataset, InstitutionalMemory, InstitutionalMemoryMetadata } from '@types';
 
 type GetDataset = {
     data: { dataset: Dataset };

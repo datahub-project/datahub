@@ -1,8 +1,8 @@
-import React from 'react';
 import { Badge } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY_V2 } from '../../../../constants';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 
 type Props = {
     count: number;

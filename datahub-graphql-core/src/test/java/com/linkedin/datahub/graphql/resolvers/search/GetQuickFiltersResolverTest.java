@@ -301,8 +301,7 @@ public class GetQuickFiltersResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(Collections.emptyList()),
-                Mockito.eq(null)))
+                Mockito.eq(Collections.emptyList())))
         .thenReturn(result);
     return client;
   }

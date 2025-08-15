@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import bigqueryLogo from '../../../../../images/bigquerylogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import bigqueryLogo from '@images/bigquerylogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -30,7 +31,7 @@ const bigqueryConfig: SourceConfig = {
     type: BIGQUERY,
     placeholderRecipe,
     displayName: 'BigQuery',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/bigquery/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/bigquery/',
     logoUrl: bigqueryLogo,
 };
 

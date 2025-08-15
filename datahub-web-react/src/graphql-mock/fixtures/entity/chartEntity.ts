@@ -1,11 +1,13 @@
 import * as faker from 'faker';
+
+import { findUserByUsername } from '@graphql-mock/fixtures/searchResult/userSearchResult';
 // import { generatePlatform } from 'generateDataPlatform';
-import { Chart, ChartType, DataPlatform, EntityType, OwnershipType, PlatformType } from '../../../types.generated';
-import kafkaLogo from '../../../images/kafkalogo.png';
-import s3Logo from '../../../images/s3.png';
-import snowflakeLogo from '../../../images/snowflakelogo.png';
-import bigqueryLogo from '../../../images/bigquerylogo.png';
-import { findUserByUsername } from '../searchResult/userSearchResult';
+import { Chart, ChartType, DataPlatform, EntityType, OwnershipType, PlatformType } from '@types';
+
+import bigqueryLogo from '@images/bigquerylogo.png';
+import kafkaLogo from '@images/kafkalogo.png';
+import s3Logo from '@images/s3.png';
+import snowflakeLogo from '@images/snowflakelogo.png';
 
 export const platformLogo = {
     kafka: kafkaLogo,
@@ -45,8 +47,7 @@ export const chartEntity = (tool): Chart => {
         info: {
             name,
             description,
-            externalUrl:
-                'https://superset.demo.datahubproject.io/superset/explore/?form_data=%7B%22slice_id%22%3A%202%7D',
+            externalUrl: 'https://superset.demo.datahub.com/superset/explore/?form_data=%7B%22slice_id%22%3A%202%7D',
             type: ChartType.Pie,
             access: null,
             lastModified: { time: 1619137330, __typename: 'AuditStamp' },

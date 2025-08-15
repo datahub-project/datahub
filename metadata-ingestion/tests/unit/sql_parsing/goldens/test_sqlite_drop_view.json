@@ -7,6 +7,7 @@
         "urn:li:dataset:(urn:li:dataPlatform:sqlite,my_schema.my_view,PROD)"
     ],
     "column_lineage": null,
+    "joins": null,
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "DROP VIEW my_schema.my_view"

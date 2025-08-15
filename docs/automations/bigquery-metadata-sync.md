@@ -4,10 +4,16 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+:::info
+
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
+
+:::
+
 ## Introduction
 
 BigQuery Metadata Sync is an automation that synchronizes DataHub Tags, Table and Column descriptions, and Column Glossary Terms with
-BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
+BigQuery. This automation is exclusively available in DataHub Cloud.
 
 ## Use-Cases
 
@@ -18,26 +24,31 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 - Facilitate compliance efforts by automatically tagging sensitive data columns
 - Support data lineage tracking by keeping metadata aligned across platforms
 
-## Capabilities
+## Sync Capabilities
 
-- Automatically add DataHub Tags as BigQuery Labels to tables
-- Automatically add DataHub Table descriptions to BigQuery Tables
-- Automatically add DataHub Column descriptions to BigQuery Columns
-- Automatically add DataHub Glossary Terms as Policy Tags to BigQuery Columns (under a **DataHub** taxonomy created in BigQuery)
-- Automatically remove Policy Tags/Table Labels when removed in DataHub
+| DataHub Source        | BigQuery Target     | Sync Direction     | Notes                                                                                                    |
+| --------------------- | ------------------- | ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Table Tags            | Table Labels        | Bi-directional     | Changes in either system reflect in both                                                                 |
+| Table Descriptions    | Table Descriptions  | Bi-directional     | Changes in either system reflect in both                                                                 |
+| Column Descriptions   | Column Descriptions | Bi-directional     | Changes in either system reflect in both. <br/> Thes sync doesn't delete table description from BigQuery |
+| Column Glossary Terms | Column Policy Tags  | DataHub → BigQuery | Created under DataHub taxonomy                                                                           |
 
+## Setup Instructions
 
-## Required Bigquery Permissions 
+### 1. Verify Permissions
 
-| Action | Required Permission(s) |
-|--------|------------------------|
-| Create/update policy tags and taxonomies | `bigquery.taxonomies.create` <br/> `bigquery.taxonomies.update` |
-| Assign/remove policy tags from columns | `bigquery.tables.updateTag` |
-| Edit table description | `bigquery.tables.update` |
-| Edit column description | `bigquery.tables.update` |
-| Assign/remove labels from tables | `bigquery.tables.update` |
+Ensure your service account has the following permissions:
 
-## Enabling BigQuery Sync Automation
+| Task                   | Required Permissions                                                                                                                                                                    | Available Role   |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Policy Tag Management  | • `datacatalog.taxonomies.create`<br/>• `datacatalog.taxonomies.update`<br/>• `datacatalog.taxonomies.list`<br/>• `datacatalog.taxonomies.get`<br/>• `bigquery.tables.createTagBinding` | Policy Tag Admin |
+| Policy Tag Assignment  | • `bigquery.tables.updateTag`                                                                                                                                                           | -                |
+| Description Management | • `bigquery.tables.update`                                                                                                                                                              | -                |
+| Label Management       | • `bigquery.tables.update`                                                                                                                                                              | -                |
+
+**Note**: `bigquery.tables` permissions must be granted in every project where metadata sync is needed.
+
+### 2. Enable the Automation
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
@@ -53,41 +64,41 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 
 3. **Configure Automation**:
 
-    1. **Select a Propagation Action**
+   1. **Select a Propagation Action**
 
-    <p align="left">
-      <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-form.png"/>
-    </p>
+   <p align="left">
+     <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/automation-form.png"/>
+   </p>
 
-    | Propagation Type | DataHub Entity | BigQuery Entity | Note |
-    | -------- | ------- | ------- | ------- |
-    | Table Tags as Labels | [Table Tag](https://datahubproject.io/docs/tags/) | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro) | - |
-    | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://datahubproject.io/docs/0.14.0/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul>
-    | Table Descriptions | [Table Description](https://datahubproject.io/docs/api/tutorials/descriptions/) | Table Description | - |
-    | Column Descriptions | [Column Description](https://datahubproject.io/docs/api/tutorials/descriptions/) | Column Description | - |
+   | Propagation Type                     | DataHub Entity                                                                             | BigQuery Entity                                                                 | Note                                                                                                                                                                                                                                                                                          |
+   | ------------------------------------ | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Table Tags as Labels                 | [Table Tag](https://docs.datahub.com/docs/tags/)                                           | [BigQuery Label](https://cloud.google.com/bigquery/docs/labels-intro)           | -                                                                                                                                                                                                                                                                                             |
+   | Column Glossary Terms as Policy Tags | [Glossary Term on Table Column](https://docs.datahub.com/docs/glossary/business-glossary/) | [Policy Tag](https://cloud.google.com/bigquery/docs/best-practices-policy-tags) | <ul><li>Assigned Policy tags are created under DataHub taxonomy.</li></ul><ul><li>Only the latest assigned glossary term set as policy tag. BigQuery only supports one assigned policy tag.</li></ul> <ul><li>Policy Tags are not synced to DataHub as glossary term from BigQuery.</li></ul> |
+   | Table Descriptions                   | [Table Description](https://docs.datahub.com/docs/api/tutorials/descriptions/)             | Table Description                                                               | -                                                                                                                                                                                                                                                                                             |
+   | Column Descriptions                  | [Column Description](https://docs.datahub.com/docs/api/tutorials/descriptions/)            | Column Description                                                              | -                                                                                                                                                                                                                                                                                             |
 
-    :::note
+   :::note
 
-    You can limit propagation based on specific Tags and Glossary Terms. If none are selected, ALL Tags or Glossary Terms will be automatically propagated to BigQuery tables and columns. (The recommended approach is to not specify a filter to avoid inconsistent states.)
+   You can limit propagation based on specific Tags and Glossary Terms. If none are selected, ALL Tags or Glossary Terms will be automatically propagated to BigQuery tables and columns. (The recommended approach is to not specify a filter to avoid inconsistent states.)
 
-    :::
+   :::
 
-    :::note
+   :::note
 
-    - BigQuery supports only one Policy Tag per table field. Consequently, the most recently assigned Glossary Term will be set as the Policy Tag for that field.
-    - Policy Tags cannot be applied to fields in External tables. Therefore, if a Glossary Term is assigned to a field in an External table, it will not be applied.
+   - BigQuery supports only one Policy Tag per table field. Consequently, the most recently assigned Glossary Term will be set as the Policy Tag for that field.
+   - Policy Tags cannot be applied to fields in External tables. Therefore, if a Glossary Term is assigned to a field in an External table, it will not be applied.
 
-    :::
+   :::
 
-    2. **Fill in the required fields to connect to BigQuery, along with the name, description, and category**
+   2. **Fill in the required fields to connect to BigQuery, along with the name, description, and category**
 
-    <p align="left">
-      <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/connection_config.png"/>
-    </p>
+   <p align="left">
+     <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/bigquery-propagation/connection_config.png"/>
+   </p>
 
-    3. **Finally, click 'Save and Run' to start the automation**
+   3. **Finally, click 'Save and Run' to start the automation**
 
-## Propagating for Existing Assets
+## 3. Propagating for Existing Assets (Optional)
 
 To ensure that all existing table Tags and Column Glossary Terms are propagated to BigQuery, you can back-fill historical data for existing assets. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
 
@@ -127,11 +138,11 @@ A: The following metadata elements support bi-directional syncing:
 
 ### Q: Are Policy Tags bi-directionally synced?
 
-A: No, BigQuery Policy Tags are only propagated from DataHub to BigQuery, not vice versa. This means that Policy Tags should be mastered in DataHub using the [Business Glossary](https://datahubproject.io/docs/glossary/business-glossary/).
+A: No, BigQuery Policy Tags are only propagated from DataHub to BigQuery, not vice versa. This means that Policy Tags should be mastered in DataHub using the [Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary/).
 
 It is recommended to avoid enabling `extract_policy_tags_from_catalog` during
 ingestion, as this will ingest policy tags as BigQuery labels. Our sync process
-propagates Glossary Term assignments to BigQuery as Policy Tags. 
+propagates Glossary Term assignments to BigQuery as Policy Tags.
 
 In a future release, we plan to remove this restriction to support full bi-directional syncing.
 
@@ -159,7 +170,7 @@ a specific area of the Business Glossary.
 A: From DataHub to BigQuery, the sync happens instantly (within a few seconds)
 when the change occurs in DataHub.
 
-From BigQuery to DataHub, changes are synced when ingestion occurs, and the frequency depends on your custom ingestion schedule. (Visible on the **Integrations** page) 
+From BigQuery to DataHub, changes are synced when ingestion occurs, and the frequency depends on your custom ingestion schedule. (Visible on the **Integrations** page)
 
 ### Q: What happens if there's a conflict between DataHub and BigQuery metadata?
 
@@ -169,9 +180,13 @@ A: In case of conflicts (e.g., a tag is modified in both systems between syncs),
 
 A: Ensure that the service account used for the automation has the necessary permissions in both DataHub and BigQuery to read and write metadata. See the required BigQuery permissions at the top of the page.
 
+### Q: Can table description removed?
+
+No, the sync can only modify table description but it won't remove or clear a description from a table.
+
 ## Related Documentation
 
-- [DataHub Tags Documentation](https://datahubproject.io/docs/tags/)
-- [DataHub Glossary Documentation](https://datahubproject.io/docs/glossary/business-glossary/)
+- [DataHub Tags Documentation](https://docs.datahub.com/docs/tags/)
+- [DataHub Glossary Documentation](https://docs.datahub.com/docs/glossary/business-glossary/)
 - [BigQuery Labels Documentation](https://cloud.google.com/bigquery/docs/labels-intro)
 - [BigQuery Policy Tags Documentation](https://cloud.google.com/bigquery/docs/best-practices-policy-tags)

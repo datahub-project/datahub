@@ -1,7 +1,8 @@
 import { ControlOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { SchemaField } from '../../../../../../../types.generated';
+
+import { SchemaField } from '@types';
 
 const ColumnWrapper = styled.div`
     font-size: 14px;
@@ -17,7 +18,9 @@ interface Props {
 
 export default function PropertiesColumn({ field }: Props) {
     const { schemaFieldEntity } = field;
-    const numProperties = schemaFieldEntity?.structuredProperties?.properties?.length;
+    const numProperties = schemaFieldEntity?.structuredProperties?.properties?.filter(
+        (prop) => !prop.structuredProperty.settings?.isHidden,
+    )?.length;
 
     if (!schemaFieldEntity || !numProperties) return null;
 

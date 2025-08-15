@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka;
 
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
@@ -11,8 +12,8 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
 import io.ebean.Database;
@@ -39,16 +40,27 @@ public class MceConsumerApplicationTestConfiguration {
   @Bean
   @Primary
   public SystemEntityClient systemEntityClient(
-      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider) {
+      @Qualifier("configurationProvider") final ConfigurationProvider configurationProvider,
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     String selfUri = restTemplate.getRootUri();
     final Client restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(selfUri), null);
     return new SystemRestliEntityClient(
         restClient,
-        new ExponentialBackoff(1),
-        1,
+        entityClientConfig,
         configurationProvider.getCache().getClient().getEntityClient(),
-        1,
-        2);
+        metricUtils);
+  }
+
+  @Bean
+  @Primary
+  public EntityClientConfig entityClientConfig() {
+    return EntityClientConfig.builder()
+        .backoffPolicy(new ExponentialBackoff(1))
+        .retryCount(1)
+        .batchGetV2Size(1)
+        .batchGetV2Concurrency(2)
+        .build();
   }
 
   @MockBean public Database ebeanServer;
@@ -60,6 +72,4 @@ public class MceConsumerApplicationTestConfiguration {
   @MockBean protected ConfigEntityRegistry configEntityRegistry;
 
   @MockBean protected SiblingGraphService siblingGraphService;
-
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
 }

@@ -3,18 +3,21 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from datahub.ingestion.api.report import SupportsAsObj
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
-    SHOW_VIEWS_MAX_PAGE_SIZE,
+    SHOW_COMMAND_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.prefix_batch_builder import build_prefix_batches
+from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -45,14 +48,17 @@ class SnowflakeTag:
     name: str
     value: str
 
-    def display_name(self) -> str:
+    def tag_display_name(self) -> str:
         return f"{self.name}: {self.value}"
 
-    def identifier(self) -> str:
+    def tag_identifier(self) -> str:
         return f"{self._id_prefix_as_str()}:{self.value}"
 
     def _id_prefix_as_str(self) -> str:
         return f"{self.database}.{self.schema}.{self.name}"
+
+    def structured_property_identifier(self) -> str:
+        return f"snowflake.{self.database}.{self.schema}.{self.name}"
 
 
 @dataclass
@@ -90,6 +96,23 @@ class SnowflakeTable(BaseTable):
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_dynamic: bool = False
+    is_iceberg: bool = False
+    is_hybrid: bool = False
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.TABLE
+
+
+@dataclass
+class SnowflakeDynamicTable(SnowflakeTable):
+    definition: Optional[str] = (
+        None  # SQL query that defines the dynamic table's content
+    )
+    target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.DYNAMIC_TABLE
 
 
 @dataclass
@@ -98,6 +121,10 @@ class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_secure: bool = False
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.VIEW
 
 
 @dataclass
@@ -108,6 +135,7 @@ class SnowflakeSchema:
     comment: Optional[str]
     tables: List[str] = field(default_factory=list)
     views: List[str] = field(default_factory=list)
+    streams: List[str] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
 
 
@@ -121,6 +149,32 @@ class SnowflakeDatabase:
     tags: Optional[List[SnowflakeTag]] = None
 
 
+@dataclass
+class SnowflakeStream:
+    name: str
+    created: datetime
+    owner: str
+    source_type: str
+    type: str
+    stale: str
+    mode: str
+    invalid_reason: str
+    owner_role_type: str
+    database_name: str
+    schema_name: str
+    table_name: str
+    comment: Optional[str]
+    columns: List[SnowflakeColumn] = field(default_factory=list)
+    stale_after: Optional[datetime] = None
+    base_tables: Optional[str] = None
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    last_altered: Optional[datetime] = None
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.SNOWFLAKE_STREAM
+
+
 class _SnowflakeTagCache:
     def __init__(self) -> None:
         # self._database_tags[<database_name>] = list of tags applied to database
@@ -132,9 +186,9 @@ class _SnowflakeTagCache:
         )
 
         # self._table_tags[<database_name>][<schema_name>][<table_name>] = list of tags applied to table
-        self._table_tags: Dict[
-            str, Dict[str, Dict[str, List[SnowflakeTag]]]
-        ] = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        self._table_tags: Dict[str, Dict[str, Dict[str, List[SnowflakeTag]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+        )
 
         # self._column_tags[<database_name>][<schema_name>][<table_name>][<column_name>] = list of tags applied to column
         self._column_tags: Dict[
@@ -184,8 +238,11 @@ class _SnowflakeTagCache:
 
 
 class SnowflakeDataDictionary(SupportsAsObj):
-    def __init__(self, connection: SnowflakeConnection) -> None:
+    def __init__(
+        self, connection: SnowflakeConnection, report: SnowflakeV2Report
+    ) -> None:
         self.connection = connection
+        self.report = report
 
     def as_obj(self) -> Dict[str, Dict[str, int]]:
         # TODO: Move this into a proper report type that gets computed.
@@ -198,6 +255,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_tables_for_database,
             self.get_views_for_database,
             self.get_columns_for_schema,
+            self.get_streams_for_database,
             self.get_pk_constraints_for_schema,
             self.get_fk_constraints_for_schema,
         ]
@@ -260,6 +318,39 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return snowflake_schemas
 
     @serialized_lru_cache(maxsize=1)
+    def get_secure_view_definitions(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        secure_view_definitions: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict())
+        )
+        cur = self.connection.query(SnowflakeQuery.get_secure_view_definitions())
+        for view in cur:
+            db_name = view["TABLE_CATALOG"]
+            schema_name = view["TABLE_SCHEMA"]
+            view_name = view["TABLE_NAME"]
+            secure_view_definitions[db_name][schema_name][view_name] = view[
+                "VIEW_DEFINITION"
+            ]
+
+        return secure_view_definitions
+
+    def get_all_tags(self) -> List[SnowflakeTag]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_all_tags(),
+        )
+
+        tags = [
+            SnowflakeTag(
+                database=tag["TAG_DATABASE"],
+                schema=tag["TAG_SCHEMA"],
+                name=tag["TAG_NAME"],
+                value="",
+            )
+            for tag in cur
+        ]
+
+        return tags
+
+    @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
@@ -279,8 +370,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if table["TABLE_SCHEMA"] not in tables:
                 tables[table["TABLE_SCHEMA"]] = []
 
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables[table["TABLE_SCHEMA"]].append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -289,8 +383,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=is_dynamic,
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
+                    is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
+
+        # Populate dynamic table definitions
+        self.populate_dynamic_table_definitions(tables, db_name)
+
         return tables
 
     def get_tables_for_schema(
@@ -303,8 +404,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
 
         for table in cur:
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables.append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -313,13 +417,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=is_dynamic,
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
+                    is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
+
+        # Populate dynamic table definitions for just this schema
+        schema_tables = {schema_name: tables}
+        self.populate_dynamic_table_definitions(schema_tables, db_name)
+
         return tables
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
 
@@ -356,6 +468,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
+                        is_secure=(view.get("is_secure", "false").lower() == "true"),
                     )
                 )
 
@@ -383,9 +496,18 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # For massive schemas, use a FileBackedDict to avoid memory issues.
             columns = FileBackedDict()
 
-        object_batches = build_prefix_batches(
-            all_objects, max_batch_size=10000, max_groups_in_batch=5
-        )
+        # Single prefix table case (for streams)
+        if len(all_objects) == 1:
+            object_batches = [
+                [PrefixGroup(prefix=all_objects[0], names=[], exact_match=True)]
+            ]
+        else:
+            # Build batches for full schema scan
+            object_batches = build_prefix_batches(
+                all_objects, max_batch_size=10000, max_groups_in_batch=5
+            )
+
+        # Process batches
         for batch_index, object_batch in enumerate(object_batches):
             if batch_index > 0:
                 logger.info(
@@ -563,3 +685,225 @@ class SnowflakeDataDictionary(SupportsAsObj):
             tags[column_name].append(snowflake_tag)
 
         return tags
+
+    @serialized_lru_cache(maxsize=1)
+    def get_streams_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeStream]]:
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+
+        streams: Dict[str, List[SnowflakeStream]] = {}
+
+        first_iteration = True
+        stream_pagination_marker: Optional[str] = None
+        while first_iteration or stream_pagination_marker is not None:
+            cur = self.connection.query(
+                SnowflakeQuery.streams_for_database(
+                    db_name,
+                    limit=page_limit,
+                    stream_pagination_marker=stream_pagination_marker,
+                )
+            )
+
+            first_iteration = False
+            stream_pagination_marker = None
+
+            result_set_size = 0
+            for stream in cur:
+                result_set_size += 1
+
+                stream_name = stream["name"]
+                schema_name = stream["schema_name"]
+                if schema_name not in streams:
+                    streams[schema_name] = []
+                streams[stream["schema_name"]].append(
+                    SnowflakeStream(
+                        name=stream["name"],
+                        created=stream["created_on"],
+                        owner=stream["owner"],
+                        comment=stream["comment"],
+                        source_type=stream["source_type"],
+                        type=stream["type"],
+                        stale=stream["stale"],
+                        mode=stream["mode"],
+                        database_name=stream["database_name"],
+                        schema_name=stream["schema_name"],
+                        invalid_reason=stream["invalid_reason"],
+                        owner_role_type=stream["owner_role_type"],
+                        stale_after=stream["stale_after"],
+                        table_name=stream["table_name"],
+                        base_tables=stream["base_tables"],
+                        last_altered=stream["created_on"],
+                    )
+                )
+
+            if result_set_size >= page_limit:
+                # If we hit the limit, we need to send another request to get the next page.
+                logger.info(
+                    f"Fetching next page of streams for {db_name} - after {stream_name}"
+                )
+                stream_pagination_marker = stream_name
+
+        return streams
+
+    @serialized_lru_cache(maxsize=1)
+    def get_procedures_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[BaseProcedure]]:
+        procedures: Dict[str, List[BaseProcedure]] = {}
+        cur = self.connection.query(
+            SnowflakeQuery.procedures_for_database(db_name),
+        )
+
+        for procedure in cur:
+            if procedure["PROCEDURE_SCHEMA"] not in procedures:
+                procedures[procedure["PROCEDURE_SCHEMA"]] = []
+
+            procedures[procedure["PROCEDURE_SCHEMA"]].append(
+                BaseProcedure(
+                    name=procedure["PROCEDURE_NAME"],
+                    language=procedure["PROCEDURE_LANGUAGE"],
+                    argument_signature=procedure["ARGUMENT_SIGNATURE"],
+                    return_type=procedure["PROCEDURE_RETURN_TYPE"],
+                    procedure_definition=procedure["PROCEDURE_DEFINITION"],
+                    created=procedure["CREATED"],
+                    last_altered=procedure["LAST_ALTERED"],
+                    comment=procedure["COMMENT"],
+                    extra_properties=None,
+                )
+            )
+        return procedures
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_table_graph_info(self, db_name: str) -> Dict[str, Dict[str, Any]]:
+        """Get dynamic table dependency information from information schema."""
+        dt_graph_info: Dict[str, Dict[str, Any]] = {}
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_dynamic_table_graph_history(db_name)
+            )
+            for row in cur:
+                dt_name = row["NAME"]
+                dt_graph_info[dt_name] = {
+                    "inputs": row.get("INPUTS"),
+                    "target_lag_type": row.get("TARGET_LAG_TYPE"),
+                    "target_lag_sec": row.get("TARGET_LAG_SEC"),
+                    "scheduling_state": row.get("SCHEDULING_STATE"),
+                    "alter_trigger": row.get("ALTER_TRIGGER"),
+                }
+            logger.debug(
+                f"Successfully retrieved graph info for {len(dt_graph_info)} dynamic tables in {db_name}"
+            )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get dynamic table graph history",
+                db_name,
+                exc=e,
+            )
+
+        return dt_graph_info
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_tables_with_definitions(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeDynamicTable]]:
+        """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+        dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
+
+        # Get graph/dependency information (pass db_name)
+        dt_graph_info = self.get_dynamic_table_graph_info(db_name)
+
+        first_iteration = True
+        dt_pagination_marker: Optional[str] = None
+
+        while first_iteration or dt_pagination_marker is not None:
+            try:
+                cur = self.connection.query(
+                    SnowflakeQuery.show_dynamic_tables_for_database(
+                        db_name,
+                        limit=page_limit,
+                        dynamic_table_pagination_marker=dt_pagination_marker,
+                    )
+                )
+
+                first_iteration = False
+                dt_pagination_marker = None
+                result_set_size = 0
+
+                for dt in cur:
+                    result_set_size += 1
+
+                    dt_name = dt["name"]
+                    schema_name = dt["schema_name"]
+
+                    if schema_name not in dynamic_tables:
+                        dynamic_tables[schema_name] = []
+
+                    # Get definition from SHOW result
+                    definition = dt.get("text")
+
+                    # Get target lag from SHOW result or graph info
+                    target_lag = dt.get("target_lag")
+                    if not target_lag and dt_graph_info:
+                        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+                        graph_info = dt_graph_info.get(qualified_name, {})
+                        if graph_info.get("target_lag_type") and graph_info.get(
+                            "target_lag_sec"
+                        ):
+                            target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+
+                    dynamic_tables[schema_name].append(
+                        SnowflakeDynamicTable(
+                            name=dt_name,
+                            created=dt["created_on"],
+                            last_altered=dt.get("created_on"),
+                            size_in_bytes=dt.get("bytes", 0),
+                            rows_count=dt.get("rows", 0),
+                            comment=dt.get("comment"),
+                            definition=definition,
+                            target_lag=target_lag,
+                            is_dynamic=True,
+                            type="DYNAMIC TABLE",
+                        )
+                    )
+
+                if result_set_size >= page_limit:
+                    logger.info(
+                        f"Fetching next page of dynamic tables for {db_name} - after {dt_name}"
+                    )
+                    dt_pagination_marker = dt_name
+
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get dynamic tables for database {db_name}: {e}"
+                )
+                break
+
+        return dynamic_tables
+
+    def populate_dynamic_table_definitions(
+        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
+    ) -> None:
+        """Populate dynamic table definitions for tables that are marked as dynamic."""
+        try:
+            # Get dynamic tables with definitions from SHOW command
+            dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
+
+            for schema_name, table_list in tables.items():
+                for table in table_list:
+                    if (
+                        isinstance(table, SnowflakeDynamicTable)
+                        and table.definition is None
+                    ):
+                        # Find matching dynamic table from SHOW results
+                        show_dt_list = dt_with_definitions.get(schema_name, [])
+                        for show_dt in show_dt_list:
+                            if show_dt.name == table.name:
+                                table.definition = show_dt.definition
+                                table.target_lag = show_dt.target_lag
+                                break
+        except Exception as e:
+            logger.debug(
+                f"Failed to populate dynamic table definitions for {db_name}: {e}"
+            )

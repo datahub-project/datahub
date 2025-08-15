@@ -12,13 +12,15 @@ import ijson
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigEnum, ConfigModel
+from datahub.configuration.common import ConfigEnum
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
+    SourceCapability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
@@ -26,14 +28,25 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    SourceReport,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.fs.fs_base import FileInfo, get_path_schema
 from datahub.ingestion.fs.fs_registry import fs_registry
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -49,7 +62,7 @@ class FileReadMode(ConfigEnum):
     AUTO = auto()
 
 
-class FileSourceConfig(ConfigModel):
+class FileSourceConfig(StatefulIngestionConfigBase):
     _filename = pydantic_field_deprecated(
         "filename",
         message="filename is deprecated. Use path instead.",
@@ -88,6 +101,8 @@ class FileSourceConfig(ConfigModel):
         "filename", "path", print_warning=False
     )
 
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
+
     @validator("file_extension", always=True)
     def add_leading_dot_to_extension(cls, v: str) -> str:
         if v:
@@ -99,7 +114,7 @@ class FileSourceConfig(ConfigModel):
 
 
 @dataclass
-class FileSourceReport(SourceReport):
+class FileSourceReport(StaleEntityRemovalSourceReport):
     total_num_files: int = 0
     num_files_completed: int = 0
     files_completed: list = field(default_factory=list)
@@ -174,7 +189,8 @@ class FileSourceReport(SourceReport):
 @platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-class GenericFileSource(TestableSource):
+@capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
+class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin pulls metadata from a previously generated file.
     The [metadata file sink](../../../../metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
@@ -182,9 +198,10 @@ class GenericFileSource(TestableSource):
     """
 
     def __init__(self, ctx: PipelineContext, config: FileSourceConfig):
+        super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.report = FileSourceReport()
+        self.report: FileSourceReport = FileSourceReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -204,7 +221,13 @@ class GenericFileSource(TestableSource):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # No super() call, as we don't want helpers that create / remove workunits
-        return [partial(auto_workunit_reporter, self.report)]
+        return [
+            partial(auto_workunit_reporter, self.report),
+            auto_status_aspect if self.config.stateful_ingestion else None,
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(
         self,
@@ -331,7 +354,7 @@ class GenericFileSource(TestableSource):
                     self.report.add_deserialize_time(deserialize_duration)
                     yield i, item
             except Exception as e:
-                self.report.report_failure(f"path-{i}", str(e))
+                self.report.report_failure(f"{file_status.path}-{i}", str(e))
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -390,10 +413,13 @@ def _from_obj_for_file(
         item = MetadataChangeEvent.from_obj(obj)
     elif "aspect" in obj:
         item = MetadataChangeProposalWrapper.from_obj(obj)
-    else:
+    elif "bucket" in obj:
         item = UsageAggregationClass.from_obj(obj)
+    else:
+        raise ValueError(f"Unknown object type: {obj}")
+
     if not item.validate():
-        raise ValueError(f"failed to parse: {obj}")
+        raise ValueError(f"Failed to parse: {obj}")
 
     if isinstance(item, UsageAggregationClass):
         logger.warning(f"Dropping deprecated UsageAggregationClass: {item}")

@@ -1,0 +1,39 @@
+version: "1"
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+
+nodes:
+  - name: Different Owner Types
+    description: Testing multiple owners with different types
+    owners:
+      - type: DEVELOPER
+        users:
+          - dev1
+        groups:
+          - engineering
+      - type: DATAOWNER
+        users:
+          - owner1
+        groups:
+          - data_stewards
+      - type: PRODUCER
+        users:
+          - producer1
+    terms:
+      - name: Mixed Ownership
+        description: Term with different owner types
+        owners:
+          - type: STAKEHOLDER
+            users:
+              - stakeholder1
+            groups:
+              - business
+          - type: DEVELOPER
+            users:
+              - dev2
+          - type: DATAOWNER
+            groups:
+              - compliance

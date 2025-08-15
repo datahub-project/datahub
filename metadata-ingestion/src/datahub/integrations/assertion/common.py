@@ -3,6 +3,7 @@ from typing import List, Optional, Tuple, TypedDict
 
 from datahub.api.entities.assertion.assertion import BaseEntityAssertion
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaMetadata
 from datahub.utilities.urns.urn import Urn
@@ -15,7 +16,7 @@ class ColumnDict(TypedDict):
 
 @lru_cache
 def get_qualified_name_from_datahub(urn: str) -> Optional[str]:
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         props: Optional[DatasetProperties] = graph.get_aspect(urn, DatasetProperties)
         if props is not None:
             return props.qualifiedName
@@ -24,7 +25,7 @@ def get_qualified_name_from_datahub(urn: str) -> Optional[str]:
 
 @lru_cache
 def get_schema_from_datahub(urn: str) -> Optional[List[ColumnDict]]:
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.INGESTION) as graph:
         schema: Optional[SchemaMetadata] = graph.get_aspect(urn, SchemaMetadata)
         if schema is not None:
             return [
@@ -42,7 +43,7 @@ def get_entity_name(assertion: BaseEntityAssertion) -> Tuple[str, str, str]:
         if qualified_name is not None:
             parts = qualified_name.split(".")
         else:
-            urn_id = Urn.create_from_string(assertion.entity).entity_ids[1]
+            urn_id = Urn.from_string(assertion.entity).entity_ids[1]
             parts = urn_id.split(".")
             if len(parts) > 3:
                 parts = parts[-3:]

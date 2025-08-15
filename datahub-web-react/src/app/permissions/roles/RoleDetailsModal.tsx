@@ -1,9 +1,11 @@
-import React from 'react';
 import { Button, Divider, Modal, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { CorpUser, DataHubPolicy, DataHubRole } from '../../../types.generated';
-import AvatarsGroup from '../AvatarsGroup';
+
+import AvatarsGroup from '@app/permissions/AvatarsGroup';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, DataHubPolicy, DataHubRole } from '@types';
 
 type Props = {
     role: DataHubRole;
@@ -45,8 +47,8 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
 
     const castedRole = role as any;
 
-    const users = castedRole?.users?.relationships.map((relationship) => relationship.entity as CorpUser);
-    const policies = castedRole?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy);
+    const users = castedRole?.users?.relationships?.map((relationship) => relationship.entity as CorpUser);
+    const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
 
     return (
         <Modal title={role?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>

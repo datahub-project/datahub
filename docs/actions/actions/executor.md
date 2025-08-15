@@ -1,7 +1,8 @@
 # Ingestion Executor
-<!-- Set Support Status -->
-![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen)
 
+<!-- Set Support Status -->
+
+![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen)
 
 ## Overview
 
@@ -19,23 +20,22 @@ This Action executes ingestion recipes that are configured via the UI.
 
 Specifically, changes to the `dataHubExecutionRequestInput` and `dataHubExecutionRequestSignal` aspects of the `dataHubExecutionRequest` entity are required.
 
-
-## Action Quickstart 
+## Action Quickstart
 
 ### Prerequisites
 
 #### DataHub Privileges
 
 This action must be executed as a privileged DataHub user (e.g. using Personal Access Tokens). Specifically, the user must have the `Manage Secrets` Platform Privilege, which allows for retrieval
-of decrypted secrets for injection into an ingestion recipe. 
+of decrypted secrets for injection into an ingestion recipe.
 
 An access token generated from a privileged account must be configured in the `datahub` configuration
-block of the YAML configuration, as shown in the example below. 
+block of the YAML configuration, as shown in the example below.
 
-#### Connecting to Ingestion Sources 
+#### Connecting to Ingestion Sources
 
-In order for ingestion to run successfully, the process running the Actions must have 
-network connectivity to any source systems that are required for ingestion. 
+In order for ingestion to run successfully, the process running the Actions must have
+network connectivity to any source systems that are required for ingestion.
 
 For example, if the ingestion recipe is pulling from an internal DBMS, the actions container
 must be able to resolve & connect to that DBMS system for the ingestion command to run successfully.
@@ -46,10 +46,9 @@ Run the following commands to install the relevant action plugin(s):
 
 `pip install 'acryl-datahub-actions[executor]'`
 
-
 ### Configure the Action Config
 
-Use the following config(s) to get started with this Action. 
+Use the following config(s) to get started with this Action.
 
 ```yml
 name: "pipeline-name"
@@ -71,12 +70,11 @@ datahub:
   | `executor_id` | ❌ | `default` | An executor ID assigned to the executor. This can be used to manage multiple distinct executors. |
 </details>
 
-
 ## Troubleshooting
 
 ### Quitting the Actions Framework
 
 Currently, when you quit the Actions framework, any in-flight ingestion processing will continue to execute as a subprocess on your system. This means that there may be "orphaned" processes which
-are never marked as "Succeeded" or "Failed" in the UI, even though they may have completed. 
+are never marked as "Succeeded" or "Failed" in the UI, even though they may have completed.
 
-To address this, simply "Cancel" the ingestion source on the UI once you've restarted the Ingestion Executor action. 
+To address this, simply "Cancel" the ingestion source on the UI once you've restarted the Ingestion Executor action.

@@ -24,7 +24,11 @@ class GitReference(ConfigModel):
         "main",
         description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
-
+    url_subdir: Optional[str] = Field(
+        default=None,
+        description="Prefix to prepend when generating URLs for files - useful when files are in a subdirectory. "
+        "Only affects URL generation, not git operations.",
+    )
     url_template: Optional[str] = Field(
         None,
         description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
@@ -39,9 +43,7 @@ class GitReference(ConfigModel):
 
     @validator("repo", pre=True)
     def simplify_repo_url(cls, repo: str) -> str:
-        if repo.startswith("github.com/"):
-            repo = f"https://{repo}"
-        elif repo.startswith("gitlab.com"):
+        if repo.startswith("github.com/") or repo.startswith("gitlab.com"):
             repo = f"https://{repo}"
         elif repo.count("/") == 1:
             repo = f"https://github.com/{repo}"
@@ -68,6 +70,8 @@ class GitReference(ConfigModel):
 
     def get_url_for_file_path(self, file_path: str) -> str:
         assert self.url_template
+        if self.url_subdir:
+            file_path = f"{self.url_subdir}/{file_path}"
         return self.url_template.format(
             repo_url=self.repo, branch=self.branch, file_path=file_path
         )
@@ -115,9 +119,9 @@ class GitInfo(GitReference):
 
         repo: str = values["repo"]
         if repo.startswith(_GITHUB_PREFIX):
-            return f"git@github.com:{repo[len(_GITHUB_PREFIX):]}.git"
+            return f"git@github.com:{repo[len(_GITHUB_PREFIX) :]}.git"
         elif repo.startswith(_GITLAB_PREFIX):
-            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX):]}.git"
+            return f"git@gitlab.com:{repo[len(_GITLAB_PREFIX) :]}.git"
         else:
             raise ValueError(
                 "Unable to infer repo_ssh_locator from repo. Please set repo_ssh_locator manually."

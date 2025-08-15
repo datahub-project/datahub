@@ -15,13 +15,22 @@ extend type Query {
   """
   List all ingestion sources
   """
-  listIngestionSources(input: ListIngestionSourcesInput!): ListIngestionSourcesResult
+  listIngestionSources(
+    input: ListIngestionSourcesInput!
+  ): ListIngestionSourcesResult
 
   """
   Fetch a specific ingestion source
   urn: The primary key associated with the ingestion source.
   """
   ingestionSource(urn: String!): IngestionSource
+
+  """
+  List all execution requests
+  """
+  listExecutionRequests(
+    input: ListExecutionRequestsInput!
+  ): IngestionSourceExecutionRequests
 
   """
   Get an execution request
@@ -54,7 +63,10 @@ extend type Mutation {
   """
   Update an existing ingestion source
   """
-  updateIngestionSource(urn: String!, input: UpdateIngestionSourceInput!): String
+  updateIngestionSource(
+    urn: String!
+    input: UpdateIngestionSourceInput!
+  ): String
 
   """
   Delete an existing ingestion source
@@ -65,12 +77,16 @@ extend type Mutation {
   Create a request to execute an ingestion job
   input: Input required for creating an ingestion execution request
   """
-  createIngestionExecutionRequest(input: CreateIngestionExecutionRequestInput!): String
+  createIngestionExecutionRequest(
+    input: CreateIngestionExecutionRequestInput!
+  ): String
 
   """
   Cancel a running execution request, provided the urn of the original execution request
   """
-  cancelIngestionExecutionRequest(input: CancelIngestionExecutionRequestInput!): String
+  cancelIngestionExecutionRequest(
+    input: CancelIngestionExecutionRequestInput!
+  ): String
 
   """
   Create a request to execute a test ingestion connection job
@@ -92,6 +108,11 @@ type ExecutionRequestSource {
   The type of the source, e.g. SCHEDULED_INGESTION_SOURCE
   """
   type: String
+
+  """
+  The urn of the ingestion source, if applicable
+  """
+  ingestionSource: String
 }
 
 """
@@ -121,7 +142,17 @@ type ExecutionRequestInput {
   """
   Urn of the actor who created this execution request
   """
-  actorUrn: String
+  actorUrn: String @deprecated(reason: "Use actor instead")
+
+  """
+  The actor who created this execution request
+  """
+  actor: CorpUser
+
+  """
+  The specific executor to route the request to. If none is provided, a "default" executor is used.
+  """
+  executorId: String
 }
 
 """
@@ -152,7 +183,6 @@ type ExecutionRequestResult {
   A structured report for this Execution Request
   """
   structuredReport: StructuredReport
-
 }
 
 """
@@ -176,11 +206,16 @@ type StructuredReport {
 """
 Retrieve an ingestion execution request
 """
-type ExecutionRequest {
+type ExecutionRequest implements Entity {
   """
   Urn of the execution request
   """
   urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
 
   """
   Unique id for the execution request
@@ -197,6 +232,15 @@ type ExecutionRequest {
   """
   result: ExecutionRequestResult
 
+  """
+  The ingestion source of this execution request
+  """
+  source: IngestionSource
+
+  """
+  Unused for execution requests
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -353,11 +397,42 @@ type IngestionConfig {
 The runs associated with an Ingestion Source managed by DataHub
 """
 type IngestionRun {
-
   """
   The urn of the execution request associated with the user
   """
   executionRequestUrn: String
+}
+
+input ListExecutionRequestsInput {
+  """
+  The starting offset of the result set
+  """
+  start: Int
+
+  """
+  The number of results to be returned
+  """
+  count: Int
+
+  """
+  An optional search query
+  """
+  query: String
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+
+  """
+  Optional sort order. Defaults to use systemCreated.
+  """
+  sort: SortCriterion
+
+  """
+  When defined it adds filter to show executions with only system/non system sources
+  """
+  systemSources: Boolean
 }
 
 """
@@ -423,6 +498,16 @@ type IngestionSource {
   Previous requests to execute the ingestion source
   """
   executions(start: Int, count: Int): IngestionSourceExecutionRequests
+
+  """
+  Ownership metadata of the ingestion source
+  """
+  ownership: Ownership
+
+  """
+  The latest successful execution request for this source
+  """
+  latestSuccessfulExecution: ExecutionRequest
 }
 
 """
@@ -448,6 +533,11 @@ input ListIngestionSourcesInput {
   Optional Facet filters to apply to the result set
   """
   filters: [FacetFilterInput!]
+
+  """
+  Optional sort order. Defaults to use systemCreated.
+  """
+  sort: SortCriterion
 }
 
 """
@@ -599,10 +689,10 @@ input UpdateSecretInput {
 Input arguments for retrieving the plaintext values of a set of secrets
 """
 input GetSecretValuesInput {
-   """
-   A list of secret names
-   """
-   secrets: [String!]!
+  """
+  A list of secret names
+  """
+  secrets: [String!]!
 }
 
 """
@@ -629,4 +719,3 @@ input RollbackIngestionInput {
   """
   runId: String!
 }
-

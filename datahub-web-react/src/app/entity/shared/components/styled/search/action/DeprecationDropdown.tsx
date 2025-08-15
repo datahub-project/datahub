@@ -1,9 +1,11 @@
-import { message, Modal } from 'antd';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
-import { useBatchUpdateDeprecationMutation } from '../../../../../../../graphql/mutations.generated';
-import { UpdateDeprecationModal } from '../../../../EntityDropdown/UpdateDeprecationModal';
-import ActionDropdown from './ActionDropdown';
-import { handleBatchError } from '../../../../utils';
+
+import { UpdateDeprecationModal } from '@app/entity/shared/EntityDropdown/UpdateDeprecationModal';
+import ActionDropdown from '@app/entity/shared/components/styled/search/action/ActionDropdown';
+import { handleBatchError } from '@app/entity/shared/utils';
+
+import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
 
 type Props = {
     urns: Array<string>;

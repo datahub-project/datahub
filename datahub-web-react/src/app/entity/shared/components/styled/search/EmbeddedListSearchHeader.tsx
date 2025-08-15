@@ -1,15 +1,17 @@
-import React from 'react';
-import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components/macro';
-import TabToolbar from '../TabToolbar';
-import { SearchBar } from '../../../../../search/SearchBar';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { AndFilterInput } from '../../../../../../types.generated';
-import SearchExtendedMenu from './SearchExtendedMenu';
-import { SearchSelectBar } from './SearchSelectBar';
-import { EntityAndType } from '../../../types';
-import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import SearchExtendedMenu from '@app/entity/shared/components/styled/search/SearchExtendedMenu';
+import { SearchSelectBar } from '@app/entity/shared/components/styled/search/SearchSelectBar';
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchBar } from '@app/search/SearchBar';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { AndFilterInput } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;

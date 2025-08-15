@@ -26,8 +26,14 @@ public class RestoreIndices implements Upgrade {
   public static final String URN_ARG_NAME = "urn";
   public static final String URN_LIKE_ARG_NAME = "urnLike";
   public static final String URN_BASED_PAGINATION_ARG_NAME = "urnBasedPagination";
+  public static final String CREATE_DEFAULT_ASPECTS_ARG_NAME = "createDefaultAspects";
 
   public static final String STARTING_OFFSET_ARG_NAME = "startingOffset";
+  public static final String LAST_URN_ARG_NAME = "lastUrn";
+  public static final String LAST_ASPECT_ARG_NAME = "lastAspect";
+  public static final String GE_PIT_EPOCH_MS_ARG_NAME = "gePitEpochMs";
+  public static final String LE_PIT_EPOCH_MS_ARG_NAME = "lePitEpochMs";
+  public static final String ASPECT_NAMES_ARG_NAME = "aspectNames";
 
   private final List<UpgradeStep> _steps;
 

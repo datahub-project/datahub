@@ -27,6 +27,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -106,7 +107,7 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
       if (isIncidentSoftDeleted(event)) {
         handleIncidentSoftDeleted(urn);
       } else if (isIncidentUpdate(event)) {
-        handleIncidentUpdated(urn);
+        handleIncidentUpdated(event, urn);
       }
     }
   }
@@ -137,14 +138,41 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
   }
 
   /** Handle an incident update by adding to either resolved or active incidents for an entity. */
-  private void handleIncidentUpdated(@Nonnull final Urn incidentUrn) {
+  private void handleIncidentUpdated(
+      @Nonnull final MetadataChangeLog event, @Nonnull final Urn incidentUrn) {
     // 1. Fetch incident info + status
-    IncidentInfo incidentInfo =
+    final IncidentInfo incidentInfo =
         incidentService.getIncidentInfo(systemOperationContext, incidentUrn);
+
+    final IncidentInfo previousInfo;
+    if (event.getAspectName().equals(INCIDENT_INFO_ASPECT_NAME)
+        && event.getPreviousAspectValue() != null) {
+      previousInfo =
+          GenericRecordUtils.deserializeAspect(
+              event.getPreviousAspectValue().getValue(),
+              event.getPreviousAspectValue().getContentType(),
+              IncidentInfo.class);
+    } else {
+      previousInfo = null;
+    }
 
     // 2. Retrieve associated urns.
     if (incidentInfo != null) {
       final List<Urn> incidentEntities = incidentInfo.getEntities();
+
+      // 3. If we have removed incidents from any entities, remove them from their respective
+      // summary aspects
+      if (previousInfo != null) {
+        final Set<Urn> removedFromEntities =
+            previousInfo.getEntities().stream()
+                .filter(urn -> !incidentEntities.contains(urn))
+                .collect(Collectors.toSet());
+        if (!removedFromEntities.isEmpty()) {
+          for (Urn entityUrn : removedFromEntities) {
+            removeIncidentFromSummary(incidentUrn, entityUrn);
+          }
+        }
+      }
 
       // 3. For each urn, resolve the entity incidents aspect and add to active or resolved
       // incidents.

@@ -57,6 +57,7 @@ class RedshiftSqlLineageV2(Closeable):
         self.context = context
 
         self.database = database
+        self.known_urns: Set[str] = set()  # will be set later
 
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
@@ -68,6 +69,7 @@ class RedshiftSqlLineageV2(Closeable):
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
+            is_temp_table=self._is_temp_table,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -87,7 +89,16 @@ class RedshiftSqlLineageV2(Closeable):
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
-        self.known_urns: Set[str] = set()  # will be set later
+    def _is_temp_table(self, name: str) -> bool:
+        return (
+            DatasetUrn.create_from_ids(
+                self.platform,
+                name,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            ).urn()
+            not in self.known_urns
+        )
 
     def build(
         self,
@@ -107,15 +118,6 @@ class RedshiftSqlLineageV2(Closeable):
             for schema, tables in schemas.items()
             for table in tables
         }
-        self.aggregator._is_temp_table = (
-            lambda name: DatasetUrn.create_from_ids(
-                self.platform,
-                name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            ).urn()
-            not in self.known_urns
-        )
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
@@ -228,7 +230,8 @@ class RedshiftSqlLineageV2(Closeable):
             )
 
         # Populate lineage for external tables.
-        self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
+        if not self.config.skip_external_tables:
+            self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
     def _populate_lineage_agg(
         self,
@@ -398,12 +401,22 @@ class RedshiftSqlLineageV2(Closeable):
         db_schemas: Dict[str, Dict[str, RedshiftSchema]],
     ) -> None:
         for schema_name, tables in all_tables[self.database].items():
+            logger.info(f"External table lineage: checking schema {schema_name}")
+            if not db_schemas[self.database].get(schema_name):
+                logger.warning(f"Schema {schema_name} not found")
+                continue
             for table in tables:
-                if table.type == "EXTERNAL_TABLE":
-                    schema = db_schemas[self.database][schema_name]
-
+                schema = db_schemas[self.database][schema_name]
+                if (
+                    table.is_external_table()
+                    and schema.is_external_schema()
+                    and schema.external_platform
+                ):
+                    logger.info(
+                        f"External table lineage: processing table {schema_name}.{table.name}"
+                    )
                     # external_db_params = schema.option
-                    upstream_platform = schema.type.lower()
+                    upstream_platform = schema.external_platform.lower()
 
                     table_urn = mce_builder.make_dataset_urn_with_platform_instance(
                         self.platform,
@@ -411,14 +424,26 @@ class RedshiftSqlLineageV2(Closeable):
                         platform_instance=self.config.platform_instance,
                         env=self.config.env,
                     )
-                    upstream_urn = mce_builder.make_dataset_urn_with_platform_instance(
-                        upstream_platform,
-                        f"{schema.external_database}.{table.name}",
-                        platform_instance=(
+                    if upstream_platform == self.platform:
+                        upstream_schema = schema.get_upstream_schema_name() or "public"
+                        upstream_dataset_name = (
+                            f"{schema.external_database}.{upstream_schema}.{table.name}"
+                        )
+                        upstream_platform_instance = self.config.platform_instance
+                    else:
+                        upstream_dataset_name = (
+                            f"{schema.external_database}.{table.name}"
+                        )
+                        upstream_platform_instance = (
                             self.config.platform_instance_map.get(upstream_platform)
                             if self.config.platform_instance_map
                             else None
-                        ),
+                        )
+
+                    upstream_urn = mce_builder.make_dataset_urn_with_platform_instance(
+                        upstream_platform,
+                        upstream_dataset_name,
+                        platform_instance=upstream_platform_instance,
                         env=self.config.env,
                     )
 

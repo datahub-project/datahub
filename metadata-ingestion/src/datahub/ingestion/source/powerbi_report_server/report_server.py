@@ -14,7 +14,9 @@ from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import EnvConfigMixin
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -25,7 +27,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.powerbi_report_server.constants import (
     API_ENDPOINTS,
@@ -39,10 +41,17 @@ from datahub.ingestion.source.powerbi_report_server.report_server_domain import 
     PowerBiReport,
     Report,
 )
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
-    ChangeTypeClass,
     CorpUserInfoClass,
     CorpUserKeyClass,
     DashboardInfoClass,
@@ -53,11 +62,12 @@ from datahub.metadata.schema_classes import (
     StatusClass,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.lossy_collections import LossyList
 
 LOGGER = logging.getLogger(__name__)
 
 
-class PowerBiReportServerAPIConfig(EnvConfigMixin):
+class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     username: str = pydantic.Field(description="Windows account username")
     password: str = pydantic.Field(description="Windows account password")
     workstation_name: str = pydantic.Field(
@@ -126,7 +136,6 @@ def log_http_error(e: BaseException, message: str) -> Any:
 
 
 def get_response_dict(response: requests.Response, error_message: str) -> dict:
-
     result_dict: dict = {}
     try:
         response.raise_for_status()
@@ -186,7 +195,7 @@ class PowerBiReportServerAPI:
         }
 
         reports: List[Any] = []
-        for report_type in report_types_mapping.keys():
+        for report_type in report_types_mapping:
             report_get_endpoint: str = API_ENDPOINTS[report_type]
             # Replace place holders
             report_get_endpoint_http = report_get_endpoint.format(
@@ -233,20 +242,14 @@ class Mapper:
 
     @staticmethod
     def new_mcp(
-        entity_type,
         entity_urn,
-        aspect_name,
         aspect,
-        change_type=ChangeTypeClass.UPSERT,
     ):
         """
         Create MCP
         """
         return MetadataChangeProposalWrapper(
-            entityType=entity_type,
-            changeType=change_type,
             entityUrn=entity_urn,
-            aspectName=aspect_name,
             aspect=aspect,
         )
 
@@ -333,17 +336,13 @@ class Mapper:
         )
 
         info_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_INFO,
             aspect=dashboard_info_cls,
         )
 
         # removed status mcp
         removed_status_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.STATUS,
             aspect=StatusClass(removed=False),
         )
 
@@ -355,9 +354,7 @@ class Mapper:
 
         # Dashboard key
         dashboard_key_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.DASHBOARD_KEY,
             aspect=dashboard_key_cls,
         )
 
@@ -368,9 +365,7 @@ class Mapper:
         ownership = OwnershipClass(owners=owners)
         # Dashboard owner MCP
         owner_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.OWNERSHIP,
             aspect=ownership,
         )
 
@@ -386,9 +381,7 @@ class Mapper:
             ]
         )
         browse_path_mcp = self.new_mcp(
-            entity_type=Constant.DASHBOARD,
             entity_urn=dashboard_urn,
-            aspect_name=Constant.BROWSERPATH,
             aspect=browse_path,
         )
 
@@ -419,27 +412,21 @@ class Mapper:
             )
 
             info_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.CORP_USER_INFO,
                 aspect=user_info_instance,
             )
             user_mcps.append(info_mcp)
 
             # removed status mcp
             status_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.STATUS,
                 aspect=StatusClass(removed=False),
             )
             user_mcps.append(status_mcp)
             user_key = CorpUserKeyClass(username=user.username)
 
             user_key_mcp = self.new_mcp(
-                entity_type=Constant.CORP_USER,
                 entity_urn=user_urn,
-                aspect_name=Constant.CORP_USER_KEY,
                 aspect=user_key,
             )
             user_mcps.append(user_key_mcp)
@@ -475,9 +462,9 @@ class Mapper:
 
 
 @dataclass
-class PowerBiReportServerDashboardSourceReport(SourceReport):
+class PowerBiReportServerDashboardSourceReport(StaleEntityRemovalSourceReport):
     scanned_report: int = 0
-    filtered_reports: List[str] = dataclass_field(default_factory=list)
+    filtered_reports: LossyList[str] = dataclass_field(default_factory=LossyList)
 
     def report_scanned(self, count: int = 1) -> None:
         self.scanned_report += count
@@ -486,11 +473,11 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBI")
+@platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
-class PowerBiReportServerDashboardSource(Source):
+class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
     """
     Use this plugin to connect to [PowerBI Report Server](https://powerbi.microsoft.com/en-us/report-server/).
     It extracts the following:
@@ -520,8 +507,9 @@ class PowerBiReportServerDashboardSource(Source):
     def __init__(
         self, config: PowerBiReportServerDashboardSourceConfig, ctx: PipelineContext
     ):
-        super().__init__(ctx)
+        super().__init__(config, ctx)
         self.source_config = config
+        self.ctx = ctx
         self.report = PowerBiReportServerDashboardSourceReport()
         self.auth = PowerBiReportServerAPI(self.source_config).get_auth_credentials
         self.powerbi_client = PowerBiReportServerAPI(self.source_config)
@@ -531,6 +519,14 @@ class PowerBiReportServerDashboardSource(Source):
     def create(cls, config_dict, ctx):
         config = PowerBiReportServerDashboardSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
+
+    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        return [
+            *super().get_workunit_processors(),
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """

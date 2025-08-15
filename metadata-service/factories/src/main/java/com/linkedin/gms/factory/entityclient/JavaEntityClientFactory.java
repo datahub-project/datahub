@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.entityclient;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
@@ -14,9 +15,9 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.inject.Singleton;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -39,7 +40,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("relationshipSearchService") LineageSearchService _lineageSearchService,
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
-      final @Value("${entityClient.restli.get.batchSize:375}") int batchGetV2Size) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     return new JavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -50,7 +52,8 @@ public class JavaEntityClientFactory {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        batchGetV2Size);
+        entityClientConfig,
+        metricUtils);
   }
 
   @Bean("systemEntityClient")
@@ -67,7 +70,8 @@ public class JavaEntityClientFactory {
       final @Qualifier("kafkaEventProducer") EventProducer _eventProducer,
       final RollbackService rollbackService,
       final EntityClientCacheConfig entityClientCacheConfig,
-      final @Value("${entityClient.restli.get.batchSize:375}") int batchGetV2Size) {
+      final EntityClientConfig entityClientConfig,
+      final MetricUtils metricUtils) {
     return new SystemJavaEntityClient(
         _entityService,
         _deleteEntityService,
@@ -79,6 +83,7 @@ public class JavaEntityClientFactory {
         rollbackService,
         _eventProducer,
         entityClientCacheConfig,
-        batchGetV2Size);
+        entityClientConfig,
+        metricUtils);
   }
 }

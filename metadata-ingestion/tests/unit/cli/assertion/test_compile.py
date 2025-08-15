@@ -37,6 +37,6 @@ def test_compile_assertion_config_spec_for_snowflake(pytestconfig, tmp_path):
 
     for file_name in output_file_names:
         assert os.path.exists(tmp_path / file_name)
-        assert filecmp.cmp(
-            golden_file_path / file_name, tmp_path / file_name
-        ), f"{file_name} is not as expected"
+        assert filecmp.cmp(golden_file_path / file_name, tmp_path / file_name), (
+            f"{file_name} is not as expected"
+        )

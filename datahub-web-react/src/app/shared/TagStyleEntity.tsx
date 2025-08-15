@@ -1,29 +1,31 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { grey } from '@ant-design/colors';
-import { Button, Divider, message, Typography } from 'antd';
-import { useHistory } from 'react-router';
-import { ApolloError } from '@apollo/client';
-import styled from 'styled-components';
-import { ChromePicker } from 'react-color';
-import ColorHash from 'color-hash';
 import { PlusOutlined } from '@ant-design/icons';
-import { useGetTagQuery } from '../../graphql/tag.generated';
-import { EntityType, FacetMetadata, Maybe, Scalars } from '../../types.generated';
-import { ExpandedOwner } from '../entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { EMPTY_MESSAGES } from '../entity/shared/constants';
-import { navigateToSearchUrl } from '../search/utils/navigateToSearchUrl';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useUpdateDescriptionMutation, useSetTagColorMutation } from '../../graphql/mutations.generated';
-import { useGetSearchResultsForMultipleQuery } from '../../graphql/search.generated';
-import analytics, { EventType, EntityActionType } from '../analytics';
-import { GetSearchResultsParams, SearchResultInterface } from '../entity/shared/components/styled/search/types';
-import { EditOwnersModal } from '../entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import CopyUrn from './CopyUrn';
-import EntityDropdown from '../entity/shared/EntityDropdown';
-import { EntityMenuItems } from '../entity/shared/EntityDropdown/EntityDropdown';
-import { ErrorSection } from './error/ErrorSection';
-import { generateOrFilters } from '../search/utils/generateOrFilters';
-import { ENTITY_FILTER_NAME, UnionType } from '../search/utils/constants';
+import { ApolloError } from '@apollo/client';
+import { Button, Divider, Typography, message } from 'antd';
+import ColorHash from 'color-hash';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ChromePicker } from 'react-color';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import EntityDropdown from '@app/entity/shared/EntityDropdown';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { ExpandedOwner } from '@app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { GetSearchResultsParams, SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { EditOwnersModal } from '@app/entity/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { generateOrFilters } from '@app/search/utils/generateOrFilters';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+import CopyUrn from '@app/shared/CopyUrn';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useSetTagColorMutation, useUpdateDescriptionMutation } from '@graphql/mutations.generated';
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { useGetTagQuery } from '@graphql/tag.generated';
+import { EntityType, FacetMetadata, Maybe, Scalars } from '@types';
 
 function useWrappedSearchResults(params: GetSearchResultsParams) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery(params);

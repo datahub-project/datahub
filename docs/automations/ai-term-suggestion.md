@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in closed beta. Reach out to your Acryl representative to get access.
+This feature is currently in closed beta. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
@@ -18,7 +18,7 @@ This automation can:
 
 - Automatically suggests glossary terms for tables and columns.
 - Goes beyond a predefined set of terms and works with your business glossary.
-- Generates [proposals](../managed-datahub/approval-workflows.md) for owners to review, or can automatically add terms to tables/columns.
+- Generates [proposals](../managed-datahub/change-proposals.md) for owners to review, or can automatically add terms to tables/columns.
 - Automatically adjusts to human-provided feedback and curation (coming soon).
 
 ## Prerequisites
@@ -64,7 +64,7 @@ We take into account the following metadata when generating suggestions:
 - Glossary term name, documentation, and hierarchy
 - Feedback loop: existing assignments and accepted/rejected proposals (coming soon)
 
-Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the Acryl AWS account. We do not fine-tune on customer data.
+Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the DataHub Cloud AWS account. We do not fine-tune on customer data.
 
 ## Limitations
 

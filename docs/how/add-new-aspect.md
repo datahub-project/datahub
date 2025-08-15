@@ -8,6 +8,7 @@ We'll use the CorpUserEditableInfo as an example here.
 2. Extend the entity's aspect union to include the new aspect.
 
 3. Rebuild the rest.li [IDL & snapshot](https://linkedin.github.io/rest.li/modeling/compatibility_check) by running the following command from the project root
+
 ```
 ./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore
 ```
@@ -17,4 +18,4 @@ We'll use the CorpUserEditableInfo as an example here.
 5. (Optional) If there's need to update the aspect via API (instead of/in addition to MCE), add a [sub-resource](https://linkedin.github.io/rest.li/user_guide/restli_server#sub-resources) endpoint for the new aspect (e.g. `CorpUsersEditableInfoResource`). The sub-resource endpiont also allows you to retrieve previous versions of the aspect as well as additional metadata such as the audit stamp.
 
 6. After rebuilding & restarting gms, [mce-consumer-job](https://github.com/datahub-project/datahub/tree/master/metadata-jobs/mce-consumer-job) & [mae-consumer-job](https://github.com/datahub-project/datahub/tree/master/metadata-jobs/mae-consumer-job),z
-you should be able to start emitting [MCE](../what/mxe.md) with the new aspect and have it automatically ingested & stored in DB.
+   you should be able to start emitting [MCE](../what/mxe.md) with the new aspect and have it automatically ingested & stored in DB.

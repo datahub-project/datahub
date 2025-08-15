@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import io.datahubproject.openapi.models.GenericEntity;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,14 +45,6 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
 
     public GenericEntityV3 build(
         ObjectMapper objectMapper, @Nonnull Urn urn, Map<String, AspectItem> aspects) {
-      return build(objectMapper, urn, aspects, false);
-    }
-
-    public GenericEntityV3 build(
-        ObjectMapper objectMapper,
-        @Nonnull Urn urn,
-        Map<String, AspectItem> aspects,
-        boolean isAsyncAlternateValidation) {
       Map<String, GenericAspectV3> jsonObjectMap =
           aspects.entrySet().stream()
               .map(
@@ -59,20 +52,19 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                     try {
                       String aspectName = entry.getKey();
                       Map<String, Object> aspectValueMap =
-                          objectMapper.readValue(
-                              RecordUtils.toJsonString(entry.getValue().getAspect())
-                                  .getBytes(StandardCharsets.UTF_8),
-                              new TypeReference<>() {});
-
-                      Map<String, Object> aspectValue =
-                          isAsyncAlternateValidation
-                              ? (Map<String, Object>) aspectValueMap.get("value")
-                              : aspectValueMap;
+                          entry.getValue().getAspect() != null
+                              ? objectMapper.readValue(
+                                  RecordUtils.toJsonString(entry.getValue().getAspect())
+                                      .getBytes(StandardCharsets.UTF_8),
+                                  new TypeReference<>() {})
+                              : Collections.emptyMap();
 
                       Map<String, Object> systemMetadata =
                           entry.getValue().getSystemMetadata() != null
-                              ? objectMapper.convertValue(
-                                  entry.getValue().getSystemMetadata(), new TypeReference<>() {})
+                              ? objectMapper.readValue(
+                                  RecordUtils.toJsonString(entry.getValue().getSystemMetadata())
+                                      .getBytes(StandardCharsets.UTF_8),
+                                  new TypeReference<>() {})
                               : null;
                       Map<String, Object> auditStamp =
                           entry.getValue().getAuditStamp() != null
@@ -83,7 +75,7 @@ public class GenericEntityV3 extends LinkedHashMap<String, Object>
                       return Map.entry(
                           aspectName,
                           GenericAspectV3.builder()
-                              .value(aspectValue)
+                              .value(aspectValueMap)
                               .systemMetadata(systemMetadata)
                               .auditStamp(auditStamp)
                               .build());

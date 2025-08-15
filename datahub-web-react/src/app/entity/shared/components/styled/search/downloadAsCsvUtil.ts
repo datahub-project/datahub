@@ -1,8 +1,9 @@
-import { CorpGroup, CorpUser, EntityType } from '../../../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import EntityRegistry from '../../../../EntityRegistry';
-import { GenericEntityProperties } from '../../../types';
-import { SearchResultInterface } from './types';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { SearchResultInterface } from '@app/entity/shared/components/styled/search/types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { CorpGroup, CorpUser, EntityType } from '@types';
 
 const searchCsvDownloadHeader = [
     'urn',
@@ -33,6 +34,7 @@ export const getSearchCsvDownloadHeader = (sampleResult?: SearchResultInterface)
 };
 
 export const transformGenericEntityPropertiesToCsvRow = (
+    entityRegistry: EntityRegistry,
     properties: GenericEntityProperties | null,
     entityUrl: string,
     result: SearchResultInterface,
@@ -41,11 +43,11 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // urn
         properties?.urn || '',
         // name
-        properties?.name || '',
+        entityRegistry.getDisplayName(result.entity.type, result.entity) || properties?.name || '',
         // type
         result.entity.type || '',
         // description
-        properties?.properties?.description || '',
+        properties?.properties?.description || properties?.editableProperties?.description || '',
         // user owners
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpUser)
@@ -98,6 +100,6 @@ export const transformResultsToCsvRow = (results: SearchResultInterface[], entit
     return results.map((result) => {
         const genericEntityProperties = entityRegistry.getGenericEntityProperties(result.entity.type, result.entity);
         const entityUrl = entityRegistry.getEntityUrl(result.entity.type, result.entity.urn);
-        return transformGenericEntityPropertiesToCsvRow(genericEntityProperties, entityUrl, result);
+        return transformGenericEntityPropertiesToCsvRow(entityRegistry, genericEntityProperties, entityUrl, result);
     });
 };

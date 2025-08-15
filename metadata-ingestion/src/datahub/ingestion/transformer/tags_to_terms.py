@@ -84,7 +84,6 @@ class TagsToTermMapper(TagsToTermTransformer):
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
-
         in_glossary_terms: Optional[GlossaryTermsClass] = cast(
             Optional[GlossaryTermsClass], aspect
         )
@@ -93,9 +92,9 @@ class TagsToTermMapper(TagsToTermTransformer):
         in_global_tags_aspect: Optional[GlobalTagsClass] = self.ctx.graph.get_tags(
             entity_urn
         )
-        in_schema_metadata_aspect: Optional[
-            SchemaMetadataClass
-        ] = self.ctx.graph.get_schema_metadata(entity_urn)
+        in_schema_metadata_aspect: Optional[SchemaMetadataClass] = (
+            self.ctx.graph.get_schema_metadata(entity_urn)
+        )
 
         if in_global_tags_aspect is None and in_schema_metadata_aspect is None:
             return cast(Aspect, in_glossary_terms)
@@ -135,10 +134,10 @@ class TagsToTermMapper(TagsToTermTransformer):
         )
 
         if self.config.semantics == TransformerSemantics.PATCH:
-            patch_glossary_terms: Optional[
-                GlossaryTermsClass
-            ] = TagsToTermMapper._merge_with_server_glossary_terms(
-                self.ctx.graph, entity_urn, out_glossary_terms
+            patch_glossary_terms: Optional[GlossaryTermsClass] = (
+                TagsToTermMapper._merge_with_server_glossary_terms(
+                    self.ctx.graph, entity_urn, out_glossary_terms
+                )
             )
             return cast(Optional[Aspect], patch_glossary_terms)
         else:

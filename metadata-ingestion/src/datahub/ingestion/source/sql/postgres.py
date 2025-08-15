@@ -36,6 +36,9 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    BaseProcedure,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayTypeClass,
     BytesTypeClass,
@@ -124,6 +127,17 @@ class PostgresConfig(BasePostgresConfig):
         ),
     )
 
+    include_stored_procedures: bool = Field(
+        default=True,
+        description="Include ingest of stored procedures.",
+    )
+
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion."
+        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
 
 @platform_name("Postgres")
 @config_class(PostgresConfig)
@@ -131,12 +145,11 @@ class PostgresConfig(BasePostgresConfig):
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 class PostgresSource(SQLAlchemySource):
     """
     This plugin extracts the following:
 
-    - Metadata for databases, schemas, views, and tables
+    - Metadata for databases, schemas, views, tables, and stored procedures
     - Column types associated with each table
     - Also supports PostGIS extensions
     - Table, row, and column statistics via optional SQL profiling
@@ -292,3 +305,49 @@ class PostgresSource(SQLAlchemySource):
                     ] = row.table_size
         except Exception as e:
             logger.error(f"failed to fetch profile metadata: {e}")
+
+    def get_procedures_for_schema(
+        self, inspector: Inspector, schema: str, db_name: str
+    ) -> List[BaseProcedure]:
+        """
+        Get stored procedures for a specific schema.
+        """
+        base_procedures = []
+        with inspector.engine.connect() as conn:
+            procedures = conn.execute(
+                """
+                    SELECT
+                        p.proname AS name,
+                        l.lanname AS language,
+                        pg_get_function_arguments(p.oid) AS arguments,
+                        pg_get_functiondef(p.oid) AS definition,
+                        obj_description(p.oid, 'pg_proc') AS comment
+                    FROM
+                        pg_proc p
+                    JOIN
+                        pg_namespace n ON n.oid = p.pronamespace
+                    JOIN
+                        pg_language l ON l.oid = p.prolang
+                    WHERE
+                        p.prokind = 'p'
+                        AND n.nspname = %s;
+                """,
+                (schema,),
+            )
+
+            procedure_rows = list(procedures)
+            for row in procedure_rows:
+                base_procedures.append(
+                    BaseProcedure(
+                        name=row.name,
+                        language=row.language,
+                        argument_signature=row.arguments,
+                        return_type=None,
+                        procedure_definition=row.definition,
+                        created=None,
+                        last_altered=None,
+                        comment=row.comment,
+                        extra_properties=None,
+                    )
+                )
+            return base_procedures

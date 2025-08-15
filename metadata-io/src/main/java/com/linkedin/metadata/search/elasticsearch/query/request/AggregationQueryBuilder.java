@@ -5,6 +5,7 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredP
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -21,15 +22,19 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.BinaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -48,6 +53,7 @@ import org.opensearch.search.aggregations.bucket.terms.Terms;
 @Slf4j
 public class AggregationQueryBuilder {
   private static final String URN_FILTER = "urn";
+  private static final String STRUCTURED_PROPERTIES_PREFIX = "structuredProperties.";
   private final SearchConfiguration configs;
   private final Set<String> defaultFacetFields;
   private final Set<String> allFacetFields;
@@ -71,7 +77,7 @@ public class AggregationQueryBuilder {
 
   /** Get the set of default aggregations, across all facets. */
   public List<AggregationBuilder> getAggregations(@Nonnull OperationContext opContext) {
-    return getAggregations(opContext, null);
+    return getAggregations(opContext, new ArrayList<>());
   }
 
   /**
@@ -79,14 +85,13 @@ public class AggregationQueryBuilder {
    * then get aggregations for all.
    */
   public List<AggregationBuilder> getAggregations(
-      @Nonnull OperationContext opContext, @Nullable List<String> facets) {
-    final Set<String> facetsToAggregate;
-    if (facets != null) {
-      facetsToAggregate =
-          facets.stream().filter(this::isValidAggregate).collect(Collectors.toSet());
-    } else {
-      facetsToAggregate = defaultFacetFields;
+      @Nonnull OperationContext opContext, @Nonnull List<String> facets) {
+    final Set<String> facetsToAggregate = new HashSet<>();
+    if (Boolean.TRUE.equals(
+        opContext.getSearchContext().getSearchFlags().isIncludeDefaultFacets())) {
+      facetsToAggregate.addAll(defaultFacetFields);
     }
+    facets.stream().filter(this::isValidAggregate).forEach(facetsToAggregate::add);
     return facetsToAggregate.stream()
         .map(f -> facetToAggregationBuilder(opContext, f))
         .collect(Collectors.toList());
@@ -98,6 +103,10 @@ public class AggregationQueryBuilder {
             .flatMap(annotation -> getDefaultFacetFieldsFromAnnotation(annotation).stream())
             .collect(Collectors.toSet());
     facets.add(INDEX_VIRTUAL_FIELD);
+    // Entity Type > Sub-Type aggregations.
+    // TODO: Ideally we can avoid the index-virtual-fields aggregation.
+    facets.add(
+        String.format("%s%s%s", INDEX_VIRTUAL_FIELD, AGGREGATION_SEPARATOR_CHAR, "typeNames"));
     return facets;
   }
 
@@ -221,7 +230,7 @@ public class AggregationQueryBuilder {
       return getFacetToDisplayNames().get(name);
     } else if (name.contains(AGGREGATION_SEPARATOR_CHAR)) {
       return Arrays.stream(name.split(AGGREGATION_SEPARATOR_CHAR))
-          .map(i -> getFacetToDisplayNames().get(i))
+          .map(i -> getFacetToDisplayNames().getOrDefault(i, i)) // Use original name if not found
           .collect(Collectors.joining(AGGREGATION_SEPARATOR_CHAR));
     }
     return name;
@@ -247,7 +256,7 @@ public class AggregationQueryBuilder {
     return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
   }
 
-  private void processTermAggregations(
+  public void processTermAggregations(
       final Map.Entry<String, Aggregation> entry,
       final List<AggregationMetadata> aggregationMetadataList) {
     final Map<String, Long> oneTermAggResult =
@@ -264,6 +273,7 @@ public class AggregationQueryBuilder {
             .setFilterValues(
                 new FilterValueArray(
                     SearchUtil.convertToFilters(oneTermAggResult, Collections.emptySet())));
+    updateAggregationEntity(aggregationMetadata);
     aggregationMetadataList.add(aggregationMetadata);
   }
 
@@ -300,7 +310,15 @@ public class AggregationQueryBuilder {
 
   private static void processTermBucket(
       Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
-    String key = bucket.getKeyAsString();
+    final String key = bucket.getKeyAsString();
+    String finalKey = key;
+    try {
+      // if the value is a date string, convert to milliseconds since epoch
+      OffsetDateTime time = OffsetDateTime.parse(key);
+      finalKey = String.valueOf(time.toEpochSecond() * 1000);
+    } catch (DateTimeParseException e) {
+      // do nothing, this is expected if the value is not a date
+    }
     // Gets filtered sub aggregation doc count if exist
     Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
     subAggs.forEach(
@@ -309,7 +327,7 @@ public class AggregationQueryBuilder {
                 String.format("%s%s%s", key, AGGREGATION_SEPARATOR_CHAR, entryKey), entryValue));
     long docCount = bucket.getDocCount();
     if (includeZeroes || docCount > 0) {
-      aggResult.put(key, docCount);
+      aggResult.put(finalKey, docCount);
     }
   }
 
@@ -379,7 +397,7 @@ public class AggregationQueryBuilder {
     }
   }
 
-  private void addCriterionFiltersToAggregationMetadata(
+  public void addCriterionFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
       @Nullable AspectRetriever aspectRetriever) {
@@ -422,6 +440,17 @@ public class AggregationQueryBuilder {
                 value ->
                     addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
       }
+    } else if (aggregationMetadataMap.containsKey(criterion.getField())) {
+      /*
+       * If we already have aggregations for the facet field (original field name), simply inject any missing values counts into the set.
+       * If there are no results for a particular facet value, it will NOT be in the original aggregation set returned by
+       * Elasticsearch.
+       */
+      AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(criterion.getField());
+      criterion
+          .getValues()
+          .forEach(
+              value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
     } else {
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
@@ -429,10 +458,14 @@ public class AggregationQueryBuilder {
        * If there are no results for a particular facet, it will NOT be in the original aggregation set returned by
        * Elasticsearch.
        */
+      // Simply replace suffix from original field when there are no aggregations for it. Prevents
+      // bug where ES mappings for field are different from how we map the field back to UI
+      // (ie. Structured Properties with dots in them)
+      String facetField = ESUtils.replaceSuffix(criterion.getField());
       aggregationMetadata.add(
           buildAggregationMetadata(
-              finalFacetField,
-              getFacetToDisplayNames().getOrDefault(finalFacetField, finalFacetField),
+              facetField,
+              getFacetToDisplayNames().getOrDefault(facetField, facetField),
               new LongMap(
                   criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
@@ -459,11 +492,24 @@ public class AggregationQueryBuilder {
       @Nonnull final String displayName,
       @Nonnull final LongMap aggValues,
       @Nonnull final FilterValueArray filterValues) {
-    return new AggregationMetadata()
-        .setName(facetField)
-        .setDisplayName(displayName)
-        .setAggregations(aggValues)
-        .setFilterValues(filterValues);
+    AggregationMetadata aggregationMetadata =
+        new AggregationMetadata()
+            .setName(facetField)
+            .setDisplayName(displayName)
+            .setAggregations(aggValues)
+            .setFilterValues(filterValues);
+    updateAggregationEntity(aggregationMetadata);
+    return aggregationMetadata;
+  }
+
+  public void updateAggregationEntity(@Nonnull final AggregationMetadata aggregationMetadata) {
+    if (aggregationMetadata.getName().startsWith(STRUCTURED_PROPERTIES_PREFIX)) {
+      aggregationMetadata.setEntity(
+          UrnUtils.getUrn(
+              String.format(
+                  "urn:li:structuredProperty:%s",
+                  aggregationMetadata.getName().replaceFirst(STRUCTURED_PROPERTIES_PREFIX, ""))));
+    }
   }
 
   private List<Pair<String, Pair<String, String>>> getFacetFieldDisplayNameFromAnnotation(
@@ -509,38 +555,34 @@ public class AggregationQueryBuilder {
   }
 
   /**
-   * Only used in aggregation queries, lazy load
+   * Returns a mapping of facet field names to their human-readable display names for use in search
+   * aggregations.
    *
-   * @return map of field name to facet display names
+   * <p>This method processes all searchable annotations across all entity types to build a
+   * comprehensive mapping. When multiple entities define different display names for the same facet
+   * field, the conflicting names are merged by joining them with "/" in alphabetical order (e.g.,
+   * "Name/Title").
+   *
+   * <p>The mapping is built only once on first access and cached for subsequent calls. This
+   * includes:
+   *
+   * <ul>
+   *   <li>Regular facet fields (when annotation has addToFilters=true)
+   *   <li>"Has value" boolean fields (when annotation has addHasValuesToFilters=true)
+   *   <li>A hardcoded entry for the virtual index field ("_index" → "Type")
+   * </ul>
+   *
+   * <p>When display name collisions are detected, a warning is logged indicating which field has
+   * multiple display names across entities.
+   *
+   * @return a map where keys are facet field names (e.g., "type") and values are their
+   *     corresponding display names (e.g., "Type", "Chart Type"). Display names may be merged with
+   *     "/" when conflicts exist across entities.
    */
   private Map<String, String> getFacetToDisplayNames() {
     if (filtersToDisplayName == null) {
-      // Validate field names
-      Map<String, Set<Pair<String, Pair<String, String>>>> validateFieldMap =
-          entitySearchAnnotations.entrySet().stream()
-              .flatMap(
-                  entry ->
-                      entry.getValue().stream()
-                          .flatMap(
-                              annotation ->
-                                  getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
-                                      .stream()))
-              .collect(Collectors.groupingBy(Pair::getFirst, Collectors.toSet()));
-      for (Map.Entry<String, Set<Pair<String, Pair<String, String>>>> entry :
-          validateFieldMap.entrySet()) {
-        if (entry.getValue().stream().map(i -> i.getSecond().getSecond()).distinct().count() > 1) {
-          Map<String, Set<Pair<String, String>>> displayNameEntityMap =
-              entry.getValue().stream()
-                  .map(Pair::getSecond)
-                  .collect(Collectors.groupingBy(Pair::getSecond, Collectors.toSet()));
-          throw new IllegalStateException(
-              String.format(
-                  "Facet field collision on field `%s`. Incompatible Display Name across entities. Multiple Display Names detected: %s",
-                  entry.getKey(), displayNameEntityMap));
-        }
-      }
-
-      filtersToDisplayName =
+      // First, collect all field-to-display-name mappings grouped by field name
+      Map<String, Set<String>> fieldToDisplayNames =
           entitySearchAnnotations.entrySet().stream()
               .flatMap(
                   entry ->
@@ -550,7 +592,27 @@ public class AggregationQueryBuilder {
                                   getFacetFieldDisplayNameFromAnnotation(entry.getKey(), annotation)
                                       .stream()))
               .collect(
-                  Collectors.toMap(Pair::getFirst, p -> p.getSecond().getSecond(), mapMerger()));
+                  Collectors.groupingBy(
+                      Pair::getFirst,
+                      Collectors.mapping(
+                          p -> p.getSecond().getSecond(), Collectors.toCollection(TreeSet::new))));
+
+      // Log fields with multiple display names
+      fieldToDisplayNames.entrySet().stream()
+          .filter(entry -> entry.getValue().size() > 1)
+          .forEach(
+              entry ->
+                  log.warn(
+                      "Field '{}' has multiple display names: {}",
+                      entry.getKey(),
+                      entry.getValue()));
+
+      // Create the final map with merged display names
+      filtersToDisplayName =
+          fieldToDisplayNames.entrySet().stream()
+              .collect(
+                  Collectors.toMap(Map.Entry::getKey, entry -> String.join("/", entry.getValue())));
+
       filtersToDisplayName.put(INDEX_VIRTUAL_FIELD, "Type");
     }
 

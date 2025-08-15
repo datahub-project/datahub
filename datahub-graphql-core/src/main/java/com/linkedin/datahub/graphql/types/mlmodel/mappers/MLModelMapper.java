@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Cost;
 import com.linkedin.common.DataPlatformInstance;
@@ -13,6 +14,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -23,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelEditableProperties;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CostMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -38,6 +41,7 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -174,11 +178,20 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((dataset, dataMap) ->
             dataset.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        VERSION_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setVersionProperties(
+                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (mlModel, dataMap) -> mapApplicationAssociation(context, mlModel, dataMap));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLModel.class);
@@ -240,5 +253,12 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
       editableProperties.setDescription(input.getDescription());
     }
     entity.setEditableProperties(editableProperties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context, @Nonnull MLModel mlModel, @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    mlModel.setApplication(
+        ApplicationAssociationMapper.map(context, applications, mlModel.getUrn()));
   }
 }

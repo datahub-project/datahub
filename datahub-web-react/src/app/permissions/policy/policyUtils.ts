@@ -1,4 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+
+import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
     PolicyMatchCondition,
     PolicyMatchCriterion,
@@ -9,8 +11,7 @@ import {
     Privilege,
     ResourceFilter,
     ResourcePrivileges,
-} from '../../../types.generated';
-import { ListPoliciesDocument, ListPoliciesQuery } from '../../../graphql/policy.generated';
+} from '@types';
 
 export const DEFAULT_PAGE_SIZE = 10;
 
@@ -114,12 +115,28 @@ export const convertLegacyResourceFilter = (resourceFilter: Maybe<ResourceFilter
     };
 };
 
-export const getFieldValues = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {
-    return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values || [];
+export const getFieldValues = (
+    filter: Maybe<PolicyMatchFilter> | undefined,
+    resourceFieldType: string,
+    alternateResourceFieldType?: string,
+) => {
+    return (
+        filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.values ||
+        filter?.criteria?.find((criterion) => criterion.field === alternateResourceFieldType)?.values ||
+        []
+    );
 };
 
-export const getFieldCondition = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {
-    return filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.condition || null;
+export const getFieldCondition = (
+    filter: Maybe<PolicyMatchFilter> | undefined,
+    resourceFieldType: string,
+    alternateResourceFieldType?: string,
+) => {
+    return (
+        filter?.criteria?.find((criterion) => criterion.field === resourceFieldType)?.condition ||
+        filter?.criteria?.find((criterion) => criterion.field === alternateResourceFieldType)?.condition ||
+        null
+    );
 };
 
 export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {

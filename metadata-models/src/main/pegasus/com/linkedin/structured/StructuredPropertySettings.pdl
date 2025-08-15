@@ -1,0 +1,64 @@
+namespace com.linkedin.structured
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Settings specific to a structured property entity
+ */
+@Aspect = {
+   "name": "structuredPropertySettings"
+}
+record StructuredPropertySettings {
+  /**
+   * Whether or not this asset should be hidden in the main application
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  isHidden: boolean = false
+
+  /**
+   * Whether or not this asset should be displayed as a search filter
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  showInSearchFilters: boolean = false
+
+  /**
+   * Whether or not this asset should be displayed in the asset sidebar
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  showInAssetSummary: boolean = false
+
+  /**
+   * Whether or not this asset should be displayed as an asset badge on other
+   * asset's headers
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  showAsAssetBadge: boolean = false
+
+  /**
+   * Whether or not this asset should be displayed as a column in the schema field table
+   * in a Dataset's "Columns" tab.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  showInColumnsTable: boolean = false
+
+  /**
+    * Last Modified Audit stamp
+    */
+  @Searchable = {
+    "/time": {
+      "fieldName": "lastModifiedSettings",
+      "fieldType": "DATETIME"
+    }
+  }
+  lastModified: optional AuditStamp
+}

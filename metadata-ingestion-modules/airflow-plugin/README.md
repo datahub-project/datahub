@@ -1,6 +1,6 @@
 # Datahub Airflow Plugin
 
-See [the DataHub Airflow docs](https://datahubproject.io/docs/lineage/airflow) for details.
+See [the DataHub Airflow docs](https://docs.datahub.com/docs/lineage/airflow) for details.
 
 ## Developing
 

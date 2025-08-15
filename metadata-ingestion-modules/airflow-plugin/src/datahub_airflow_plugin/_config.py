@@ -1,13 +1,18 @@
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
-import datahub.emitter.mce_builder as builder
 from airflow.configuration import conf
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from pydantic import root_validator
 from pydantic.fields import Field
 
+import datahub.emitter.mce_builder as builder
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+
 if TYPE_CHECKING:
-    from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
+    from datahub_airflow_plugin.hooks.datahub import (
+        DatahubCompositeHook,
+        DatahubGenericHook,
+    )
 
 
 class DatajobUrl(Enum):
@@ -16,62 +21,73 @@ class DatajobUrl(Enum):
 
 
 class DatahubLineageConfig(ConfigModel):
-    # This class is shared between the lineage backend and the Airflow plugin.
-    # The defaults listed here are only relevant for the lineage backend.
-    # The Airflow plugin's default values come from the fallback values in
-    # the get_lineage_config() function below.
-
-    enabled: bool = True
+    enabled: bool
 
     # DataHub hook connection ID.
     datahub_conn_id: str
 
+    _datahub_connection_ids: List[str]
+
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
-    cluster: str = builder.DEFAULT_FLOW_CLUSTER
+    cluster: str
+
+    # Platform instance to associate with the pipelines and tasks.
+    platform_instance: Optional[str]
 
     # If true, the owners field of the DAG will be captured as a DataHub corpuser.
-    capture_ownership_info: bool = True
+    capture_ownership_info: bool
 
     # If true, the owners field of the DAG will instead be captured as a DataHub corpgroup.
-    capture_ownership_as_group: bool = False
+    capture_ownership_as_group: bool
 
     # If true, the tags field of the DAG will be captured as DataHub tags.
-    capture_tags_info: bool = True
+    capture_tags_info: bool
 
     # If true (default), we'll materialize and un-soft-delete any urns
     # referenced by inlets or outlets.
-    materialize_iolets: bool = True
+    materialize_iolets: bool
 
-    capture_executions: bool = False
+    capture_executions: bool
 
-    datajob_url_link: DatajobUrl = DatajobUrl.TASKINSTANCE
+    datajob_url_link: DatajobUrl
 
-    # Note that this field is only respected by the lineage backend.
-    # The Airflow plugin v2 behaves as if it were set to True.
-    graceful_exceptions: bool = True
-
-    # The remaining config fields are only relevant for the v2 plugin.
-    enable_extractors: bool = True
+    enable_extractors: bool
 
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
-    render_templates: bool = True
+    render_templates: bool
+
+    # Only if true, lineage will be emitted for the DataJobs.
+    enable_datajob_lineage: bool
 
     dag_filter_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
         description="regex patterns for DAGs to ingest",
     )
 
-    log_level: Optional[str] = None
-    debug_emitter: bool = False
+    log_level: Optional[str]
+    debug_emitter: bool
 
-    disable_openlineage_plugin: bool = True
+    disable_openlineage_plugin: bool
 
-    def make_emitter_hook(self) -> "DatahubGenericHook":
+    def make_emitter_hook(self) -> Union["DatahubGenericHook", "DatahubCompositeHook"]:
         # This is necessary to avoid issues with circular imports.
-        from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
+        from datahub_airflow_plugin.hooks.datahub import (
+            DatahubCompositeHook,
+            DatahubGenericHook,
+        )
 
-        return DatahubGenericHook(self.datahub_conn_id)
+        if len(self._datahub_connection_ids) == 1:
+            return DatahubGenericHook(self._datahub_connection_ids[0])
+        else:
+            return DatahubCompositeHook(self._datahub_connection_ids)
+
+    @root_validator(skip_on_failure=True)
+    def split_conn_ids(cls, values: Dict) -> Dict:
+        if not values.get("datahub_conn_id"):
+            raise ValueError("datahub_conn_id is required")
+        conn_ids = values.get("datahub_conn_id", "").split(",")
+        cls._datahub_connection_ids = [conn_id.strip() for conn_id in conn_ids]
+        return values
 
 
 def get_lineage_config() -> DatahubLineageConfig:
@@ -80,6 +96,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     enabled = conf.get("datahub", "enabled", fallback=True)
     datahub_conn_id = conf.get("datahub", "conn_id", fallback="datahub_rest_default")
     cluster = conf.get("datahub", "cluster", fallback=builder.DEFAULT_FLOW_CLUSTER)
+    platform_instance = conf.get("datahub", "platform_instance", fallback=None)
     capture_tags_info = conf.get("datahub", "capture_tags_info", fallback=True)
     capture_ownership_info = conf.get(
         "datahub", "capture_ownership_info", fallback=True
@@ -99,14 +116,16 @@ def get_lineage_config() -> DatahubLineageConfig:
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
-    dag_filter_pattern = AllowDenyPattern.parse_raw(
+    dag_filter_pattern = AllowDenyPattern.model_validate_json(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
+    enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
 
     return DatahubLineageConfig(
         enabled=enabled,
         datahub_conn_id=datahub_conn_id,
         cluster=cluster,
+        platform_instance=platform_instance,
         capture_ownership_info=capture_ownership_info,
         capture_ownership_as_group=capture_ownership_as_group,
         capture_tags_info=capture_tags_info,
@@ -119,4 +138,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         datajob_url_link=datajob_url_link,
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
+        enable_datajob_lineage=enable_lineage,
     )

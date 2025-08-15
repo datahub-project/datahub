@@ -5,18 +5,18 @@ We introduced a few important concepts to the Metadata Service to make authentic
 1. Actor
 2. Authenticator
 3. AuthenticatorChain
-4. AuthenticationFilter
-5. DataHub Access Token
-6. DataHub Token Service
+4. Two-Tier Authentication System
+5. AuthenticationContext
+6. DataHub Access Token
+7. DataHub Token Service
 
 In following sections, we'll take a closer look at each individually.
-
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/metadata-service-auth.png"/>
 </p>
 
-*High level overview of Metadata Service Authentication*
+_High level overview of Metadata Service Authentication_
 
 ## What is an Actor?
 
@@ -57,16 +57,20 @@ There can be many types of Authenticator. For example, there can be Authenticato
 - Verify the authenticity of access tokens (ie. issued by either DataHub itself or a 3rd-party IdP)
 - Authenticate username / password credentials against a remote database (ie. LDAP)
 
-and more! A key goal of the abstraction is *extensibility*: a custom Authenticator can be developed to authenticate requests
+and more! A key goal of the abstraction is _extensibility_: a custom Authenticator can be developed to authenticate requests
 based on an organization's unique needs.
 
-DataHub ships with 2 Authenticators by default:
+DataHub ships with 3 Authenticators by default:
 
 - **DataHubSystemAuthenticator**: Verifies that inbound requests have originated from inside DataHub itself using a shared system identifier
   and secret. This authenticator is always present.
 
 - **DataHubTokenAuthenticator**: Verifies that inbound requests contain a DataHub-issued Access Token (discussed further in the "DataHub Access Token" section below) in their
   'Authorization' header. This authenticator is required if Metadata Service Authentication is enabled.
+
+- **DataHubGuestAuthenticator**: Verifies if guest authentication is enabled with a guest user configured and allows unauthenticated users to perform operations as the designated
+  guest user. By default, this Authenticator is disabled. If this is required, it needs to be explicitly enabled and requires a restart of the datahub GMS service.
+-
 
 ## What is an AuthenticatorChain?
 
@@ -79,22 +83,68 @@ The Authenticator Chain can be configured in the `application.yaml` file under `
 
 ```
 authentication:
-  .... 
+  ....
   authenticators:
-    # Configure the Authenticators in the chain 
+    # Configure the Authenticators in the chain
     - type: com.datahub.authentication.Authenticator1
       ...
-    - type: com.datahub.authentication.Authenticator2 
-    .... 
+    - type: com.datahub.authentication.Authenticator2
+    ....
 ```
 
-## What is the AuthenticationFilter?
+## What is the Two-Tier Authentication System?
 
-The **AuthenticationFilter** is a [servlet filter](http://tutorials.jenkov.com/java-servlets/servlet-filters.html) that authenticates each and requests to the Metadata Service.
-It does so by constructing and invoking an **AuthenticatorChain**, described above.
+DataHub uses a **two-tier authentication system** that decouples authentication extraction from enforcement:
 
-If an Actor is unable to be resolved by the AuthenticatorChain, then a 401 unauthorized exception will be returned by the filter.
+### Tier 1: Authentication Extraction
 
+The **AuthenticationExtractionFilter** is the foundation [servlet filter](http://tutorials.jenkov.com/java-servlets/servlet-filters.html) that runs for **every request** to the Metadata Service. Its single responsibility:
+
+- **Extract Authentication Information**: Constructs and invokes an **AuthenticatorChain** to process credentials
+- **Set Universal Context**: Always establishes an **AuthenticationContext** (see below) for every request
+- **Never Enforce**: Never blocks requests - if authentication fails, it sets an anonymous context and continues
+
+### Tier 2: Authentication Enforcement
+
+The second tier consists of **enforcement mechanisms** that can be implemented in multiple ways:
+
+#### AuthenticationEnforcementFilter
+
+The default enforcement filter that:
+
+- **Selective Processing**: Only processes endpoints requiring authentication (excludes paths like `/health`, `/config`)
+- **Context-Based Decisions**: Reads the **AuthenticationContext** set by the extraction tier
+- **Request Blocking**: Returns 401 unauthorized when authentication is required but not present
+
+#### Additional Enforcement Options
+
+The decoupled design enables flexible enforcement strategies:
+
+- **Multiple Enforcement Filters**: Different areas can have specialized filters (e.g., admin area filter with additional privilege checks)
+- **Controller-Level Enforcement**: Individual controllers can examine the **AuthenticationContext** and enforce their own rules
+- **Custom Authorization Logic**: Business logic can make authentication decisions based on the established context
+
+### Benefits of Two-Tier Architecture
+
+This separation of concerns provides several advantages:
+
+1. **Decoupled Responsibilities**: Authentication extraction is separate from enforcement decisions
+2. **Performance**: Authentication processing happens once per request, regardless of enforcement complexity
+3. **Flexibility**: Multiple enforcement strategies can coexist (filters, controllers, custom logic)
+4. **Extensibility**: New enforcement mechanisms can be added without changing authentication extraction
+5. **Consistency**: All parts of the system have access to the same authentication context
+6. **Progressive Disclosure**: As a side benefit, endpoints can provide different responses based on user authentication status
+
+## What is AuthenticationContext?
+
+The **AuthenticationContext** is a thread-local storage mechanism that bridges the extraction and enforcement tiers. It serves as the **universal authentication state** for the entire request lifecycle:
+
+- **Authentication Object**: Contains the result of the authentication extraction process (Actor + credentials)
+- **Anonymous Support**: Set to anonymous actor when authentication extraction yields no valid credentials
+- **Request Lifecycle**: Automatically established by the extraction tier and cleaned up after each request
+- **Universal Access**: Available to all enforcement mechanisms - filters, controllers, or custom business logic
+
+This context enables **consistent authentication decisions** across all parts of the system. Whether enforcement happens in a servlet filter, a controller method, or custom business logic, they all work with the same authentication information established during the extraction phase.
 
 ## What is a DataHub Token Service? What are Access Tokens?
 
@@ -118,10 +168,56 @@ Today, Access Tokens are granted by the Token Service under two scenarios:
 
 1. **UI Login**: When a user logs into the DataHub UI, for example via [JaaS](guides/jaas.md) or
    [OIDC](guides/sso/configure-oidc-react.md), the `datahub-frontend` service issues an
-   request to the Metadata Service to generate a SESSION token *on behalf of* of the user logging in. (*Only the frontend service is authorized to perform this action).
+   request to the Metadata Service to generate a SESSION token _on behalf of_ of the user logging in. (\*Only the frontend service is authorized to perform this action).
 2. **Generating Personal Access Tokens**: When a user requests to generate a Personal Access Token (described below) from the UI.
 
 > At present, the Token Service supports the symmetric signing method `HS256` to generate and verify tokens.
 
 Now that we're familiar with the concepts, we will talk concretely about what new capabilities have been built on top
-of Metadata Service Authentication. 
+of Metadata Service Authentication.
+
+## How do I enable Guest Authentication
+
+The Guest Authentication configuration is present in two configuration files - the `application.conf` for DataHub frontend, and
+`application.yaml` for GMS. To enable Guest Authentication, set the environment variable `GUEST_AUTHENTICATION_ENABLED` to `true`
+for both the GMS and the frontend service and restart those services.
+If enabled, the default user designated as guest is called `guest`. This user must be explicitly created and privileges assigned
+to control the guest user privileges.
+
+A recommended approach to operationalize guest access is, first, create a designated guest user account with login credentials,
+but keep guest access disabled. This allows you to configure and test the exact permissions this user should have. Once you've
+confirmed the privileges are set correctly, you can then enable guest access, which removes the need for login/credentials
+while maintaining the verified permission settings.
+
+The name of the designated guest user can be changed by defining the env var `GUEST_AUTHENTICATION_USER`.
+The entry URL to authenticate as the guest user is `/public` and can be changed via the env var `GUEST_AUTHENTICATION_PATH`
+
+Here are the relevant portions of the two configs
+
+For the Frontend
+
+```yaml
+#application.conf
+...
+auth.guest.enabled = ${?GUEST_AUTHENTICATION_ENABLED}
+# The name of the guest user id
+auth.guest.user = ${?GUEST_AUTHENTICATION_USER}
+# The path to bypass login page and get logged in as guest
+auth.guest.path = ${?GUEST_AUTHENTICATION_PATH}
+...
+```
+
+and for GMS
+
+```yaml
+#application.yaml
+# Required if enabled is true! A configurable chain of Authenticators
+...
+authenticators:
+  ...
+  - type: com.datahub.authentication.authenticator.DataHubGuestAuthenticator
+    configs:
+      guestUser: ${GUEST_AUTHENTICATION_USER:guest}
+      enabled: ${GUEST_AUTHENTICATION_ENABLED:false}
+...
+```

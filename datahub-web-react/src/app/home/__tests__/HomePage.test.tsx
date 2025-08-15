@@ -1,9 +1,10 @@
-import React from 'react';
-import { render, waitFor, fireEvent } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
-import { HomePage } from '../HomePage';
-import { mocks } from '../../../Mocks';
-import TestPageContainer from '../../../utils/test-utils/TestPageContainer';
+import { fireEvent, render, waitFor } from '@testing-library/react';
+import React from 'react';
+
+import { HomePage } from '@app/home/HomePage';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('HomePage', () => {
     it('renders', async () => {

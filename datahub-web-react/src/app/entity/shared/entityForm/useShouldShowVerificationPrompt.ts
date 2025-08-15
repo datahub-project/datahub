@@ -1,7 +1,8 @@
-import { FormType, FormVerificationAssociation } from '../../../../types.generated';
-import { useEntityData } from '../EntityContext';
-import useGetPromptInfo from '../containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import { getFormAssociation, getFormVerification } from '../containers/profile/sidebar/FormInfo/utils';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import { getFormAssociation, getFormVerification } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+
+import { FormType, FormVerificationAssociation } from '@types';
 
 interface ShowVerificationPromptProps {
     formType?: FormType;
@@ -28,7 +29,7 @@ export default function useShouldShowVerificationPrompt(formUrn: string) {
     const { entityData } = useEntityData();
     const formVerification = getFormVerification(formUrn, entityData);
     const formAssociation = getFormAssociation(formUrn, entityData);
-    const formType = formAssociation?.form.info.type;
+    const formType = formAssociation?.form?.info?.type;
 
     return shouldShowVerificationPrompt({
         formType,

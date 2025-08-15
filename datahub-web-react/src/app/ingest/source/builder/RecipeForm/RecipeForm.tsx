@@ -1,19 +1,24 @@
-import React, { Fragment } from 'react';
-
-import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
-import { get } from 'lodash';
-import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from '@components';
+import { Collapse, Form, Typography, message } from 'antd';
+import { get } from 'lodash';
+import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
+import YAML from 'yamljs';
 
-import { jsonToYaml } from '../../utils';
-import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
-import FormField from './FormField';
-import TestConnectionButton from './TestConnection/TestConnectionButton';
-import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
-import { RecipeField, setFieldValueOnRecipe } from './common';
-import { SourceBuilderState, SourceConfig } from '../types';
-import { RequiredFieldForm } from '../../../../shared/form/RequiredFieldForm';
+import FormField from '@app/ingest/source/builder/RecipeForm/FormField';
+import TestConnectionButton from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import {
+    CONNECTORS_WITH_TEST_CONNECTION,
+    RECIPE_FIELDS,
+    RecipeSections,
+} from '@app/ingest/source/builder/RecipeForm/constants';
+import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { jsonToYaml } from '@app/ingest/source/utils';
+import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+
+import { useListSecretsQuery } from '@graphql/ingestion.generated';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -118,7 +123,7 @@ function RecipeForm(props: Props) {
         },
     });
     const secrets =
-        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+        data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
@@ -143,101 +148,104 @@ function RecipeForm(props: Props) {
     }
 
     return (
-        <RequiredFieldForm
-            layout="vertical"
-            initialValues={getInitialValues(displayRecipe, allFields)}
-            onFinish={onClickNext}
-            form={form}
-            onValuesChange={updateFormValues}
-        >
-            <StyledCollapse defaultActiveKey="0">
-                <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
-                    {fields.map((field, i) => (
-                        <FormField
-                            key={field.name}
-                            field={field}
-                            secrets={secrets}
-                            refetchSecrets={refetchSecrets}
-                            removeMargin={i === fields.length - 1}
-                            updateFormValue={updateFormValue}
-                        />
-                    ))}
-                    {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
-                        <TestConnectionWrapper>
-                            <TestConnectionButton
-                                recipe={displayRecipe}
-                                sourceConfigs={sourceConfigs}
-                                version={version}
+        <>
+            <RequiredFieldForm
+                layout="vertical"
+                initialValues={getInitialValues(displayRecipe, allFields)}
+                form={form}
+                onValuesChange={updateFormValues}
+            >
+                <StyledCollapse defaultActiveKey="0">
+                    <Collapse.Panel
+                        forceRender
+                        header={<SectionHeader icon={<ApiOutlined />} text="Connection" />}
+                        key="0"
+                    >
+                        {fields.map((field, i) => (
+                            <FormField
+                                key={field.name}
+                                field={field}
+                                secrets={secrets}
+                                refetchSecrets={refetchSecrets}
+                                removeMargin={i === fields.length - 1}
+                                updateFormValue={updateFormValue}
                             />
-                        </TestConnectionWrapper>
-                    )}
-                </Collapse.Panel>
-            </StyledCollapse>
-            {filterFields.length > 0 && (
-                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Filter) ? '1' : ''}>
+                        ))}
+                        {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
+                            <TestConnectionWrapper>
+                                <TestConnectionButton
+                                    recipe={displayRecipe}
+                                    sourceConfigs={sourceConfigs}
+                                    version={version}
+                                />
+                            </TestConnectionWrapper>
+                        )}
+                    </Collapse.Panel>
+                </StyledCollapse>
+                {filterFields.length > 0 && (
+                    <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Filter) ? '1' : ''}>
+                        <Collapse.Panel
+                            forceRender
+                            header={
+                                <SectionHeader
+                                    icon={<FilterOutlined />}
+                                    text="Filter"
+                                    sectionTooltip={filterSectionTooltip}
+                                />
+                            }
+                            key="1"
+                        >
+                            {filterFields.map((field, i) => (
+                                <Fragment key={field.name}>
+                                    {shouldRenderFilterSectionHeader(field, i, filterFields) && (
+                                        <Typography.Title level={4}>{field.section}</Typography.Title>
+                                    )}
+                                    <MarginWrapper>
+                                        <FormField
+                                            field={field}
+                                            secrets={secrets}
+                                            refetchSecrets={refetchSecrets}
+                                            removeMargin={i === filterFields.length - 1}
+                                            updateFormValue={updateFormValue}
+                                        />
+                                    </MarginWrapper>
+                                </Fragment>
+                            ))}
+                        </Collapse.Panel>
+                    </StyledCollapse>
+                )}
+                <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
                     <Collapse.Panel
                         forceRender
                         header={
                             <SectionHeader
-                                icon={<FilterOutlined />}
-                                text="Filter"
-                                sectionTooltip={filterSectionTooltip}
+                                icon={<SettingOutlined />}
+                                text="Settings"
+                                sectionTooltip={advancedSectionTooltip}
                             />
                         }
-                        key="1"
+                        key="2"
                     >
-                        {filterFields.map((field, i) => (
-                            <Fragment key={field.name}>
-                                {shouldRenderFilterSectionHeader(field, i, filterFields) && (
-                                    <Typography.Title level={4}>{field.section}</Typography.Title>
-                                )}
-                                <MarginWrapper>
-                                    <FormField
-                                        field={field}
-                                        secrets={secrets}
-                                        refetchSecrets={refetchSecrets}
-                                        removeMargin={i === filterFields.length - 1}
-                                        updateFormValue={updateFormValue}
-                                    />
-                                </MarginWrapper>
-                            </Fragment>
+                        {advancedFields.map((field, i) => (
+                            <FormField
+                                key={field.name}
+                                field={field}
+                                secrets={secrets}
+                                refetchSecrets={refetchSecrets}
+                                removeMargin={i === advancedFields.length - 1}
+                                updateFormValue={updateFormValue}
+                            />
                         ))}
                     </Collapse.Panel>
                 </StyledCollapse>
-            )}
-            <StyledCollapse defaultActiveKey={defaultOpenSections?.includes(RecipeSections.Advanced) ? '2' : ''}>
-                <Collapse.Panel
-                    forceRender
-                    header={
-                        <SectionHeader
-                            icon={<SettingOutlined />}
-                            text="Settings"
-                            sectionTooltip={advancedSectionTooltip}
-                        />
-                    }
-                    key="2"
-                >
-                    {advancedFields.map((field, i) => (
-                        <FormField
-                            key={field.name}
-                            field={field}
-                            secrets={secrets}
-                            refetchSecrets={refetchSecrets}
-                            removeMargin={i === advancedFields.length - 1}
-                            updateFormValue={updateFormValue}
-                        />
-                    ))}
-                </Collapse.Panel>
-            </StyledCollapse>
+            </RequiredFieldForm>
             <ControlsContainer>
-                <Button disabled={isEditing} onClick={goToPrevious}>
+                <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button type="primary" htmlType="submit">
-                    Next
-                </Button>
+                <Button onClick={onClickNext}>Next</Button>
             </ControlsContainer>
-        </RequiredFieldForm>
+        </>
     );
 }
 

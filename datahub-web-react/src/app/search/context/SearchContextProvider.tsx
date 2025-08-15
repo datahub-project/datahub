@@ -1,8 +1,9 @@
 import * as QueryString from 'query-string';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
-import React, { useMemo } from 'react';
-import { SearchContext } from './SearchContext';
-import { updateUrlParam } from '../../shared/updateUrlParam';
+
+import { SearchContext } from '@app/search/context/SearchContext';
+import { updateUrlParam } from '@app/shared/updateUrlParam';
 
 export default function SearchContextProvider({ children }: { children: React.ReactNode }) {
     const history = useHistory();
@@ -15,8 +16,26 @@ export default function SearchContextProvider({ children }: { children: React.Re
         updateUrlParam(history, 'sortOption', selectedOption);
     }
 
+    const localStorageIsFullCardView = localStorage.getItem('isFullViewCard');
+    const [isFullViewCard, setIsFullViewCardState] = useState(
+        localStorageIsFullCardView === null ? true : localStorageIsFullCardView === 'true',
+    );
+
+    const setIsFullViewCard = useCallback((value: boolean) => {
+        setIsFullViewCardState(value);
+        localStorage.setItem('isFullViewCard', value.toString());
+    }, []);
+
     return (
-        <SearchContext.Provider value={{ query, selectedSortOption, setSelectedSortOption }}>
+        <SearchContext.Provider
+            value={{
+                query,
+                selectedSortOption,
+                isFullViewCard,
+                setSelectedSortOption,
+                setIsFullViewCard,
+            }}
+        >
             {children}
         </SearchContext.Provider>
     );

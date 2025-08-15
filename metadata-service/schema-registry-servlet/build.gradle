@@ -2,6 +2,8 @@ plugins {
     id 'java'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
     implementation project(':metadata-service:factories')
     implementation project(':metadata-service:schema-registry-api')
@@ -38,4 +40,5 @@ dependencies {
     testImplementation externalDependency.jacksonCore
     testImplementation externalDependency.jacksonDataBind
     testImplementation externalDependency.springBootStarterWeb
+    testImplementation externalDependency.springBootStarterJetty
 }

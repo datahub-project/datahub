@@ -6,8 +6,8 @@ import static com.linkedin.metadata.Constants.*;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -45,7 +45,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 
 public class TimelineServiceImpl implements TimelineService {
 

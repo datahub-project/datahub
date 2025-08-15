@@ -2,6 +2,8 @@ plugins {
   id 'java'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
   implementation project(':metadata-auth:auth-api')
   implementation project(':metadata-service:auth-impl')

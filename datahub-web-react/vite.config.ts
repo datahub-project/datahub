@@ -1,18 +1,43 @@
+import { codecovVitePlugin } from '@codecov/vite-plugin';
+import react from '@vitejs/plugin-react-swc';
 import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
-import react from '@vitejs/plugin-react';
-import svgr from 'vite-plugin-svgr';
 import macrosPlugin from 'vite-plugin-babel-macros';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
+import svgr from 'vite-plugin-svgr';
+
+const injectMeticulous = () => {
+    if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
+        return null;
+    }
+
+    return {
+        name: 'inject-meticulous',
+        transformIndexHtml: {
+            transform(html) {
+                const scriptTag = `
+                    <script
+                        data-recording-token=${process.env.REACT_APP_METICULOUS_PROJECT_TOKEN}
+                        src="https://snippet.meticulous.ai/v1/meticulous.js">
+                    </script>
+                `;
+
+                return html.replace('</head>', `${scriptTag}\n</head>`);
+            },
+        },
+    };
+};
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode }) => {
+    const { viteStaticCopy } = await import('vite-plugin-static-copy');
+
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
 
+    const themeConfigFile = `./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`;
     // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-    const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
+    const themeConfig = require(themeConfigFile);
 
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
@@ -23,12 +48,15 @@ export default defineConfig(({ mode }) => {
         '/logIn': frontendProxy,
         '/authenticate': frontendProxy,
         '/api/v2/graphql': frontendProxy,
-        '/track': frontendProxy,
+        '/openapi/v1/tracking/track': frontendProxy,
     };
+
+    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
 
     return {
         appType: 'spa',
         plugins: [
+            ...devPlugins,
             react(),
             svgr(),
             macrosPlugin(),
@@ -61,6 +89,12 @@ export default defineConfig(({ mode }) => {
                 ],
                 structured: true,
             }),
+            codecovVitePlugin({
+                enableBundleAnalysis: true,
+                bundleName: 'datahub-react-web',
+                uploadToken: process.env.CODECOV_TOKEN,
+                gitService: 'github',
+            }),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -68,6 +102,11 @@ export default defineConfig(({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            target: 'esnext',
+            minify: 'esbuild',
+            reportCompressedSize: false,
+            // Limit number of worker threads to reduce CPU pressure
+            workers: 3, // default is number of CPU cores
         },
         server: {
             open: false,
@@ -92,9 +131,29 @@ export default defineConfig(({ mode }) => {
             css: true,
             // reporters: ['verbose'],
             coverage: {
+                enabled: true,
+                provider: 'v8',
                 reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],
+                include: ['src/**/*.ts'],
+                reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
+            },
+        },
+        resolve: {
+            alias: {
+                // Root Directories
+                '@src': path.resolve(__dirname, '/src'),
+                '@app': path.resolve(__dirname, '/src/app'),
+                '@conf': path.resolve(__dirname, '/src/conf'),
+                '@components': path.resolve(__dirname, 'src/alchemy-components'),
+                '@graphql': path.resolve(__dirname, 'src/graphql'),
+                '@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),
+                '@images': path.resolve(__dirname, 'src/images'),
+                '@providers': path.resolve(__dirname, 'src/providers'),
+                '@utils': path.resolve(__dirname, 'src/utils'),
+
+                // Specific Files
+                '@types': path.resolve(__dirname, 'src/types.generated.ts'),
             },
         },
     };

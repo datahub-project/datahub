@@ -37,6 +37,7 @@ from datahub.metadata.schema_classes import (
     CorpUserSnapshotClass,
     GroupMembershipClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 # default mapping for attrs
 user_attrs_map: Dict[str, Any] = {}
@@ -160,7 +161,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 
 @dataclasses.dataclass
 class LDAPSourceReport(StaleEntityRemovalSourceReport):
-    dropped_dns: List[str] = dataclasses.field(default_factory=list)
+    dropped_dns: LossyList[str] = dataclasses.field(default_factory=LossyList)
 
     def report_dropped(self, dn: str) -> None:
         self.dropped_dns.append(dn)
@@ -514,5 +515,5 @@ def parse_ldap_dn(input_clean: bytes) -> str:
 
 def get_attr_or_none(
     attrs: Dict[str, Any], key: str, default: Optional[str] = None
-) -> str:
+) -> Optional[str]:
     return attrs[key][0].decode() if attrs.get(key) else default

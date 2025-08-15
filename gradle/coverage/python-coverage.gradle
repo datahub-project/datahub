@@ -1,0 +1,18 @@
+//coverage related args to be passed to pytest
+ext.get_coverage_args = { test_name = "" ->
+
+  def coverage_file_name = "coverage-${project.name}${test_name}.xml"
+
+  /*
+  Tools that aggregate and analyse coverage tools search for the coverage result files. Keeping them under one folder
+  will minimize the time spent searching through the full source tree.
+  */
+  def base_path = "${rootProject.buildDir}/coverage-reports/${rootProject.relativePath(project.projectDir)}/"
+
+  /*
+  --cov=src was added via setup.cfg in many of the python projects but for some reason, was not getting picked up
+  consistently, so adding it explicitly. Centralizing these params would make it easier to adjust them for all python
+  projects (with overrides being in the sub-project build script.)
+   */
+  return "--cov-report xml:${base_path}/${coverage_file_name} --cov=src"
+}

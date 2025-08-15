@@ -1,9 +1,12 @@
+import '@src/App.less';
+
 import React, { useEffect } from 'react';
-import './App.less';
-import { THIRD_PARTY_LOGGING_KEY } from './app/analytics/analytics';
-import { checkAuthStatus } from './app/auth/checkAuthStatus';
-import { AppConfigContext, DEFAULT_APP_CONFIG } from './appConfigContext';
-import { useAppConfigQuery } from './graphql/app.generated';
+
+import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
+import { checkAuthStatus } from '@app/auth/checkAuthStatus';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
+
+import { useAppConfigQuery } from '@graphql/app.generated';
 
 function changeFavicon(src) {
     const links = document.querySelectorAll("link[rel~='icon']") as any;
@@ -32,6 +35,9 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 checkAuthStatus(); // identify in analyitcs once we receive config response
             } else {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'false');
+            }
+            if (appConfigData.appConfig.appVersion) {
+                localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
             }
             changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
         }

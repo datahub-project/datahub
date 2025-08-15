@@ -1,6 +1,8 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.timeline.eventgenerator.ChangeEventGeneratorUtils.*;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.downgradeFieldPath;
+import static com.linkedin.metadata.utils.SchemaFieldUtils.generateSchemaFieldUrn;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
@@ -9,7 +11,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.entity.EntityAspect;
+import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
@@ -179,9 +181,9 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     List<ChangeEvent> propChangeEvents = new ArrayList<>();
     String datasetFieldUrn;
     if (targetField != null) {
-      datasetFieldUrn = getSchemaFieldUrn(datasetUrn, targetField).toString();
+      datasetFieldUrn = generateSchemaFieldUrn(datasetUrn, targetField).toString();
     } else {
-      datasetFieldUrn = getSchemaFieldUrn(datasetUrn, baseField).toString();
+      datasetFieldUrn = generateSchemaFieldUrn(datasetUrn, baseField).toString();
     }
 
     // Description Change.
@@ -266,6 +268,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         SchemaField renamedField =
             findRenamedField(
                 curBaseField,
+                new HashSet<>(baseFields.subList(baseFieldIdx, baseFields.size())),
                 targetFields.subList(targetFieldIdx, targetFields.size()),
                 renamedFields);
         if (renamedField == null) {
@@ -289,7 +292,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         // minor version bump for both.
         SchemaField renamedField =
             findRenamedField(
-                curTargetField, baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
+                curTargetField,
+                new HashSet<>(targetFields.subList(targetFieldIdx, targetFields.size())),
+                baseFields.subList(baseFieldIdx, baseFields.size()),
+                renamedFields);
         if (renamedField == null) {
           processAdd(changeCategories, changeEvents, datasetUrn, curTargetField, auditStamp);
           ++targetFieldIdx;
@@ -348,10 +354,14 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static SchemaField findRenamedField(
-      SchemaField curField, List<SchemaField> targetFields, Set<SchemaField> renamedFields) {
+      SchemaField curField,
+      Set<SchemaField> baseFields,
+      List<SchemaField> targetFields,
+      Set<SchemaField> renamedFields) {
     return targetFields.stream()
         .filter(schemaField -> isRenamed(curField, schemaField))
         .filter(field -> !renamedFields.contains(field))
+        .filter(field -> !baseFields.contains(field)) // Filter out fields that will match later
         .findFirst()
         .orElse(null);
   }
@@ -387,7 +397,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
       changeEvents.add(
           DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
-              .modifier(getSchemaFieldUrn(datasetUrn, baseField).toString())
+              .modifier(generateSchemaFieldUrn(datasetUrn, baseField).toString())
               .entityUrn(datasetUrn.toString())
               .category(ChangeCategory.TECHNICAL_SCHEMA)
               .operation(ChangeOperation.REMOVE)
@@ -395,10 +405,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .description(
                   BACKWARDS_INCOMPATIBLE_DESC
                       + " removal of field: '"
-                      + getFieldPathV1(baseField)
+                      + downgradeFieldPath(baseField)
                       + "'.")
               .fieldPath(baseField.getFieldPath())
-              .fieldUrn(getSchemaFieldUrn(datasetUrn, baseField))
+              .fieldUrn(generateSchemaFieldUrn(datasetUrn, baseField))
               .nullable(baseField.isNullable())
               .modificationCategory(SchemaFieldModificationCategory.OTHER)
               .auditStamp(auditStamp)
@@ -418,7 +428,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
     if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
       changeEvents.add(
           DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
-              .modifier(getSchemaFieldUrn(datasetUrn, targetField).toString())
+              .modifier(generateSchemaFieldUrn(datasetUrn, targetField).toString())
               .entityUrn(datasetUrn.toString())
               .category(ChangeCategory.TECHNICAL_SCHEMA)
               .operation(ChangeOperation.ADD)
@@ -426,10 +436,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
               .description(
                   BACK_AND_FORWARD_COMPATIBLE_DESC
                       + "the newly added field '"
-                      + getFieldPathV1(targetField)
+                      + downgradeFieldPath(targetField)
                       + "'.")
               .fieldPath(targetField.getFieldPath())
-              .fieldUrn(getSchemaFieldUrn(datasetUrn, targetField))
+              .fieldUrn(generateSchemaFieldUrn(datasetUrn, targetField))
               .nullable(targetField.isNullable())
               .auditStamp(auditStamp)
               .modificationCategory(SchemaFieldModificationCategory.OTHER)
@@ -452,7 +462,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       changeEvents.add(
           DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
               .category(ChangeCategory.TECHNICAL_SCHEMA)
-              .modifier(getSchemaFieldUrn(datasetUrn, curBaseField).toString())
+              .modifier(generateSchemaFieldUrn(datasetUrn, curBaseField).toString())
               .entityUrn(datasetUrn.toString())
               .operation(ChangeOperation.MODIFY)
               .semVerChange(SemanticChangeType.MAJOR)
@@ -460,11 +470,11 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
                   String.format(
                       "%s native datatype of the field '%s' changed from '%s' to '%s'.",
                       BACKWARDS_INCOMPATIBLE_DESC,
-                      getFieldPathV1(curTargetField),
+                      downgradeFieldPath(curTargetField),
                       curBaseField.getNativeDataType(),
                       curTargetField.getNativeDataType()))
               .fieldPath(curBaseField.getFieldPath())
-              .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
+              .fieldUrn(generateSchemaFieldUrn(datasetUrn, curBaseField))
               .nullable(curBaseField.isNullable())
               .modificationCategory(SchemaFieldModificationCategory.TYPE_CHANGE)
               .auditStamp(auditStamp)
@@ -476,19 +486,19 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       Urn datasetUrn, SchemaField curBaseField, SchemaField curTargetField, AuditStamp auditStamp) {
     return DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
         .category(ChangeCategory.TECHNICAL_SCHEMA)
-        .modifier(getSchemaFieldUrn(datasetUrn, curBaseField).toString())
+        .modifier(generateSchemaFieldUrn(datasetUrn, curBaseField).toString())
         .entityUrn(datasetUrn.toString())
         .operation(ChangeOperation.MODIFY)
         .semVerChange(SemanticChangeType.MINOR)
         .description(
             BACK_AND_FORWARD_COMPATIBLE_DESC
                 + "renaming of the field '"
-                + getFieldPathV1(curBaseField)
+                + downgradeFieldPath(curBaseField)
                 + " to "
-                + getFieldPathV1(curTargetField)
+                + downgradeFieldPath(curTargetField)
                 + "'.")
         .fieldPath(curBaseField.getFieldPath())
-        .fieldUrn(getSchemaFieldUrn(datasetUrn, curBaseField))
+        .fieldUrn(generateSchemaFieldUrn(datasetUrn, curBaseField))
         .nullable(curBaseField.isNullable())
         .modificationCategory(SchemaFieldModificationCategory.RENAME)
         .auditStamp(auditStamp)
@@ -515,8 +525,8 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       SchemaMetadata targetSchema,
       Urn datasetUrn,
       AuditStamp auditStamp) {
+    List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
     if (changeCategories != null && changeCategories.contains(ChangeCategory.TECHNICAL_SCHEMA)) {
-      List<ChangeEvent> primaryKeyChangeEvents = new ArrayList<>();
       Set<String> basePrimaryKeys =
           (baseSchema != null && baseSchema.getPrimaryKeys() != null)
               ? new HashSet<>(baseSchema.getPrimaryKeys())
@@ -529,51 +539,53 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
           basePrimaryKeys.stream()
               .filter(key -> !targetPrimaryKeys.contains(key))
               .collect(Collectors.toSet());
+      for (String removedBaseKeyField : removedBaseKeys) {
+        Urn schemaFieldUrn = generateSchemaFieldUrn(datasetUrn, removedBaseKeyField);
+        primaryKeyChangeEvents.add(
+            DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
+                .category(ChangeCategory.TECHNICAL_SCHEMA)
+                .modifier(schemaFieldUrn.toString())
+                .fieldUrn(schemaFieldUrn)
+                .fieldPath(removedBaseKeyField)
+                .entityUrn(datasetUrn.toString())
+                .operation(ChangeOperation.MODIFY)
+                .semVerChange(SemanticChangeType.MAJOR)
+                .description(
+                    BACKWARDS_INCOMPATIBLE_DESC
+                        + " removal of the primary key field '"
+                        + removedBaseKeyField
+                        + "'")
+                .auditStamp(auditStamp)
+                .modificationCategory(SchemaFieldModificationCategory.OTHER)
+                .build());
+      }
 
       Set<String> addedTargetKeys =
           targetPrimaryKeys.stream()
               .filter(key -> !basePrimaryKeys.contains(key))
               .collect(Collectors.toSet());
-      if (!removedBaseKeys.isEmpty() || !addedTargetKeys.isEmpty()) {
-        String keyChangeTarget;
-        // Just pick the first schema field we can find for the change event
-        if (!removedBaseKeys.isEmpty()) {
-          keyChangeTarget = removedBaseKeys.stream().findFirst().get();
-        } else {
-          keyChangeTarget = addedTargetKeys.stream().findFirst().get();
-        }
-
-        StringBuilder description =
-            new StringBuilder(BACKWARDS_INCOMPATIBLE_DESC + " a primary key constraint change.");
-        if (!removedBaseKeys.isEmpty()) {
-          description.append(" The following fields were removed:");
-          removedBaseKeys.forEach(
-              removedBaseKey -> description.append(" '").append(removedBaseKey).append("'"));
-          description.append(".");
-        }
-        if (!addedTargetKeys.isEmpty()) {
-          description.append(" The following fields were added:");
-          addedTargetKeys.forEach(
-              addedTargetKey -> description.append(" '").append(addedTargetKey).append("'"));
-          description.append(".");
-        }
+      for (String addedTargetKeyField : addedTargetKeys) {
+        Urn schemaFieldUrn = generateSchemaFieldUrn(datasetUrn, addedTargetKeyField);
         primaryKeyChangeEvents.add(
             DatasetSchemaFieldChangeEvent.schemaFieldChangeEventBuilder()
                 .category(ChangeCategory.TECHNICAL_SCHEMA)
-                .fieldUrn(getSchemaFieldUrn(datasetUrn, keyChangeTarget))
-                .fieldPath(keyChangeTarget)
-                .modifier(getSchemaFieldUrn(datasetUrn, keyChangeTarget).toString())
+                .modifier(generateSchemaFieldUrn(datasetUrn, addedTargetKeyField).toString())
+                .fieldUrn(schemaFieldUrn)
+                .fieldPath(addedTargetKeyField)
                 .entityUrn(datasetUrn.toString())
                 .operation(ChangeOperation.MODIFY)
                 .semVerChange(SemanticChangeType.MAJOR)
-                .description(description.toString())
-                .modificationCategory(SchemaFieldModificationCategory.OTHER)
+                .description(
+                    BACKWARDS_INCOMPATIBLE_DESC
+                        + " addition of the primary key field '"
+                        + addedTargetKeyField
+                        + "'")
                 .auditStamp(auditStamp)
+                .modificationCategory(SchemaFieldModificationCategory.OTHER)
                 .build());
-        return primaryKeyChangeEvents;
       }
     }
-    return Collections.emptyList();
+    return primaryKeyChangeEvents;
   }
 
   @Override

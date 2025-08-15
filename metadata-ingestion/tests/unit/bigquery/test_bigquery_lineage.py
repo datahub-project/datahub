@@ -144,7 +144,6 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
 
 
 def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
-
     pipeline_context = PipelineContext(run_id="bq_gcs_lineage")
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -233,13 +232,12 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
         else []
         for fine_grained_lineage in upstream_lineage.fineGrainedLineages
     ]
-    assert all(
-        urn in expected_schema_field_urns for urn in actual_schema_field_urns
-    ), "Some expected column URNs are missing from fine grained lineage."
+    assert all(urn in expected_schema_field_urns for urn in actual_schema_field_urns), (
+        "Some expected column URNs are missing from fine grained lineage."
+    )
 
 
 def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_instance):
-
     pipeline_context = PipelineContext(run_id="bq_gcs_lineage")
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -288,9 +286,9 @@ def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_inst
     assert len(upstream_lineage.upstreams) == 3
     # Extracting dataset URNs from upstream_lineage.upstreams
     actual_dataset_urns = [upstream.dataset for upstream in upstream_lineage.upstreams]
-    assert all(
-        urn in actual_dataset_urns for urn in expected_dataset_urns
-    ), "Some expected dataset URNs are missing from upstream lineage."
+    assert all(urn in actual_dataset_urns for urn in expected_dataset_urns), (
+        "Some expected dataset URNs are missing from upstream lineage."
+    )
     assert upstream_lineage.fineGrainedLineages is None
 
 

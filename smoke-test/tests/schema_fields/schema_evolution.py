@@ -1,14 +1,14 @@
 import time
 from enum import Enum
 
-import datahub.metadata.schema_classes as models
 import pytest
+from tenacity import retry, stop_after_delay, wait_fixed
+
+import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from tenacity import retry, stop_after_delay, wait_fixed
-
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
 _MAX_DELAY_UNTIL_WRITES_VISIBLE_SECS = 30
@@ -70,7 +70,7 @@ def test_setup(auth_session, graph_client):
 
     ingest_file_via_rest(
         auth_session, "tests/schema_fields/schema_field_side_effect_data.json"
-    ).config.run_id
+    )
 
     assert "schemaMetadata" in get_aspects_for_entity(
         session,

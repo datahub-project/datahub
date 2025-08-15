@@ -347,10 +347,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -361,10 +361,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.type)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=string].type)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.type)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=string].type)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -375,10 +375,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -389,10 +389,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -403,10 +403,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -440,10 +440,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "MODIFY",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id)",
                 "nullable": true,
                 "modificationCategory": "RENAME"
               },
@@ -454,10 +454,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id3)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id3)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -468,10 +468,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "REMOVE",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -491,10 +491,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "MODIFY",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id2)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id2)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id2",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id2)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id2)",
                 "nullable": true,
                 "modificationCategory": "RENAME"
               },
@@ -505,10 +505,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "REMOVE",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id3)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.id3)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },
@@ -519,10 +519,10 @@
               "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD)",
               "category": "TECHNICAL_SCHEMA",
               "operation": "ADD",
-              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name)",
               "parameters": {
                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
-                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),service.provider.name)",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV2,PROD),[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name)",
                 "nullable": true,
                 "modificationCategory": "OTHER"
               },

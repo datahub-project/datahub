@@ -1,16 +1,20 @@
 import { Drawer } from 'antd';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import DrawerHeader from './DrawerHeader';
-import FieldHeader from './FieldHeader';
-import FieldDescription from './FieldDescription';
-import { EditableSchemaMetadata, SchemaField } from '../../../../../../../../types.generated';
-import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
-import FieldUsageStats from './FieldUsageStats';
-import FieldTags from './FieldTags';
-import FieldTerms from './FieldTerms';
-import FieldProperties from './FieldProperties';
-import FieldAttribute from './FieldAttribute';
+
+import { pathMatchesNewPath } from '@app/entity/dataset/profile/schema/utils/utils';
+import DrawerHeader from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerHeader';
+import FieldAttribute from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldAttribute';
+import FieldDescription from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldDescription';
+import FieldHeader from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
+import FieldProperties from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldProperties';
+import FieldTags from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTags';
+import FieldTerms from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldTerms';
+import FieldUsageStats from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldUsageStats';
+import useGetSchemaColumnProperties from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/useGetSchemaColumnProperties';
+import SidebarStructuredPropsSection from '@src/app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+
+import { EditableSchemaMetadata, SchemaField } from '@types';
 
 const StyledDrawer = styled(Drawer)`
     position: absolute;
@@ -47,9 +51,10 @@ export default function SchemaFieldDrawer({
     );
     const expandedField =
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? schemaFields[expandedFieldIndex] : undefined;
-    const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+    const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
         pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
+    const schemaColumnProperties = useGetSchemaColumnProperties();
 
     return (
         <StyledDrawer
@@ -75,7 +80,13 @@ export default function SchemaFieldDrawer({
                         <FieldUsageStats expandedField={expandedField} />
                         <FieldTags expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
                         <FieldTerms expandedField={expandedField} editableSchemaMetadata={editableSchemaMetadata} />
-                        <FieldProperties expandedField={expandedField} />
+                        <SidebarStructuredPropsSection
+                            properties={{ schemaField: expandedField, schemaColumnProperties }}
+                        />
+                        <FieldProperties
+                            expandedField={expandedField}
+                            schemaColumnProperties={schemaColumnProperties}
+                        />
                         <FieldAttribute expandedField={expandedField} />
                     </MetadataSections>
                 </>

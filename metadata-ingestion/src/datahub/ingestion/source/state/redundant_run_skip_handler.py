@@ -48,9 +48,9 @@ class RedundantRunSkipHandler(
     ):
         self.source = source
         self.state_provider = source.state_provider
-        self.stateful_ingestion_config: Optional[
-            StatefulIngestionConfig
-        ] = config.stateful_ingestion
+        self.stateful_ingestion_config: Optional[StatefulIngestionConfig] = (
+            config.stateful_ingestion
+        )
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self._job_id = self._init_job_id()
@@ -69,7 +69,7 @@ class RedundantRunSkipHandler(
         platform: Optional[str] = None
         source_class = type(self.source)
         if hasattr(source_class, "get_platform_name"):
-            platform = source_class.get_platform_name()  # type: ignore
+            platform = source_class.get_platform_name()
 
         # Default name for everything else
         job_name_suffix = self.get_job_name_suffix()
@@ -145,8 +145,7 @@ class RedundantRunSkipHandler(
             )
 
             logger.debug(
-                f"{self.job_id} : Last run start, end times:"
-                f"({last_run_time_window})"
+                f"{self.job_id} : Last run start, end times:({last_run_time_window})"
             )
 
             # If current run's time window is subset of last run's time window, then skip.
@@ -212,8 +211,7 @@ class RedundantRunSkipHandler(
             )
 
         self.log(
-            "Adjusted start, end times: "
-            f"({suggested_start_time}, {suggested_end_time})"
+            f"Adjusted start, end times: ({suggested_start_time}, {suggested_end_time})"
         )
         return (suggested_start_time, suggested_end_time)
 

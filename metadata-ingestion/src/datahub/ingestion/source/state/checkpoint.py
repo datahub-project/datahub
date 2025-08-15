@@ -12,6 +12,7 @@ from typing import Callable, Generic, Optional, Type, TypeVar
 import pydantic
 
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata.schema_classes import (
     DatahubIngestionCheckpointClass,
     IngestionCheckpointStateClass,
@@ -144,7 +145,7 @@ class Checkpoint(Generic[StateType]):
                 )
                 logger.info(
                     f"Successfully constructed last checkpoint state for job {job_name} "
-                    f"with timestamp {datetime.fromtimestamp(checkpoint_aspect.timestampMillis/1000, tz=timezone.utc)}"
+                    f"with timestamp {parse_ts_millis(checkpoint_aspect.timestampMillis)}"
                 )
                 return checkpoint
         return None

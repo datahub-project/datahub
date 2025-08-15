@@ -15,7 +15,7 @@ query getRootGlossaryNodes {
         start
         total
         nodes {
-            ...glossaryNode
+            ...rootGlossaryNodeWithFourLayers
         }
     }
 }

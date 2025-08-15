@@ -1,20 +1,23 @@
 import * as React from 'react';
-import { Domain, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { useGetDomainQuery } from '../../../graphql/domain.generated';
-import { DomainEntitiesTab } from './DomainEntitiesTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import DataProductsTab from './DataProductsTab/DataProductsTab';
-import { EntityProfileTab } from '../shared/constants';
-import DomainIcon from '../../domain/DomainIcon';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import DataProductsTab from '@app/entity/domain/DataProductsTab/DataProductsTab';
+import { DomainEntitiesTab } from '@app/entity/domain/DomainEntitiesTab';
+import { Preview } from '@app/entity/domain/preview/Preview';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfileTab } from '@app/entity/shared/constants';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+
+import { useGetDomainQuery } from '@graphql/domain.generated';
+import { Domain, EntityType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Domain entity.
@@ -59,6 +62,8 @@ export class DomainEntity implements Entity<Domain> {
     isLineageEnabled = () => false;
 
     getAutoCompleteFieldName = () => 'name';
+
+    getGraphName = () => 'domain';
 
     getPathName = () => 'domain';
 
@@ -109,6 +114,9 @@ export class DomainEntity implements Entity<Domain> {
         },
         {
             component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

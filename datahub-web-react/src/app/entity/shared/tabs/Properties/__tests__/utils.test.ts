@@ -1,6 +1,6 @@
-import { getTestEntityRegistry } from '../../../../../../utils/test-utils/TestPageContainer';
-import { PropertyRow } from '../types';
-import { filterStructuredProperties } from '../utils';
+import { PropertyRow } from '@app/entity/shared/tabs/Properties/types';
+import { filterStructuredProperties } from '@app/entity/shared/tabs/Properties/utils';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 describe('filterSchemaRows', () => {
     const testEntityRegistry = getTestEntityRegistry();

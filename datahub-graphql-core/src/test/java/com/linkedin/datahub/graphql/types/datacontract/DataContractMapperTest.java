@@ -79,7 +79,7 @@ public class DataContractMapperTest {
                 Constants.DATA_CONTRACT_STATUS_ASPECT_NAME,
                 envelopedDataContractStatus)));
 
-    DataContract dataContract = DataContractMapper.mapContract(entityResponse);
+    DataContract dataContract = DataContractMapper.mapContract(null, entityResponse);
     assertNotNull(dataContract);
     assertEquals(dataContract.getUrn(), urn.toString());
     assertEquals(dataContract.getType(), EntityType.DATA_CONTRACT);
@@ -136,7 +136,7 @@ public class DataContractMapperTest {
                 Constants.DATA_CONTRACT_STATUS_ASPECT_NAME,
                 envelopedDataContractStatus)));
 
-    DataContract dataContract = DataContractMapper.mapContract(entityResponse);
+    DataContract dataContract = DataContractMapper.mapContract(null, entityResponse);
     assertNotNull(dataContract);
     assertEquals(dataContract.getUrn(), urn.toString());
     assertEquals(dataContract.getType(), EntityType.DATA_CONTRACT);
@@ -167,7 +167,7 @@ public class DataContractMapperTest {
             ImmutableMap.of(
                 Constants.DATA_CONTRACT_PROPERTIES_ASPECT_NAME, envelopedDataContractProperties)));
 
-    DataContract dataContract = DataContractMapper.mapContract(entityResponse);
+    DataContract dataContract = DataContractMapper.mapContract(null, entityResponse);
     assertNotNull(dataContract);
     assertEquals(dataContract.getUrn(), urn.toString());
     assertEquals(dataContract.getType(), EntityType.DATA_CONTRACT);

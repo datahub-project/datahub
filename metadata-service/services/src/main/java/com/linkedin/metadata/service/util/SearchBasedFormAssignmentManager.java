@@ -35,8 +35,7 @@ public class SearchBasedFormAssignmentManager {
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME,
           Constants.ML_PRIMARY_KEY_ENTITY_NAME,
-          Constants.DATA_PRODUCT_ENTITY_NAME,
-          Constants.SCHEMA_FIELD_ENTITY_NAME);
+          Constants.DATA_PRODUCT_ENTITY_NAME);
 
   public static void apply(
       OperationContext opContext,
@@ -62,6 +61,7 @@ public class SearchBasedFormAssignmentManager {
                 formFilters.getFilter(),
                 scrollId,
                 "5m",
+                List.of(),
                 batchFormEntityCount);
 
         if (!results.hasEntities()

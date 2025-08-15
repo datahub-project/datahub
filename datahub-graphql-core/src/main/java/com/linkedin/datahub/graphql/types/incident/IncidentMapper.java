@@ -6,24 +6,34 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
+import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Incident;
+import com.linkedin.datahub.graphql.generated.IncidentPriority;
 import com.linkedin.datahub.graphql.generated.IncidentSource;
 import com.linkedin.datahub.graphql.generated.IncidentSourceType;
+import com.linkedin.datahub.graphql.generated.IncidentStage;
 import com.linkedin.datahub.graphql.generated.IncidentState;
 import com.linkedin.datahub.graphql.generated.IncidentStatus;
 import com.linkedin.datahub.graphql.generated.IncidentType;
+import com.linkedin.datahub.graphql.generated.OwnerType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.incident.IncidentAssignee;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** Maps a GMS {@link EntityResponse} to a GraphQL incident. */
+@Slf4j
 public class IncidentMapper {
 
   public static Incident map(@Nullable QueryContext context, final EntityResponse entityResponse) {
@@ -41,9 +51,13 @@ public class IncidentMapper {
       result.setCustomType(info.getCustomType(GetMode.NULL));
       result.setTitle(info.getTitle(GetMode.NULL));
       result.setDescription(info.getDescription(GetMode.NULL));
-      result.setPriority(info.getPriority(GetMode.NULL));
+      result.setPriority(mapPriority(info.getPriority(GetMode.NULL)));
+      result.setAssignees(mapAssignees(info.getAssignees(GetMode.NULL)));
       // TODO: Support multiple entities per incident.
       result.setEntity(UrnToEntityMapper.map(context, info.getEntities().get(0)));
+      if (info.hasStartedAt()) {
+        result.setStartedAt(info.getStartedAt());
+      }
       if (info.hasSource()) {
         result.setSource(mapIncidentSource(context, info.getSource()));
       }
@@ -71,7 +85,54 @@ public class IncidentMapper {
     result.setState(IncidentState.valueOf(incidentStatus.getState().name()));
     result.setMessage(incidentStatus.getMessage(GetMode.NULL));
     result.setLastUpdated(AuditStampMapper.map(context, incidentStatus.getLastUpdated()));
+    if (incidentStatus.hasStage()) {
+      result.setStage(IncidentStage.valueOf(incidentStatus.getStage().toString()));
+    }
     return result;
+  }
+
+  @Nullable
+  private static IncidentPriority mapPriority(@Nullable final Integer priority) {
+    if (priority == null) {
+      return null;
+    }
+    switch (priority) {
+      case 3:
+        return IncidentPriority.LOW;
+      case 2:
+        return IncidentPriority.MEDIUM;
+      case 1:
+        return IncidentPriority.HIGH;
+      case 0:
+        return IncidentPriority.CRITICAL;
+      default:
+        log.error(String.format("Invalid priority value: %s", priority));
+        return null;
+    }
+  }
+
+  @Nullable
+  private static List<OwnerType> mapAssignees(@Nullable final List<IncidentAssignee> assignees) {
+    if (assignees == null) {
+      return null;
+    }
+    return assignees.stream().map(IncidentMapper::mapAssignee).collect(Collectors.toList());
+  }
+
+  private static OwnerType mapAssignee(final IncidentAssignee assignee) {
+    Urn actor = assignee.getActor();
+    if (actor.getEntityType().equals(Constants.CORP_USER_ENTITY_NAME)) {
+      final CorpUser user = new CorpUser();
+      user.setUrn(actor.toString());
+      user.setType(EntityType.CORP_USER);
+      return user;
+    } else if (actor.getEntityType().equals(Constants.CORP_GROUP_ENTITY_NAME)) {
+      final CorpGroup group = new CorpGroup();
+      group.setUrn(actor.toString());
+      group.setType(EntityType.CORP_GROUP);
+      return group;
+    }
+    throw new IllegalArgumentException(String.format("Invalid assignee urn: %s", actor));
   }
 
   private static IncidentSource mapIncidentSource(

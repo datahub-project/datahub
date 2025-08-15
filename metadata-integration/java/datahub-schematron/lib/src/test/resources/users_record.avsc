@@ -1,0 +1,195 @@
+{
+  "type": "record",
+  "name": "users_record",
+  "namespace": "hoodie.users",
+  "fields": [
+    {
+      "name": "_hoodie_commit_time",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "_hoodie_commit_seqno",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "_hoodie_record_key",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "_hoodie_partition_path",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "_hoodie_file_name",
+      "type": [
+        "null",
+        "string"
+      ],
+      "doc": "",
+      "default": null
+    },
+    {
+      "name": "user_id",
+      "type": "string"
+    },
+    {
+      "name": "name",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    },
+    {
+      "name": "address",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "address",
+          "namespace": "hoodie.users.users_record",
+          "fields": [
+            {
+              "name": "street",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "city",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "country",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "postal_code",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "created_at",
+              "type": [
+                "null",
+                {
+                  "type": "long",
+                  "logicalType": "timestamp-micros"
+                }
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "contact",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "contact",
+          "namespace": "hoodie.users.users_record",
+          "fields": [
+            {
+              "name": "email",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            },
+            {
+              "name": "phone",
+              "type": [
+                "null",
+                "string"
+              ],
+              "default": null
+            }
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "created_at",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "updated_at",
+      "type": [
+        "null",
+        {
+          "type": "long",
+          "logicalType": "timestamp-micros"
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "props",
+      "type": [
+        "null",
+        {
+          "type": "map",
+          "values": [
+            "null",
+            "int"
+          ]
+        }
+      ],
+      "default": null
+    },
+    {
+      "name": "country",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

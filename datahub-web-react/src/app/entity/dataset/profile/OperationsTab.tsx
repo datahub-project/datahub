@@ -3,25 +3,22 @@ import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
-import {
-    DataProcessInstanceRunResultType,
-    DataProcessRunStatus,
-    EntityType,
-    RelationshipDirection,
-} from '../../../../types.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { notEmpty } from '@app/entity/shared/utils';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '../../../ingest/source/utils';
-import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
-import { ANTD_GRAY } from '../../shared/constants';
-import { useEntityData } from '../../shared/EntityContext';
-import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
-import { scrollToTop } from '../../../shared/searchUtils';
-import { formatDuration } from '../../../shared/formatDuration';
-import { notEmpty } from '../../shared/utils';
+} from '@app/ingest/source/utils';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { formatDuration } from '@app/shared/formatDuration';
+import { scrollToTop } from '@app/shared/searchUtils';
+
+import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '@graphql/dataset.generated';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus, EntityType, RelationshipDirection } from '@types';
+
+import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -137,7 +134,10 @@ export const OperationsTab = () => {
     const [page, setPage] = useState(1);
 
     // Fetch data across all siblings.
-    const allUrns = [urn, ...(entityData?.siblings?.siblings || []).map((sibling) => sibling?.urn).filter(notEmpty)];
+    const allUrns = [
+        urn,
+        ...(entityData?.siblingsSearch?.searchResults || []).map((sibling) => sibling.entity.urn).filter(notEmpty),
+    ];
     const loadings: boolean[] = [];
     const datas: GetDatasetRunsQuery[] = [];
     allUrns.forEach((entityUrn) => {
@@ -195,8 +195,8 @@ export const OperationsTab = () => {
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
             duration: run?.state?.[0]?.durationMillis,
-            inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
             parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));

@@ -1,7 +1,6 @@
 package security;
 
 import com.google.common.base.Preconditions;
-import java.util.Collections;
 import javax.annotation.Nonnull;
 import javax.naming.AuthenticationException;
 import javax.security.auth.callback.Callback;
@@ -11,27 +10,31 @@ import javax.security.auth.callback.PasswordCallback;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jetty.jaas.JAASLoginService;
-import org.eclipse.jetty.jaas.PropertyUserStoreManager;
-import play.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class AuthenticationManager {
+  private static final Logger log = LoggerFactory.getLogger(AuthenticationManager.class);
 
-  private AuthenticationManager(boolean verbose) {}
+  private AuthenticationManager() {} // Prevent instantiation
 
   public static void authenticateJaasUser(@Nonnull String userName, @Nonnull String password)
       throws Exception {
     Preconditions.checkArgument(!StringUtils.isAnyEmpty(userName), "Username cannot be empty");
-    JAASLoginService jaasLoginService = new JAASLoginService("WHZ-Authentication");
-    PropertyUserStoreManager propertyUserStoreManager = new PropertyUserStoreManager();
-    propertyUserStoreManager.start();
-    jaasLoginService.setBeans(Collections.singletonList(propertyUserStoreManager));
-    JAASLoginService.INSTANCE.set(jaasLoginService);
+
     try {
-      LoginContext lc =
+      // Create a login context with our custom callback handler
+      LoginContext loginContext =
           new LoginContext("WHZ-Authentication", new WHZCallbackHandler(userName, password));
-      lc.login();
+
+      // Attempt login
+      loginContext.login();
+
+      // If we get here, authentication succeeded
+      log.debug("Authentication succeeded for user: {}", userName);
+
     } catch (LoginException le) {
+      log.info("Authentication failed for user {}: {}", userName, le.getMessage());
       AuthenticationException authenticationException =
           new AuthenticationException(le.getMessage());
       authenticationException.setRootCause(le);
@@ -40,8 +43,8 @@ public class AuthenticationManager {
   }
 
   private static class WHZCallbackHandler implements CallbackHandler {
-    private String password;
-    private String username;
+    private final String password;
+    private final String username;
 
     private WHZCallbackHandler(@Nonnull String username, @Nonnull String password) {
       this.username = username;
@@ -50,17 +53,13 @@ public class AuthenticationManager {
 
     @Override
     public void handle(@Nonnull Callback[] callbacks) {
-      NameCallback nc = null;
-      PasswordCallback pc = null;
       for (Callback callback : callbacks) {
-        Logger.debug(
-            "The submitted callback is of type: " + callback.getClass() + " : " + callback);
         if (callback instanceof NameCallback) {
-          nc = (NameCallback) callback;
-          nc.setName(this.username);
+          NameCallback nc = (NameCallback) callback;
+          nc.setName(username);
         } else if (callback instanceof PasswordCallback) {
-          pc = (PasswordCallback) callback;
-          pc.setPassword(this.password.toCharArray());
+          PasswordCallback pc = (PasswordCallback) callback;
+          pc.setPassword(password.toCharArray());
         }
       }
     }

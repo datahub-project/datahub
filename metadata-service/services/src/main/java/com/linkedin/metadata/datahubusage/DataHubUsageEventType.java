@@ -2,6 +2,7 @@ package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
+/** See event.ts for frontend side events */
 @Getter
 public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),
@@ -78,7 +79,67 @@ public enum DataHubUsageEventType {
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
   EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
   EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent"),
-  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent");
+  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent"),
+  CREATE_STRUCTURED_PROPERTY_CLICK_EVENT("CreateStructuredPropertyClickEvent"),
+  CREATE_STRUCTURED_PROPERTY_EVENT("CreateStructuredPropertyEvent"),
+  EDIT_STRUCTURED_PROPERTY_EVENT("EditStructuredPropertyEvent"),
+  DELETE_STRUCTURED_PROPERTY_EVENT("DeleteStructuredPropertyEvent"),
+  VIEW_STRUCTURED_PROPERTY_EVENT("ViewStructuredPropertyEvent"),
+  APPLY_STRUCTURED_PROPERTY_EVENT("ApplyStructuredPropertyEvent"),
+  UPDATE_STRUCTURED_PROPERTY_ON_ASSET_EVENT("UpdateStructuredPropertyOnAssetEvent"),
+  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent"),
+  CLICK_DOC_REQUEST_CTA("ClickDocRequestCTA"),
+  SHOW_THEME_V2_EVENT("ShowV2ThemeEvent"),
+  REVERT_THEME_V2_EVENT("RevertV2ThemeEvent"),
+  INTRODUCE_YOURSELF_VIEW_EVENT("IntroduceYourselfViewEvent"),
+  INTRODUCE_YOURSELF_SUBMIT_EVENT("IntroduceYourselfSubmitEvent"),
+  INTRODUCE_YOURSELF_SKIP_EVENT("IntroduceYourselfSkipEvent"),
+  EXPAND_LINEAGE_EVENT("ExpandLineageEvent"),
+  CONTRACT_LINEAGE_EVENT("ContractLineageEvent"),
+  SHOW_HIDE_LINEAGE_COLUMNS_EVENT("ShowHideLineageColumnsEvent"),
+  SEARCH_LINEAGE_COLUMNS_EVENT("SearchLineageColumnsEvent"),
+  FILTER_LINEAGE_COLUMNS_EVENT("FilterLineageColumnsEvent"),
+  DRILL_DOWN_LINEAGE_EVENT("DrillDownLineageEvent"),
+  SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
+  LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
+  UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
+  HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
+  SEARCH_BAR_FILTER("SearchBarFilterEvent"),
+  FILTER_STATS_PAGE_EVENT("FilterStatsPageEvent"),
+  FILTER_STATS_CHART_LOOK_BACK_EVENT("FilterStatsChartLookBackEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_CREATE_EVENT("HomePageTemplateModuleCreateEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_ADD_EVENT("HomePageTemplateModuleAddEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_UPDATE_EVENT("HomePageTemplateModuleUpdateEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_DELETE_EVENT("HomePageTemplateModuleDeleteEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MOVE_EVENT("HomePageTemplateModuleMoveEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_CREATE_OPEN_EVENT("HomePageTemplateModuleModalCreateOpenEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_EDIT_OPEN_EVENT("HomePageTemplateModuleModalEditOpenEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_MODAL_CANCEL_EVENT("HomePageTemplateModuleModalCancelEvent"),
+  HOME_PAGE_TEMPLATE_GLOBAL_TEMPLATE_EDITING_START_EVENT(
+      "HomePageTemplateGlobalTemplateEditingStartEvent"),
+  HOME_PAGE_TEMPLATE_GLOBAL_TEMPLATE_EDITING_DONE_EVENT(
+      "HomePageTemplateGlobalTemplateEditingDoneEvent"),
+  HOME_PAGE_TEMPLATE_RESET_TO_GLOBAL_TEMPLATE_EVENT("HomePageTemplateResetToGlobalTemplateEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_ASSET_CLICK_EVENT("HomePageTemplateModuleAssetClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_EXPAND_CLICK_EVENT("HomePageTemplateModuleExpandClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_VIEW_ALL_CLICK_EVENT("HomePageTemplateModuleViewAllClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_LINK_CLICK_EVENT("HomePageTemplateModuleLinkClickEvent"),
+  HOME_PAGE_TEMPLATE_MODULE_ANNOUNCEMENT_DISMISS_EVENT(
+      "HomePageTemplateModuleAnnouncementDismissEvent"),
+  // Not replicated in frontend, represents generic event from backend
+  CREATE_USER_EVENT("CreateUserEvent"),
+  UPDATE_USER_EVENT("UpdateUserEvent"),
+  UPDATE_ASPECT_EVENT("UpdateAspectEvent"),
+  ENTITY_EVENT("EntityEvent"),
+  FAILED_LOGIN_EVENT("FailedLogInEvent"),
+  DELETE_POLICY_EVENT("DeletePolicyEvent"),
+  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
+  WELCOME_TO_DATAHUB_MODAL_VIEW_EVENT("WelcomeToDataHubModalViewEvent"),
+  WELCOME_TO_DATAHUB_MODAL_INTERACT_EVENT("WelcomeToDataHubModalInteractEvent"),
+  WELCOME_TO_DATAHUB_MODAL_EXIT_EVENT("WelcomeToDataHubModalExitEvent"),
+  WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
+      "WelcomeToDataHubModalClickViewDocumentationEvent"),
+  PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent");
 
   private final String type;
 

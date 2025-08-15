@@ -32,6 +32,6 @@ sink:
 
 Note that a `.` is used to denote nested fields in the YAML recipe.
 
-| Field    | Required | Default | Description               |
-| -------- | -------- | ------- | ------------------------- |
-| filename | ✅       |         | Path to file to write to. |
+| Field | Required | Default | Description               |
+| ----- | -------- | ------- | ------------------------- |
+| path  | ✅       |         | Path to file to write to. |

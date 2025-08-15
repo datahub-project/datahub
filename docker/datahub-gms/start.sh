@@ -62,13 +62,8 @@ COMMON="
     java $JAVA_OPTS $JMX_OPTS \
     $OTEL_AGENT \
     $PROMETHEUS_AGENT \
-    -jar /jetty-runner.jar \
-    --stats unsecure \
-    --jar jetty-util.jar \
-    --jar jetty-jmx.jar \
-    --config /datahub/datahub-gms/scripts/jetty.xml \
-    --config /datahub/datahub-gms/scripts/jetty-jmx.xml \
-    /datahub/datahub-gms/bin/war.war"
+    -Dstats=unsecure \
+    -jar /datahub/datahub-gms/bin/war.war"
 
 if [[ $SKIP_ELASTICSEARCH_CHECK != true ]]; then
   exec dockerize \

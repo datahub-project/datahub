@@ -1,21 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Pagination, Typography } from 'antd';
+import * as QueryString from 'query-string';
+import { AlignType } from 'rc-table/lib/interface';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
-import * as QueryString from 'query-string';
-import { PlusOutlined } from '@ant-design/icons';
-import { AlignType } from 'rc-table/lib/interface';
-import CreatePostModal from './CreatePostModal';
-import { PostColumn, PostEntry, PostListMenuColumn } from './PostsListColumns';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useListPostsQuery } from '../../../graphql/post.generated';
-import { scrollToTop } from '../../shared/searchUtils';
-import { addToListPostCache, removeFromListPostCache } from './utils';
-import { Message } from '../../shared/Message';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { SearchBar } from '../../search/SearchBar';
-import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import { POST_TYPE_TO_DISPLAY_TEXT } from './constants';
+
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { SearchBar } from '@app/search/SearchBar';
+import CreatePostModal from '@app/settings/posts/CreatePostModal';
+import { PostColumn, PostEntry, PostListMenuColumn } from '@app/settings/posts/PostsListColumns';
+import { POST_TYPE_TO_DISPLAY_TEXT } from '@app/settings/posts/constants';
+import { addToListPostCache, removeFromListPostCache } from '@app/settings/posts/utils';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
+
+import { useListPostsQuery } from '@graphql/post.generated';
 
 const PostsContainer = styled.div`
     display: flex;
@@ -62,6 +65,7 @@ export const PostList = () => {
                 start,
                 count: pageSize,
                 query,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: query && query.length > 0 ? 'no-cache' : 'cache-first',
@@ -145,12 +149,12 @@ export const PostList = () => {
             {error && <Message type="error" content="Failed to load Posts! An unexpected error occurred." />}
             <PostsContainer>
                 <TabToolbar>
-                    <Button id="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
-                        <PlusOutlined /> New Post
+                    <Button data-testid="posts-create-post" type="text" onClick={() => setIsCreatingPost(true)}>
+                        <PlusOutlined /> New
                     </Button>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search posts..."
+                        placeholderText="Search..."
                         suggestions={[]}
                         style={{
                             maxWidth: 220,

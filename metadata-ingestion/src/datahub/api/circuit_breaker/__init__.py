@@ -12,3 +12,10 @@ from datahub.api.circuit_breaker.operation_circuit_breaker import (
 )
 
 requests_logger.setLevel(logging.WARNING)
+
+__all__ = [
+    "AssertionCircuitBreaker",
+    "AssertionCircuitBreakerConfig",
+    "OperationCircuitBreaker",
+    "OperationCircuitBreakerConfig",
+]

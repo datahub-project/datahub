@@ -71,13 +71,13 @@ class Workspace:
     id: str
     name: str
     type: str  # This is used as a subtype of the Container entity.
-    dashboards: List["Dashboard"]
-    reports: List["Report"]
-    datasets: Dict[str, "PowerBIDataset"]
-    report_endorsements: Dict[str, List[str]]
-    dashboard_endorsements: Dict[str, List[str]]
+    dashboards: Dict[str, "Dashboard"]  # key = dashboard id
+    reports: Dict[str, "Report"]  # key = report id
+    datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
+    report_endorsements: Dict[str, List[str]]  # key = report id
+    dashboard_endorsements: Dict[str, List[str]]  # key = dashboard id
     scan_result: dict
-    independent_datasets: List["PowerBIDataset"]
+    independent_datasets: Dict[str, "PowerBIDataset"]  # key = dataset id
     app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
@@ -95,6 +95,9 @@ class Workspace:
             platform=platform_name,
             instance=platform_instance,
         )
+
+    def format_name_for_logger(self) -> str:
+        return f"{self.name} ({self.id})"
 
 
 @dataclass
@@ -226,7 +229,7 @@ class User:
     groupUserAccessRight: Optional[str] = None
 
     def get_urn_part(self, use_email: bool, remove_email_suffix: bool) -> str:
-        if use_email:
+        if use_email and self.emailAddress:
             if remove_email_suffix:
                 return self.emailAddress.split("@")[0]
             else:
@@ -283,10 +286,14 @@ class Tile:
     id: str
     title: str
     embedUrl: str
-    dataset: Optional["PowerBIDataset"]
     dataset_id: Optional[str]
-    report: Optional[Report]
+    report_id: Optional[str]
     createdFrom: CreatedFrom
+
+    # In a first pass, `dataset_id` and/or `report_id` are filled in.
+    # In a subsequent pass, the objects are populated.
+    dataset: Optional["PowerBIDataset"]
+    report: Optional[Report]
 
     def get_urn_part(self):
         return f"charts.{self.id}"

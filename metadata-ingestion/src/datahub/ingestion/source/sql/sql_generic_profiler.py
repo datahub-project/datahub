@@ -1,55 +1,29 @@
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Union, cast
 
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    parse_ts_millis,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
 )
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
-
-
-@dataclass
-class DetailedProfilerReportMixin:
-    profiling_skipped_not_updated: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-    profiling_skipped_size_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_row_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
-
-    num_tables_not_eligible_profiling: Dict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-
-class ProfilingSqlReport(DetailedProfilerReportMixin, SQLSourceReport):
-    pass
 
 
 @dataclass
@@ -65,7 +39,7 @@ class GenericProfiler:
     def __init__(
         self,
         config: SQLCommonConfig,
-        report: ProfilingSqlReport,
+        report: SQLSourceReport,
         platform: str,
         state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
@@ -83,10 +57,11 @@ class GenericProfiler:
         platform: Optional[str] = None,
         profiler_args: Optional[Dict] = None,
     ) -> Iterable[MetadataWorkUnit]:
+        # We don't run ge profiling queries if table profiling is enabled or if the row count is 0.
         ge_profile_requests: List[GEProfilerRequest] = [
             cast(GEProfilerRequest, request)
             for request in requests
-            if not request.profile_table_level_only
+            if not request.profile_table_level_only or request.table.rows_count == 0
         ]
         table_level_profile_requests: List[TableProfilerRequest] = [
             request for request in requests if request.profile_table_level_only
@@ -274,11 +249,7 @@ class GenericProfiler:
                 # If profiling state exists we have to carry over to the new state
                 self.state_handler.add_to_state(dataset_urn, last_profiled)
 
-        threshold_time: Optional[datetime] = (
-            datetime.fromtimestamp(last_profiled / 1000, timezone.utc)
-            if last_profiled
-            else None
-        )
+        threshold_time: Optional[datetime] = parse_ts_millis(last_profiled)
         if (
             not threshold_time
             and self.config.profiling.profile_if_updated_since_days is not None
@@ -308,8 +279,7 @@ class GenericProfiler:
 
         if self.config.profiling.profile_table_size_limit is not None and (
             size_in_bytes is not None
-            and size_in_bytes / (2**30)
-            > self.config.profiling.profile_table_size_limit
+            and size_in_bytes / (2**30) > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
             logger.debug(

@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/operations/throttle")
+@RequestMapping("/openapi/operations/throttle")
 @Slf4j
 @Tag(name = "GMS Throttle Control", description = "An API for GMS throttle control.")
 public class ThrottleController {

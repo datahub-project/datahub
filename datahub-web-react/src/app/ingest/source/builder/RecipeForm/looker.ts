@@ -1,4 +1,4 @@
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const LOOKER_BASE_URL: RecipeField = {
     name: 'base_url',

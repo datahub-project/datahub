@@ -1,6 +1,7 @@
 import React from 'react';
-import FormByEntity from './FormByEntity';
-import { FormView, useEntityFormContext } from './EntityFormContext';
+
+import { FormView, useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import FormByEntity from '@app/entity/shared/entityForm/FormByEntity';
 
 interface Props {
     formUrn: string;

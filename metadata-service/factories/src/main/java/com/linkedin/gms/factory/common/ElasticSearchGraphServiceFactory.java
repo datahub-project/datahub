@@ -8,6 +8,7 @@ import com.linkedin.metadata.graph.elastic.ESGraphWriteDAO;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -28,13 +29,13 @@ public class ElasticSearchGraphServiceFactory {
   @Qualifier("baseElasticSearchComponents")
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
-  @Autowired private ConfigurationProvider configurationProvider;
-
   @Bean(name = "graphService")
   @Nonnull
   protected GraphService getInstance(
+      final ConfigurationProvider configurationProvider,
       final EntityRegistry entityRegistry,
-      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String idHashAlgo,
+      MetricUtils metricUtils) {
     LineageRegistry lineageRegistry = new LineageRegistry(entityRegistry);
     return new ElasticSearchGraphService(
         lineageRegistry,
@@ -43,13 +44,15 @@ public class ElasticSearchGraphServiceFactory {
         new ESGraphWriteDAO(
             components.getIndexConvention(),
             components.getBulkProcessor(),
-            components.getNumRetries(),
+            components.getConfig().getBulkProcessor().getNumRetries(),
             configurationProvider.getElasticSearch().getSearch().getGraph()),
         new ESGraphQueryDAO(
             components.getSearchClient(),
             lineageRegistry,
             components.getIndexConvention(),
-            configurationProvider.getElasticSearch().getSearch().getGraph()),
+            configurationProvider.getGraphService(),
+            configurationProvider.getElasticSearch(),
+            metricUtils),
         components.getIndexBuilder(),
         idHashAlgo);
   }

@@ -119,6 +119,16 @@
     displayName: Hive
     type: FILE_SYSTEM
     logoUrl: "/assets/platforms/hivelogo.png"
+- entityUrn: urn:li:dataPlatform:hudi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hudi
+    displayName: Hudi
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/hudilogo.png"
 - entityUrn: urn:li:dataPlatform:iceberg
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -407,7 +417,7 @@
     name: mlflow
     displayName: MLflow
     type: OTHERS
-    logoUrl: "/assets/platforms/mlflowlogo.png"
+    logoUrl: "/assets/platforms/mlflowlogo2.png"
 - entityUrn: urn:li:dataPlatform:glue
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -528,6 +538,16 @@
     displayName: Superset
     type: OTHERS
     logoUrl: "/assets/platforms/supersetlogo.png"
+- entityUrn: urn:li:dataPlatform:preset
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: preset
+    displayName: Preset
+    type: OTHERS
+    logoUrl: "/assets/platforms/presetlogo.svg"
 - entityUrn: urn:li:dataPlatform:trino
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -707,3 +727,93 @@
     displayName: SAP Analytics Cloud
     type: OTHERS
     logoUrl: "/assets/platforms/saclogo.svg"
+- entityUrn: urn:li:dataPlatform:dremio
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dremio
+    displayName: Dremio
+    type: QUERY_ENGINE
+    logoUrl: "/assets/platforms/dremiologo.png"
+- entityUrn: urn:li:dataPlatform:cassandra
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cassandra
+    displayName: Cassandra
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/cassandralogo.png"
+- entityUrn: urn:li:dataPlatform:neo4j
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: neo4j
+    displayName: Neo4j
+    type: OTHERS
+    logoUrl: "/assets/platforms/neo4j.png"
+- entityUrn: urn:li:dataPlatform:vertexai
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: vertexai
+    displayName: vertexai
+    type: OTHERS
+    logoUrl: "/assets/platforms/vertexai.png"
+- entityUrn: urn:li:dataPlatform:hex
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hex
+    displayName: Hex
+    type: OTHERS
+    logoUrl: "/assets/platforms/hex.png"
+- entityUrn: urn:li:dataPlatform:grafana
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: grafana
+    displayName: Grafana
+    type: OTHERS
+    logoUrl: "/assets/platforms/grafana.png"
+- entityUrn: urn:li:dataPlatform:controlm
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: controlm
+    displayName: Control-M
+    type: OTHERS
+    logoUrl: "/assets/platforms/controlmlogo.png"
+- entityUrn: urn:li:dataPlatform:abinitio
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: abinitio
+    displayName: Ab Initio
+    type: OTHERS
+    logoUrl: "/assets/platforms/abinitiologo.png"
+- entityUrn: urn:li:dataPlatform:informatica
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: informatica
+    displayName: Informatica
+    type: OTHERS
+    logoUrl: "/assets/platforms/informaticalogo.png"

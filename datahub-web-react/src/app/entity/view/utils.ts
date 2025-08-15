@@ -1,5 +1,6 @@
-import { DataHubView, DataHubViewType, EntityType, LogicalOperator } from '../../../types.generated';
-import { ViewBuilderState } from './types';
+import { ViewBuilderState } from '@app/entity/view/types';
+
+import { DataHubView, DataHubViewType, EntityType, LogicalOperator } from '@types';
 
 /**
  *  The max single-page results in both the View Select and Manage Views list.
@@ -28,7 +29,7 @@ export const convertStateToUpdateInput = (state: ViewBuilderState) => {
             entityTypes: state?.definition?.entityTypes,
             filter: {
                 operator: state?.definition?.filter?.operator,
-                filters: state?.definition?.filter?.filters.map((filter) => ({
+                filters: state?.definition?.filter?.filters?.map((filter) => ({
                     field: filter.field,
                     condition: filter.condition,
                     values: filter.values,

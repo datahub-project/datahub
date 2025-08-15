@@ -38,26 +38,28 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD),a)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.downstream,PROD),a)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:377a73bbf094c8b176b15157c24242cdfc7a0f407d78e52e63ded08c913468f1"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream2,PROD),a)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.downstream,PROD),a)"
                     ],
+                    "transformOperation": "COPY: \"upstream2\".\"a\" AS \"a\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:c4b3a21ef8c262ebbe99a5bdb6c29cb0be646392bb4af10b6f4a758af881470e"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD),a)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.downstream,PROD),a)"
+                    ],
+                    "transformOperation": "COPY: \"upstream1\".\"a\" AS \"a\"",
+                    "confidenceScore": 0.2,
+                    "query": "urn:li:query:377a73bbf094c8b176b15157c24242cdfc7a0f407d78e52e63ded08c913468f1"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -68,6 +70,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.downstream,PROD),c)"
                     ],
+                    "transformOperation": "COPY: \"upstream2\".\"c\" AS \"c\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:c4b3a21ef8c262ebbe99a5bdb6c29cb0be646392bb4af10b6f4a758af881470e"
                 },
@@ -80,6 +83,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.downstream,PROD),b)"
                     ],
+                    "transformOperation": "COPY: \"upstream1\".\"b\" AS \"b\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:377a73bbf094c8b176b15157c24242cdfc7a0f407d78e52e63ded08c913468f1"
                 }
@@ -94,6 +98,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO downstream (\n  a,\n  c\n)\nSELECT\n  a,\n  c\nFROM upstream2",
                 "language": "SQL"
@@ -158,6 +163,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "INSERT INTO downstream (\n  a,\n  b\n)\nSELECT\n  a,\n  b\nFROM upstream1",
                 "language": "SQL"

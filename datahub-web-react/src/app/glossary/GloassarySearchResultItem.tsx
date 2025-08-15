@@ -1,14 +1,16 @@
 // Create a new component called SearchResultItem.js
 import React from 'react';
-import { Link } from 'react-router-dom';
 import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Entity } from '../../types.generated';
-import { IconStyleType } from '../entity/Entity';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import ParentEntities from '../search/filters/ParentEntities';
-import { getParentGlossary } from './utils';
-import EntityRegistry from '../entity/EntityRegistry';
+
+import { IconStyleType } from '@app/entity/Entity';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getParentGlossary } from '@app/glossary/utils';
+import ParentEntities from '@app/search/filters/ParentEntities';
+
+import { Entity } from '@types';
 
 type Props = {
     entity: Entity;

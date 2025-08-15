@@ -1,4 +1,4 @@
-import { SortOrder } from '../../../types.generated';
+import { SortOrder } from '@types';
 
 export const RELEVANCE = 'relevance';
 export const ENTITY_NAME_FIELD = '_entityName';

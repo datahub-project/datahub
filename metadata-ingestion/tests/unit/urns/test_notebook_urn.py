@@ -2,7 +2,6 @@ import unittest
 
 import pytest
 
-from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.notebook_urn import NotebookUrn
 
 
@@ -16,12 +15,3 @@ class TestNotebookUrn(unittest.TestCase):
         assert str(notebook_urn) == notebook_urn_str
 
         assert notebook_urn == NotebookUrn("querybook", "123")
-
-    def test_invalid_urn(self) -> None:
-        with self.assertRaises(InvalidUrnError):
-            NotebookUrn.create_from_string(
-                "urn:li:abc:(urn:li:dataPlatform:abc,def,prod)"
-            )
-
-        with self.assertRaises(InvalidUrnError):
-            NotebookUrn.create_from_string("urn:li:notebook:(part1,part2,part3)")

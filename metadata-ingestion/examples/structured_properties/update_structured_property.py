@@ -30,7 +30,7 @@ def get_emitter() -> Union[DataHubRestEmitter, DatahubKafkaEmitter]:
 
 
 # input your unique structured property ID
-property_urn = StructuredPropertyUrn("dataSteward")
+property_urn = StructuredPropertyUrn("io.acryl.dataManagement.dataSteward")
 
 with get_emitter() as emitter:
     for patch_mcp in (

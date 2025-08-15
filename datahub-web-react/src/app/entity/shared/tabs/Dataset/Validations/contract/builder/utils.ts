@@ -1,5 +1,9 @@
-import { DataContract } from '../../../../../../../../types.generated';
-import { DataContractBuilderState, DataContractCategoryType } from './types';
+import {
+    DataContractBuilderState,
+    DataContractCategoryType,
+} from '@app/entity/shared/tabs/Dataset/Validations/contract/builder/types';
+
+import { DataContract } from '@types';
 
 /**
  * Creates a builder state instance from a Data Contract object.
@@ -9,12 +13,12 @@ export const createBuilderState = (contract?: DataContract | null): DataContract
         return {
             schema:
                 (contract?.properties?.schema?.length && {
-                    assertionUrn: contract?.properties?.schema[0].assertion.urn,
+                    assertionUrn: contract?.properties?.schema[0]?.assertion?.urn,
                 }) ||
                 undefined,
             freshness:
                 (contract?.properties?.freshness?.length && {
-                    assertionUrn: contract?.properties?.freshness[0].assertion.urn,
+                    assertionUrn: contract?.properties?.freshness[0]?.assertion?.urn,
                 }) ||
                 undefined,
             dataQuality:

@@ -8,7 +8,7 @@ import pydantic
 from pydantic import Field
 from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -17,7 +17,8 @@ from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.source.ge_data_profiler import DATABRICKS
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -33,6 +34,12 @@ from datahub.ingestion.source_config.operation_config import (
 from datahub.utilities.global_warning_util import add_global_warning
 
 logger = logging.getLogger(__name__)
+
+
+class LineageDataSource(ConfigEnum):
+    AUTO = "AUTO"
+    SYSTEM_TABLES = "SYSTEM_TABLES"
+    API = "API"
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
@@ -228,6 +235,11 @@ class UnityCatalogSourceConfig(
         description="Option to enable/disable ownership generation for metastores, catalogs, schemas, and tables.",
     )
 
+    include_tags: bool = pydantic.Field(
+        default=True,
+        description="Option to enable/disable column/table tag extraction.",
+    )
+
     _rename_table_ownership = pydantic_renamed_field(
         "include_table_ownership", "include_ownership"
     )
@@ -235,6 +247,21 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    lineage_data_source: LineageDataSource = pydantic.Field(
+        default=LineageDataSource.AUTO,
+        description=(
+            "Source for lineage data extraction. Options: "
+            f"'{LineageDataSource.AUTO.value}' - Use system tables when SQL warehouse is available, fallback to API; "
+            f"'{LineageDataSource.SYSTEM_TABLES.value}' - Force use of system.access.table_lineage and system.access.column_lineage tables (requires SQL warehouse); "
+            f"'{LineageDataSource.API.value}' - Force use of REST API endpoints for lineage data"
+        ),
+    )
+
+    ignore_start_time_lineage: bool = pydantic.Field(
+        default=False,
+        description="Option to ignore the start_time and retrieve all available lineage. When enabled, the start_time filter will be set to zero to extract all lineage events regardless of the configured time window.",
     )
 
     column_lineage_column_limit: int = pydantic.Field(
@@ -248,13 +275,26 @@ class UnityCatalogSourceConfig(
         hidden_from_docs=True,
     )
 
+    databricks_api_page_size: int = pydantic.Field(
+        default=0,
+        ge=0,
+        description=(
+            "Page size for Databricks API calls when listing resources (catalogs, schemas, tables, etc.). "
+            "When set to 0 (default), uses server-side configured page length (recommended). "
+            "When set to a positive value, the page length is the minimum of this value and the server configured value. "
+            "Must be a non-negative integer."
+        ),
+    )
+
     include_usage_statistics: bool = Field(
         default=True,
         description="Generate usage statistics.",
     )
 
     # TODO: Remove `type:ignore` by refactoring config
-    profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
+    profiling: Union[
+        UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig
+    ] = Field(  # type: ignore
         default=UnityCatalogGEProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
@@ -351,6 +391,20 @@ class UnityCatalogSourceConfig(
 
         if profiling and profiling.enabled and not profiling.warehouse_id:
             raise ValueError("warehouse_id must be set when profiling is enabled.")
+
+        return values
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def validate_lineage_data_source_with_warehouse(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        lineage_data_source = values.get("lineage_data_source", LineageDataSource.AUTO)
+        warehouse_id = values.get("warehouse_id")
+
+        if lineage_data_source == LineageDataSource.SYSTEM_TABLES and not warehouse_id:
+            raise ValueError(
+                f"lineage_data_source='{LineageDataSource.SYSTEM_TABLES.value}' requires warehouse_id to be set"
+            )
 
         return values
 

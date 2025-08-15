@@ -1,3 +1,6 @@
+import { findUserByURN } from '@graphql-mock/fixtures/searchResult/userSearchResult';
+import { tagDb } from '@graphql-mock/fixtures/tag';
+import { getActor } from '@graphql-mock/helper';
 import {
     Chart,
     Dashboard,
@@ -14,10 +17,7 @@ import {
     Owner,
     OwnerUpdate,
     TagAssociation,
-} from '../types.generated';
-import { findUserByURN } from './fixtures/searchResult/userSearchResult';
-import { tagDb } from './fixtures/tag';
-import { getActor } from './helper';
+} from '@types';
 
 type UpdateEntityOwnersArg = {
     entity?: Entity;
@@ -99,6 +99,7 @@ export const updateEntityLink = ({ entity, institutionalMemory }: UpdateEntityLi
             description: e.description as string,
             label: e.description as string,
             author: { urn: e.author, username: '', type: EntityType.CorpUser },
+            actor: { urn: e.author, username: '', type: EntityType.CorpUser },
             created: { time: Date.now(), actor: getActor(), __typename: 'AuditStamp' },
             associatedUrn: dataEntity.urn,
         };

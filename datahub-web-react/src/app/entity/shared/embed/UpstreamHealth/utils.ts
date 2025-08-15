@@ -1,4 +1,4 @@
-import { Dataset, Entity, EntityType } from '../../../../../types.generated';
+import { Dataset, Entity, EntityType } from '@types';
 
 function getAssertionsSummary(dataset: Dataset) {
     let numAssertionsFailing = 0;
@@ -53,7 +53,7 @@ export function extractUpstreamSummary(upstreams: Entity[]) {
 export function getNumAssertionsFailing(dataset: Dataset) {
     let numFailing = 0;
 
-    dataset.assertions?.assertions.forEach((assertion) => {
+    dataset.assertions?.assertions?.forEach((assertion) => {
         if (assertion.runEvents?.failed) {
             numFailing += 1;
         }

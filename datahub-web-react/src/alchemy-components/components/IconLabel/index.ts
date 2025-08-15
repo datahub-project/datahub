@@ -1,0 +1,1 @@
+export { IconLabel } from './IconLabel';

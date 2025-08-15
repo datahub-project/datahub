@@ -1,6 +1,6 @@
 import { Tag } from 'antd';
-import styled, { css } from 'styled-components';
 import ColorHash from 'color-hash';
+import styled, { css } from 'styled-components';
 
 export const generateColor = new ColorHash({
     saturation: 0.9,

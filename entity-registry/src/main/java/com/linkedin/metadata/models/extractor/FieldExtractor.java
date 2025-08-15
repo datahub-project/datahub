@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Extracts fields from a RecordTemplate based on the appropriate {@link FieldSpec}. */
 public class FieldExtractor {
@@ -30,15 +30,34 @@ public class FieldExtractor {
 
   // Extract the value of each field in the field specs from the input record
   public static <T extends FieldSpec> Map<T, List<Object>> extractFields(
-      @Nonnull RecordTemplate record, List<T> fieldSpecs) {
-    return extractFields(record, fieldSpecs, MAX_VALUE_LENGTH);
+      @Nullable RecordTemplate record, List<T> fieldSpecs) {
+    return extractFields(record, fieldSpecs, false);
   }
 
   public static <T extends FieldSpec> Map<T, List<Object>> extractFields(
-      @Nonnull RecordTemplate record, List<T> fieldSpecs, int maxValueLength) {
+      @Nullable RecordTemplate record, List<T> fieldSpecs, boolean requiredFieldExtract) {
+    return extractFields(record, fieldSpecs, MAX_VALUE_LENGTH, requiredFieldExtract);
+  }
+
+  public static <T extends FieldSpec> Map<T, List<Object>> extractFields(
+      @Nullable RecordTemplate record, List<T> fieldSpecs, int maxValueLength) {
+    return extractFields(record, fieldSpecs, maxValueLength, false);
+  }
+
+  public static <T extends FieldSpec> Map<T, List<Object>> extractFields(
+      @Nullable RecordTemplate record,
+      List<T> fieldSpecs,
+      int maxValueLength,
+      boolean requiredFieldExtract) {
     final Map<T, List<Object>> extractedFields = new HashMap<>();
     for (T fieldSpec : fieldSpecs) {
-      Optional<Object> value = RecordUtils.getFieldValue(record, fieldSpec.getPath());
+      if (requiredFieldExtract && record == null) {
+        throw new IllegalArgumentException(
+            "Field extraction is required and the RecordTemplate is null");
+      }
+      Optional<Object> value =
+          Optional.ofNullable(record)
+              .flatMap(maybeRecord -> RecordUtils.getFieldValue(maybeRecord, fieldSpec.getPath()));
       if (!value.isPresent()) {
         extractedFields.put(fieldSpec, Collections.emptyList());
       } else {

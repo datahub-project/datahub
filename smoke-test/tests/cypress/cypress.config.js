@@ -8,7 +8,7 @@ module.exports = defineConfig({
   projectId: "hkrxk5",
   defaultCommandTimeout: 10000,
   retries: {
-    runMode: 2,
+    runMode: 5,
     openMode: 0,
   },
   video: false,
@@ -22,5 +22,13 @@ module.exports = defineConfig({
     baseUrl: "http://localhost:9002/",
     specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
+  },
+  reporter: "cypress-junit-reporter",
+  reporterOptions: {
+    mochaFile: "build/smoke-test-results/cypress-test-[hash].xml",
+    toConsole: true,
+    testCaseSwitchClassnameAndName: true,
+    suiteNameTemplate: "{dirpath}",
+    classNameTemplate: "{filepath}",
   },
 });

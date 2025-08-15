@@ -1,15 +1,17 @@
 import { RocketOutlined } from '@ant-design/icons';
-import { useHistory } from 'react-router';
 import { Button } from 'antd';
 import React, { useCallback } from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../entity/shared/constants';
-import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
-import analytics, { EventType } from '../analytics';
-import { SuggestedText } from './suggestions/SearchQuerySugggester';
-import useGetSearchQueryInputs from './useGetSearchQueryInputs';
-import { FacetFilterInput, SearchSuggestion } from '../../types.generated';
-import { useUserContext } from '../context/useUserContext';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { SuggestedText } from '@app/search/suggestions/SearchQuerySugggester';
+import useGetSearchQueryInputs from '@app/search/useGetSearchQueryInputs';
+import { navigateToSearchUrl } from '@app/search/utils/navigateToSearchUrl';
+
+import { FacetFilterInput, SearchSuggestion } from '@types';
 
 const NoDataContainer = styled.div`
     margin: 40px auto;

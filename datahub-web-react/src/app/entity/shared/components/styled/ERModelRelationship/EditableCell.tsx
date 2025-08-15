@@ -1,7 +1,9 @@
-import React, { useContext } from 'react';
 import { Form, Select } from 'antd';
-import { EditableContext } from './ERModelRelationUtils';
-import { Dataset } from '../../../../../../types.generated';
+import React, { useContext } from 'react';
+
+import { EditableContext } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
+
+import { Dataset } from '@types';
 
 interface EditableCellProps {
     editable: boolean;
@@ -53,7 +55,7 @@ export const EditableCell = ({
                 <Select
                     size="large"
                     className="ermodelrelation-select-selector"
-                    options={tableRecord?.schemaMetadata?.fields.map((result) => ({
+                    options={tableRecord?.schemaMetadata?.fields?.map((result) => ({
                         value: result.fieldPath,
                         label: result.fieldPath,
                     }))}

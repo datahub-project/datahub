@@ -40,10 +40,11 @@ import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -79,7 +80,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
 
   private RelatedEntitiesResult getRelatedEntities(
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count) {
@@ -132,8 +133,8 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + rawUrn);
     }
     RelationshipDirection direction = RelationshipDirection.valueOf(rawDirection);
-    final List<String> relationshipTypes = Arrays.asList(relationshipTypesParam);
-    return RestliUtils.toTask(
+    final Set<String> relationshipTypes = Set.of(relationshipTypesParam);
+    return RestliUtils.toTask(systemOperationContext,
         () -> {
           final RelatedEntitiesResult relatedEntitiesResult =
               getRelatedEntities(rawUrn, relationshipTypes, direction, start, count);
@@ -210,7 +211,7 @@ public final class Relationships extends SimpleResourceTemplate<EntityRelationsh
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to get entity lineage: " + urnStr);
     }
-    return RestliUtils.toTask(
+    return RestliUtils.toTask(systemOperationContext,
         () ->
             _graphService.getLineage(systemOperationContext,
                 urn,

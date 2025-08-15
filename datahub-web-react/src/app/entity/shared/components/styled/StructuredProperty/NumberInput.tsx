@@ -1,7 +1,10 @@
 import { Input } from 'antd';
 import React, { ChangeEvent } from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY_V2 } from '../../../constants';
+
+import MultipleOpenEndedInput from '@app/entity/shared/components/styled/StructuredProperty/MultipleOpenEndedInput';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { PropertyCardinality } from '@src/types.generated';
 
 const StyledInput = styled(Input)`
     border: 1px solid ${ANTD_GRAY_V2[6]};
@@ -10,13 +13,29 @@ const StyledInput = styled(Input)`
 
 interface Props {
     selectedValues: any[];
+    cardinality?: PropertyCardinality | null;
     updateSelectedValues: (values: string[] | number[]) => void;
 }
 
-export default function NumberInput({ selectedValues, updateSelectedValues }: Props) {
+export default function NumberInput({ selectedValues, cardinality, updateSelectedValues }: Props) {
     function updateInput(event: ChangeEvent<HTMLInputElement>) {
         const number = Number(event.target.value);
         updateSelectedValues([number]);
+    }
+
+    function updateMultipleValues(values: string[] | number[]) {
+        const numbers = values.map((v) => Number(v));
+        updateSelectedValues(numbers);
+    }
+
+    if (cardinality === PropertyCardinality.Multiple) {
+        return (
+            <MultipleOpenEndedInput
+                selectedValues={selectedValues}
+                updateSelectedValues={updateMultipleValues}
+                inputType="number"
+            />
+        );
     }
 
     return (

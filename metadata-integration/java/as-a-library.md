@@ -4,22 +4,27 @@ In some cases, you might want to construct Metadata events directly and use prog
 
 The [`io.acryl:datahub-client`](https://mvnrepository.com/artifact/io.acryl/datahub-client) Java package offers REST emitter API-s, which can be easily used to emit metadata from your JVM-based systems. For example, the Spark lineage integration uses the Java emitter to emit metadata events from Spark jobs.
 
-> **Pro Tip!** Throughout our API guides, we have examples of using Java API SDK. 
+> **Pro Tip!** Throughout our API guides, we have examples of using Java API SDK.
 > Lookout for the `| Java |` tab within our tutorials.
 
 ## Installation
 
-Follow the specific instructions for your build system to declare a dependency on the appropriate version of the package. 
+Follow the specific instructions for your build system to declare a dependency on the appropriate version of the package.
 
 **_Note_**: Check the [Maven repository](https://mvnrepository.com/artifact/io.acryl/datahub-client) for the latest version of the package before following the instructions below.
 
 ### Gradle
+
 Add the following to your build.gradle.
+
 ```gradle
 implementation 'io.acryl:datahub-client:__version__'
 ```
+
 ### Maven
+
 Add the following to your `pom.xml`.
+
 ```xml
 <!-- https://mvnrepository.com/artifact/io.acryl/datahub-client -->
 <dependency>
@@ -35,6 +40,7 @@ Add the following to your `pom.xml`.
 The REST emitter is a thin wrapper on top of the [`Apache HttpClient`](https://hc.apache.org/httpcomponents-client-4.5.x/index.html) library. It supports non-blocking emission of metadata and handles the details of JSON serialization of metadata aspects over the wire.
 
 Constructing a REST Emitter follows a lambda-based fluent builder pattern. The config parameters mirror the Python emitter [configuration](../../metadata-ingestion/sink_docs/datahub.md#config-details) for the most part. In addition, you can also customize the HttpClient that is constructed under the hood by passing in customizations to the HttpClient builder.
+
 ```java
 import datahub.client.rest.RestEmitter;
 //...
@@ -58,7 +64,7 @@ import datahub.client.Callback;
 // ... followed by
 
 // Creates the emitter with the default coordinates and settings
-RestEmitter emitter = RestEmitter.createWithDefaults(); 
+RestEmitter emitter = RestEmitter.createWithDefaults();
 
 MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
         .entityType("dataset")
@@ -67,8 +73,8 @@ MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
         .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
         .build();
 
-// Blocking call using future
-Future<MetadataWriteResponse> requestFuture = emitter.emit(mcpw, null).get();
+// Blocking call using Future.get()
+MetadataWriteResponse requestFuture = emitter.emit(mcpw, null).get();
 
 // Non-blocking using callback
 emitter.emit(mcpw, new Callback() {
@@ -107,7 +113,6 @@ The Kafka emitter is a thin wrapper on top of the SerializingProducer class from
 
 **_Note_**: The Kafka emitter uses Avro to serialize the Metadata events to Kafka. Changing the serializer will result in unprocessable events as DataHub currently expects the metadata events over Kafka to be serialized in Avro.
 
-
 ### Usage
 
 ```java
@@ -125,24 +130,24 @@ import datahub.event.MetadataChangeProposalWrapper;
 // Creates the emitter with the default coordinates and settings
 KafkaEmitterConfig.KafkaEmitterConfigBuilder builder = KafkaEmitterConfig.builder(); KafkaEmitterConfig config = builder.build();
 KafkaEmitter emitter = new KafkaEmitter(config);
- 
+
 //Test if topic is available
 
 if(emitter.testConnection()){
- 
+
 	MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
 	        .entityType("dataset")
 	        .entityUrn("urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)")
 	        .upsert()
 	        .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
 	        .build();
-	
+
 	// Blocking call using future
 	Future<MetadataWriteResponse> requestFuture = emitter.emit(mcpw, null).get();
-	
+
 	// Non-blocking using callback
 	emitter.emit(mcpw, new Callback() {
-	
+
 	      @Override
 	      public void onFailure(Throwable exception) {
 	        System.out.println("Failed to send with: " + exception);
@@ -163,6 +168,7 @@ else {
 	System.out.println("Kafka service is down.");
 }
 ```
+
 ### Kafka Emitter Code
 
 If you're interested in looking at the Kafka emitter code, it is available [here](./datahub-client/src/main/java/datahub/client/kafka/KafkaEmitter.java).
@@ -209,17 +215,19 @@ for (MetadataChangeProposalWrapper mcpw : mcpws) {
    emitter.emit(mcpw);
 }
 emitter.close(); // calling close() is important to ensure file gets closed cleanly
-    
+
 ```
+
 ### File Emitter Code
 
 If you're interested in looking at the File emitter code, it is available [here](./datahub-client/src/main/java/datahub/client/file/FileEmitter.java).
 
 ### Support for S3, GCS etc.
 
-The File emitter only supports writing to the local filesystem currently. If you're interested in adding support for S3, GCS etc., contributions are welcome! 
+The File emitter only supports writing to the local filesystem currently. If you're interested in adding support for S3, GCS etc., contributions are welcome!
 
 ## Other Languages
 
 Emitter API-s are also supported for:
+
 - [Python](../../metadata-ingestion/as-a-library.md)

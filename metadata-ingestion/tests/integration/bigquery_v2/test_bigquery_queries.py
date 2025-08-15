@@ -14,8 +14,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
+from datahub.testing import mce_helpers
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
-from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2024-08-19 07:00:00"
@@ -47,7 +47,6 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tmp_path):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
     mcp_golden_path = f"{test_resources_dir}/bigquery_queries_mcps_golden.json"
     mcp_output_path = tmp_path / "bigquery_queries_mcps.json"
@@ -108,4 +107,6 @@ def test_source_close_cleans_tmp(projects_client, client, tmp_path):
         assert len(os.listdir(tmp_path)) > 0
         # This closes QueriesExtractor which in turn closes SqlParsingAggregator
         source.close()
-        assert len(os.listdir(tmp_path)) == 0
+        assert len(os.listdir(tmp_path)) == 0, (
+            f"Files left in {tmp_path}: {os.listdir(tmp_path)}"
+        )

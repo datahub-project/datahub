@@ -1,0 +1,8 @@
+source:
+  type: hex
+  config:
+    workspace_name: # Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>
+    token: # Your PAT or Workspace token
+
+sink:
+  # sink configs

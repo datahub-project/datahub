@@ -1,6 +1,4 @@
-import { FormAssociation, FormPrompt } from '../../../../../../../../types.generated';
-import { mockEntityData, mockEntityDataAllVerified } from '../../../../../entityForm/mocks';
-import { isAssignedToForm } from '../useIsUserAssigned';
+import { isAssignedToForm } from '@app/entity/shared/containers/profile/sidebar/FormInfo/useIsUserAssigned';
 import {
     getEntityPromptsInfo,
     getFieldPromptsInfo,
@@ -12,7 +10,10 @@ import {
     getVerificationAuditStamp,
     isVerificationComplete,
     shouldShowVerificationInfo,
-} from '../utils';
+} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import { mockEntityData, mockEntityDataAllVerified } from '@app/entity/shared/entityForm/mocks';
+
+import { FormAssociation, FormPrompt } from '@types';
 
 // only looking at IDs
 const prompts = [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }] as FormPrompt[];

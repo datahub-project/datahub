@@ -1,8 +1,8 @@
-import { generateData } from './dataGenerator';
-import { datasetEntity, DatasetEntityArg } from '../entity/datasetEntity';
-import { Dataset, FabricType, SearchResult, SearchResults } from '../../../types.generated';
-import { EntityBrowsePath, StringNumber } from '../../types';
-import { filterEntityByPath, toFlatPaths } from '../browsePathHelper';
+import { filterEntityByPath, toFlatPaths } from '@graphql-mock/fixtures/browsePathHelper';
+import { DatasetEntityArg, datasetEntity } from '@graphql-mock/fixtures/entity/datasetEntity';
+import { generateData } from '@graphql-mock/fixtures/searchResult/dataGenerator';
+import { EntityBrowsePath, StringNumber } from '@graphql-mock/types';
+import { Dataset, FabricType, SearchResult, SearchResults } from '@types';
 
 type SearchResultArg = DatasetEntityArg;
 

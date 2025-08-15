@@ -1,0 +1,12 @@
+source:
+    type: 'neo4j'
+    config:
+        uri: 'neo4j+ssc://host:7687'
+        username: 'neo4j'
+        password: 'password'
+        env: 'PROD'
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: 'http://localhost:8080'

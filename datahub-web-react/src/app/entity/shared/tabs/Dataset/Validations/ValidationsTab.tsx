@@ -1,15 +1,16 @@
-import React, { useEffect } from 'react';
+import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
+import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
-import { AuditOutlined, FileProtectOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../EntityContext';
-import { Assertions } from './Assertions';
-import TabToolbar from '../../../components/styled/TabToolbar';
-import { useGetValidationsTab } from './useGetValidationsTab';
-import { ANTD_GRAY } from '../../../constants';
-import { useAppConfig } from '../../../../../useAppConfig';
-import { DataContractTab } from './contract/DataContractTab';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { Assertions } from '@app/entity/shared/tabs/Dataset/Validations/Assertions';
+import { DataContractTab } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataContractTab';
+import { useGetValidationsTab } from '@app/entity/shared/tabs/Dataset/Validations/useGetValidationsTab';
+import { useAppConfig } from '@app/useAppConfig';
 
 const TabTitle = styled.span`
     margin-left: 4px;

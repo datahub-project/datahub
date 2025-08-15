@@ -18,7 +18,6 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
-import com.linkedin.metadata.entity.EntityApiUtils;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -73,7 +72,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/v2/entity")
+@RequestMapping("/openapi/v2/entity")
 @Slf4j
 public class EntityController
     extends GenericEntitiesController<
@@ -163,25 +162,21 @@ public class EntityController
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (opContext.getValidationContext().isAlternateValidation()) {
-            ProposedItem.ProposedItemBuilder builder =
+            items.add(
                 ProposedItem.builder()
-                    .metadataChangeProposal(
+                    .build(
                         new MetadataChangeProposal()
                             .setEntityUrn(entityUrn)
                             .setAspectName(aspect.getKey())
                             .setEntityType(entityUrn.getEntityType())
                             .setChangeType(ChangeType.UPSERT)
-                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
-                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
-                    .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
-                    .entitySpec(
-                        opContext
-                            .getAspectRetriever()
-                            .getEntityRegistry()
-                            .getEntitySpec(entityUrn.getEntityType()));
-            items.add(builder.build());
+                            .setAspect(GenericRecordUtils.serializeAspect(jsonNodeAspect))
+                            .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()),
+                        AuditStampUtils.createAuditStamp(actor.toUrnStr()),
+                        entityRegistry));
           } else if (aspectSpec != null) {
             ChangeItemImpl.ChangeItemImplBuilder builder =
                 ChangeItemImpl.builder()
@@ -191,18 +186,18 @@ public class EntityController
                     .recordTemplate(
                         GenericRecordUtils.deserializeAspect(
                             ByteString.copyString(
-                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
+                                objectMapper.writeValueAsString(jsonNodeAspect),
                                 StandardCharsets.UTF_8),
                             GenericRecordUtils.JSON,
                             aspectSpec));
 
             if (aspect.getValue().has("systemMetadata")) {
               builder.systemMetadata(
-                  EntityApiUtils.parseSystemMetadata(
+                  SystemMetadataUtils.parseSystemMetadata(
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
+            items.add(builder.build(opContext.getAspectRetriever()));
           }
         }
       }
@@ -210,21 +205,22 @@ public class EntityController
 
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
-        .build();
+        .retrieverContext(opContext.getRetrieverContext())
+        .build(opContext);
   }
 
   @Override
   protected List<GenericEntityV2> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
       Collection<Urn> requestedUrns,
-      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException {
+
     Map<Urn, List<EnvelopedAspect>> aspects =
         entityService.getEnvelopedVersionedAspects(
-            opContext, resolveAspectNames(urnAspectVersions, 0L, true), true);
+            opContext, aspectSpecsToAspectNames(urnAspectVersions, false), true);
 
     return urnAspectVersions.keySet().stream()
         .map(
@@ -282,11 +278,10 @@ public class EntityController
         true);
   }
 
-  @Override
   protected List<GenericEntityV2> buildEntityList(
+      OperationContext opContext,
       Collection<IngestResult> ingestResults,
-      boolean withSystemMetadata,
-      boolean isAsyncAlternateValidation) {
+      boolean withSystemMetadata) {
     List<GenericEntityV2> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -305,7 +300,10 @@ public class EntityController
       responseList.add(
           GenericEntityV2.builder()
               .urn(urnAspects.getKey().toString())
-              .build(objectMapper, aspectsMap, isAsyncAlternateValidation));
+              .build(
+                  objectMapper,
+                  aspectsMap,
+                  opContext.getValidationContext().isAlternateValidation()));
     }
     return responseList;
   }

@@ -5,13 +5,16 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.client.BaseClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class RestliUsageClient extends BaseClient implements UsageClient {
   private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
@@ -25,8 +28,11 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
-      UsageClientCacheConfig cacheConfig) {
-    super(restliClient, backoffPolicy, retryCount);
+      UsageClientCacheConfig cacheConfig,
+      MetricUtils metricUtils) {
+    super(
+        restliClient,
+        EntityClientConfig.builder().backoffPolicy(backoffPolicy).retryCount(retryCount).build());
     this.operationContextMap = Caffeine.newBuilder().maximumSize(500).build();
     this.usageClientCache =
         UsageClientCache.builder()
@@ -37,12 +43,14 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
                     return getUsageStatsNoCache(
                         operationContextMap.getIfPresent(cacheKey.getContextId()),
                         cacheKey.getResource(),
-                        cacheKey.getRange());
+                        cacheKey.getRange(),
+                        cacheKey.getStartTimeMillis(),
+                        cacheKey.getTimeZone());
                   } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(e);
                   }
                 })
-            .build();
+            .build(metricUtils);
   }
 
   /**
@@ -53,16 +61,22 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
   public UsageQueryResult getUsageStats(
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
-      @Nonnull UsageTimeRange range) {
+      @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
+      @Nullable String timeZone) {
     operationContextMap.put(opContext.getEntityContextId(), opContext);
-    return usageClientCache.getUsageStats(opContext, resource, range);
+    return usageClientCache.getUsageStats(opContext, resource, range, startTimeMillis, timeZone);
   }
 
   /** Gets a specific version of downstream {@link EntityRelationships} for the given dataset. */
   @Override
   @Nonnull
   public UsageQueryResult getUsageStatsNoCache(
-      @Nonnull OperationContext opContext, @Nonnull String resource, @Nonnull UsageTimeRange range)
+      @Nonnull OperationContext opContext,
+      @Nonnull String resource,
+      @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
+      @Nullable String timeZone)
       throws RemoteInvocationException, URISyntaxException {
 
     final UsageStatsDoQueryRangeRequestBuilder requestBuilder =
@@ -71,6 +85,6 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
             .resourceParam(resource)
             .durationParam(WindowDuration.DAY)
             .rangeFromEndParam(range);
-    return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
+    return sendClientRequest(requestBuilder, opContext).getEntity();
   }
 }

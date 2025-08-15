@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -31,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.springframework.core.io.ClassPathResource;
@@ -53,6 +55,7 @@ public class BootstrapMCPUtil {
             .getBootstrap()
             .getTemplates()
             .stream()
+            .map(cfg -> cfg.withOverride(opContext.getObjectMapper()))
             .filter(cfg -> cfg.isBlocking() == isBlocking)
             .map(cfg -> new BootstrapMCPStep(opContext, entityService, cfg))
             .collect(Collectors.toList());
@@ -65,7 +68,7 @@ public class BootstrapMCPUtil {
   }
 
   static AspectsBatch generateAspectBatch(
-      OperationContext opContext, BootstrapMCPConfigFile.MCPTemplate mcpTemplate)
+      OperationContext opContext, BootstrapMCPConfigFile.MCPTemplate mcpTemplate, String runId)
       throws IOException {
 
     final AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
@@ -89,6 +92,7 @@ public class BootstrapMCPUtil {
                                 convenienceConversions(opContext, mcp.getAspectName(), aspect));
                     GenericAspect genericAspect = GenericRecordUtils.serializeAspect(jsonAspect);
                     mcp.setAspect(genericAspect);
+                    mcp.setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata(runId));
                   } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                   }
@@ -98,9 +102,9 @@ public class BootstrapMCPUtil {
             .collect(Collectors.toList());
 
     return AspectsBatchImpl.builder()
-        .mcps(mcps, auditStamp, opContext.getRetrieverContext().get())
-        .retrieverContext(opContext.getRetrieverContext().get())
-        .build();
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext())
+        .retrieverContext(opContext.getRetrieverContext())
+        .build(opContext);
   }
 
   static List<ObjectNode> resolveMCPTemplate(
@@ -109,13 +113,29 @@ public class BootstrapMCPUtil {
       AuditStamp auditStamp)
       throws IOException {
 
-    String template = loadTemplate(mcpTemplate.getMcps_location());
-    Mustache mustache = MUSTACHE_FACTORY.compile(new StringReader(template), mcpTemplate.getName());
+    final String template = loadTemplate(mcpTemplate.getMcps_location());
     Map<String, Object> scopeValues = resolveValues(opContext, mcpTemplate, auditStamp);
-    StringWriter writer = new StringWriter();
-    mustache.execute(writer, scopeValues);
 
-    return opContext.getYamlMapper().readValue(writer.toString(), new TypeReference<>() {});
+    StringWriter writer = new StringWriter();
+    try {
+      Mustache mustache =
+          MUSTACHE_FACTORY.compile(new StringReader(template), mcpTemplate.getName());
+      mustache.execute(writer, scopeValues);
+    } catch (Exception e) {
+      log.error(
+          "Failed to apply mustache template. Template: {} Values: {}",
+          template,
+          resolveEnv(mcpTemplate));
+      throw e;
+    }
+
+    final String yaml = writer.toString();
+    try {
+      return opContext.getYamlMapper().readValue(yaml, new TypeReference<>() {});
+    } catch (Exception e) {
+      log.error("Failed to parse rendered MCP bootstrap yaml: {}", yaml);
+      throw e;
+    }
   }
 
   static Map<String, Object> resolveValues(
@@ -128,13 +148,21 @@ public class BootstrapMCPUtil {
     // built-in
     scopeValues.put("auditStamp", RecordUtils.toJsonString(auditStamp));
 
-    if (mcpTemplate.getValues_env() != null
-        && !mcpTemplate.getValues_env().isEmpty()
-        && System.getenv().containsKey(mcpTemplate.getValues_env())) {
-      String envValue = System.getenv(mcpTemplate.getValues_env());
+    String envValue = resolveEnv(mcpTemplate);
+    if (envValue != null) {
       scopeValues.putAll(opContext.getObjectMapper().readValue(envValue, new TypeReference<>() {}));
     }
     return scopeValues;
+  }
+
+  @Nullable
+  private static String resolveEnv(BootstrapMCPConfigFile.MCPTemplate mcpTemplate) {
+    if (mcpTemplate.getValues_env() != null
+        && !mcpTemplate.getValues_env().isEmpty()
+        && System.getenv().containsKey(mcpTemplate.getValues_env())) {
+      return System.getenv(mcpTemplate.getValues_env());
+    }
+    return null;
   }
 
   private static String loadTemplate(String source) throws IOException {

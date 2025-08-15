@@ -24,7 +24,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/azure-ad",
-      "imgPath": "img/logos/platforms/azure-ad.png",
+      "imgPath": "img/logos/platforms/azure-ad.svg",
       "Title": "Azure AD",
       "Description": "Azure AD is a cloud-based identity and access management tool that provides secure authentication and authorization for users and applications.",
       "tags": {
@@ -101,7 +101,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/datahub",
-      "imgPath": "img/acryl-logo-light-mark.png",
+      "imgPath": "img/datahub-logo-color-mark.svg",
       "Title": "DataHub",
       "Description": "Integrate your open source DataHub instance with DataHub Cloud or other on-prem DataHub instances",
       "tags": {
@@ -232,6 +232,17 @@
       }
     },
     {
+      "Path": "https://hudi.apache.org/docs/syncing_datahub/",
+      "imgPath": "img/logos/platforms/hudi.png",
+      "Title": "Apache Hudi",
+      "Description": "Apache Hudi is an open-source data lake framework that provides ACID transactions, efficient upserts, time travel queries, and incremental data processing for large-scale datasets.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
       "Path": "docs/generated/ingestion/sources/iceberg",
       "imgPath": "img/logos/platforms/iceberg.png",
       "Title": "Iceberg",
@@ -315,6 +326,17 @@
       "Description": "Metabase is an open-source business intelligence and data visualization tool that allows users to easily query and visualize their data.",
       "tags": {
         "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/mlflow",
+      "imgPath": "img/logos/platforms/mlflow.svg",
+      "Title": "MLflow",
+      "Description": "MLflow is an open-source platform for managing the end-to-end machine learning lifecycle.",
+      "tags": {
+        "Platform Type": "AI+ML",
         "Connection Type": "Pull",
         "Features": ""
       }
@@ -658,6 +680,171 @@
         "Platform Type": "Datastore",
         "Connection Type": "Pull",
         "Features": "Stateful Ingestion, Status Aspect"
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/abs",
+      "imgPath": "img/logos/platforms/azure-ad.svg",
+      "Title": "Azure Blob Storage",
+      "Description": "Azure Blob Storage is a cloud-based object storage service that allows users to store and manage large amounts of unstructured data.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/cockroachdb",
+      "imgPath": "img/logos/platforms/cockroachdb.png",
+      "Title": "CockroachDB",
+      "Description": "CockroachDB is a distributed SQL database that provides strong consistency, high availability, and horizontal scalability.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": "Stateful Ingestion, Status Aspect"
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/dremio",
+      "imgPath": "img/logos/platforms/dremio.png",
+      "Title": "Dremio",
+      "Description": "Dremio is a data lake engine that provides fast, direct access to data lake storage with enterprise-grade security and governance.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": "Stateful Ingestion, Status Aspect"
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/dynamodb",
+      "imgPath": "img/logos/platforms/dynamodb.png",
+      "Title": "DynamoDB",
+      "Description": "DynamoDB is a fully managed NoSQL database service that provides fast and predictable performance with seamless scalability.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/grafana",
+      "imgPath": "img/datahub-logo-color-mark.svg",
+      "Title": "Grafana",
+      "Description": "Grafana is an open-source analytics and monitoring platform that allows users to query, visualize, and alert on metrics and logs.",
+      "tags": {
+        "Platform Type": "Observability",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/preset",
+      "imgPath": "img/logos/platforms/presetlogo.svg",
+      "Title": "Preset",
+      "Description": "Preset is a cloud-native business intelligence platform that provides self-service analytics and data visualization capabilities.",
+      "tags": {
+        "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/gcs",
+      "imgPath": "img/logos/platforms/gcs.svg",
+      "Title": "Google Cloud Storage",
+      "Description": "Google Cloud Storage is a unified object storage service that provides industry-leading durability and availability for data.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/fivetran",
+      "imgPath": "img/logos/platforms/fivetran.png",
+      "Title": "Fivetran",
+      "Description": "Fivetran is a cloud-based data integration platform that provides automated data pipelines for analytics and business intelligence.",
+      "tags": {
+        "Platform Type": "ETL and Processing",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/qlik-sense",
+      "imgPath": "img/logos/platforms/qlik.png",
+      "Title": "Qlik Sense",
+      "Description": "Qlik Sense is a business intelligence and data analytics platform that enables users to create interactive visualizations and dashboards.",
+      "tags": {
+        "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/sigma",
+      "imgPath": "img/logos/platforms/sigma.png",
+      "Title": "Sigma",
+      "Description": "Sigma is a cloud-native analytics and business intelligence platform that provides spreadsheet-like interface for data analysis.",
+      "tags": {
+        "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/sac",
+      "imgPath": "img/logos/platforms/sac.svg",
+      "Title": "SAC",
+      "Description": "SAP Analytics Cloud (SAC) is a cloud-based business intelligence and planning platform that provides analytics and planning capabilities.",
+      "tags": {
+        "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/cassandra",
+      "imgPath": "img/logos/platforms/cassandra.png",
+      "Title": "Cassandra",
+      "Description": "Apache Cassandra is a distributed NoSQL database designed to handle large amounts of data across many commodity servers.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/neo4j",
+      "imgPath": "img/logos/platforms/neo4j.png",
+      "Title": "Neo4j",
+      "Description": "Neo4j is a graph database management system that stores data in nodes and relationships, enabling complex graph queries and analytics.",
+      "tags": {
+        "Platform Type": "Datastore",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/vertexai",
+      "imgPath": "img/logos/platforms/vertexai.png",
+      "Title": "Vertex AI",
+      "Description": "Vertex AI is Google Cloud's machine learning platform that provides tools for building, training, and deploying ML models at scale.",
+      "tags": {
+        "Platform Type": "AI+ML",
+        "Connection Type": "Pull",
+        "Features": ""
+      }
+    },
+    {
+      "Path": "docs/generated/ingestion/sources/hex",
+      "imgPath": "img/logos/platforms/hex.png",
+      "Title": "Hex",
+      "Description": "Hex is a collaborative data workspace that allows teams to explore, analyze, and share data insights through interactive notebooks.",
+      "tags": {
+        "Platform Type": "BI Tool",
+        "Connection Type": "Pull",
+        "Features": ""
       }
     }
   ]

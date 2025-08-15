@@ -1,8 +1,9 @@
 plugins {
     id 'java'
-    id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
+    id "io.github.kobylynskyi.graphql.codegen" version "5.10.0"
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
     implementation project(':metadata-service:restli-client-api')
@@ -28,6 +29,7 @@ dependencies {
 
     testImplementation externalDependency.mockito
     testImplementation externalDependency.testng
+    testImplementation externalDependency.mockitoInline
 }
 
 graphqlCodegen {
@@ -39,6 +41,7 @@ graphqlCodegen {
     generateApis = true
     generateParameterizedFieldsResolvers = false
     modelValidationAnnotation = "@javax.annotation.Nonnull"
+    addGeneratedAnnotation = false  // Skips timestamps in generated files which forces re-compile
     customTypesMapping = [
         Long: "Long",
         Float: "Float"
@@ -54,4 +57,6 @@ tasks.withType(Checkstyle) {
 }
 
 compileJava.dependsOn 'graphqlCodegen'
+build.dependsOn ':datahub-web-react:graphqlPrettierCheck'
+spotlessApply.dependsOn ':datahub-web-react:graphqlPrettierWrite'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"

@@ -32,7 +32,7 @@ def _ensure_dataset_present_correctly(auth_session):
                         createdAt\n
                     }\n
                     outgoing: relationships(\n
-                                input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 10000 }\n
+                                input: { types: ["DownstreamOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 2000 }\n
                             ) {\n
                             start\n
                             count\n

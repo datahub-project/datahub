@@ -7,18 +7,20 @@ import sys
 import uuid
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 
 from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
 
-import datahub as datahub_package
+from datahub._version import __version__, nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -102,9 +104,9 @@ SENTRY_DSN: Optional[str] = os.environ.get("SENTRY_DSN", None)
 SENTRY_ENVIRONMENT: str = os.environ.get("SENTRY_ENVIRONMENT", "dev")
 
 
-def _default_telemetry_properties() -> Dict[str, Any]:
+def _default_global_properties() -> Dict[str, Any]:
     return {
-        "datahub_version": datahub_package.nice_version_name(),
+        "datahub_version": nice_version_name(),
         "python_version": platform.python_version(),
         "os": platform.system(),
         "arch": platform.machine(),
@@ -117,7 +119,12 @@ class Telemetry:
     tracking_init: bool = False
     sentry_enabled: bool = False
 
+    context_properties: Dict[str, Any] = {}
+
     def __init__(self):
+        self.global_properties = _default_global_properties()
+        self.context_properties = {}
+
         if SENTRY_DSN:
             self.sentry_enabled = True
             try:
@@ -126,7 +133,7 @@ class Telemetry:
                 sentry_sdk.init(
                     dsn=SENTRY_DSN,
                     environment=SENTRY_ENVIRONMENT,
-                    release=datahub_package.__version__,
+                    release=__version__,
                 )
             except Exception as e:
                 # We need to print initialization errors to stderr, since logger is not initialized yet
@@ -156,6 +163,9 @@ class Telemetry:
                 )
             except Exception as e:
                 logger.debug(f"Error connecting to mixpanel: {e}")
+
+        # Initialize the default properties for all events.
+        self.set_context()
 
     def update_config(self) -> bool:
         """
@@ -238,22 +248,34 @@ class Telemetry:
 
         return False
 
-    def update_capture_exception_context(
+    def add_global_property(self, key: str, value: Any) -> None:
+        self.global_properties[key] = value
+        self._update_sentry_properties()
+
+    def set_context(
         self,
-        server: Optional[DataHubGraph] = None,
+        server: Optional["DataHubGraph"] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
+        self.context_properties = {
+            **self._server_props(server),
+            **(properties or {}),
+        }
+
+        self._update_sentry_properties()
+
+    def _update_sentry_properties(self) -> None:
+        properties = {
+            **self.global_properties,
+            **self.context_properties,
+        }
         if self.sentry_enabled:
-            from sentry_sdk import set_tag
+            import sentry_sdk
 
-            properties = {
-                **_default_telemetry_properties(),
-                **self._server_props(server),
-                **(properties or {}),
-            }
-
-            for key in properties:
-                set_tag(key, properties[key])
+            # Note: once we're on sentry-sdk 2.1.0+, we can use sentry_sdk.set_tags(properties)
+            # See https://github.com/getsentry/sentry-python/commit/6c960d752c7c7aff3fd7469d2e9ad98f19663aa8
+            for key, value in properties.items():
+                sentry_sdk.set_tag(key, value)
 
     def init_capture_exception(self) -> None:
         if self.sentry_enabled:
@@ -264,7 +286,7 @@ class Telemetry:
                 "environment",
                 {
                     "environment": SENTRY_ENVIRONMENT,
-                    "datahub_version": datahub_package.nice_version_name(),
+                    "datahub_version": nice_version_name(),
                     "os": platform.system(),
                     "python_version": platform.python_version(),
                 },
@@ -287,7 +309,7 @@ class Telemetry:
         try:
             self.mp.people_set(
                 self.client_id,
-                _default_telemetry_properties(),
+                self.global_properties,
             )
         except Exception as e:
             logger.debug(f"Error initializing telemetry: {e}")
@@ -297,7 +319,6 @@ class Telemetry:
         self,
         event_name: str,
         properties: Optional[Dict[str, Any]] = None,
-        server: Optional[DataHubGraph] = None,
     ) -> None:
         """
         Send a single telemetry event.
@@ -322,15 +343,16 @@ class Telemetry:
                 logger.debug(f"Sending telemetry for {event_name}")
 
             properties = {
-                **_default_telemetry_properties(),
-                **self._server_props(server),
+                **self.global_properties,
+                **self.context_properties,
                 **properties,
             }
             self.mp.track(self.client_id, event_name, properties)
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
 
-    def _server_props(self, server: Optional[DataHubGraph]) -> Dict[str, str]:
+    @classmethod
+    def _server_props(cls, server: Optional["DataHubGraph"]) -> Dict[str, str]:
         if not server:
             return {
                 "server_type": "n/a",
@@ -339,10 +361,10 @@ class Telemetry:
             }
         else:
             return {
-                "server_type": server.server_config.get("datahub", {}).get(
+                "server_type": server.server_config.raw_config.get("datahub", {}).get(
                     "serverType", "missing"
                 ),
-                "server_version": server.server_config.get("versions", {})
+                "server_version": server.server_config.raw_config.get("versions", {})
                 .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",
@@ -435,6 +457,7 @@ def with_telemetry(
                             **call_props,
                             "status": "error",
                             **_error_props(e),
+                            "code": e.code,
                         },
                     )
                 telemetry_instance.capture_exception(e)

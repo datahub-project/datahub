@@ -7,7 +7,7 @@
   entity_types:
     - dataset # or urn:li:entityType:datahub.dataset
     - dataFlow
-  description: "Retention Time is used to figure out how long to retain records in a dataset"
+  description: 'Retention Time is used to figure out how long to retain records in a dataset'
   allowed_values:
     - value: 30
       description: 30 days, usually reserved for datasets that are ephemeral and contain pii
@@ -18,7 +18,7 @@
 - id: io.acryl.dataManagement.replicationSLA
   type: number
   display_name: Replication SLA
-  description: "SLA for how long data can be delayed before replicating to the destination cluster"
+  description: 'SLA for how long data can be delayed before replicating to the destination cluster'
   entity_types:
     - dataset
 - id: io.acryl.dataManagement.deprecationDate

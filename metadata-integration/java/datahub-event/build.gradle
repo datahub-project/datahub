@@ -1,13 +1,13 @@
 plugins {
   id("com.palantir.git-version") apply false
   id 'java'
-  id 'com.github.johnrengelman.shadow'
-  id 'jacoco'
+  id 'com.gradleup.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'
 }
 
+apply from: "../../../gradle/coverage/java-coverage.gradle"
 apply from: "../versioning.gradle"
 
 dependencies {
@@ -18,6 +18,7 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
+  compileOnly externalDependency.swaggerAnnotations
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   // VisibleForTesting
@@ -27,10 +28,6 @@ dependencies {
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.httpClient
   testRuntimeOnly externalDependency.logbackClassicJava8
-}
-
-jacocoTestReport {
-  dependsOn test // tests are required to run before generating the report
 }
 
 task copyAvroSchemas {
@@ -47,7 +44,6 @@ test {
   // to avoid simultaneous executions of tests when complete build is run
   mustRunAfter(":metadata-io:test")
   useJUnit()
-  finalizedBy jacocoTestReport
 }
 
 // task sourcesJar(type: Jar) {

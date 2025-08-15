@@ -1,9 +1,11 @@
 import React from 'react';
-import { Entity } from '../../../types.generated';
-import { CompactEntityNameList } from './component/CompactEntityNameList';
-import { EntityNameList } from './component/EntityNameList';
-import { recommendationClickEvent } from '../util/recommendationClickEvent';
-import { RecommendationDisplayType, RecommendationRenderProps } from '../types';
+
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { EntityNameList } from '@app/recommendations/renderer/component/EntityNameList';
+import { RecommendationDisplayType, RecommendationRenderProps } from '@app/recommendations/types';
+import { recommendationClickEvent } from '@app/recommendations/util/recommendationClickEvent';
+
+import { Entity } from '@types';
 
 export const EntityNameListRenderer = ({
     renderId,

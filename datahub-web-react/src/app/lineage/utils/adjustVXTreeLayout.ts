@@ -1,7 +1,8 @@
 import { HierarchyPointNode } from '@visx/hierarchy/lib/types';
-import { NodeData, Direction } from '../types';
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { width as nodeWidth } from '../constants';
+import { width as nodeWidth } from '@app/lineage/constants';
+import { Direction, NodeData } from '@app/lineage/types';
 
 export default function adjustVXTreeLayout({
     tree,

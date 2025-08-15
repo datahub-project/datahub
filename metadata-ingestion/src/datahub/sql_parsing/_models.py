@@ -42,6 +42,8 @@ class _FrozenModel(_ParserBaseModel, frozen=True):
 
 
 class _TableName(_FrozenModel):
+    # TODO: Move this into the schema_resolver.py file.
+
     database: Optional[str] = None
     db_schema: Optional[str] = None
     table: str

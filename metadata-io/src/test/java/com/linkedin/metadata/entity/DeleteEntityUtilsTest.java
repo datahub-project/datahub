@@ -1,14 +1,31 @@
 package com.linkedin.metadata.entity;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.schema.grammar.PdlSchemaParser;
 import com.linkedin.data.schema.resolver.DefaultDataSchemaResolver;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
+import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormPrompt;
+import com.linkedin.form.FormPromptArray;
+import com.linkedin.form.StructuredPropertyParams;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.schema.SchemaMetadata;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 import junit.framework.TestCase;
 import org.testng.annotations.Test;
 
@@ -358,5 +375,61 @@ public class DeleteEntityUtilsTest extends TestCase {
                             .get("globalTags"))
                     .get("tags"))
             .size());
+  }
+
+  @Test
+  public void testRemovePromptsFromFormInfo() {
+    Urn deletedPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:1");
+    Urn existingPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:2");
+    List<FormPrompt> prompts = new ArrayList<>();
+    prompts.add(
+        new FormPrompt()
+            .setId("1")
+            .setStructuredPropertyParams(
+                new StructuredPropertyParams().setUrn(deletedPropertyUrn)));
+    prompts.add(
+        new FormPrompt()
+            .setId("2")
+            .setStructuredPropertyParams(
+                new StructuredPropertyParams().setUrn(existingPropertyUrn)));
+    FormInfo formInfo = new FormInfo().setPrompts(new FormPromptArray(prompts));
+
+    FormInfo updatedFormInfo =
+        DeleteEntityUtils.removePromptsFromFormInfoAspect(formInfo, deletedPropertyUrn);
+
+    assertEquals(updatedFormInfo.getPrompts().size(), 1);
+    assertEquals(
+        updatedFormInfo.getPrompts(),
+        formInfo.getPrompts().stream()
+            .filter(prompt -> !prompt.getId().equals("1"))
+            .collect(Collectors.toList()));
+  }
+
+  @Test
+  public void testFilterForStructuredPropDeletion() {
+    Urn deletedPropertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:1");
+
+    final CriterionArray criterionArray = new CriterionArray();
+    criterionArray.add(
+        new Criterion()
+            .setField("structuredPropertyPromptUrns")
+            .setValues(new StringArray(deletedPropertyUrn.toString()))
+            .setNegated(false)
+            .setValue("")
+            .setCondition(Condition.EQUAL));
+    Filter expectedFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(new ConjunctiveCriterion().setAnd(criterionArray)));
+
+    assertEquals(
+        DeleteEntityUtils.getFilterForStructuredPropertyDeletion(deletedPropertyUrn),
+        expectedFilter);
+  }
+
+  @Test
+  public void testEntityNamesForStructuredPropDeletion() {
+    assertEquals(
+        DeleteEntityUtils.getEntityNamesForStructuredPropertyDeletion(), ImmutableList.of("form"));
   }
 }

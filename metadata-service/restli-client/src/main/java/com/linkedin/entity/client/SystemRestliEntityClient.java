@@ -5,7 +5,7 @@ import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
-import com.linkedin.parseq.retry.backoff.BackoffPolicy;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,14 +24,13 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
 
   public SystemRestliEntityClient(
       @Nonnull final Client restliClient,
-      @Nonnull final BackoffPolicy backoffPolicy,
-      int retryCount,
+      @Nonnull EntityClientConfig clientConfig,
       EntityClientCacheConfig cacheConfig,
-      int batchGetV2Size,
-      int batchGetV2Concurrency) {
-    super(restliClient, backoffPolicy, retryCount, batchGetV2Size, batchGetV2Concurrency);
+      MetricUtils metricUtils) {
+    super(restliClient, clientConfig, metricUtils);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
-    this.entityClientCache = buildEntityClientCache(SystemRestliEntityClient.class, cacheConfig);
+    this.entityClientCache =
+        buildEntityClientCache(metricUtils, SystemRestliEntityClient.class, cacheConfig);
   }
 
   @Nullable
@@ -63,6 +62,6 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    return super.batchGetV2(opContext, entityName, urns, aspectNames);
+    return super.batchGetV2(opContext, entityName, urns, aspectNames, false);
   }
 }

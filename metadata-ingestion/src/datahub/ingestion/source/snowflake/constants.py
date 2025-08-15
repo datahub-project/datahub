@@ -53,6 +53,9 @@ class SnowflakeObjectDomain(StrEnum):
     SCHEMA = "schema"
     COLUMN = "column"
     ICEBERG_TABLE = "iceberg table"
+    STREAM = "stream"
+    PROCEDURE = "procedure"
+    DYNAMIC_TABLE = "dynamic table"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"

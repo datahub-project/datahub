@@ -3,13 +3,14 @@ import logging
 import time
 import typing
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from functools import wraps
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import click
 import requests
 from requests.sessions import Session
 
-import datahub
+import datahub._version as datahub_version
 from datahub.cli import config_utils
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -31,6 +32,15 @@ log = logging.getLogger(__name__)
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
+
+
+_T = TypeVar("_T")
+
+
+def get_or_else(value: Optional[_T], default: _T) -> _T:
+    # Normally we'd use `value or default`. However, that runs into issues
+    # when value is falsey but not None.
+    return value if value is not None else default
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
@@ -321,12 +331,16 @@ def get_frontend_session_login_as(
 def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
     if "acryl.io" not in url:
         return url
+    if url.endswith(":8080"):
+        url = url.replace(":8080", "")
     if url.startswith("http://"):
         url = url.replace("http://", "https://")
     if url.endswith("acryl.io"):
         url = f"{url}/gms"
     elif url.endswith("acryl.io/"):
         url = f"{url}gms"
+    if url.endswith("acryl.io/api/gms"):
+        url = url.replace("acryl.io/api/gms", "acryl.io/gms")
 
     return url
 
@@ -399,7 +413,7 @@ def generate_access_token(
 def ensure_has_system_metadata(
     event: Union[
         MetadataChangeProposal, MetadataChangeProposalWrapper, MetadataChangeEvent
-    ]
+    ],
 ) -> None:
     if event.systemMetadata is None:
         event.systemMetadata = SystemMetadataClass()
@@ -409,5 +423,67 @@ def ensure_has_system_metadata(
     if metadata.properties is None:
         metadata.properties = {}
     props = metadata.properties
-    props["clientId"] = datahub.__package_name__
-    props["clientVersion"] = datahub.__version__
+    props["clientId"] = datahub_version.__package_name__
+    props["clientVersion"] = datahub_version.__version__
+
+
+def enable_auto_decorators(main_group: click.Group) -> None:
+    """
+    Enable automatic decorators for all click commands.
+    This wraps existing command callback functions to add upgrade and telemetry decorators.
+    """
+
+    def has_decorator(func: Any, module_pattern: str, function_pattern: str) -> bool:
+        """Check if function already has a specific decorator"""
+        if hasattr(func, "__wrapped__"):
+            current_func = func
+            while hasattr(current_func, "__wrapped__"):
+                # Check if this wrapper matches the module and function patterns
+                if (
+                    hasattr(current_func, "__module__")
+                    and module_pattern in current_func.__module__
+                    and hasattr(current_func, "__name__")
+                    and function_pattern in current_func.__name__
+                ):
+                    return True
+                current_func = current_func.__wrapped__
+        return False
+
+    def has_telemetry_decorator(func):
+        return has_decorator(func, "telemetry", "with_telemetry")
+
+    def wrap_command_callback(command_obj):
+        """Wrap a command's callback function to add decorators"""
+        if hasattr(command_obj, "callback") and command_obj.callback:
+            original_callback = command_obj.callback
+
+            # Import here to avoid circular imports
+            from datahub.telemetry import telemetry
+
+            decorated_callback = original_callback
+
+            if not has_telemetry_decorator(decorated_callback):
+                log.debug(
+                    f"Applying telemetry decorator to {original_callback.__module__}.{original_callback.__name__}"
+                )
+                decorated_callback = telemetry.with_telemetry()(decorated_callback)
+
+            # Preserve the original function's metadata
+            decorated_callback = wraps(original_callback)(decorated_callback)
+
+            command_obj.callback = decorated_callback
+
+    def wrap_group_commands(group_obj):
+        """Recursively wrap all commands in a group"""
+        if hasattr(group_obj, "commands"):
+            for _, command_obj in group_obj.commands.items():
+                if isinstance(command_obj, click.Group):
+                    # Recursively wrap sub-groups
+                    wrap_group_commands(command_obj)
+                else:
+                    # Wrap individual commands
+                    wrap_command_callback(command_obj)
+
+    wrap_group_commands(main_group)
+
+    log.debug("Auto-decorators enabled successfully")

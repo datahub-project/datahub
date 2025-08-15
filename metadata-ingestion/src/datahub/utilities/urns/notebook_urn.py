@@ -1,1 +1,3 @@
-from datahub.metadata.urns import NotebookUrn  # noqa: F401
+from datahub.metadata.urns import NotebookUrn
+
+__all__ = ["NotebookUrn"]

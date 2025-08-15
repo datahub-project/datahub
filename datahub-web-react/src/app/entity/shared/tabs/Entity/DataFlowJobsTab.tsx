@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { EntityType } from '../../../../../types.generated';
-import { EntityList } from './components/EntityList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { useGetDataFlowChildJobsQuery } from '../../../../../graphql/dataFlow.generated';
-import { SearchCfg } from '../../../../../conf';
+
+import { EntityList } from '@app/entity/shared/tabs/Entity/components/EntityList';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SearchCfg } from '@src/conf';
+
+import { useGetDataFlowChildJobsQuery } from '@graphql/dataFlow.generated';
+import { EntityType } from '@types';
 
 interface Props {
     properties?: {
@@ -30,7 +32,7 @@ export const DataFlowJobsTab = ({ properties = { urn: '' } }: Props) => {
     };
 
     const dataFlow = data && data?.dataFlow;
-    const dataJobs = dataFlow?.childJobs?.relationships.map((relationship) => relationship.entity);
+    const dataJobs = dataFlow?.childJobs?.relationships?.map((relationship) => relationship.entity);
     const entityRegistry = useEntityRegistry();
     const totalJobs = dataFlow?.childJobs?.total || 0;
     const pageSize = data?.dataFlow?.childJobs?.count || 0;

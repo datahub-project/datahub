@@ -1,0 +1,23 @@
+namespace com.linkedin.settings
+
+record NotificationSetting {
+  /**
+   * Integrations between DataHub & other platforms.
+   */
+  value: enum NotificationSettingValue {
+    /**
+     * Setting is enabled.
+     */
+    ENABLED
+
+    /**
+     * Setting is disabled.
+     */
+    DISABLED
+  }
+
+  /**
+   * Custom set of setting parameters.
+   */
+   params: optional map[string, string]
+}

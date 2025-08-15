@@ -10,10 +10,22 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  // Use on specific MCP to request an synchronous index update avoid the kafka lag.
+  public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+  public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
+
+  public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
-  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN"; // Unknown principal.
+  // Actor ID for unauthenticated requests
+  public static final String ANONYMOUS_ACTOR_ID = "__anonymous";
+  // Unauthenticated requests (no valid credentials provided).
+  public static final String ANONYMOUS_ACTOR = "urn:li:corpuser:" + ANONYMOUS_ACTOR_ID;
+  // Unknown principal (identity exists but cannot be determined).
+  public static final String UNKNOWN_ACTOR = "urn:li:corpuser:UNKNOWN";
+  public static final Urn SYSTEM_POLICY_ZERO = UrnUtils.getUrn("urn:li:dataHubPolicy:0");
+  public static final Urn SYSTEM_POLICY_ONE = UrnUtils.getUrn("urn:li:dataHubPolicy:1");
   public static final Long ASPECT_LATEST_VERSION = 0L;
   public static final String UNKNOWN_DATA_PLATFORM = "urn:li:dataPlatform:unknown";
   public static final String ENTITY_TYPE_URN_PREFIX = "urn:li:entityType:";
@@ -50,6 +62,7 @@ public class Constants {
   // App sources
   public static final String UI_SOURCE = "ui";
   public static final String SYSTEM_UPDATE_SOURCE = "systemUpdate";
+  public static final String METADATA_TESTS_SOURCE = "metadataTests";
 
   /** Entities */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";
@@ -92,6 +105,7 @@ public class Constants {
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
   public static final String DATA_PRODUCT_ENTITY_NAME = "dataProduct";
+  public static final String APPLICATION_ENTITY_NAME = "application";
   public static final String OWNERSHIP_TYPE_ENTITY_NAME = "ownershipType";
   public static final Urn DEFAULT_OWNERSHIP_TYPE_URN =
       UrnUtils.getUrn("urn:li:ownershipType:__system__none");
@@ -101,10 +115,13 @@ public class Constants {
   public static final String FORM_ENTITY_NAME = "form";
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
+  public static final String PLATFORM_RESOURCE_ENTITY_NAME = "platformResource";
 
   /** Aspects */
   // Common
   public static final String OWNERSHIP_ASPECT_NAME = "ownership";
+
+  public static final String TIMESTAMP_MILLIS = "timestampMillis";
 
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
@@ -123,6 +140,8 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
+  public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
+  public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -155,6 +174,8 @@ public class Constants {
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
+  public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
+  public static final String DATASET_OPERATION_ASPECT_NAME = "operation";
 
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
@@ -205,6 +226,9 @@ public class Constants {
   public static final String DATA_PLATFORM_INSTANCE_PROPERTIES_ASPECT_NAME =
       "dataPlatformInstanceProperties";
 
+  // PlatformResource
+  public static final String PLATFORM_RESOURCE_INFO_ASPECT_NAME = "platformResourceInfo";
+
   // ML Feature
   public static final String ML_FEATURE_KEY_ASPECT_NAME = "mlFeatureKey";
   public static final String ML_FEATURE_PROPERTIES_ASPECT_NAME = "mlFeatureProperties";
@@ -245,6 +269,7 @@ public class Constants {
       "editableMlPrimaryKeyProperties";
 
   // Policy
+  public static final String DATAHUB_POLICY_KEY_ASPECT_NAME = "dataHubPolicyKey";
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
   // Role
@@ -326,6 +351,7 @@ public class Constants {
   public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
   public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
   public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
+  public static final String EXECUTION_REQUEST_STATUS_ROLLING_BACK = "ROLLING_BACK";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
@@ -354,6 +380,10 @@ public class Constants {
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
 
+  // Application
+  public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
+
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";
   public static final String OWNERSHIP_TYPE_INFO_ASPECT_NAME = "ownershipTypeInfo";
@@ -361,6 +391,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -377,6 +409,9 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+
+  // Timeseries
+  public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
@@ -403,6 +438,8 @@ public class Constants {
   /** User Status */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
+  public static final String CORP_USER_STATUS_SUSPENDED = "SUSPENDED";
+
   /** Task Runs */
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
 
@@ -412,6 +449,10 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+  public static final String DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME = "dataProcessInstanceInput";
+  public static final String DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME = "dataProcessInstanceOutput";
+  public static final String DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME = "dataProcessInstanceKey";
+  public static final String ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME = "mlTrainingRunProperties";
 
   // Business Attribute
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
@@ -429,11 +470,24 @@ public class Constants {
   public static final String CLIENT_ID_URN = "urn:li:telemetry:clientId";
   public static final String CLIENT_ID_ASPECT = "telemetryClientId";
 
+  // Template
+  public static final String DATAHUB_PAGE_TEMPLATE_ENTITY_NAME = "dataHubPageTemplate";
+  public static final String DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageTemplateProperties";
+
+  // Module
+  public static final String DATAHUB_PAGE_MODULE_ENTITY_NAME = "dataHubPageModule";
+  public static final String DATAHUB_PAGE_MODULE_PROPERTIES_ASPECT_NAME =
+      "dataHubPageModuleProperties";
+
   // Step
   public static final String DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME =
       "dataHubStepStateProperties";
 
   // Authorization
+  // Do not use this env var directly to determine if REST API Auth is to be enabled. Instead, use
+  // the  spring property "authorization.restApiAuthorization" from application.yaml for
+  // consistency. The spring property can be initialized by this env var (among other methods).
   public static final String REST_API_AUTHORIZATION_ENABLED_ENV = "REST_API_AUTHORIZATION_ENABLED";
 
   // Metadata Change Event Parameter Names
@@ -451,6 +505,20 @@ public class Constants {
   // Incidents
   public static final String ENTITY_REF = "entities";
 
+  // Version Set
+  public static final String VERSION_SET_ENTITY_NAME = "versionSet";
+  public static final String VERSION_SET_KEY_ASPECT_NAME = "versionSetKey";
+  public static final String VERSION_SET_PROPERTIES_ASPECT_NAME = "versionSetProperties";
+
+  // Versioning related
+  public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
+  public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
+  public static final String IS_LATEST_FIELD_NAME = "isLatest";
+  public static final String VERSION_SET_FIELD_NAME = "versionSet";
+  public static final String VERSION_LABEL_FIELD_NAME = "version";
+
+  public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
+
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
@@ -458,11 +526,20 @@ public class Constants {
   // DAO
   public static final long LATEST_VERSION = 0;
 
+  // Index names
+  public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";
   public static final String MDC_ASPECT_NAME = "aspectName";
   public static final String MDC_ENTITY_TYPE = "entityType";
   public static final String MDC_CHANGE_TYPE = "changeType";
+
+  public static final String RESTLI_SUCCESS = "success";
+
+  // Wildcard entity urn, allows auth on unspecified subresources. Avoids issues with
+  // EntityPrivilegesResolver
+  public static final Urn WILDCARD_URN = UrnUtils.getUrn("urn:li:allEntities:all");
 
   private Constants() {}
 }

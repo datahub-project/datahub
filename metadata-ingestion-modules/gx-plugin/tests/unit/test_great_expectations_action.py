@@ -4,6 +4,32 @@ from unittest import mock
 
 import pandas as pd
 import pytest
+from great_expectations.core.batch import Batch, BatchDefinition, BatchRequest
+from great_expectations.core.batch_spec import (
+    RuntimeDataBatchSpec,
+    SqlAlchemyDatasourceBatchSpec,
+)
+from great_expectations.core.expectation_validation_result import (
+    ExpectationSuiteValidationResult,
+)
+from great_expectations.core.id_dict import IDDict
+from great_expectations.core.run_identifier import RunIdentifier
+from great_expectations.data_context import FileDataContext
+from great_expectations.data_context.types.resource_identifiers import (
+    ExpectationSuiteIdentifier,
+    ValidationResultIdentifier,
+)
+from great_expectations.execution_engine.pandas_execution_engine import (
+    PandasExecutionEngine,
+)
+from great_expectations.execution_engine.sparkdf_execution_engine import (
+    SparkDFExecutionEngine,
+)
+from great_expectations.execution_engine.sqlalchemy_execution_engine import (
+    SqlAlchemyExecutionEngine,
+)
+from great_expectations.validator.validator import Validator
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -20,39 +46,13 @@ from datahub.metadata.schema_classes import (
     DatasetAssertionScopeClass,
     PartitionSpecClass,
 )
-from great_expectations.core.batch import Batch, BatchDefinition, BatchRequest
-from great_expectations.core.batch_spec import (
-    RuntimeDataBatchSpec,
-    SqlAlchemyDatasourceBatchSpec,
-)
-from great_expectations.core.expectation_validation_result import (
-    ExpectationSuiteValidationResult,
-)
-from great_expectations.core.id_dict import IDDict
-from great_expectations.core.run_identifier import RunIdentifier
-from great_expectations.data_context import DataContext, FileDataContext
-from great_expectations.data_context.types.resource_identifiers import (
-    ExpectationSuiteIdentifier,
-    ValidationResultIdentifier,
-)
-from great_expectations.execution_engine.pandas_execution_engine import (
-    PandasExecutionEngine,
-)
-from great_expectations.execution_engine.sparkdf_execution_engine import (
-    SparkDFExecutionEngine,
-)
-from great_expectations.execution_engine.sqlalchemy_execution_engine import (
-    SqlAlchemyExecutionEngine,
-)
-from great_expectations.validator.validator import Validator
-
 from datahub_gx_plugin.action import DataHubValidationAction
 
 logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="function")
-def ge_data_context(tmp_path: str) -> DataContext:
+def ge_data_context(tmp_path: str) -> FileDataContext:
     return FileDataContext.create(tmp_path)
 
 
@@ -233,7 +233,7 @@ def ge_validation_result_suite_id_pandas() -> ValidationResultIdentifier:
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
 def test_DataHubValidationAction_sqlalchemy(
     mock_emitter: mock.MagicMock,
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
@@ -337,7 +337,7 @@ def test_DataHubValidationAction_sqlalchemy(
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
 def test_DataHubValidationAction_pandas(
     mock_emitter: mock.MagicMock,
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_pandas: Validator,
     ge_validation_result_suite_pandas: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id_pandas: ValidationResultIdentifier,
@@ -399,7 +399,7 @@ def test_DataHubValidationAction_pandas(
 
 
 def test_DataHubValidationAction_graceful_failure(
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
@@ -418,7 +418,7 @@ def test_DataHubValidationAction_graceful_failure(
 
 
 def test_DataHubValidationAction_not_supported(
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_spark: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,

@@ -13,7 +13,7 @@ from datahub.ingestion.glossary.datahub_classifier import (
     PredictionFactorsAndWeights,
 )
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 test_resources_dir = pathlib.Path(__file__).parent
 FROZEN_TIME = "2023-08-30 12:00:00"
@@ -29,9 +29,11 @@ def test_dynamodb(pytestconfig, tmp_path):
         TableName="Location",
         KeySchema=[
             {"AttributeName": "partitionKey", "KeyType": "HASH"},
+            {"AttributeName": "city", "KeyType": "RANGE"},
         ],
         AttributeDefinitions=[
             {"AttributeName": "partitionKey", "AttributeType": "S"},
+            {"AttributeName": "city", "AttributeType": "S"},
         ],
         ProvisionedThroughput={"ReadCapacityUnits": 10, "WriteCapacityUnits": 10},
     )

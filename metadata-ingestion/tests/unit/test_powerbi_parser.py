@@ -1,13 +1,15 @@
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.powerbi.config import PowerBiDashboardSourceConfig
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiDashboardSourceReport,
+)
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
 )
-from datahub.ingestion.source.powerbi.m_query.resolver import (
-    MSSqlDataPlatformTableCreator,
-)
+from datahub.ingestion.source.powerbi.m_query.pattern_handler import MSSqlLineage
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 
 @pytest.fixture
@@ -17,8 +19,16 @@ def creator():
         client_id="test-client-id",
         client_secret="test-client-secret",
     )
-    return MSSqlDataPlatformTableCreator(
+
+    table = Table(
+        name="test_table",
+        full_name="db.schema.test_table",
+    )
+
+    return MSSqlLineage(
         ctx=PipelineContext(run_id="test-run-id"),
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
         config=config,
         platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
             config

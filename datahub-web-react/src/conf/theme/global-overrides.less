@@ -8,6 +8,31 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
+
+::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    background: rgba(193, 196, 208, 0);
+    border-radius: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(193, 196, 208, 0);
+    border-radius: 10px;
+    transition: 0.3s;
+}
+
+*:hover::-webkit-scrollbar-track {
+    background: rgba(193, 196, 208, 0.3);
+}
+
+*:hover::-webkit-scrollbar-thumb {
+    background: rgba(193, 196, 208, 0.8);
+}
+
 .ant-modal-title {
     font-weight: 700;
 }
@@ -50,4 +75,8 @@ body {
             }
         }
     }
+}
+
+.search-filter-popover .ant-popover-inner-content {
+    padding: 0 !important;
 }

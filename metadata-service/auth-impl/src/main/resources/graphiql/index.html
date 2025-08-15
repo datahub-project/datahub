@@ -1,73 +1,58 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://unpkg.com/graphiql@4.0.3/graphiql.min.css"
+          rel="stylesheet"
+          crossorigin="anonymous"
+          integrity="sha384-6ZaxvqvxdqMCDsD9wNOq+NxheDM6rTYy4eeE/fZmPonsSKffQ7nV+IQNzLemeuSH" />
+
+    <style>
         body {
-            height: 100%;
-            margin: 0;
-            width: 100%;
-            overflow: hidden;
+          height: 100%;
+          margin: 0;
+          width: 100%;
+          overflow: hidden;
         }
 
         #graphiql {
-            height: 100vh;
+          height: 100vh;
         }
     </style>
-
-  <!--
-    You can host these files locally or include them directly in your resource bundler.
-  -->
-  <script
-      crossorigin
-      src="https://unpkg.com/react@16/umd/react.development.js"
-  ></script>
-  <script
-      crossorigin
-      src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"
-  ></script>
-
-  <!--
-    These two files can be found in the npm module, however you may wish to
-    copy them directly into your environment, or perhaps include them in your
-    favored resource bundler.
-   -->
-  <link rel="stylesheet" href="https://unpkg.com/graphiql/graphiql.min.css" />
 </head>
 
 <body>
 <div id="graphiql">Loading GraphiQL...</div>
-<script
-    src="https://unpkg.com/graphiql/graphiql.min.js"
-    type="application/javascript"
-></script>
-<script>
-    function graphQLFetcher(path) {
-        return graphQLParams => fetch(
-            `${location.protocol}//${location.host}/api/graphql`,
-            {
-                method: 'post',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(graphQLParams),
-            },
-        ).then(function (response) {
-            return response.json().catch(function () {
-                return response.text();
-            });
-        });
-    }
 
-    const params = new URLSearchParams(window.location.search);
-    const path = params.get("path") || "/api/graphql";
-    const gqlFetcher = graphQLFetcher(path);
-    ReactDOM.render(
-        React.createElement(GraphiQL, {
-            fetcher: gqlFetcher,
-            defaultVariableEditorOpen: true,
-        }),
-        document.getElementById('graphiql'),
+<!-- Using production versions of React 18 -->
+<script crossorigin="anonymous"
+        src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"
+        integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z"></script>
+<script crossorigin="anonymous"
+        src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"
+        integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"></script>
+<script crossorigin="anonymous"
+        src="https://unpkg.com/graphiql@4.0.3/graphiql.min.js"
+        crossorigin="anonymous"
+        integrity="sha384-naAA3pYPARITlxC7GwToGuWsRdWfcCBgwIRLMDY6t7YKpjASnzW27h0gm4PIW06W"></script>
+
+<script>
+    const fetcher = GraphiQL.createFetcher({
+      url: `${location.protocol}//${location.host}/api/graphql`,
+    });
+
+    const root = ReactDOM.createRoot(document.getElementById('graphiql'));
+    root.render(
+      React.createElement(GraphiQL, {
+        fetcher: fetcher,
+        defaultVariableEditorOpen: true,
+        // Additional modern options
+        shouldPersistHeaders: true,
+        headers: '',
+        plugins: [], // Support for plugins in modern GraphiQL
+      })
     );
 </script>
 </body>

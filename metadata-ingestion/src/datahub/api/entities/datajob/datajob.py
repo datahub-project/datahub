@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -11,6 +10,7 @@ from datahub.metadata.schema_classes import (
     AzkabanJobTypeClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
+    DataPlatformInstanceClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
     OwnerClass,
@@ -46,6 +46,7 @@ class DataJob:
         outlets (List[str]): List of urns the DataProcessInstance produces
         fine_grained_lineages: Column lineage for the inlets and outlets
         upstream_urns: List[DataJobUrn] = field(default_factory=list)
+        platform_instance (Optional[str]): The instance of the platform that all assets produced by this orchestrator belong to.
     """
 
     id: str
@@ -62,6 +63,7 @@ class DataJob:
     outlets: List[DatasetUrn] = field(default_factory=list)
     fine_grained_lineages: List[FineGrainedLineageClass] = field(default_factory=list)
     upstream_urns: List[DataJobUrn] = field(default_factory=list)
+    platform_instance: Optional[str] = None
 
     def __post_init__(self):
         job_flow_urn = DataFlowUrn.create_from_ids(
@@ -106,10 +108,12 @@ class DataJob:
         return [tags]
 
     def generate_mcp(
-        self, materialize_iolets: bool = True
+        self,
+        generate_lineage: bool = True,
+        materialize_iolets: bool = True,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         env: Optional[str] = None
-        if self.flow_urn.cluster.upper() in ALL_ENV_TYPES:
+        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
             env = self.flow_urn.cluster.upper()
         else:
             logger.debug(
@@ -128,6 +132,20 @@ class DataJob:
         )
         yield mcp
 
+        if self.platform_instance:
+            instance = builder.make_dataplatform_instance_urn(
+                platform=self.flow_urn.orchestrator,
+                instance=self.platform_instance,
+            )
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=str(self.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=builder.make_data_platform_urn(self.flow_urn.orchestrator),
+                    instance=instance,
+                ),
+            )
+            yield mcp
+
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=StatusClass(
@@ -136,9 +154,10 @@ class DataJob:
         )
         yield mcp
 
-        yield from self.generate_data_input_output_mcp(
-            materialize_iolets=materialize_iolets
-        )
+        if generate_lineage:
+            yield from self.generate_data_input_output_mcp(
+                materialize_iolets=materialize_iolets
+            )
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(

@@ -1,10 +1,12 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import useListDomains from '../../useListDomains';
-import DomainNode from './DomainNode';
-import { Domain } from '../../../../types.generated';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import DomainNode from '@app/domain/nestedDomains/domainNavigator/DomainNode';
+import useListDomains from '@app/domain/useListDomains';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { Domain } from '@types';
 
 const NavigatorWrapper = styled.div`
     font-size: 14px;
@@ -15,10 +17,11 @@ const NavigatorWrapper = styled.div`
 
 interface Props {
     domainUrnToHide?: string;
+    displayDomainColoredIcon?: boolean;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
-export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
+export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
     const { sortedDomains, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
@@ -40,6 +43,7 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride 
                         numDomainChildren={domain.children?.total || 0}
                         domainUrnToHide={domainUrnToHide}
                         selectDomainOverride={selectDomainOverride}
+                        displayDomainColoredIcon={displayDomainColoredIcon}
                     />
                 ))}
         </NavigatorWrapper>

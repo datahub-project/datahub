@@ -5,6 +5,9 @@ import lombok.Data;
 /** POJO representing visualConfig block in the application.yaml. */
 @Data
 public class VisualConfiguration {
+  /** Theme related configurations */
+  public ThemeConfiguration theme;
+
   /** Asset related configurations */
   public AssetsConfiguration assets;
 
@@ -25,4 +28,10 @@ public class VisualConfiguration {
 
   /** Search result related configurations */
   public SearchResultVisualConfig searchResult;
+
+  /** Boolean flag enabled shows the full title of an entity in lineage view by default */
+  public boolean showFullTitleInLineage;
+
+  /** DEPRECATED: This is now controlled via the UI settings. */
+  public ApplicationConfig application;
 }

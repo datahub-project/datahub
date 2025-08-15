@@ -1,7 +1,7 @@
 import json
 from typing import IO
 
-from datahub.configuration import ConfigurationMechanism
+from datahub.configuration.common import ConfigurationMechanism
 
 
 class JsonConfigurationMechanism(ConfigurationMechanism):

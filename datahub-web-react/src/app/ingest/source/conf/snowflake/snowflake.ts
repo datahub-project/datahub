@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import snowflakeLogo from '../../../../../images/snowflakelogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import snowflakeLogo from '@images/snowflakelogo.png';
 
 const placeholderRecipe = `\
 source: 
@@ -22,7 +23,7 @@ const snowflakeConfig: SourceConfig = {
     type: SNOWFLAKE,
     placeholderRecipe,
     displayName: 'Snowflake',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/snowflake/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/snowflake/',
     logoUrl: snowflakeLogo,
 };
 

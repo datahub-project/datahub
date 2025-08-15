@@ -6,6 +6,7 @@ from typing import List
 
 import pytest
 import tenacity
+
 from datahub.emitter.mce_builder import datahub_guid, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -19,7 +20,6 @@ from datahub.metadata.schema_classes import (
     DomainsClass,
 )
 from datahub.utilities.urns.urn import Urn
-
 from tests.utils import (
     delete_urns_from_file,
     get_sleep_info,
@@ -135,9 +135,9 @@ def validate_relationships(
                 urn_match[dataset_urn] = True
 
     urns_missing = [k for k in urn_match if urn_match[k] is False]
-    assert (
-        urns_missing == []
-    ), "All dataset urns should have a DataProductContains relationship to the data product"
+    assert urns_missing == [], (
+        "All dataset urns should have a DataProductContains relationship to the data product"
+    )
 
     dataset_urns_matched = set()
     for e in graph_client.get_related_entities(
@@ -147,9 +147,9 @@ def validate_relationships(
     ):
         dataset_urns_matched.add(e.urn)
 
-    assert (
-        set(dataset_urns) == dataset_urns_matched
-    ), "All dataset urns should be navigable from the data product"
+    assert set(dataset_urns) == dataset_urns_matched, (
+        "All dataset urns should be navigable from the data product"
+    )
 
 
 @tenacity.retry(
@@ -247,6 +247,6 @@ def test_create_data_product(graph_client, ingest_cleanup_data):
                 urn_match[dataset_urn] = True
 
     urns_missing = [k for k in urn_match if urn_match[k] is False]
-    assert set(urns_missing) == set(
-        dataset_urns
-    ), f"All dataset urns should no longer have a DataProductContains relationship to the data product {data_product_urn}"
+    assert set(urns_missing) == set(dataset_urns), (
+        f"All dataset urns should no longer have a DataProductContains relationship to the data product {data_product_urn}"
+    )

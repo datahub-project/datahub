@@ -1,6 +1,6 @@
-import { EntityType } from '../../../types.generated';
-import { BrowsePathResolver } from '../browsePathHelper';
-import { dashboardBrowsePaths, filterDashboardByPath } from '../searchResult/dashboardSearchResult';
+import { BrowsePathResolver } from '@graphql-mock/fixtures/browsePathHelper';
+import { dashboardBrowsePaths, filterDashboardByPath } from '@graphql-mock/fixtures/searchResult/dashboardSearchResult';
+import { EntityType } from '@types';
 
 const browsePathResolver = new BrowsePathResolver({
     entityType: EntityType.Dashboard,

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultError;
@@ -293,7 +294,7 @@ public class AssertionServiceTest {
     Mockito.when(
             mockGraphClient.getRelatedEntities(
                 Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.OUTGOING),
                 Mockito.eq(0),
                 Mockito.eq(1),

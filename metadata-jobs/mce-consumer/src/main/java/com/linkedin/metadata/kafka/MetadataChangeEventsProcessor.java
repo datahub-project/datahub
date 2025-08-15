@@ -1,8 +1,7 @@
 package com.linkedin.metadata.kafka;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.DEFAULT_EVENT_CONSUMER_NAME;
+
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
@@ -45,9 +44,6 @@ public class MetadataChangeEventsProcessor {
   private final SystemEntityClient entityClient;
   private final Producer<String, IndexedRecord> kafkaProducer;
 
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
-
   @Value(
       "${FAILED_METADATA_CHANGE_EVENT_NAME:${KAFKA_FMCE_TOPIC_NAME:"
           + Topics.FAILED_METADATA_CHANGE_EVENT
@@ -60,38 +56,50 @@ public class MetadataChangeEventsProcessor {
           "${METADATA_CHANGE_EVENT_NAME:${KAFKA_MCE_TOPIC_NAME:"
               + Topics.METADATA_CHANGE_EVENT
               + "}}",
-      containerFactory = "kafkaEventConsumer")
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
+      autoStartup = "false")
   @Deprecated
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
-      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-      final GenericRecord record = consumerRecord.value();
+    systemOperationContext.withSpan(
+        "consume",
+        () -> {
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.histogram(
+                          this.getClass(),
+                          "kafkaLag",
+                          System.currentTimeMillis() - consumerRecord.timestamp()));
+          final GenericRecord record = consumerRecord.value();
 
-      log.info(
-          "Got MCE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
-          consumerRecord.key(),
-          consumerRecord.topic(),
-          consumerRecord.partition(),
-          consumerRecord.offset(),
-          consumerRecord.serializedValueSize(),
-          consumerRecord.timestamp());
+          log.info(
+              "Got MCE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+              consumerRecord.key(),
+              consumerRecord.topic(),
+              consumerRecord.partition(),
+              consumerRecord.offset(),
+              consumerRecord.serializedValueSize(),
+              consumerRecord.timestamp());
 
-      log.debug("Record {}", record);
+          log.debug("Record {}", record);
 
-      MetadataChangeEvent event = new MetadataChangeEvent();
+          MetadataChangeEvent event = new MetadataChangeEvent();
 
-      try {
-        event = EventUtils.avroToPegasusMCE(record);
-        log.debug("MetadataChangeEvent {}", event);
-        if (event.hasProposedSnapshot()) {
-          processProposedSnapshot(event);
-        }
-      } catch (Throwable throwable) {
-        log.error("MCE Processor Error", throwable);
-        log.error("Message: {}", record);
-        sendFailedMCE(event, throwable);
-      }
-    }
+          try {
+            event = EventUtils.avroToPegasusMCE(record);
+            log.debug("MetadataChangeEvent {}", event);
+            if (event.hasProposedSnapshot()) {
+              processProposedSnapshot(event);
+            }
+          } catch (Throwable throwable) {
+            log.error("MCE Processor Error", throwable);
+            log.error("Message: {}", record);
+            sendFailedMCE(event, throwable);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "consume"));
   }
 
   private void sendFailedMCE(@Nonnull MetadataChangeEvent event, @Nonnull Throwable throwable) {

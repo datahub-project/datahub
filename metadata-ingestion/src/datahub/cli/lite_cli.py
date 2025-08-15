@@ -176,7 +176,7 @@ def get(
             )
         )
     end_time = time.time()
-    logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+    logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
 
 
 @lite.command()
@@ -228,7 +228,7 @@ def ls(path: Optional[str]) -> None:
     try:
         browseables = lite.ls(path)
         end_time = time.time()
-        logger.debug(f"Time taken: {int((end_time - start_time)*1000.0)} millis")
+        logger.debug(f"Time taken: {int((end_time - start_time) * 1000.0)} millis")
         auto_complete: List[AutoComplete] = [
             b.auto_complete for b in browseables if b.auto_complete is not None
         ]
@@ -285,10 +285,12 @@ def search(
     ctx: click.Context,
     query: str = "",
     flavor: str = SearchFlavor.FREE_TEXT.name.lower(),
-    aspect: List[str] = [],
+    aspect: Optional[List[str]] = None,
     details: bool = True,
 ) -> None:
     """Search with a free text or exact query string"""
+    if aspect is None:
+        aspect = []
 
     # query flavor should be sanitized by now, but we still need to convert it to a SearchFlavor
     try:
@@ -296,7 +298,7 @@ def search(
     except KeyError:
         raise click.UsageError(
             f"Failed to find a matching query flavor for {flavor}. Valid values are {[x.lower() for x in SearchFlavor._member_names_]}"
-        )
+        ) from None
     catalog = _get_datahub_lite(read_only=True)
     # sanitize query
     result_ids = set()

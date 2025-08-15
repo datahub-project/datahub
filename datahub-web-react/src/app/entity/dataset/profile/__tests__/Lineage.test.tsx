@@ -1,11 +1,11 @@
-import React from 'react';
-import { render } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { render } from '@testing-library/react';
+import React from 'react';
 
-import Lineage from '../Lineage';
-import { sampleDownstreamRelationship, sampleRelationship } from '../stories/lineageEntities';
-import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../../../Mocks';
+import Lineage from '@app/entity/dataset/profile/Lineage';
+import { sampleDownstreamRelationship, sampleRelationship } from '@app/entity/dataset/profile/stories/lineageEntities';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('Lineage', () => {
     it('renders', () => {

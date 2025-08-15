@@ -1,0 +1,1 @@
+export { SearchBar } from './SearchBar';

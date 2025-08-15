@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
+import pytest
 from pydantic.class_validators import validator
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
@@ -25,9 +26,12 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.data_reader import DataReader
+from datahub.ingestion.source.common.subtypes import (
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SQLSourceReport,
     SqlWorkUnit,
     get_schema_metadata,
 )
@@ -35,13 +39,13 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     SQLCommonConfig,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import get_domain_wu
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
-    ChangeTypeClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     SubTypesClass,
@@ -52,6 +56,8 @@ from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+
+pytestmark = pytest.mark.integration_batch_4
 logger: logging.Logger = logging.getLogger(__name__)
 
 
@@ -113,10 +119,14 @@ class VerticaConfig(BasicSQLAlchemyConfig):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default, can be disabled via configuration `include_view_lineage` and `include_projection_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.PROJECTIONS,
+    ],
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
+    "Enabled by default via stateful ingestion",
     supported=True,
 )
 class VerticaSource(SQLAlchemySource):
@@ -493,11 +503,8 @@ class VerticaSource(SQLAlchemySource):
         if dpi_aspect:
             yield dpi_aspect
         yield MetadataChangeProposalWrapper(
-            entityType="dataset",
-            changeType=ChangeTypeClass.UPSERT,
             entityUrn=dataset_urn,
-            aspectName="subTypes",
-            aspect=SubTypesClass(typeNames=["Projections"]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.PROJECTIONS]),
         ).as_workunit()
 
         if self.config.domain:
@@ -536,7 +543,7 @@ class VerticaSource(SQLAlchemySource):
             )
 
             if not self.is_dataset_eligible_for_profiling(
-                dataset_name, sql_config, inspector, profile_candidates
+                dataset_name, schema, inspector, profile_candidates
             ):
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")

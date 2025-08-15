@@ -2,9 +2,7 @@ package com.linkedin.gms.servlet;
 
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
-@EnableWebMvc
 @ComponentScan(
     basePackages = {
       "io.datahubproject.openapi.config",
@@ -18,8 +16,11 @@ import org.springframework.web.servlet.config.annotation.EnableWebMvc;
       "io.datahubproject.openapi.v1",
       "io.datahubproject.openapi.v2",
       "io.datahubproject.openapi.v3",
+      "io.datahubproject.openapi.analytics",
       "com.linkedin.gms.factory.timeline",
-      "org.springdoc"
+      "com.linkedin.gms.factory.event",
+      "org.springdoc",
+      "com.linkedin.gms.factory.system_info"
     })
 @Configuration
 public class OpenAPIServletConfig {}

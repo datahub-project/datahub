@@ -3,12 +3,12 @@ plugins {
     id "application"
 }
 apply plugin: 'java'
-apply plugin: 'jacoco'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
 apply from: '../versioning.gradle'
+apply from: '../../../gradle/coverage/java-coverage.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
 
@@ -31,6 +31,7 @@ dependencies {
     implementation externalDependency.commonsCli
     implementation externalDependency.httpClient
     implementation externalDependency.slf4jApi
+    implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonCore
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
@@ -56,13 +57,6 @@ task compileProtobuf {
         }
     }
 }
-
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-
-test.finalizedBy jacocoTestReport
-
 
 task checkShadowJar(type: Exec) {
    commandLine 'sh', '-c', 'scripts/check_jar.sh'
@@ -147,7 +141,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-protobuf'
         description = 'DataHub integration with Protobuf schemas for metadata'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {
@@ -176,8 +170,8 @@ publishing {
 
   repositories {
     maven {
-      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def releasesRepoUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://ossrh-staging-api.central.sonatype.com/content/repositories/snapshots/"
       def ossrhUsername = System.getenv('RELEASE_USERNAME')
       def ossrhPassword = System.getenv('RELEASE_PASSWORD')
       credentials {
@@ -197,7 +191,7 @@ signing {
 }
 
 nexusStaging {
-    serverUrl = "https://s01.oss.sonatype.org/service/local/" //required only for projects registered in Sonatype after 2021-02-24
+    serverUrl = "https://ossrh-staging-api.central.sonatype.com/service/local/" //required only for projects registered in Sonatype after 2021-02-24
     username = System.getenv("NEXUS_USERNAME")
     password = System.getenv("NEXUS_PASSWORD")
 }

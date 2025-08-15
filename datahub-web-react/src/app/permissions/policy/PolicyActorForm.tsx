@@ -1,13 +1,14 @@
-import React from 'react';
 import { Form, Select, Switch, Tag, Typography } from 'antd';
-import styled from 'styled-components';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
+import styled from 'styled-components';
 
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '../../../types.generated';
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { useListOwnershipTypesQuery } from '../../../graphql/ownership.generated';
-import { CustomAvatar } from '../../shared/avatar';
+import { CustomAvatar } from '@app/shared/avatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { ActorFilter, CorpUser, EntityType, PolicyType, SearchResult } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -58,7 +59,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         },
     });
     const ownershipTypes =
-        ownershipData?.listOwnershipTypes?.ownershipTypes.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
+        ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
     const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
     // Toggle the "Owners" switch

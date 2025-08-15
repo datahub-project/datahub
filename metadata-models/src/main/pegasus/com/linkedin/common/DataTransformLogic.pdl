@@ -1,0 +1,14 @@
+namespace com.linkedin.common
+
+/**
+ * Information about a Query against one or more data assets (e.g. Tables or Views).
+ */
+@Aspect = {
+  "name": "dataTransformLogic"
+}
+record DataTransformLogic {
+    /**
+     * List of transformations applied
+     */
+    transforms: array[DataTransform],
+}

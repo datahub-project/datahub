@@ -144,16 +144,14 @@ class DataLakeSourceConfig(
         return path_specs
 
     @pydantic.validator("platform", always=True)
-    def platform_not_empty(cls, platform: str, values: dict) -> str:
-        inferred_platform = values.get(
-            "platform", None
-        )  # we may have inferred it above
+    def platform_not_empty(cls, platform: Any, values: dict) -> str:
+        inferred_platform = values.get("platform")  # we may have inferred it above
         platform = platform or inferred_platform
         if not platform:
             raise ValueError("platform must not be empty")
         return platform
 
-    @pydantic.root_validator()
+    @pydantic.root_validator(skip_on_failure=True)
     def ensure_profiling_pattern_is_passed_to_profiling(
         cls, values: Dict[str, Any]
     ) -> Dict[str, Any]:

@@ -1,9 +1,13 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
+import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
-import PlatformContentView, { getParentContainerNames } from '../header/PlatformContent/PlatformContentView';
-import { EntityType } from '../../../../../../types.generated';
-import { container1, container2 } from '../../../../../../Mocks';
+
+import PlatformContentView, {
+    getParentContainerNames,
+} from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentView';
+import { container1, container2 } from '@src/Mocks';
+
+import { EntityType } from '@types';
 
 vi.mock('../../../../../useEntityRegistry', () => ({
     useEntityRegistry: () => ({

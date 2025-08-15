@@ -31,6 +31,7 @@ import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.MatchedFieldArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.ViewService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.InputStream;
@@ -76,7 +77,7 @@ public class ScrollAcrossLineageResolverTest {
     InputStream inputStream = ClassLoader.getSystemResourceAsStream("entity-registry.yml");
     EntityRegistry entityRegistry = new ConfigEntityRegistry(inputStream);
     SearchAcrossLineageResolver resolver =
-        new SearchAcrossLineageResolver(_entityClient, entityRegistry);
+        new SearchAcrossLineageResolver(_entityClient, entityRegistry, mock(ViewService.class));
     assertTrue(resolver._allEntities.contains("dataset"));
     assertTrue(resolver._allEntities.contains("dataFlow"));
     // Test for case sensitivity

@@ -1,9 +1,11 @@
 import React from 'react';
-import { EntityPath, EntityType, MlModelGroup } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getDataProduct } from '../../shared/utils';
+
+import { getDataProduct } from '@app/entity/shared/utils';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityPath, EntityType, MlModelGroup } from '@types';
 
 export const Preview = ({
     group,
@@ -19,7 +21,8 @@ export const Preview = ({
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, group.urn)}
-            name={group?.name || ''}
+            // eslint-disable-next-line @typescript-eslint/dot-notation
+            name={group?.properties?.['propertiesName'] || group?.name || ''}
             urn={group.urn}
             platformInstanceId={group.dataPlatformInstance?.instanceId}
             description={group?.description || ''}

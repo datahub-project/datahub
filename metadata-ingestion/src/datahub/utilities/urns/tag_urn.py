@@ -1,1 +1,3 @@
-from datahub.metadata.urns import TagUrn  # noqa: F401
+from datahub.metadata.urns import TagUrn
+
+__all__ = ["TagUrn"]

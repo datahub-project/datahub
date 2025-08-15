@@ -1,6 +1,7 @@
 # Using Cron
 
 Assume you have a recipe file `/home/ubuntu/datahub_ingest/mysql_to_datahub.yml` on your machine
+
 ```
 source:
   type: mysql
@@ -14,7 +15,7 @@ source:
     password: example
 
 sink:
- type: datahub-rest 
+ type: datahub-rest
  config:
   server: http://localhost:8080
 ```

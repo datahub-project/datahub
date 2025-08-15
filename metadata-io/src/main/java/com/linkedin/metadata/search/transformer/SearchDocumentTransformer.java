@@ -31,6 +31,8 @@ import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -45,7 +47,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -92,7 +93,9 @@ public class SearchDocumentTransformer {
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     searchDocument.put("urn", snapshot.data().get("urn").toString());
     extractedSearchableFields.forEach(
-        (key, value) -> setSearchableValue(key, value, searchDocument, forDelete));
+        (key, value) ->
+            setSearchableValue(
+                key, value, searchDocument, forDelete, AuditStampUtils.createDefaultAuditStamp()));
     extractedSearchScoreFields.forEach(
         (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
     return Optional.of(searchDocument.toString());
@@ -114,42 +117,73 @@ public class SearchDocumentTransformer {
   }
 
   /**
-   * Handle object type UPSERTS where the new value to upsert removes a previous key. Only enabling
-   * for structured properties to start with i.e.
+   * While initially created to handle object type UPSERTS where the new value to upsert removes a
+   * previous key for enabling structured properties, this has been extended for removing other
+   * fields and nested values.
+   *
+   * <p>Original Structured Properties Example
    *
    * <p>New => { "structuredProperties.foobar": "value1" } Old => { "structuredProperties.foobar":
    * "value1" "structuredProperties.foobar2": "value2" } Expected => {
    * "structuredProperties.foobar": "value1" "structuredProperties.foobar2": null }
    *
-   * @param searchDocument new document
-   * @param previousSearchDocument previous document (if not present, no-op)
-   * @return searchDocument to upsert
+   * <p>Handles removing fields that were present in the previous document but are not in the new
+   * document. This method performs a deep comparison of all fields (including nested fields) and
+   * sets any missing fields to null in the resulting document.
+   *
+   * <p>The implementation handles both: - Flat fields with dots in their names which are escaped
+   * later. (like "structuredProperties.prop1") - Actual nested object structures
+   *
+   * <p>NOTE: This method mutates the input searchDocument object.
+   *
+   * @param searchDocument The new search document (will be mutated)
+   * @param previousSearchDocument The previous search document (can be null)
+   * @return The mutated search document with removed fields set to null
    */
   public static ObjectNode handleRemoveFields(
       @Nonnull ObjectNode searchDocument, @Nullable ObjectNode previousSearchDocument) {
-    if (previousSearchDocument != null) {
-      Set<String> documentFields = objectFieldsFilter(searchDocument.fieldNames());
-      objectFieldsFilter(previousSearchDocument.fieldNames()).stream()
-          .filter(prevFieldName -> !documentFields.contains(prevFieldName))
-          .forEach(removeFieldName -> searchDocument.set(removeFieldName, null));
+    if (previousSearchDocument == null) {
+      return searchDocument;
     }
-    // no-op
+
+    // Process fields recursively
+    processFieldsForRemoval(searchDocument, previousSearchDocument);
+
     return searchDocument;
   }
 
-  private static Set<String> objectFieldsFilter(Iterator<String> fieldNames) {
-    Iterable<String> iterable = () -> fieldNames;
-    return StreamSupport.stream(iterable.spliterator(), false)
-        .filter(fieldName -> fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX))
-        .collect(Collectors.toSet());
+  /** Recursively processes fields to find and null out removed ones. */
+  private static void processFieldsForRemoval(ObjectNode current, JsonNode previous) {
+    if (previous == null || !previous.isObject()) {
+      return;
+    }
+
+    Iterator<Map.Entry<String, JsonNode>> prevFields = previous.fields();
+    while (prevFields.hasNext()) {
+      Map.Entry<String, JsonNode> entry = prevFields.next();
+      String fieldName = entry.getKey();
+      JsonNode prevValue = entry.getValue();
+      JsonNode currentValue = current.get(fieldName);
+
+      if (currentValue == null) {
+        // Field was removed, set it to null
+        current.set(fieldName, JsonNodeFactory.instance.nullNode());
+      } else if (currentValue.isObject() && prevValue.isObject()) {
+        // Both are objects, recurse into them
+        processFieldsForRemoval((ObjectNode) currentValue, prevValue);
+      }
+      // If current exists but types don't match (one is object, other isn't),
+      // we don't recurse - the field was replaced with a different type
+    }
   }
 
   public Optional<ObjectNode> transformAspect(
       @Nonnull OperationContext opContext,
       final @Nonnull Urn urn,
-      final @Nonnull RecordTemplate aspect,
+      final @Nullable RecordTemplate aspect,
       final @Nonnull AspectSpec aspectSpec,
-      final Boolean forDelete)
+      final Boolean forDelete,
+      final AuditStamp mclCreateAuditStamp)
       throws RemoteInvocationException, URISyntaxException {
     final Map<SearchableFieldSpec, List<Object>> extractedSearchableFields =
         FieldExtractor.extractFields(aspect, aspectSpec.getSearchableFieldSpecs(), maxValueLength);
@@ -168,10 +202,12 @@ public class SearchDocumentTransformer {
       searchDocument.put("urn", urn.toString());
 
       extractedSearchableFields.forEach(
-          (key, values) -> setSearchableValue(key, values, searchDocument, forDelete));
+          (key, values) ->
+              setSearchableValue(key, values, searchDocument, forDelete, mclCreateAuditStamp));
       extractedSearchRefFields.forEach(
           (key, values) ->
-              setSearchableRefValue(opContext, key, values, searchDocument, forDelete));
+              setSearchableRefValue(
+                  opContext, key, values, searchDocument, forDelete, mclCreateAuditStamp));
       extractedSearchScoreFields.forEach(
           (key, values) -> setSearchScoreValue(key, values, searchDocument, forDelete));
       result = Optional.of(searchDocument);
@@ -190,7 +226,8 @@ public class SearchDocumentTransformer {
       final SearchableFieldSpec fieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
-      final Boolean forDelete) {
+      final Boolean forDelete,
+      final AuditStamp mclCreatedAuditStamp) {
     DataSchema.Type valueType = fieldSpec.getPegasusSchema().getType();
     Optional<Object> firstValue = fieldValues.stream().findFirst();
     boolean isArray = fieldSpec.isArray();
@@ -253,6 +290,13 @@ public class SearchDocumentTransformer {
     if (forDelete) {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
       return;
+    }
+
+    if (ESUtils.getSystemModifiedAtFieldName(fieldSpec).isPresent()) {
+      String modifiedAtFieldName = ESUtils.getSystemModifiedAtFieldName(fieldSpec).get();
+      searchDocument.set(
+          modifiedAtFieldName,
+          JsonNodeFactory.instance.numberNode((Long) mclCreatedAuditStamp.getTime()));
     }
 
     if (isArray || (valueType == DataSchema.Type.MAP && !OBJECT_FIELD_TYPES.contains(fieldType))) {
@@ -437,8 +481,6 @@ public class SearchDocumentTransformer {
 
     Map<Urn, Map<String, Aspect>> definitions =
         opContext
-            .getRetrieverContext()
-            .get()
             .getAspectRetriever()
             .getLatestAspectObjects(
                 propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
@@ -527,7 +569,8 @@ public class SearchDocumentTransformer {
       final SearchableRefFieldSpec searchableRefFieldSpec,
       final List<Object> fieldValues,
       final ObjectNode searchDocument,
-      final Boolean forDelete) {
+      final Boolean forDelete,
+      final AuditStamp mclCreatedAuditStamp) {
     String fieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
     FieldType fieldType = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldType();
     boolean isArray = searchableRefFieldSpec.isArray();
@@ -542,11 +585,13 @@ public class SearchDocumentTransformer {
       fieldValues
           .subList(0, Math.min(fieldValues.size(), maxArrayLength))
           .forEach(
-              value -> getNodeForRef(opContext, depth, value, fieldType).ifPresent(arrayNode::add));
+              value ->
+                  getNodeForRef(opContext, depth, value, fieldType, mclCreatedAuditStamp)
+                      .ifPresent(arrayNode::add));
       searchDocument.set(fieldName, arrayNode);
     } else if (!fieldValues.isEmpty()) {
       String finalFieldName = fieldName;
-      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType)
+      getNodeForRef(opContext, depth, fieldValues.get(0), fieldType, mclCreatedAuditStamp)
           .ifPresent(node -> searchDocument.set(finalFieldName, node));
     } else {
       searchDocument.set(fieldName, JsonNodeFactory.instance.nullNode());
@@ -557,7 +602,8 @@ public class SearchDocumentTransformer {
       @Nonnull OperationContext opContext,
       final int depth,
       final Object fieldValue,
-      final FieldType fieldType) {
+      final FieldType fieldType,
+      final AuditStamp auditStamp) {
     EntityRegistry entityRegistry = opContext.getEntityRegistry();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
 
@@ -600,7 +646,7 @@ public class SearchDocumentTransformer {
                 SearchableFieldSpec spec = entry.getKey();
                 List<Object> value = entry.getValue();
                 if (!value.isEmpty()) {
-                  setSearchableValue(spec, value, resultNode, false);
+                  setSearchableValue(spec, value, resultNode, false, auditStamp);
                 }
               }
 
@@ -626,7 +672,8 @@ public class SearchDocumentTransformer {
                                         opContext,
                                         newDepth,
                                         val,
-                                        spec.getSearchableRefAnnotation().getFieldType())
+                                        spec.getSearchableRefAnnotation().getFieldType(),
+                                        auditStamp)
                                     .ifPresent(arrayNode::add));
                     resultNode.set(fieldName, arrayNode);
                   } else {
@@ -635,7 +682,8 @@ public class SearchDocumentTransformer {
                             opContext,
                             newDepth,
                             value.get(0),
-                            spec.getSearchableRefAnnotation().getFieldType());
+                            spec.getSearchableRefAnnotation().getFieldType(),
+                            auditStamp);
                     if (node.isPresent()) {
                       resultNode.set(fieldName, node.get());
                     }
