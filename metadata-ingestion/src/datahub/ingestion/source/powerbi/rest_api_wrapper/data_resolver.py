@@ -11,7 +11,7 @@ from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
-from datahub.ingestion.source.powerbi.config import Constant
+from datahub.ingestion.source.powerbi.config import Constant, PowerBiEnvironment
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     App,
     Column,
@@ -33,7 +33,6 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_sample_result,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.query import DaxQuery
-from datahub.ingestion.source.powerbi.config import PowerBiEnvironment
 
 # Logger instance
 logger = logging.getLogger(__name__)
