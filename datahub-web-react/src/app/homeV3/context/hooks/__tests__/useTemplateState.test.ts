@@ -158,8 +158,9 @@ describe('useTemplateState', () => {
             const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(null);
-            expect(result.current.globalTemplate).toBe(null);
-            expect(result.current.template).toBe(null);
+            // undefined global template should be replaced with fallback default global template
+            expect(result.current.globalTemplate?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
+            expect(result.current.template?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
             expect(result.current.isEditingGlobalTemplate).toBe(false);
         });
 
@@ -182,8 +183,9 @@ describe('useTemplateState', () => {
             const { result } = renderHook(() => useTemplateState());
 
             expect(result.current.personalTemplate).toBe(null);
-            expect(result.current.globalTemplate).toBe(null);
-            expect(result.current.template).toBe(null);
+            // undefined global template should be replaced with fallback default global template
+            expect(result.current.globalTemplate?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
+            expect(result.current.template?.urn).toBe('urn:li:dataHubPageTemplate:home_default_1');
             expect(result.current.isEditingGlobalTemplate).toBe(false);
         });
 
