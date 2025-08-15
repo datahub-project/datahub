@@ -1,12 +1,11 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Button as AntButton, Form, Input, Modal, message } from 'antd';
+import { Button as AntButton, Form, Input, message } from 'antd';
 import React, { useState } from 'react';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useAddLinkMutation } from '@graphql/mutations.generated';
 
@@ -90,18 +89,22 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
             {renderButton(buttonType)}
             <Modal
                 title="Add Link"
-                visible={isModalVisible}
+                open={isModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
-                footer={[
-                    <ModalButtonContainer>
-                        <Button variant="text" onClick={handleClose}>
-                            Cancel
-                        </Button>
-                        <Button data-testid="add-link-modal-add-button" form="addLinkForm" key="submit">
-                            Add
-                        </Button>
-                    </ModalButtonContainer>,
+                buttons={[
+                    {
+                        text: 'Cancel',
+                        variant: 'text',
+                        onClick: handleClose,
+                    },
+                    {
+                        text: 'Add',
+                        variant: 'filled',
+                        key: 'submit',
+                        form: 'addLinkForm',
+                        buttonDataTestId: 'add-link-modal-add-button',
+                    },
                 ]}
             >
                 <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">

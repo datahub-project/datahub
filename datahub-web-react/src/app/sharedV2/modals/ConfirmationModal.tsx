@@ -1,5 +1,4 @@
-import { Button, Heading, Text, typography } from '@components';
-import { Modal } from 'antd';
+import { Button, Modal, Text, typography } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -62,11 +61,7 @@ export const ConfirmationModal = ({
                     </Button>
                 </ButtonsContainer>
             }
-            title={
-                <Heading type="h1" weight="bold">
-                    {modalTitle || 'Confirm'}
-                </Heading>
-            }
+            title={modalTitle || 'Confirm'}
         >
             <Text color="gray" size="lg">
                 {modalText || 'Are you sure?'}

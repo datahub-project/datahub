@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Empty, Form, Modal, Select, Tag, Typography, message } from 'antd';
+import { Empty, Form, Select, Tag, Typography, message } from 'antd';
 import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -9,10 +9,9 @@ import { handleBatchError } from '@app/entityV2/shared/utils';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
+import { Modal } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { getModalDomContainer } from '@src/utils/focus';
+import { getModalDomContainer } from '@utils/focus';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
@@ -344,19 +343,22 @@ export const EditOwnersModal = ({
     return (
         <Modal
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
-            visible
             onCancel={onModalClose}
             keyboard
-            footer={
-                <ModalButtonContainer>
-                    <Button color="gray" variant="text" onClick={onModalClose}>
-                        Cancel
-                    </Button>
-                    <Button id="addOwnerButton" disabled={selectedOwners.length === 0} onClick={onOk}>
-                        Add
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onModalClose,
+                },
+                {
+                    text: 'Add',
+                    id: 'addOwnerButton',
+                    variant: 'filled',
+                    disabled: selectedOwners.length === 0,
+                    onClick: onOk,
+                },
+            ]}
             getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>

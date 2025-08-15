@@ -1,4 +1,4 @@
-import { Modal as AntModal, message } from 'antd';
+import { message } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -10,6 +10,7 @@ import { buildUpdateLineagePayload } from '@app/lineageV2/manualLineage/buildUpd
 import { recordAnalyticsEvents } from '@app/lineageV2/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV2/manualLineage/updateNodeContext';
 import { getValidEntityTypes } from '@app/lineageV2/manualLineage/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal, colors } from '@src/alchemy-components';
 import { EntityAndType } from '@src/app/entity/shared/types';
@@ -82,6 +83,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     const validEntityTypes = getValidEntityTypes(direction, node.entity?.type);
     const initialSetOfRelationshipsUrns = adjacencyList[direction].get(node.urn) || new Set();
     const [isSaving, setIsSaving] = useState(false);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
@@ -132,19 +134,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
-            AntModal.confirm({
-                title: `Exit Lineage Management`,
-                content: `Are you sure you want to exit? ${
-                    entitiesToAdd.length + entitiesToRemove.length
-                } change(s) will be cleared.`,
-                onOk() {
-                    closeModal();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowConfirmationModal(true);
         } else {
             closeModal();
         }
@@ -198,6 +188,17 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     </CurrentSection>
                 </ModalContentContainer>
             </StyledModal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => {
+                    setShowConfirmationModal(false);
+                }}
+                handleConfirm={closeModal}
+                modalTitle="Exit Lineage Management"
+                modalText={`Are you sure you want to exit? ${
+                    entitiesToAdd.length + entitiesToRemove.length
+                } change(s) will be cleared.`}
+            />
         </ClickOutside>
     );
 }
