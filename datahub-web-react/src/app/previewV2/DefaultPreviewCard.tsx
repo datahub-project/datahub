@@ -16,7 +16,7 @@ import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/p
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
-import OneLineMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/OneLineMarkdownViewer';
+import ShortMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/ShortMarkdownViewer';
 import { DashboardLastUpdatedMs, DatasetLastUpdatedMs } from '@app/entityV2/shared/utils';
 import ColoredBackgroundPlatformIconGroup from '@app/previewV2/ColoredBackgroundPlatformIconGroup';
 import { CompactView } from '@app/previewV2/CompactView';
@@ -110,11 +110,11 @@ const InsightIconContainer = styled.span`
 
 const DocumentationTopMarginWrapper = styled.div`
     margin-top: 8px;
-`
+`;
 
 const ShortDocumentation = styled(DocumentationTopMarginWrapper)`
     width: 100%;
-`
+`;
 
 const Documentation = styled(DocumentationTopMarginWrapper)`
     max-height: 300px;
@@ -230,11 +230,10 @@ export default function DefaultPreviewCard({
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
     const { config } = useAppConfig();
-    // TODO:: !config.searchCardConfig.showDescription; revert condition
-    // TODO:: adjust logic after resolving open questions
-    const shouldShowOneLineDescription = !config.searchCardConfig.showDescription;
+
+    const shouldShowRedesignedDescription = config.searchCardConfig.showDescription;
     const shouldShowDescriptionsForSearch =
-        previewType === PreviewType.SEARCH && !config.searchCardConfig.showDescription;
+        previewType === PreviewType.SEARCH && config.searchCardConfig.showDescription;
     const shouldShowDescription =
         previewType === PreviewType.HOVER_CARD ||
         ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) ||
@@ -282,12 +281,6 @@ export default function DefaultPreviewCard({
             previewData={previewData}
         />
     );
-
-    console.log('>>>DEFAULT_PREVIEW_CARD', {
-        name,
-        description,
-        isFullViewCard,
-    });
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
@@ -340,9 +333,9 @@ export default function DefaultPreviewCard({
                     </RowContainer>
                     {shouldShowDescription &&
                         !!description &&
-                        (shouldShowOneLineDescription ? (
+                        (shouldShowRedesignedDescription ? (
                             <ShortDocumentation>
-                                <OneLineMarkdownViewer content={description} clearMarkdown />
+                                <ShortMarkdownViewer content={description} clearMarkdown />
                             </ShortDocumentation>
                         ) : (
                             <Documentation>
