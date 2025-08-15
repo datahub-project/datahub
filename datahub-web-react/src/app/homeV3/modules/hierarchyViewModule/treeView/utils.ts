@@ -179,3 +179,8 @@ export function getTopLevelSelectedValuesFromTree(selectedValues: string[], tree
 
     return [...result];
 }
+
+export function getOutOfTreeSelectedValues(selectedValues: string[], tree: TreeNode[]): string[] {
+    const allTreeValues = getAllValues(tree);
+    return selectedValues.filter((value) => !allTreeValues.includes(value));
+}

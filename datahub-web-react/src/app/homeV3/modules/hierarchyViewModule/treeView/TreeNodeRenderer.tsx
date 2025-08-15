@@ -1,26 +1,19 @@
-import { Button, Checkbox, Loader } from '@components';
+import { Checkbox } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 
 import ChildrenLoader from '@app/homeV3/modules/hierarchyViewModule/treeView/ChildrenLoader';
 import DepthMargin from '@app/homeV3/modules/hierarchyViewModule/treeView/DepthMargin';
 import ExpandToggler from '@app/homeV3/modules/hierarchyViewModule/treeView/ExpandToggler';
+import Row from '@app/homeV3/modules/hierarchyViewModule/treeView/components/Row';
+import TreeNodesViewLoader from '@app/homeV3/modules/hierarchyViewModule/treeView/components/TreeNodesViewLoader';
+import NodesLoaderWrapper from '@app/homeV3/modules/hierarchyViewModule/treeView/components/itemsLoaderWrapper/NodesLoaderWrapper';
 import useTreeViewContext from '@app/homeV3/modules/hierarchyViewModule/treeView/context/useTreeViewContext';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
-
-const Row = styled.div`
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-`;
 
 const SpaceFiller = styled.div`
     flex-grow: 1;
 `;
-
-const LoaderWrapper = styled.div``;
 
 interface Props {
     node: TreeNode;
@@ -29,8 +22,11 @@ interface Props {
 
 export default function TreeNodeRenderer({ node, depth }: Props) {
     const {
+        loadingTriggerType,
         getHasParentNode,
         getIsRootNode,
+        getChildrenTotal,
+        getChildrenLength,
         renderNodeLabel,
         getIsExpandable,
         getIsExpanded,
@@ -45,9 +41,8 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
         enableIntermediateSelectState,
         toggleSelected,
         getIsChildrenLoading,
-        getNumberOfNotLoadedChildren,
         loadChildren,
-        numberOfChildrenToLoad,
+        loadBatchSize: numberOfChildrenToLoad,
     } = useTreeViewContext();
 
     const isExpandable = useMemo(() => getIsExpandable(node), [node, getIsExpandable]);
@@ -73,13 +68,8 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
 
     const isRootNode = useMemo(() => getIsRootNode(node), [node, getIsRootNode]);
 
-    const numberOfNotLoadedChildren = useMemo(
-        () => getNumberOfNotLoadedChildren(node),
-        [node, getNumberOfNotLoadedChildren],
-    );
-
-    const maxNumberOfChildrenToLoad = Math.min(numberOfNotLoadedChildren, numberOfChildrenToLoad);
-    const shouldShowLoadMoreButton = isExpanded && !isChildrenLoading && numberOfNotLoadedChildren > 0;
+    const childrenTotal = useMemo(() => getChildrenTotal(node), [node, getChildrenTotal]);
+    const childrenLength = useMemo(() => getChildrenLength(node), [node, getChildrenLength]);
 
     // Automatically select the current node if parent is selected if explicitlySelectChildren is not enabled
     // FYI: required to get loaded children selected if parent is selected
@@ -90,7 +80,16 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
     }, [explicitlySelectChildren, hasParentNode, isParentSelected, select, node, isSelected, isSelectable]);
 
     return (
-        <>
+        <NodesLoaderWrapper
+            trigger={loadingTriggerType}
+            onLoad={() => loadChildren(node)}
+            total={childrenTotal}
+            current={childrenLength}
+            pageSize={numberOfChildrenToLoad}
+            depth={depth + 1}
+            enabled={isExpanded}
+            loading={isChildrenLoading}
+        >
             <Row>
                 <DepthMargin depth={depth} />
 
@@ -127,27 +126,8 @@ export default function TreeNodeRenderer({ node, depth }: Props) {
             {/* Run loading on expand */}
             {isExpanded && <ChildrenLoader node={node} />}
 
-            {/* Show more button */}
-            {shouldShowLoadMoreButton && (
-                <Row>
-                    <DepthMargin depth={depth + 1} />
-                    <ExpandToggler expandable={false} />
-                    <Button onClick={() => loadChildren(node)} variant="link" color="gray">
-                        Show {maxNumberOfChildrenToLoad} more
-                    </Button>
-                </Row>
-            )}
-
             {/* Loading indicator */}
-            {isExpanded && isChildrenLoading && (
-                <Row>
-                    <DepthMargin depth={depth + 1} />
-                    <ExpandToggler expandable={false} />
-                    <LoaderWrapper>
-                        <Loader size="xs" />
-                    </LoaderWrapper>
-                </Row>
-            )}
-        </>
+            {isExpanded && isChildrenLoading && <TreeNodesViewLoader depth={depth + 1} />}
+        </NodesLoaderWrapper>
     );
 }

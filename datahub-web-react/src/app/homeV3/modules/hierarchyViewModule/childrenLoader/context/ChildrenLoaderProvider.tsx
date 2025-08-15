@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 
 import ChildrenLoaderContext from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/context/ChildrenLoaderContext';
 import { ChildrenLoaderMetadata, MetadataMap } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
-import { DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD } from '@app/homeV3/modules/hierarchyViewModule/treeView/constants';
+import { DEFAULT_LOAD_BATCH_SIZE } from '@app/homeV3/modules/hierarchyViewModule/treeView/constants';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 export function ChildrenLoaderProvider({
     children,
     onLoadFinished,
-    maxNumberOfChildrenToLoad = DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD,
+    maxNumberOfChildrenToLoad = DEFAULT_LOAD_BATCH_SIZE,
 }: React.PropsWithChildren<Props>) {
     const [metadataMap, setMetadataMap] = useState<MetadataMap>({});
 
