@@ -23,8 +23,10 @@ For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 
 <!-- If there's any specific setup required before starting the tutorial, list them here.
 For example, it can be installing a certain version of CLI, or some admonition like below.
-:::NOTE
+:::note
+
 Before adding lineage, you need to ensure the targeted dataset is already present in your datahub. If you attempt to manipulate entities that do not exist, your operation will fail. In this guide, we will be using data from sample ingestion.
+
 :::
 -->
 
