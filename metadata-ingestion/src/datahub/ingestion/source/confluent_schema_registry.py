@@ -2,10 +2,11 @@ import json
 import logging
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import avro.schema
 import jsonref
+from confluent_kafka import Consumer
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
@@ -25,10 +26,35 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import OwnershipSourceTypeClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    NumberTypeClass,
+    OwnershipSourceTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
+)
 from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
+
+# Type aliases for better type safety
+MessageValue = Union[str, int, float, bool, Dict[str, Any], List[Any], None]
+
+
+@dataclass
+class FieldAnalysis:
+    """Analysis of a field from message samples."""
+
+    types: Set[str]
+    sample_values: List[str]
+
+    def __init__(self) -> None:
+        self.types = set()
+        self.sample_values = []
+
+
+FieldInfo = Dict[str, FieldAnalysis]
 
 
 @dataclass
@@ -272,13 +298,22 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 f"For {kafka_entity}: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
             )
             if not is_key_schema:
-                # Value schema is always expected. Report a warning.
-                self.report.warning(
-                    title="Unable to find a matching subject name for the topic in the schema registry",
-                    message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
-                    "If this is unexpected, check the topic_subject_map and topic_naming related configs.",
-                    context=topic,
-                )
+                # Value schema is always expected. Check if we should fallback or warn.
+                if self.source_config.enable_schemaless_fallback:
+                    logger.info(
+                        f"Schema registry subject not found for {kafka_entity}: {topic}. "
+                        f"Falling back to schema-less processing to infer schema from message data."
+                    )
+                    # Set a flag to indicate this topic should use schemaless fallback
+                    self.report.report_topic_scanned(f"{topic}_schemaless_fallback")
+                else:
+                    self.report.warning(
+                        title="Unable to find a matching subject name for the topic in the schema registry",
+                        message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
+                        "If this is unexpected, check the topic_subject_map and topic_naming related configs. "
+                        "Consider enabling 'enable_schemaless_fallback' to automatically infer schema from message data.",
+                        context=topic,
+                    )
 
         # Obtain the schema fields from schema for the topic.
         fields: List[SchemaField] = []
@@ -288,7 +323,216 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 schema=schema,
                 is_key_schema=is_key_schema,
             )
+        elif (
+            self.source_config.enable_schemaless_fallback
+            and not is_key_schema
+            and not is_subject
+        ):
+            # Attempt to infer schema from message data when no schema registry entry exists
+            fields = self._infer_schema_from_messages(topic)
+
         return (schema, fields)
+
+    def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
+        """
+        Infer schema fields from actual message data when no schema registry entry exists.
+        This provides a fallback mechanism for schema-less topics.
+        """
+        try:
+            # Use a direct Kafka consumer to sample messages without circular imports
+            sample_messages = self._sample_topic_messages(topic)
+
+            if not sample_messages:
+                logger.warning(
+                    f"No sample messages found for topic {topic} to infer schema"
+                )
+                return []
+
+            # Infer schema fields from the sample data
+            inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
+
+            logger.info(
+                f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
+            )
+
+            return inferred_fields
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to infer schema from messages for topic {topic}: {e}. "
+                f"Topic will be processed without schema information."
+            )
+            return []
+
+    def _sample_topic_messages(
+        self, topic: str, max_messages: int = 10
+    ) -> List[Dict[str, MessageValue]]:
+        """
+        Sample messages from a Kafka topic for schema inference.
+        """
+
+        try:
+            # Create a consumer for sampling
+            consumer_config = {
+                "bootstrap.servers": self.source_config.connection.bootstrap,
+                "group.id": f"datahub-schema-inference-{topic}",
+                "auto.offset.reset": "earliest",
+                "enable.auto.commit": False,
+                **self.source_config.connection.consumer_config,
+            }
+
+            consumer = Consumer(consumer_config)
+            consumer.subscribe([topic])
+
+            messages: List[Dict[str, MessageValue]] = []
+            attempts = 0
+            max_attempts = 50  # Try up to 50 polls
+
+            while len(messages) < max_messages and attempts < max_attempts:
+                msg = consumer.poll(timeout=1.0)
+                attempts += 1
+
+                if msg is None:
+                    continue
+                if msg.error():
+                    continue
+
+                try:
+                    # Try to decode the message value
+                    value = msg.value()
+                    if value is None:
+                        continue
+
+                    # Try JSON decoding first
+                    if isinstance(value, bytes):
+                        try:
+                            decoded_value = json.loads(value.decode("utf-8"))
+                            if isinstance(decoded_value, dict):
+                                messages.append(decoded_value)
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            # If JSON fails, try to create a simple structure
+                            try:
+                                messages.append(
+                                    {
+                                        "raw_value": value.decode(
+                                            "utf-8", errors="replace"
+                                        )
+                                    }
+                                )
+                            except Exception:
+                                messages.append({"raw_value": str(value)})
+                    elif isinstance(value, dict):
+                        messages.append(value)
+                    else:
+                        messages.append({"value": str(value)})
+
+                except Exception as e:
+                    logger.debug(f"Failed to process message for schema inference: {e}")
+                    continue
+
+            consumer.close()
+            return messages
+
+        except Exception as e:
+            logger.debug(f"Failed to sample messages from topic {topic}: {e}")
+            return []
+
+    def _extract_fields_from_samples(
+        self, topic: str, sample_messages: List[Dict[str, MessageValue]]
+    ) -> List[SchemaField]:
+        """
+        Extract schema fields from sample message data.
+        """
+
+        # Collect all unique field paths and their types from samples
+        field_info: FieldInfo = {}
+
+        for message in sample_messages[
+            :50
+        ]:  # Limit to first 50 messages for performance
+            if not isinstance(message, dict):
+                continue
+
+            # Flatten the message to get all field paths
+            from datahub.ingestion.source.kafka.kafka_profiler import flatten_json
+
+            try:
+                flattened = flatten_json(message, max_depth=5)  # Reasonable depth limit
+
+                for field_path, value in flattened.items():
+                    if field_path not in field_info:
+                        field_info[field_path] = FieldAnalysis()
+
+                    # Determine the type of this value
+                    if value is None:
+                        field_info[field_path].types.add("null")
+                    elif isinstance(value, bool):
+                        field_info[field_path].types.add("boolean")
+                    elif isinstance(value, int):
+                        field_info[field_path].types.add("long")
+                    elif isinstance(value, float):
+                        field_info[field_path].types.add("double")
+                    elif isinstance(value, str):
+                        field_info[field_path].types.add("string")
+                    elif isinstance(value, (list, tuple)):
+                        field_info[field_path].types.add("array")
+                    elif isinstance(value, dict):
+                        field_info[field_path].types.add("record")
+                    else:
+                        field_info[field_path].types.add("string")  # Default to string
+
+                    # Keep a few sample values
+                    if len(field_info[field_path].sample_values) < 3:
+                        field_info[field_path].sample_values.append(str(value))
+
+            except Exception as e:
+                logger.debug(
+                    f"Failed to process message sample for schema inference: {e}"
+                )
+                continue
+
+        # Convert field info to SchemaField objects
+        schema_fields = []
+        for field_path, info in field_info.items():
+            try:
+                # Determine the best type for this field
+                types = info.types
+
+                if "double" in types or "float" in types:
+                    data_type = SchemaFieldDataTypeClass(type=NumberTypeClass())
+                    native_type = "double"
+                elif "long" in types or "int" in types:
+                    data_type = SchemaFieldDataTypeClass(type=NumberTypeClass())
+                    native_type = "long"
+                elif "boolean" in types:
+                    data_type = SchemaFieldDataTypeClass(type=BooleanTypeClass())
+                    native_type = "boolean"
+                elif "array" in types:
+                    data_type = SchemaFieldDataTypeClass(
+                        type=ArrayTypeClass(nestedType=["string"])
+                    )
+                    native_type = "array"
+                else:
+                    data_type = SchemaFieldDataTypeClass(type=StringTypeClass())
+                    native_type = "string"
+
+                # Create the schema field
+                schema_field = SchemaField(
+                    fieldPath=field_path,
+                    type=data_type,
+                    nativeDataType=native_type,
+                    description=f"Inferred from message data. Sample values: {', '.join(info.sample_values[:3])}",
+                    nullable=("null" in types),
+                    recursive=False,
+                )
+
+                schema_fields.append(schema_field)
+
+            except Exception as e:
+                logger.debug(f"Failed to create schema field for {field_path}: {e}")
+                continue
+
+        return schema_fields
 
     def _load_json_schema_with_resolved_references(
         self, schema: Schema, name: str, subject: str

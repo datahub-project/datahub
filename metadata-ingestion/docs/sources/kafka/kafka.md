@@ -246,6 +246,29 @@ The underlying implementation is similar to [dbt meta mapping](https://docs.data
 
 The Kafka source supports comprehensive data profiling of message content to generate field-level statistics and sample values. Profiling analyzes message samples from Kafka topics to provide insights into data quality and distribution.
 
+#### Schema-less Topic Support
+
+By default, DataHub can automatically fall back to schema-less processing for topics not found in the schema registry:
+
+```yaml
+source:
+  type: kafka
+  config:
+    # ... other config ...
+
+    # Enable automatic fallback to schema-less processing (enabled by default)
+    enable_schemaless_fallback: true
+```
+
+When `enable_schemaless_fallback` is enabled:
+
+- Topics without schema registry entries will automatically have their schema inferred from message data
+- DataHub will sample a few messages from the topic to determine field names and types
+- This allows ingestion to succeed even for topics that don't use the schema registry
+- The inferred schema will include field descriptions showing sample values
+
+If you prefer the old behavior (warnings for missing schemas), set `enable_schemaless_fallback: false`.
+
 #### Basic Profiling Configuration
 
 To enable profiling, add the `profiling` section to your configuration:
