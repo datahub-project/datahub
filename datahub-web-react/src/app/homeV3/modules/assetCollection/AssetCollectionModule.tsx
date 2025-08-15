@@ -9,7 +9,7 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, Entity } from '@types';
 
-const DEFAULT_PAGE_SIZE = 6;
+const DEFAULT_PAGE_SIZE = 10;
 
 const AssetCollectionModule = (props: ModuleProps) => {
     const assetUrns = useMemo(

@@ -61,4 +61,6 @@ export type PageTemplateContextState = {
     removeModule: (input: RemoveModuleInput) => void;
     moveModule: (input: MoveModuleInput) => void;
     resetTemplateToDefault: () => void;
+    reloadHomepageModules: boolean;
+    setReloadHomepageModules: (val: boolean) => void;
 };
