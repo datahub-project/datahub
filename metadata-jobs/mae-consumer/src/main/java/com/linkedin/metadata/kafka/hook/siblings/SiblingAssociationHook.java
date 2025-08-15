@@ -264,12 +264,43 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       return;
     }
 
+    // Check if either entity already has explicit primary/secondary settings from dbt ingestion
+    // If so, respect those settings instead of using the hook's default assignment
+    boolean dbtShouldBePrimary = true; // default behavior
+    boolean sourceShouldBePrimary = false; // default behavior
+
+    if (existingDbtSiblingAspect != null && existingDbtSiblingAspect.hasPrimary()) {
+      // dbt entity already has explicit primary setting - respect it
+      dbtShouldBePrimary = existingDbtSiblingAspect.isPrimary();
+      sourceShouldBePrimary = !dbtShouldBePrimary;
+      log.info(
+          "Respecting existing primary setting for {}: primary={}", dbtUrn, dbtShouldBePrimary);
+    } else if (existingSourceSiblingAspect != null && existingSourceSiblingAspect.hasPrimary()) {
+      // source entity already has explicit primary setting - respect it
+      sourceShouldBePrimary = existingSourceSiblingAspect.isPrimary();
+      dbtShouldBePrimary = !sourceShouldBePrimary;
+      log.info(
+          "Respecting existing primary setting for {}: primary={}",
+          sourceUrn,
+          sourceShouldBePrimary);
+    } else {
+      // If neither entity has siblings yet, be more conservative to avoid race conditions
+      // Only create siblings if BOTH entities have no siblings aspect at all
+      if (existingDbtSiblingAspect != null || existingSourceSiblingAspect != null) {
+        log.info(
+            "One or both entities ({}, {}) already have siblings aspect, skipping hook processing to avoid conflicts",
+            dbtUrn,
+            sourceUrn);
+        return; // Skip hook processing to avoid overwriting existing siblings
+      }
+    }
+
     AuditStamp auditStamp = getAuditStamp();
 
     // set source as a sibling of dbt
     Siblings dbtSiblingAspect = new Siblings();
     dbtSiblingAspect.setSiblings(new UrnArray(ImmutableList.of(sourceUrn)));
-    dbtSiblingAspect.setPrimary(true);
+    dbtSiblingAspect.setPrimary(dbtShouldBePrimary);
 
     MetadataChangeProposal dbtSiblingProposal = new MetadataChangeProposal();
     GenericAspect dbtSiblingAspectSerialized = GenericRecordUtils.serializeAspect(dbtSiblingAspect);
@@ -315,7 +346,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             .collect(Collectors.toList());
 
     sourceSiblingAspect.setSiblings(new UrnArray(filteredNewSiblingsArray));
-    sourceSiblingAspect.setPrimary(false);
+    sourceSiblingAspect.setPrimary(sourceShouldBePrimary);
 
     MetadataChangeProposal sourceSiblingProposal = new MetadataChangeProposal();
     GenericAspect sourceSiblingAspectSerialized =

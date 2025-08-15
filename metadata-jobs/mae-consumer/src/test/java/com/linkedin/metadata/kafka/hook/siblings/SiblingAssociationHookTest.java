@@ -53,7 +53,7 @@ public class SiblingAssociationHookTest {
         new ConfigEntityRegistry(
             SiblingAssociationHookTest.class
                 .getClassLoader()
-                .getResourceAsStream("test-entity-registry-siblings.yml"));
+                .getResourceAsStream("test-entity-registry.yml"));
     _mockEntityClient = Mockito.mock(SystemEntityClient.class);
     _mockSearchService = Mockito.mock(EntitySearchService.class);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization(registry);

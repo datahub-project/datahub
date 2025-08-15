@@ -377,7 +377,9 @@ class DBTCommonConfig(
 
     dbt_is_primary_sibling: bool = Field(
         default=True,
-        description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. When disabled, target platform nodes are treated as primary and DBT nodes as secondary.",
+        description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. "
+        "When disabled, target platform nodes are treated as primary and DBT nodes as secondary. Whether to ingest workspace app. "
+        "Requires DataHub server 1.3.0+.",
     )
 
     drop_duplicate_sources: bool = Field(
@@ -1440,11 +1442,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
 
             # Upstream lineage.
-            upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
-                node, all_nodes_map
-            )
-            if upstream_lineage_class:
-                aspects.append(upstream_lineage_class)
+            # Skip lineage creation for source nodes when dbt_is_primary_sibling=false
+            # to prevent SiblingAssociationHook from overriding our explicit sibling patches
+            should_create_lineage = True
+            if (
+                node.node_type == "source"
+                and self.config.dbt_is_primary_sibling is False
+            ):
+                should_create_lineage = False
+
+            if should_create_lineage:
+                upstream_lineage_class = self._create_lineage_aspect_for_dbt_node(
+                    node, all_nodes_map
+                )
+                if upstream_lineage_class:
+                    aspects.append(upstream_lineage_class)
 
             # View properties.
             view_prop_aspect = self._create_view_properties_aspect(node)
@@ -1489,6 +1501,42 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
                 yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+
+                # Emit siblings patches when dbt_is_primary_sibling=false to establish explicit primary/secondary relationships
+                # The SiblingAssociationHook will respect these existing siblings
+                if self._should_create_sibling_for_target_entity(node):
+                    # Get the target platform URN
+                    target_platform_urn = node.get_urn(
+                        self.config.target_platform,
+                        self.config.env,
+                        self.config.target_platform_instance,
+                    )
+
+                    # Create patch for target platform entity (make it primary when dbt_is_primary_sibling=False)
+                    target_patch = DatasetPatchBuilder(target_platform_urn)
+                    target_patch.add_sibling(
+                        node_datahub_urn, primary=not self.config.dbt_is_primary_sibling
+                    )
+
+                    for mcp in target_patch.build():
+                        yield MetadataWorkUnit(
+                            id=MetadataWorkUnit.generate_workunit_id(mcp),
+                            mcp_raw=mcp,
+                            is_primary_source=False,
+                        )
+
+                    # Create patch for dbt entity (make it secondary when dbt_is_primary_sibling=False)
+                    dbt_patch = DatasetPatchBuilder(node_datahub_urn)
+                    dbt_patch.add_sibling(
+                        target_platform_urn, primary=self.config.dbt_is_primary_sibling
+                    )
+
+                    for mcp in dbt_patch.build():
+                        yield MetadataWorkUnit(
+                            id=MetadataWorkUnit.generate_workunit_id(mcp),
+                            mcp_raw=mcp,
+                            is_primary_source=False,
+                        )
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -1619,40 +1667,39 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=upstreams_lineage_class,
                     ).as_workunit(is_primary_source=False)
 
-                # Use patch to add sibling relationship instead of upsert
-                # This preserves existing siblings from multi-project setups
-                if self._should_create_sibling_for_target_entity(node):
-                    node.get_urn(
-                        self.config.target_platform,
-                        self.config.env,
-                        self.config.target_platform_instance,
+            # when dbt_is_primary_sibling=false
+            if self._should_create_sibling_for_target_entity(node):
+                dbt_urn = node.get_urn(
+                    DBT_PLATFORM,
+                    self.config.env,
+                    self.config.platform_instance,
+                )
+
+                # Create patch for target platform entity (this entity - make it primary when dbt_is_primary_sibling=False)
+                target_patch = DatasetPatchBuilder(node_datahub_urn)
+                target_patch.add_sibling(
+                    dbt_urn, primary=not self.config.dbt_is_primary_sibling
+                )
+
+                for mcp in target_patch.build():
+                    yield MetadataWorkUnit(
+                        id=MetadataWorkUnit.generate_workunit_id(mcp),
+                        mcp_raw=mcp,
+                        is_primary_source=False,
                     )
 
-                    # Create patch for target platform entity
-                    target_patch = DatasetPatchBuilder(node_datahub_urn)
-                    target_patch.add_sibling(
-                        upstream_dbt_urn, primary=not self.config.dbt_is_primary_sibling
+                # Create patch for dbt source entity (make it secondary when dbt_is_primary_sibling=False)
+                dbt_patch = DatasetPatchBuilder(dbt_urn)
+                dbt_patch.add_sibling(
+                    node_datahub_urn, primary=self.config.dbt_is_primary_sibling
+                )
+
+                for mcp in dbt_patch.build():
+                    yield MetadataWorkUnit(
+                        id=MetadataWorkUnit.generate_workunit_id(mcp),
+                        mcp_raw=mcp,
+                        is_primary_source=False,
                     )
-
-                    for mcp in target_patch.build():
-                        yield MetadataWorkUnit(
-                            id=MetadataWorkUnit.generate_workunit_id(mcp),
-                            mcp_raw=mcp,
-                            is_primary_source=False,
-                        )
-
-                    # Create patch for dbt entity
-                    dbt_patch = DatasetPatchBuilder(upstream_dbt_urn)
-                    dbt_patch.add_sibling(
-                        node_datahub_urn, primary=self.config.dbt_is_primary_sibling
-                    )
-
-                    for mcp in dbt_patch.build():
-                        yield MetadataWorkUnit(
-                            id=MetadataWorkUnit.generate_workunit_id(mcp),
-                            mcp_raw=mcp,
-                            is_primary_source=False,
-                        )
 
     def extract_query_tag_aspects(
         self,
