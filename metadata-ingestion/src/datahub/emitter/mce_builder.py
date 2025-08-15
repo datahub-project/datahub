@@ -21,6 +21,7 @@ from typing import (
     get_type_hints,
     overload,
 )
+from urllib.parse import urlparse
 
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
@@ -155,6 +156,62 @@ def make_dataset_urn_with_platform_instance(
             platform_instance=platform_instance,
         )
     )
+
+
+def make_storage_urn(storage_location: str, env: str = DEFAULT_ENV) -> str:
+    """Create dataset URN for storage location URI.
+
+    Extracts protocol from URI and maps to DataHub platform:
+    - s3://, s3a:// -> s3 platform
+    - abfs://, abfss:// -> abs platform
+    - dbfs:// -> dbfs platform
+    - Unknown protocols -> uses protocol as platform name
+    - No protocol -> file platform
+
+    Args:
+        storage_location: Storage URI (e.g., s3://bucket/path, dbfs://path)
+        env: Environment (defaults to PROD)
+
+    Returns:
+        Dataset URN for the storage location
+
+    Examples:
+        >>> make_storage_urn("s3://my-bucket/data/", "PROD")
+        'urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data,PROD)'
+        >>> make_storage_urn("dbfs:///mnt/data/", "PROD")
+        'urn:li:dataset:(urn:li:dataPlatform:dbfs,/mnt/data,PROD)'
+        >>> make_storage_urn("hdfs://namenode/path", "PROD")
+        'urn:li:dataset:(urn:li:dataPlatform:hdfs,namenode/path,PROD)'
+    """
+    # Protocol to platform mapping
+    protocol_mapping = {
+        "s3": "s3",
+        "s3a": "s3",
+        "abfs": "abs",
+        "abfss": "abs",
+        "dbfs": "dbfs",
+    }
+
+    # Parse URI using standard library
+    parsed_uri = urlparse(storage_location)
+
+    # Extract protocol (scheme)
+    protocol = parsed_uri.scheme
+    if not protocol:
+        # No protocol, treat as file path
+        return make_dataset_urn("file", storage_location, env)
+
+    # Map protocol to platform (use protocol itself as fallback)
+    platform = protocol_mapping.get(protocol, protocol)
+
+    # Create URN using the netloc and path from parsed URI
+    # For most URIs, we want netloc + path (e.g., "bucket/path" for s3://bucket/path)
+    path = parsed_uri.netloc + parsed_uri.path if parsed_uri.netloc else parsed_uri.path
+
+    # Remove trailing slash to normalize dataset URNs
+    path = path.rstrip("/")
+
+    return make_dataset_urn(platform, path, env)
 
 
 # Schema Field Urns url-encode reserved characters.
