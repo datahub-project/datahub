@@ -60,7 +60,7 @@ import org.testng.annotations.Test;
     })
 @EnableKafka
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
-  private static final String CONFLUENT_PLATFORM_VERSION = "7.2.2";
+  private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
 
   static KafkaContainer kafka =
       new KafkaContainer(
