@@ -16,13 +16,9 @@ export type Props = {
     clearMarkdown?: boolean;
 };
 
-// TODO:: rename it
-export default function OneLineMarkdownViewer({ content, clearMarkdown }: Props) {
+export default function ShortMarkdownViewer({ content, clearMarkdown }: Props) {
     const processedContent = useMemo(() => {
         let processingContent = content;
-        // get only the first line of content
-        // eslint-disable-next-line prefer-destructuring
-        // processingContent = processingContent.split('\n')[0];
 
         if (clearMarkdown) {
             processingContent = removeMarkdown(processingContent);
@@ -32,6 +28,8 @@ export default function OneLineMarkdownViewer({ content, clearMarkdown }: Props)
     }, [content, clearMarkdown]);
 
     return (
-            <StyledText color="gray" colorLevel={1700} type='div'>{processedContent}</StyledText>
+        <StyledText color="gray" colorLevel={1700} type="div">
+            {processedContent}
+        </StyledText>
     );
 }
