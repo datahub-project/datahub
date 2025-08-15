@@ -97,7 +97,7 @@ export default function ManageDomainsSidebarV2({ isEntityProfile }: Props) {
             <StyledSidebar>
                 <DomainSearch isCollapsed={isClosed} unhideSidebar={unhideSidebar} />
                 <ThinDivider />
-                <DomainNavigator isCollapsed={isClosed} unhideSidebar={unhideSidebar} />
+                <DomainNavigator isCollapsed={isClosed} unhideSidebar={unhideSidebar} variant="sidebar" />
             </StyledSidebar>
         </StyledEntitySidebarContainer>
     );

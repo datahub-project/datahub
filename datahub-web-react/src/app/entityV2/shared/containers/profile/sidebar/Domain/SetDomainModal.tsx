@@ -1,8 +1,8 @@
 import { Empty, Form, Select, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
-import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
+import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
@@ -313,10 +313,7 @@ export const SetDomainModal = ({
                                     options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                                 />
                                 <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                                    <DomainNavigator
-                                        selectDomainOverride={selectDomainFromBrowser}
-                                        displayDomainColoredIcon
-                                    />
+                                    <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
                                 </BrowserWrapper>
                             </ClickOutside>
                         </Form.Item>

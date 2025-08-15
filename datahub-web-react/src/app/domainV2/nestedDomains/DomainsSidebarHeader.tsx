@@ -1,11 +1,9 @@
-import { useApolloClient } from '@apollo/client';
 import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import CreateDomainModal from '@app/domainV2/CreateDomainModal';
-import { updateListDomainsCache } from '@app/domainV2/utils';
 
 const Wrapper = styled.div`
     font-size: 20px;
@@ -32,7 +30,6 @@ const StyledButton = styled(Button)`
 
 export default function DomainsSidebarHeader() {
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
-    const client = useApolloClient();
     const { platformPrivileges } = useUserContext();
     const canCreateDomains = platformPrivileges?.createDomains;
 
@@ -56,14 +53,7 @@ export default function DomainsSidebarHeader() {
                     />
                 </span>
             </Tooltip>
-            {isCreatingDomain && (
-                <CreateDomainModal
-                    onClose={() => setIsCreatingDomain(false)}
-                    onCreate={(urn, id, name, description, parentDomain) => {
-                        updateListDomainsCache(client, urn, id, name, description, parentDomain);
-                    }}
-                />
-            )}
+            {isCreatingDomain && <CreateDomainModal onClose={() => setIsCreatingDomain(false)} />}
         </Wrapper>
     );
 }
