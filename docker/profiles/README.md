@@ -34,8 +34,6 @@ To remove the containers and volumes, you can use the gradle nuke tasks:
 ./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
 ```
 
-> **Note**: These are Gradle nuke tasks. For CLI-based cleanup, see `datahub docker nuke` in the [quickstart guide](../../docs/quickstart.md).
-
 Alternatively, you can use docker compose directly:
 
 ```bash
