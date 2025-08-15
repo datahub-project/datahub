@@ -1,4 +1,8 @@
-# How DataHub Cloud compares to DataHub
+---
+title: "How DataHub Cloud compares to DataHub OSS"
+---
+
+# How DataHub Cloud compares to DataHub OSS
 
 ## DataHub Cloud: AI & Data Context Platform
 
