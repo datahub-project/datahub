@@ -1,6 +1,6 @@
 import unittest
-from typing import Any, Dict, List, cast
-from unittest.mock import PropertyMock, patch
+from typing import Any, Dict, List, Union, cast
+from unittest.mock import patch
 
 from datahub.ingestion.source.kafka.kafka_config import ProfilerConfig
 from datahub.ingestion.source.kafka.kafka_profiler import (
@@ -182,13 +182,12 @@ class TestKafkaProfiler(unittest.TestCase):
                 heights=[0.2, 0.2, 0.2, 0.2, 0.2],
             )
 
-            # Ensure there's a valid distinct_value_frequencies dictionary
-            with patch.object(
-                KafkaFieldStatistics,
-                "distinct_value_frequencies",
-                new_callable=PropertyMock,
-            ) as mock_freq:
-                mock_freq.return_value = {
+            # Create a stats object with NUMERIC data type and frequencies
+            test_stats = KafkaFieldStatistics(
+                field_path="test_numeric_field",
+                sample_values=["10.0", "20.0", "30.0"],
+                data_type="NUMERIC",
+                distinct_value_frequencies={
                     "10.0": 1,
                     "20.0": 1,
                     "30.0": 1,
@@ -198,26 +197,18 @@ class TestKafkaProfiler(unittest.TestCase):
                     "70.0": 1,
                     "80.0": 1,
                     "90.0": 1,
-                }
+                },
+            )
 
-                # Create a stats object with NUMERIC data type to test with
-                test_stats = KafkaFieldStatistics(
-                    field_path="test_numeric_field",
-                    sample_values=["10.0", "20.0", "30.0"],
-                    data_type="NUMERIC",
-                )
+            # Patch _process_field_statistics to return our predefined stats
+            with patch.object(
+                self.profiler, "_process_field_statistics", return_value=test_stats
+            ):
+                # Now call create_profile_data, which should trigger histogram creation
+                self.profiler.create_profile_data({"test_numeric_field": test_stats}, 9)
 
-                # Patch _process_field_statistics to return our predefined stats
-                with patch.object(
-                    self.profiler, "_process_field_statistics", return_value=test_stats
-                ):
-                    # Now call create_profile_data, which should trigger histogram creation
-                    self.profiler.create_profile_data(
-                        {"test_numeric_field": test_stats}, 9
-                    )
-
-                    # Verify _create_histogram was called
-                    mock_create_histogram.assert_called_once()
+                # Verify _create_histogram was called
+                mock_create_histogram.assert_called_once()
 
     @patch(
         "datahub.ingestion.source.kafka.kafka_profiler.KafkaProfiler._calculate_numeric_stats"
@@ -321,7 +312,13 @@ class TestKafkaProfiler(unittest.TestCase):
         """Test sample value selection"""
         # Arrange
         mock_random_sample.return_value = [0, 2, 4]  # Select indices 0, 2, 4
-        values = ["value1", "value2", "value3", "value4", "value5"]
+        values: List[Union[str, int, float, bool, None]] = [
+            "value1",
+            "value2",
+            "value3",
+            "value4",
+            "value5",
+        ]
 
         # Act
         samples = self.profiler._get_sample_values(values, max_samples=3)
@@ -350,3 +347,119 @@ class TestKafkaProfiler(unittest.TestCase):
         self.assertEqual(profiler.profiler_config.max_sample_time_seconds, 120)
         self.assertEqual(profiler.profiler_config.sampling_strategy, "random")
         self.assertEqual(profiler.profiler_config.cache_sample_results, False)
+
+    def test_profile_topic_static_method(self):
+        """Test the static profile_topic method"""
+        config = ProfilerConfig(enabled=True)
+
+        # Test with valid samples
+        result = KafkaProfiler.profile_topic(
+            "test_topic", self.sample_data, self.schema_metadata, config
+        )
+
+        self.assertIsNotNone(result)
+        assert result is not None  # Type narrowing for mypy
+        self.assertIsInstance(result, DatasetProfileClass)
+        # Note: rowCount might be None in some cases, just check it's a reasonable value
+        if result.rowCount is not None:
+            self.assertGreaterEqual(result.rowCount, 0)
+        self.assertIsNotNone(result.partitionSpec)
+        assert result.partitionSpec is not None  # Type narrowing for mypy
+        self.assertIn("SAMPLE", result.partitionSpec.partition)
+        self.assertIn(str(len(self.sample_data)), result.partitionSpec.partition)
+
+        # Test with empty samples
+        result = KafkaProfiler.profile_topic(
+            "empty_topic", [], self.schema_metadata, config
+        )
+        self.assertIsNone(result)
+
+    def test_profile_topic_recursion_error_handling(self):
+        """Test that profile_topic handles recursion errors gracefully"""
+        config = ProfilerConfig(enabled=True, flatten_max_depth=1)
+
+        # Create deeply nested sample that could cause recursion
+        from typing import Any, Dict
+
+        deeply_nested_sample: Dict[str, Any] = {
+            "level1": {"level2": {"level3": {"level4": "value"}}}
+        }
+
+        # This should not raise an exception but might return None
+        result = KafkaProfiler.profile_topic(
+            "nested_topic", [deeply_nested_sample], None, config
+        )
+
+        # Should either succeed or fail gracefully (return None)
+        self.assertIsInstance(result, (DatasetProfileClass, type(None)))
+
+    def test_ge_profiling_config_inheritance(self):
+        """Test that ProfilerConfig inherits GE profiling features correctly"""
+        config = ProfilerConfig(
+            enabled=True,
+            turn_off_expensive_profiling_metrics=True,
+            field_sample_values_limit=10,
+            max_number_of_fields_to_profile=5,
+            profile_nested_fields=True,
+        )
+
+        profiler = KafkaProfiler(config)
+
+        # Test that expensive profiling is disabled
+        self.assertTrue(profiler._expensive_profiling_disabled)
+
+        # Test config values are preserved
+        self.assertEqual(profiler.profiler_config.field_sample_values_limit, 10)
+        self.assertEqual(profiler.profiler_config.max_number_of_fields_to_profile, 5)
+        self.assertTrue(profiler.profiler_config.profile_nested_fields)
+
+    def test_flatten_json_max_depth(self):
+        """Test flatten_json with max_depth parameter"""
+        from datahub.ingestion.source.kafka.kafka_profiler import flatten_json
+
+        nested_data: Dict[str, Any] = {
+            "level1": {"level2": {"level3": {"level4": "deep_value"}}}
+        }
+
+        # Test with max_depth=2
+        flattened = flatten_json(nested_data, max_depth=2)
+
+        # Should flatten up to level 2, then truncate
+        self.assertIn("level1.level2", flattened)
+        # Level 3 and beyond should be truncated
+        for key in flattened:
+            self.assertLessEqual(key.count("."), 1)  # At most 1 dot (2 levels)
+
+    def test_expensive_profiling_limits(self):
+        """Test that expensive profiling limits are respected"""
+        config = ProfilerConfig(
+            enabled=True,
+            turn_off_expensive_profiling_metrics=True,
+            max_number_of_fields_to_profile=2,
+        )
+
+        profiler = KafkaProfiler(config)
+
+        # Process multiple fields to test the limit
+        field_values = {
+            "field1": [1, 2, 3],
+            "field2": ["a", "b", "c"],
+            "field3": [True, False, True],
+            "field4": [1.1, 2.2, 3.3],
+        }
+
+        processed_fields = []
+        for field_name, values in field_values.items():
+            # Type cast to satisfy mypy
+            typed_values: List[Union[str, int, float, bool, None]] = values  # type: ignore[assignment]
+            stats = profiler._process_field_statistics(field_name, typed_values)
+            processed_fields.append(stats)
+
+        # Should have processed some fields
+        self.assertGreater(len(processed_fields), 0)
+
+        # Later fields should have minimal stats when limit is exceeded
+        if len(processed_fields) > 2:
+            # Check that later fields have reduced processing
+            later_field = processed_fields[-1]
+            self.assertEqual(len(later_field.sample_values), 0)

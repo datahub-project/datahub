@@ -241,3 +241,135 @@ config:
 ```
 
 The underlying implementation is similar to [dbt meta mapping](https://docs.datahub.com/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+
+### Data Profiling
+
+The Kafka source supports comprehensive data profiling of message content to generate field-level statistics and sample values. Profiling analyzes message samples from Kafka topics to provide insights into data quality and distribution.
+
+#### Basic Profiling Configuration
+
+To enable profiling, add the `profiling` section to your configuration:
+
+```yaml
+source:
+  type: "kafka"
+  config:
+    # ...connection block
+    profiling:
+      enabled: true
+      sample_size: 1000
+      max_sample_time_seconds: 60
+```
+
+#### Advanced Profiling Configuration
+
+The Kafka source supports all standard Great Expectations profiling features plus Kafka-specific optimizations:
+
+```yaml
+source:
+  type: "kafka"
+  config:
+    # ...connection block
+    profiling:
+      # Basic settings
+      enabled: true
+      sample_size: 1000 # Number of messages to sample per topic
+      max_sample_time_seconds: 60 # Maximum time to spend sampling each topic
+
+      # Sampling strategy
+      sampling_strategy: "latest" # Options: latest, random, stratified, full
+
+      # Performance settings
+      max_workers: 4 # Parallel profiling workers
+      batch_size: 100 # Messages per batch for efficient reading
+      cache_sample_results: true # Cache samples between runs
+      cache_ttl_seconds: 3600 # Cache expiration time
+
+      # Field-level profiling controls
+      include_field_null_count: true
+      include_field_distinct_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: false # Expensive, disabled by default
+      include_field_distinct_value_frequencies: false # Expensive
+      include_field_histogram: false # Expensive
+      include_field_sample_values: true
+
+      # Performance optimization
+      turn_off_expensive_profiling_metrics: false
+      field_sample_values_limit: 20
+      max_number_of_fields_to_profile: 100
+
+      # Complex data handling
+      flatten_max_depth: 5 # Max recursion depth for nested JSON/Avro
+
+      # Scheduling (optional)
+      operation_config:
+        lower_freq_profile_enabled: false # Enable scheduled profiling
+        profile_day_of_week: 1 # Monday=0, Sunday=6
+        profile_date_of_month: 15 # Run on 15th of each month
+```
+
+#### Sampling Strategies
+
+The Kafka source provides multiple sampling strategies optimized for different use cases:
+
+- **`latest`** (default): Samples the most recent messages from the end of each partition
+- **`random`**: Samples messages from random offsets across partitions
+- **`stratified`**: Evenly distributes samples across the topic timeline
+- **`full`**: Processes the entire topic (respects `sample_size` limit)
+
+#### Performance Considerations
+
+For high-throughput topics, consider these optimizations:
+
+```yaml
+profiling:
+  enabled: true
+  # Reduce sample size for faster processing
+  sample_size: 500
+  max_sample_time_seconds: 30
+
+  # Use latest strategy for best performance
+  sampling_strategy: "latest"
+
+  # Enable expensive metrics only when needed
+  turn_off_expensive_profiling_metrics: true
+  max_number_of_fields_to_profile: 50
+
+  # Increase parallelization
+  max_workers: 8
+  batch_size: 200
+
+  # Enable caching for repeated runs
+  cache_sample_results: true
+```
+
+#### Scheduled Profiling
+
+You can configure profiling to run only on specific days or dates to reduce resource usage:
+
+```yaml
+profiling:
+  enabled: true
+  operation_config:
+    lower_freq_profile_enabled: true
+    profile_day_of_week: 0 # Run only on Mondays
+    # OR
+    profile_date_of_month: 1 # Run only on 1st of each month
+```
+
+#### Handling Complex Data
+
+The Kafka source automatically handles nested JSON and Avro structures by flattening them into individual fields. For deeply nested data, you can control the recursion depth:
+
+```yaml
+profiling:
+  enabled: true
+  flatten_max_depth: 3 # Prevent stack overflow on deep nesting
+```
+
+This is particularly useful for topics with complex nested messages or potential circular references.

@@ -8,20 +8,32 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
 
 
-class ProfilerConfig(GEProfilingBaseConfig):
-    sample_size: PositiveInt = Field(
-        default=100,
-        description="Number of messages to sample for profiling",
-    )
+class ProfilerConfig(GEProfilingConfig):
+    """
+    Kafka-specific profiling configuration that extends GEProfilingConfig.
+
+    Inherits ALL standard profiling functionality from GEProfilingConfig including:
+    - operation_config.lower_freq_profile_enabled: Whether to do profiling at lower frequency
+    - operation_config.profile_day_of_week: Day of week to run profiling (0=Monday, 6=Sunday)
+    - operation_config.profile_date_of_month: Date of month to run profiling (1-31)
+    - All include_field_* flags (null_count, distinct_count, min/max/mean/median/stddev, etc.)
+    - turn_off_expensive_profiling_metrics, field_sample_values_limit, max_number_of_fields_to_profile
+    - report_dropped_profiles, catch_exceptions, tags_to_ignore_sampling
+    - profile_nested_fields (useful for complex JSON/Avro), query_combiner_enabled
+
+    Additional Kafka-specific profiling options:
+    """
+
     max_sample_time_seconds: PositiveInt = Field(
         default=60,
         description="Maximum time to spend sampling messages in seconds",
@@ -39,8 +51,26 @@ class ProfilerConfig(GEProfilingBaseConfig):
         description="How long to keep cached sample results in seconds",
     )
     batch_size: PositiveInt = Field(
-        default=20,
+        default=100,
         description="Number of messages to fetch in a single batch (for more efficient reading)",
+    )
+
+    # Override sample_size from base class with Kafka-appropriate default
+    sample_size: int = Field(
+        default=1000,
+        description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process.",
+    )
+
+    # Override max_workers with Kafka-appropriate default (GEProfilingConfig defaults to 5 * cpu_count)
+    max_workers: int = Field(
+        default=1,
+        description="Number of worker threads to use for profiling. Kafka profiling can now be parallelized.",
+    )
+
+    # Kafka-specific field for handling complex nested JSON/Avro structures
+    flatten_max_depth: int = Field(
+        default=5,
+        description="Maximum recursion depth when flattening nested JSON structures. Lower values prevent recursion errors but may truncate deeply nested data.",
     )
 
 
@@ -108,3 +138,9 @@ class KafkaSourceConfig(
         default=ProfilerConfig(),
         description="Settings for message sampling and profiling",
     )
+
+    def is_profiling_enabled(self) -> bool:
+        """Check if profiling is enabled, respecting operation_config like SQL connectors."""
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )

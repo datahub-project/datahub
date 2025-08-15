@@ -7,9 +7,13 @@ kafka_server="localhost:29092"
 schema_reg="http://localhost:28081"
 
 echo "Generating test data..."
+# Use the Python executable passed as environment variable, or fallback to python3
+# This allows the test to pass the correct Python executable
+PYTHON_CMD="${DATAHUB_TEST_PYTHON:-python3}"
+
 # Generate test data - reduced count for faster processing
-python ${base_dir}/generate_test_data.py --type user --count 20 > ${base_dir}/user_data.json
-python ${base_dir}/generate_test_data.py --type numeric --count 20 > ${base_dir}/numeric_data.json
+${PYTHON_CMD} ${base_dir}/generate_test_data.py --type user --count 20 > ${base_dir}/user_data.json
+${PYTHON_CMD} ${base_dir}/generate_test_data.py --type numeric --count 20 > ${base_dir}/numeric_data.json
 
 echo "Converting to JSONL..."
 jq -c '.[]' ${base_dir}/user_data.json > ${base_dir}/user_records.jsonl
@@ -21,10 +25,14 @@ echo "Creating topics..."
 cat > ${base_dir}/batch_send.py << 'EOF'
 import argparse
 import json
+import warnings
 from confluent_kafka.avro import AvroProducer
 from confluent_kafka import avro
 
 def send_batch_messages():
+    # Suppress the deprecation warning for test simplicity
+    warnings.filterwarnings("ignore", message="AvroProducer has been deprecated")
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('--topic', required=True)
     parser.add_argument('--bootstrap-servers', required=True)
@@ -67,7 +75,7 @@ EOF
 
 # Send records in batch mode
 echo "Sending records to value_topic..."
-python ${base_dir}/batch_send.py \
+${PYTHON_CMD} ${base_dir}/batch_send.py \
     --topic value_topic \
     --bootstrap-servers "${kafka_server}" \
     --schema-registry "${schema_reg}" \
@@ -75,7 +83,7 @@ python ${base_dir}/batch_send.py \
     --records-file "${base_dir}/user_records.jsonl"
 
 echo "Sending records to key_value_topic..."
-python ${base_dir}/batch_send.py \
+${PYTHON_CMD} ${base_dir}/batch_send.py \
     --topic key_value_topic \
     --bootstrap-servers "${kafka_server}" \
     --schema-registry "${schema_reg}" \
@@ -84,7 +92,7 @@ python ${base_dir}/batch_send.py \
     --records-file "${base_dir}/user_records.jsonl"
 
 echo "Sending records to numeric_topic..."
-python ${base_dir}/batch_send.py \
+${PYTHON_CMD} ${base_dir}/batch_send.py \
     --topic numeric_topic \
     --bootstrap-servers "${kafka_server}" \
     --schema-registry "${schema_reg}" \

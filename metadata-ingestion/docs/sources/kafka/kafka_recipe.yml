@@ -6,6 +6,12 @@ source:
       bootstrap: "broker:9092"
       schema_registry_url: http://localhost:8081
 
+    # Optional: Enable data profiling
+    profiling:
+      enabled: true
+      sample_size: 1000
+      max_sample_time_seconds: 60
+      sampling_strategy: "latest"
+
 sink:
   # sink configs
-
