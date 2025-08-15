@@ -2,6 +2,7 @@ import { SelectOption, SimpleSelect } from '@components';
 import React, { useMemo } from 'react';
 
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
+import { ConditionElementWithFixedWidth } from '@app/sharedV2/queryBuilder/styledComponents';
 
 interface Props {
     selectedProperty?: string;
@@ -21,15 +22,17 @@ const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Prop
     );
 
     return (
-        <SimpleSelect
-            options={options}
-            onUpdate={(val) => onChangeProperty(val[0])}
-            values={selectedProperty ? [selectedProperty] : []}
-            placeholder="Select a property"
-            data-testid="condition-select"
-            width="full"
-            showClear={false}
-        />
+        <ConditionElementWithFixedWidth>
+            <SimpleSelect
+                options={options}
+                onUpdate={(val) => onChangeProperty(val[0])}
+                values={selectedProperty ? [selectedProperty] : []}
+                placeholder="Select a property"
+                data-testid="condition-select"
+                width="full"
+                showClear={false}
+            />
+        </ConditionElementWithFixedWidth>
     );
 };
 

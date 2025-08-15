@@ -12,6 +12,10 @@ export const ConditionContainer = styled.div<{ depth: number }>`
     padding-left: ${(props) => props.depth * 20 + 50 + 8}px;
 `;
 
+export const ConditionElementWithFixedWidth = styled.div`
+    width: 175px;
+`;
+
 export const SelectContainer = styled.div`
     display: flex;
     gap: 16px;
@@ -92,8 +96,6 @@ export const CardIcons = styled.div`
     display: flex;
     justify-content: end;
     gap: 12px;
-    min-width: 28px;
-    min-height: 28px;
 
     div {
         border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
