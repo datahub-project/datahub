@@ -7,6 +7,7 @@ import { getColor } from '@components/theme/utils';
 
 import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
 import { Badge, Text, colors } from '@src/alchemy-components';
+import analytics, { EventType } from '@src/app/analytics';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
@@ -128,6 +129,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize
     const history = useHistory();
 
     const onClick = () => {
+        analytics.event({ type: EventType.NavBarItemClick, label: item.title });
         if (item.onClick) item.onClick();
         if (item.link) return history.push(item.link);
         return null;
