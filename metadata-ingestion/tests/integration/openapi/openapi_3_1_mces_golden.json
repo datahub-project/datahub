@@ -82,6 +82,96 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "board",
+            "platform": "urn:li:dataPlatform:OpenApi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "f12dd5accc54733381cf135568d0b007",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"winner\": {\n      \"type\": \"string\",\n      \"enum\": [\n        \".\",\n        \"X\",\n        \"O\"\n      ],\n      \"description\": \"Winner of the game. `.` means nobody has won yet.\",\n      \"example\": \".\",\n      \"title\": \"winner\"\n    },\n    \"board\": {\n      \"type\": \"array\",\n      \"maxItems\": 3,\n      \"minItems\": 3,\n      \"items\": {\n        \"type\": \"array\",\n        \"maxItems\": 3,\n        \"minItems\": 3,\n        \"items\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \".\",\n            \"X\",\n            \"O\"\n          ],\n          \"description\": \"Possible values for a board square. `.` means empty square.\",\n          \"example\": \".\",\n          \"title\": \"mark\"\n        },\n        \"title\": \"item\"\n      },\n      \"title\": \"board\"\n    }\n  }\n}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=enum].winner",
+                    "nullable": false,
+                    "description": "One of: \".\", \"X\", \"O\"",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "Enum",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].item",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=object].[type=array].board.[type=array].item.[type=enum].mark",
+                    "nullable": false,
+                    "description": "One of: \".\", \"X\", \"O\"",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "Enum",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-ckeaqh",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -174,6 +264,54 @@
     "systemMetadata": {
         "lastObserved": 1586847600000,
         "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "board.{row}.{column}",
+            "platform": "urn:li:dataPlatform:OpenApi",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "01c0b066b7f3a68bf921f796cb480c74",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "{\n  \"type\": \"string\",\n  \"enum\": [\n    \".\",\n    \"X\",\n    \"O\"\n  ],\n  \"description\": \"Possible values for a board square. `.` means empty square.\",\n  \"example\": \".\"\n}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=enum]",
+                    "nullable": false,
+                    "description": "One of: \".\", \"X\", \"O\"",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.EnumType": {}
+                        }
+                    },
+                    "nativeDataType": "Enum",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"required\": false}"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "openapi-2020_04_14-07_00_00-ckeaqh",
         "lastRunId": "no-run-id-provided"
     }
 },
