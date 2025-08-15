@@ -199,6 +199,28 @@ def test_snowflake_oauth_token_with_empty_token():
         )
 
 
+def test_config_fetch_views_from_information_schema():
+    """Test the fetch_views_from_information_schema configuration parameter"""
+    # Test default value (False)
+    config_dict = {
+        "account_id": "test_account",
+        "username": "test_user",
+        "password": "test_pass",
+    }
+    config = SnowflakeV2Config.parse_obj(config_dict)
+    assert config.fetch_views_from_information_schema is False
+
+    # Test explicitly set to True
+    config_dict_true = {**config_dict, "fetch_views_from_information_schema": True}
+    config = SnowflakeV2Config.parse_obj(config_dict_true)
+    assert config.fetch_views_from_information_schema is True
+
+    # Test explicitly set to False
+    config_dict_false = {**config_dict, "fetch_views_from_information_schema": False}
+    config = SnowflakeV2Config.parse_obj(config_dict_false)
+    assert config.fetch_views_from_information_schema is False
+
+
 default_config_dict: Dict[str, Any] = {
     "username": "user",
     "password": "password",
