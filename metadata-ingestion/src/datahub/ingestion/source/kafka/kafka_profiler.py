@@ -389,7 +389,7 @@ class KafkaProfiler:
         # Map all schema fields
         for schema_field in schema_metadata.fields or []:
             clean_name = clean_field_path(schema_field.fieldPath, preserve_types=False)
-            field_mappings["paths"][clean_name] = schema_field.fieldPath
+            field_mappings["paths"][clean_name] = schema_field.fieldPath  # type: ignore[assignment]
             field_mappings["values"][schema_field.fieldPath] = []  # type: ignore[assignment]
 
         return field_mappings

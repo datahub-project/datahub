@@ -748,8 +748,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                     # Flatten complex structures with recursion protection
                                     if isinstance(decoded_value, list):
                                         decoded_value = {"item": decoded_value}
+                                    # Type cast for flatten_json compatibility
+                                    flattened_data = cast(Dict[str, Any], decoded_value)
                                     return flatten_json(
-                                        decoded_value,
+                                        flattened_data,
                                         max_depth=self.source_config.profiling.flatten_max_depth,
                                     )
                                 return decoded_value
