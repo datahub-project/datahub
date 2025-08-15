@@ -4,6 +4,11 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass as FineGrainedLineage,
+    FineGrainedLineageDownstreamTypeClass as FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamTypeClass as FineGrainedLineageUpstreamType,
+)
 from datahub.specific.datajob import DataJobPatchBuilder
 
 # Create DataHub Client
@@ -41,6 +46,28 @@ patch_builder.add_output_dataset_field(
         field_path="user_id",
     )
 )
+
+# Update column-level lineage through the Data Job
+lineage1 = FineGrainedLineage(
+    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+    upstreams=[
+        make_schema_field_urn(make_dataset_urn("postgres", "raw_data.users"), "user_id")
+    ],
+    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+    downstreams=[
+        make_schema_field_urn(
+            make_dataset_urn("postgres", "analytics.user_metrics"),
+            "user_id",
+        )
+    ],
+    transformOperation="IDENTITY",
+    confidenceScore=1.0,
+)
+patch_builder.add_fine_grained_lineage(lineage1)
+patch_builder.remove_fine_grained_lineage(lineage1)
+# Replaces all existing fine-grained lineages
+patch_builder.set_fine_grained_lineages([lineage1])
+
 patch_mcps = patch_builder.build()
 
 # Emit DataJob Patch
