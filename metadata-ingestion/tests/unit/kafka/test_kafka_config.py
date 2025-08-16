@@ -50,8 +50,6 @@ class TestKafkaProfilingConfig:
         )  # Override from base class
         assert config.max_sample_time_seconds == 60
         assert config.sampling_strategy == "latest"
-        assert config.cache_sample_results
-        assert config.cache_ttl_seconds == 3600
         assert config.batch_size == 100
         assert config.flatten_max_depth == 5
 

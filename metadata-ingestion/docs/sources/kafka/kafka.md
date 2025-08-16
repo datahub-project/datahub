@@ -382,8 +382,6 @@ source:
       # Performance settings
       max_workers: 4 # Parallel profiling workers
       batch_size: 100 # Messages per batch for efficient reading
-      cache_sample_results: true # Cache samples between runs
-      cache_ttl_seconds: 3600 # Cache expiration time
 
       # Field-level profiling controls
       include_field_null_count: true
@@ -443,9 +441,6 @@ profiling:
   # Increase parallelization
   max_workers: 8
   batch_size: 200
-
-  # Enable caching for repeated runs
-  cache_sample_results: true
 ```
 
 #### Scheduled Profiling

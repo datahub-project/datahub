@@ -62,22 +62,6 @@ FieldInfo = Dict[str, FieldAnalysis]
 
 
 @dataclass
-class CachedSchemaInference:
-    """Cached schema inference result with TTL."""
-
-    schema_fields: List[SchemaField]
-    timestamp: float
-
-    def is_expired(self, ttl_minutes: int) -> bool:
-        """Check if the cached result has expired."""
-        return time.time() - self.timestamp > (ttl_minutes * 60)
-
-
-# Global cache for schema inference results
-_schema_inference_cache: Dict[str, CachedSchemaInference] = {}
-
-
-@dataclass
 class JsonSchemaWrapper:
     name: str
     subject: str
@@ -409,43 +393,21 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             return {}
 
         fallback_config = self.source_config.schemaless_fallback
-
-        # Filter topics that need schema inference (check cache)
-        topics_to_process = []
         results = {}
 
-        for topic in topics:
-            cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
-            if cache_key in _schema_inference_cache:
-                cached_result = _schema_inference_cache[cache_key]
-                if not cached_result.is_expired(60):  # 60 minute TTL
-                    logger.debug(f"Using cached schema inference for topic {topic}")
-                    results[topic] = cached_result.schema_fields
-                    continue
-                else:
-                    # Remove expired cache entry
-                    del _schema_inference_cache[cache_key]
-            topics_to_process.append(topic)
-
-        if not topics_to_process:
-            logger.debug("All topics found in cache, no schema inference needed")
-            return results
-
         # Process topics in parallel if max_workers > 1
-        if fallback_config.max_workers > 1 and len(topics_to_process) > 1:
+        if fallback_config.max_workers > 1 and len(topics) > 1:
             logger.info(
-                f"Processing {len(topics_to_process)} topics in parallel for schema inference"
+                f"Processing {len(topics)} topics in parallel for schema inference"
             )
-            parallel_results = self._infer_schemas_parallel(
-                topics_to_process, fallback_config
-            )
+            parallel_results = self._infer_schemas_parallel(topics, fallback_config)
             results.update(parallel_results)
         else:
             # Sequential processing
             logger.debug(
-                f"Processing {len(topics_to_process)} topics sequentially for schema inference"
+                f"Processing {len(topics)} topics sequentially for schema inference"
             )
-            for topic in topics_to_process:
+            for topic in topics:
                 try:
                     schema_fields = self._infer_schema_from_messages(topic)
                     results[topic] = schema_fields
@@ -520,12 +482,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             # Infer schema fields from the sample data
             inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
 
-            # Cache the result (thread-safe)
-            if inferred_fields:
-                cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
-                _schema_inference_cache[cache_key] = CachedSchemaInference(
-                    schema_fields=inferred_fields, timestamp=time.time()
-                )
+            # Return the inferred fields directly (no caching needed)
 
             logger.debug(
                 f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
@@ -679,20 +636,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
         """
         Infer schema fields from actual message data when no schema registry entry exists.
-        This provides a fallback mechanism for schema-less topics with performance optimizations.
+        This provides a fallback mechanism for schema-less topics.
         """
         fallback_config = self.source_config.schemaless_fallback
-
-        # Check cache first (always enabled with 60 minute TTL)
-        cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
-        if cache_key in _schema_inference_cache:
-            cached_result = _schema_inference_cache[cache_key]
-            if not cached_result.is_expired(60):  # 60 minute TTL
-                logger.debug(f"Using cached schema inference for topic {topic}")
-                return cached_result.schema_fields
-            else:
-                # Remove expired cache entry
-                del _schema_inference_cache[cache_key]
 
         try:
             # Use optimized message sampling
@@ -707,12 +653,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             # Infer schema fields from the sample data
             inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
 
-            # Cache the result
-            if inferred_fields:
-                cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
-                _schema_inference_cache[cache_key] = CachedSchemaInference(
-                    schema_fields=inferred_fields, timestamp=time.time()
-                )
+            # Return the inferred fields directly (no caching needed)
 
             logger.info(
                 f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
@@ -1056,6 +997,59 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     keySchemaType=key_schema.schema_type if key_schema else None,
                 ),
                 fields=key_fields + fields,
+            )
+        return None
+
+    def build_schema_metadata(
+        self,
+        topic: str,
+        platform_urn: str,
+        schema: Optional[Schema],
+        fields: List[SchemaField],
+    ) -> Optional[SchemaMetadata]:
+        """Build SchemaMetadata from pre-fetched schema and fields data."""
+        return self.build_schema_metadata_with_key(
+            topic, platform_urn, schema, fields, None, []
+        )
+
+    def build_schema_metadata_with_key(
+        self,
+        topic: str,
+        platform_urn: str,
+        value_schema: Optional[Schema],
+        value_fields: List[SchemaField],
+        key_schema: Optional[Schema],
+        key_fields: List[SchemaField],
+    ) -> Optional[SchemaMetadata]:
+        """Build SchemaMetadata from pre-fetched value and key schema data."""
+        if (
+            value_schema is not None
+            or key_schema is not None
+            or value_fields
+            or key_fields
+        ):
+            # Create a hash from both schemas
+            value_schema_str = (
+                value_schema.schema_str if value_schema is not None else ""
+            )
+            key_schema_str = key_schema.schema_str if key_schema is not None else ""
+            schema_as_string = value_schema_str + key_schema_str
+            md5_hash = md5(schema_as_string.encode()).hexdigest()
+
+            return SchemaMetadata(
+                schemaName=topic,
+                version=0,
+                hash=md5_hash,
+                platform=platform_urn,
+                platformSchema=KafkaSchema(
+                    documentSchema=value_schema.schema_str if value_schema else "",
+                    documentSchemaType=value_schema.schema_type
+                    if value_schema
+                    else None,
+                    keySchema=key_schema.schema_str if key_schema else None,
+                    keySchemaType=key_schema.schema_type if key_schema else None,
+                ),
+                fields=key_fields + value_fields,  # Combine key and value fields
             )
         return None
 

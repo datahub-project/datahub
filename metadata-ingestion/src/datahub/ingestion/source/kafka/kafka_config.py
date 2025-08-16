@@ -64,14 +64,6 @@ class ProfilerConfig(GEProfilingConfig):
         default="latest",
         description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
     )
-    cache_sample_results: bool = Field(
-        default=True,
-        description="Whether to cache sample results between runs for the same topic",
-    )
-    cache_ttl_seconds: PositiveInt = Field(
-        default=3600,
-        description="How long to keep cached sample results in seconds",
-    )
     batch_size: PositiveInt = Field(
         default=100,
         description="Number of messages to fetch in a single batch (for more efficient reading)",

@@ -4,7 +4,6 @@ import io
 import json
 import logging
 import random
-import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -22,7 +21,9 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    pass
+    from confluent_kafka.schema_registry.schema_registry_client import Schema
+
+    from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 import avro.io
 import avro.schema
@@ -203,41 +204,6 @@ class KafkaConnectionTest:
             return CapabilityReport(capable=False, failure_reason=str(e))
 
 
-class SampleCache:
-    """Cache for Kafka topic sample data to improve profiling efficiency."""
-
-    def __init__(self):
-        self._cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
-
-    def get(self, topic: str, ttl_seconds: int) -> Optional[List[Dict[str, Any]]]:
-        """Get cached samples for a topic if they exist and haven't expired."""
-        if topic not in self._cache:
-            return None
-
-        samples, timestamp = self._cache[topic]
-        current_time = time.time()
-
-        # Check if cache has expired
-        if current_time - timestamp > ttl_seconds:
-            # Cache expired
-            del self._cache[topic]
-            return None
-
-        return samples
-
-    def put(self, topic: str, samples: List[Dict[str, Any]]) -> None:
-        """Store samples for a topic with current timestamp."""
-        self._cache[topic] = (samples, time.time())
-
-    def clear(self) -> None:
-        """Clear the entire cache."""
-        self._cache.clear()
-
-
-# Global cache instance
-_sample_cache = SampleCache()
-
-
 @platform_name("Kafka")
 @config_class(KafkaSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -347,20 +313,107 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         ).topics
         extra_topic_details = self.fetch_extra_topic_details(topics.keys())
 
-        for topic, topic_detail in topics.items():
+        # Filter allowed topics upfront
+        allowed_topics = [
+            (topic, topic_detail)
+            for topic, topic_detail in topics.items()
+            if self.source_config.topic_patterns.allowed(topic)
+        ]
+
+        # Report scanned and dropped topics
+        for topic, _ in topics.items():
             self.report.report_topic_scanned(topic)
-            if self.source_config.topic_patterns.allowed(topic):
-                try:
-                    yield from self._extract_record(
-                        topic, False, topic_detail, extra_topic_details.get(topic)
-                    )
-                except Exception as e:
-                    logger.warning(f"Failed to extract topic {topic}", exc_info=True)
-                    self.report.report_warning(
-                        "topic", f"Exception while extracting topic {topic}: {e}"
-                    )
-            else:
+            if not self.source_config.topic_patterns.allowed(topic):
                 self.report.report_dropped(topic)
+
+        logger.info(f"Processing {len(allowed_topics)} allowed topics")
+
+        # Batch schema retrieval (PARALLEL) - eliminates the main bottleneck
+        topic_names = [topic for topic, _ in allowed_topics]
+        logger.info(f"Retrieving schemas for {len(topic_names)} topics in batch")
+
+        # Get both value and key schemas in parallel
+        topic_value_schemas = self.schema_registry_client.get_schema_and_fields_batch(
+            topic_names, is_key_schema=False
+        )
+        topic_key_schemas = self.schema_registry_client.get_schema_and_fields_batch(
+            topic_names, is_key_schema=True
+        )
+
+        # Process topics sequentially (fast since schemas are pre-fetched) and collect profiling tasks
+        profiling_tasks = []
+
+        for topic, topic_detail in allowed_topics:
+            try:
+                value_schema, value_fields = topic_value_schemas.get(topic, (None, []))
+                key_schema, key_fields = topic_key_schemas.get(topic, (None, []))
+
+                # Extract metadata work units
+                yield from self._extract_record_with_schemas(
+                    topic,
+                    False,
+                    topic_detail,
+                    extra_topic_details.get(topic),
+                    value_schema,
+                    value_fields,
+                    key_schema,
+                    key_fields,
+                )
+
+                # Collect profiling task if profiling is enabled
+                if (
+                    self.source_config.profiling.enabled
+                    and self.source_config.is_profiling_enabled()
+                ):
+                    # Build dataset URN
+                    dataset_urn = make_dataset_urn_with_platform_instance(
+                        platform=self.platform,
+                        name=topic,
+                        platform_instance=self.source_config.platform_instance,
+                        env=self.source_config.env,
+                    )
+
+                    # Build schema metadata if available
+                    schema_metadata = None
+                    if (
+                        value_schema is not None
+                        or key_schema is not None
+                        or value_fields
+                        or key_fields
+                    ):
+                        schema_metadata = (
+                            self.schema_registry_client.build_schema_metadata_with_key(
+                                topic,
+                                make_data_platform_urn(self.platform),
+                                value_schema,
+                                value_fields,
+                                key_schema,
+                                key_fields,
+                            )
+                        )
+
+                    # Get samples for this topic
+                    samples = self.get_sample_messages(topic)
+                    if samples:
+                        profiling_tasks.append(
+                            (dataset_urn, topic, samples, schema_metadata)
+                        )
+                        logger.debug(
+                            f"Added profiling task for topic {topic} with {len(samples)} samples"
+                        )
+
+            except Exception as e:
+                logger.warning(f"Failed to extract topic {topic}", exc_info=True)
+                self.report.report_warning(
+                    "topic", f"Exception while extracting topic {topic}: {e}"
+                )
+
+        # Process all profiling tasks in parallel
+        if profiling_tasks:
+            logger.info(
+                f"Processing {len(profiling_tasks)} profiling tasks in parallel"
+            )
+            yield from self.generate_profiles_in_parallel(profiling_tasks)
 
         if self.source_config.ingest_schemas_as_entities:
             # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
@@ -379,16 +432,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_sample_messages(self, topic: str) -> Optional[List[Dict[str, Any]]]:
         """Get sample messages from Kafka topic using configured strategy and optimizations."""
-        # Check cache first if enabled
-        if self.source_config.profiling.cache_sample_results:
-            cached_samples = _sample_cache.get(
-                topic, self.source_config.profiling.cache_ttl_seconds
-            )
-            if cached_samples:
-                logger.info(
-                    f"Using {len(cached_samples)} cached samples for topic {topic}"
-                )
-                return cached_samples
 
         logger.info(
             f"Collecting samples from topic {topic} using {self.source_config.profiling.sampling_strategy} strategy"
@@ -483,9 +526,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             logger.info(f"Collected {len(samples)} samples from topic {topic}")
 
-            # Cache the results if enabled
-            if self.source_config.profiling.cache_sample_results and samples:
-                _sample_cache.put(topic, samples)
+            # Return samples directly (no caching needed)
 
         except Exception as e:
             self.report.report_warning(
@@ -1015,23 +1056,42 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         return dataset_snapshot
 
-    def _extract_record(
+    def _extract_record_with_schemas(
         self,
         topic: str,
         is_subject: bool,
         topic_detail: Optional[TopicMetadata],
         extra_topic_config: Optional[Dict[str, ConfigEntry]],
+        value_schema: Optional["Schema"],
+        value_fields: List["SchemaField"],
+        key_schema: Optional["Schema"],
+        key_fields: List["SchemaField"],
     ) -> Iterable[MetadataWorkUnit]:
+        """Extract record with pre-fetched schema data to avoid sequential schema lookups."""
         kafka_entity = "subject" if is_subject else "topic"
 
         logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
 
         platform_urn = make_data_platform_urn(self.platform)
 
-        # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
-        schema_metadata = self.schema_registry_client.get_schema_metadata(
-            topic, platform_urn, is_subject
-        )
+        # Build schema metadata from pre-fetched data
+        schema_metadata = None
+        if (
+            value_schema is not None
+            or key_schema is not None
+            or value_fields
+            or key_fields
+        ):
+            schema_metadata = (
+                self.schema_registry_client.build_schema_metadata_with_key(
+                    topic,
+                    platform_urn,
+                    value_schema,
+                    value_fields,
+                    key_schema,
+                    key_fields,
+                )
+            )
 
         # topic can have no associated subject, but still it can be ingested without schema
         # for schema ingestion, ingest only if it has valid schema
@@ -1042,7 +1102,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         else:
             dataset_name = topic
 
-        # 2. Create the default dataset snapshot for the topic.
+        # Create the default dataset snapshot for the topic
         dataset_urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=dataset_name,
@@ -1057,7 +1117,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if schema_metadata is not None:
             dataset_snapshot.aspects.append(schema_metadata)
 
-        # 3. Attach browsePaths aspect
+        # Attach browsePaths aspect
         browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
         if self.source_config.platform_instance:
             browse_path_str += f"/{self.source_config.platform_instance}"
@@ -1078,15 +1138,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             if schema_name is not None:
                 custom_props["Schema Name"] = schema_name
 
-        # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
+        # Attach DatasetPropertiesClass
         dataset_snapshot = self.get_dataset_description(
-            dataset_name=dataset_name,
-            dataset_snapshot=dataset_snapshot,
-            custom_props=custom_props,
-            schema_metadata=schema_metadata,
+            dataset_name, dataset_snapshot, custom_props, schema_metadata
         )
 
-        # 5. Attach dataPlatformInstance aspect.
+        # Attach dataPlatformInstance aspect if configured
         if self.source_config.platform_instance:
             dataset_snapshot.aspects.append(
                 DataPlatformInstanceClass(
@@ -1097,11 +1154,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
-        # 6. Emit the datasetSnapshot MCE
+        # Emit the dataset snapshot
         mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(id=f"kafka-{kafka_entity}", mce=mce)
 
-        # 7. Add the subtype aspect marking this as a "topic" or "schema"
+        # Add the subtype aspect marking this as a "topic" or "schema"
         typeName = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -1110,7 +1167,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         domain_urn: Optional[str] = None
 
-        # 8. Emit domains aspect MCPW
+        # Emit domains aspect MCPW
         for domain, pattern in self.source_config.domain.items():
             if pattern.allowed(dataset_name):
                 domain_urn = make_domain_urn(
@@ -1123,16 +1180,106 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 domain_urn=domain_urn,
             )
 
-        # 9. Emit sample values
-        if not is_subject and self.source_config.profiling.enabled:
-            logger.debug(
-                f"Profiling topic {topic} for dataset {dataset_urn}. "
-                f"Schema metadata: {schema_metadata}"
+        # Note: Profiling is now handled in batch after all topics are processed
+
+    def _extract_record(
+        self,
+        topic: str,
+        is_subject: bool,
+        topic_detail: Optional[TopicMetadata],
+        extra_topic_config: Optional[Dict[str, ConfigEntry]],
+    ) -> Iterable[MetadataWorkUnit]:
+        kafka_entity = "subject" if is_subject else "topic"
+
+        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
+
+        platform_urn = make_data_platform_urn(self.platform)
+
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
+            topic, platform_urn, is_subject
+        )
+
+        # topic can have no associated subject, but still it can be ingested without schema
+        # for schema ingestion, ingest only if it has valid schema
+        if is_subject:
+            if schema_metadata is None:
+                return
+            dataset_name = schema_metadata.schemaName
+        else:
+            dataset_name = topic
+
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+        )
+        dataset_snapshot = DatasetSnapshotClass(
+            urn=dataset_urn,
+            aspects=[StatusClass(removed=False)],  # we append to this list later on
+        )
+
+        if schema_metadata is not None:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
+        if self.source_config.platform_instance:
+            browse_path_str += f"/{self.source_config.platform_instance}"
+        browse_path = BrowsePathsClass([browse_path_str])
+        dataset_snapshot.aspects.append(browse_path)
+
+        # build custom properties for topic, schema properties may be added as needed
+        custom_props: Dict[str, str] = {}
+        if not is_subject:
+            custom_props = self.build_custom_properties(
+                topic, topic_detail, extra_topic_config
             )
-            yield from self.create_profiling_wu(
+            schema_name: Optional[str] = (
+                self.schema_registry_client._get_subject_for_topic(
+                    topic, is_key_schema=False
+                )
+            )
+            if schema_name is not None:
+                custom_props["Schema Name"] = schema_name
+
+        dataset_snapshot = self.get_dataset_description(
+            dataset_name=dataset_name,
+            dataset_snapshot=dataset_snapshot,
+            custom_props=custom_props,
+            schema_metadata=schema_metadata,
+        )
+
+        if self.source_config.platform_instance:
+            dataset_snapshot.aspects.append(
+                DataPlatformInstanceClass(
+                    platform=platform_urn,
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.source_config.platform_instance
+                    ),
+                )
+            )
+
+        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        yield MetadataWorkUnit(id=f"kafka-{kafka_entity}", mce=mce)
+
+        typeName = DatasetSubTypes.SCHEMA if is_subject else DatasetSubTypes.TOPIC
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[typeName]),
+        ).as_workunit()
+
+        domain_urn: Optional[str] = None
+
+        for domain, pattern in self.source_config.domain.items():
+            if pattern.allowed(dataset_name):
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
+
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
                 entity_urn=dataset_urn,
-                topic=topic,
-                schema_metadata=schema_metadata,
+                domain_urn=domain_urn,
             )
 
     def build_custom_properties(
@@ -1196,8 +1343,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def close(self) -> None:
         if self.consumer:
             self.consumer.close()
-        # Clear the sample cache when source is closed
-        _sample_cache.clear()
+        # Cleanup any resources when source is closed
         super().close()
 
     def _get_config_value_if_present(

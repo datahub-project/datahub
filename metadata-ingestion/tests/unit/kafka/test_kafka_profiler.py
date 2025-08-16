@@ -336,7 +336,6 @@ class TestKafkaProfiler(unittest.TestCase):
             sample_size=200,
             max_sample_time_seconds=120,
             sampling_strategy="random",
-            cache_sample_results=False,
         )
 
         # Create profiler with custom config
@@ -346,7 +345,6 @@ class TestKafkaProfiler(unittest.TestCase):
         self.assertEqual(profiler.profiler_config.sample_size, 200)
         self.assertEqual(profiler.profiler_config.max_sample_time_seconds, 120)
         self.assertEqual(profiler.profiler_config.sampling_strategy, "random")
-        self.assertEqual(profiler.profiler_config.cache_sample_results, False)
 
     def test_profile_topic_static_method(self):
         """Test the static profile_topic method"""
