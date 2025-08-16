@@ -29,12 +29,10 @@ export const ALL_PATHS = [
 export const getFilteredPaths = (me: any, config: any) => {
     const isPoliciesEnabled = config?.policiesConfig?.enabled;
     const isIdentityManagementEnabled = config?.identityManagementConfig?.enabled;
-    const isViewsEnabled = config?.viewsConfig?.enabled;
     const { readOnlyModeEnabled } = config.featureFlags;
 
     const showPolicies = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;
     const showUsersGroups = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
-    const showViews = isViewsEnabled || false;
     const showOwnershipTypes = me && me?.platformPrivileges?.manageOwnershipTypes;
     const showHomePagePosts = me && me?.platformPrivileges?.manageGlobalAnnouncements && !readOnlyModeEnabled;
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
@@ -42,22 +40,22 @@ export const getFilteredPaths = (me: any, config: any) => {
 
     return ALL_PATHS.filter((pathConfig) => {
         const { path: pathKey, requiresPrivilege } = pathConfig;
-        
+
         // Apply existing logic for feature flags and specific conditions
         if (pathKey === 'policies' && !showPolicies) return false;
         if (pathKey === 'permissions' && !showPolicies) return false;
         if (pathKey === 'identities' && !showUsersGroups) return false;
-        if (pathKey === 'views' && !showViews) return false;
+        if (pathKey === 'views') return true;
         if (pathKey === 'ownership' && !showOwnershipTypes) return false;
         if (pathKey === 'posts' && !showHomePagePosts) return false;
         if (pathKey === 'tokens' && !showAccessTokens) return false;
         if (pathKey === 'features' && !showFeatures) return false;
-        
+
         // For other paths, check the privilege requirement
         if (requiresPrivilege && me?.platformPrivileges) {
             return Boolean(me.platformPrivileges[requiresPrivilege]);
         }
-        
+
         // Always allow paths without privilege requirements
         return true;
     });

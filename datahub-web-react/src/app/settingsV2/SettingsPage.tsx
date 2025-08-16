@@ -114,20 +114,6 @@ export const SettingsPage = () => {
     const showAccessTokens = me && me?.platformPrivileges?.generatePersonalAccessTokens;
     const showFeatures = me?.platformPrivileges?.manageIngestion; // TODO: Add feature flag for this
 
-    // Check if user is trying to access an unauthorized route
-    const isUnauthorizedRoute = () => {
-        const currentPath = splitPathName[1];
-        if (!currentPath) return false;
-        
-        // Check if the requested path exists in allowed PATHS
-        const isAllowedPath = PATHS.some(p => p.path === currentPath);
-        
-        // Check if it's a known restricted path that was filtered out
-        const restrictedPaths = ['permissions', 'policies', 'identities', 'tokens', 'ownership', 'posts', 'features'];
-        const isRestrictedPath = restrictedPaths.includes(currentPath);
-        
-        return isRestrictedPath && !isAllowedPath;
-    };
 
     // Menu Items based on PATHS
     const menuItems: NavBarMenuItems = {
@@ -297,8 +283,8 @@ export const SettingsPage = () => {
                     {PATHS.map((p) => (
                         <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
                     ))}
-                    {/* Fallback for unauthorized access to known restricted routes */}
-                    <Route render={() => isUnauthorizedRoute() ? <NoPageFound /> : <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
+                    {/* Fallback for any unmatched route - redirect to default */}
+                    <Route render={() => <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
                 </Switch>
             </ContentContainer>
         </PageContainer>

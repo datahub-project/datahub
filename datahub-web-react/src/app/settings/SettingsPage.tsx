@@ -121,7 +121,7 @@ export const SettingsPage = () => {
         // Apply existing logic for feature flags and specific conditions
         if (pathKey === 'permissions' && !showPolicies) return false;
         if (pathKey === 'identities' && !showUsersGroups) return false;
-        if (pathKey === 'views' && !showViews) return false;
+        if (pathKey === 'views') return true;
         if (pathKey === 'ownership' && !showOwnershipTypes) return false;
         if (pathKey === 'posts' && !showHomePagePosts) return false;
         if (pathKey === 'features' && !showFeatures) return false;
@@ -144,20 +144,6 @@ export const SettingsPage = () => {
     const providedPath = splitPathName[1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
 
-    // Check if user is trying to access an unauthorized route
-    const isUnauthorizedRoute = () => {
-        const currentPath = splitPathName[1];
-        if (!currentPath) return false;
-        
-        // Check if the requested path exists in allowed PATHS
-        const isAllowedPath = PATHS.some(p => p.path === currentPath);
-        
-        // Check if it's a known restricted path that was filtered out
-        const restrictedPaths = ['permissions', 'identities', 'tokens', 'ownership', 'posts', 'features'];
-        const isRestrictedPath = restrictedPaths.includes(currentPath);
-        
-        return isRestrictedPath && !isAllowedPath;
-    };
 
     return (
         <PageContainer>
@@ -240,8 +226,8 @@ export const SettingsPage = () => {
                 {PATHS.map((p) => (
                     <Route path={`${path}/${p.path.replace('/', '')}`} render={() => p.content} key={p.path} />
                 ))}
-                {/* Fallback for unauthorized access to known restricted routes */}
-                <Route render={() => isUnauthorizedRoute() ? <NoPageFound /> : <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
+                {/* Fallback for any unmatched route - redirect to default */}
+                <Route render={() => <Redirect to={`${path}/${DEFAULT_PATH.path}`} />} />
             </Switch>
         </PageContainer>
     );
