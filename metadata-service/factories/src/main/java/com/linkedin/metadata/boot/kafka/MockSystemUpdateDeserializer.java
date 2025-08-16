@@ -3,8 +3,8 @@ package com.linkedin.metadata.boot.kafka;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.DUHE_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX;
 import static com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer.topicToSubjectName;
-import static io.datahubproject.openapi.schema.registry.Constants.FIXED_SCHEMA_VERSION;
 
+import com.linkedin.metadata.EventSchemaConstants;
 import com.linkedin.metadata.EventUtils;
 import io.confluent.kafka.schemaregistry.ParsedSchema;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
@@ -43,7 +43,8 @@ public class MockSystemUpdateDeserializer extends KafkaAvroDeserializer {
       schemaRegistry.register(
           topicToSubjectName(topicName),
           new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
-          FIXED_SCHEMA_VERSION,
+          EventSchemaConstants.getLatestSchemaVersion(
+              EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME),
           schemaId);
       return schemaRegistry;
     } catch (IOException | RestClientException e) {

@@ -5,9 +5,9 @@ import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRe
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.MCP_SCHEMA_REGISTRY_TOPIC_KEY;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX;
 import static com.linkedin.gms.factory.kafka.schemaregistry.SystemUpdateSchemaRegistryFactory.SYSTEM_UPDATE_TOPIC_KEY_PREFIX;
-import static io.datahubproject.openapi.schema.registry.Constants.FIXED_SCHEMA_VERSION;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.metadata.EventSchemaConstants;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.util.Pair;
 import io.confluent.kafka.schemaregistry.avro.AvroSchema;
@@ -34,6 +34,16 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
           new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA),
           MCP_SCHEMA_REGISTRY_TOPIC_KEY,
           new AvroSchema(EventUtils.RENAMED_MCP_AVRO_SCHEMA));
+
+  // Mapping from schema registry topic keys to schema names for version lookup
+  private static final Map<String, String> SCHEMA_REGISTRY_KEY_TO_SCHEMA_NAME_MAP =
+      Map.of(
+          DUHE_SCHEMA_REGISTRY_TOPIC_KEY,
+          EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME,
+          MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
+          EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME,
+          MCP_SCHEMA_REGISTRY_TOPIC_KEY,
+          EventUtils.METADATA_CHANGE_PROPOSAL_SCHEMA_NAME);
 
   private Map<String, Pair<AvroSchema, Integer>> topicNameToAvroSchemaMap;
 
@@ -66,10 +76,15 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
       topicNameToAvroSchemaMap.forEach(
           (topicName, schemaId) -> {
             try {
+              // Find the schema registry key that maps to this topic's schema
+              String schemaRegistryKey = findSchemaRegistryKeyForTopic(topicName);
+              String schemaName = SCHEMA_REGISTRY_KEY_TO_SCHEMA_NAME_MAP.get(schemaRegistryKey);
+              int latestVersion = EventSchemaConstants.getLatestSchemaVersion(schemaName);
+
               schemaRegistry.register(
                   topicToSubjectName(topicName),
                   schemaId.getFirst(),
-                  FIXED_SCHEMA_VERSION,
+                  latestVersion,
                   schemaId.getSecond());
             } catch (IOException | RestClientException e) {
               throw new RuntimeException(e);
@@ -78,6 +93,32 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
     }
 
     return schemaRegistry;
+  }
+
+  /** Finds the schema registry key that corresponds to a given topic's schema */
+  private String findSchemaRegistryKeyForTopic(String topicName) {
+    // Find which schema registry key this topic is using by looking up the schema in
+    // AVRO_SCHEMA_MAP
+    return topicNameToAvroSchemaMap.entrySet().stream()
+        .filter(entry -> entry.getKey().equals(topicName))
+        .findFirst()
+        .map(
+            entry -> {
+              AvroSchema schema = entry.getValue().getFirst();
+              // Find the key in AVRO_SCHEMA_MAP that has this schema
+              return AVRO_SCHEMA_MAP.entrySet().stream()
+                  .filter(schemaEntry -> schemaEntry.getValue().equals(schema))
+                  .findFirst()
+                  .map(Map.Entry::getKey)
+                  .orElseThrow(
+                      () ->
+                          new IllegalStateException(
+                              "Could not find schema registry key for schema: "
+                                  + schema.toString()));
+            })
+        .orElseThrow(
+            () ->
+                new IllegalStateException("Could not find schema mapping for topic: " + topicName));
   }
 
   @VisibleForTesting
