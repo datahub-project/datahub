@@ -1,8 +1,9 @@
+import os
 from typing import Dict, Optional
 
 from pydantic import Field, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
@@ -16,6 +17,27 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+
+class SchemalessFallback(ConfigModel):
+    """Configuration for schema-less fallback."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable automatic fallback to schema-less processing for topics not found in the schema registry.",
+    )
+    max_workers: int = Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Maximum number of topics to process in parallel for schema inference. Set to 1 to disable parallel processing.",
+    )
+    sample_timeout_seconds: float = Field(
+        default=2.0,
+        description="Maximum time to spend sampling messages from a single topic (in seconds).",
+    )
+    sample_strategy: str = Field(
+        default="hybrid",
+        description="Sampling strategy: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest).",
+    )
 
 
 class ProfilerConfig(GEProfilingConfig):
@@ -63,7 +85,7 @@ class ProfilerConfig(GEProfilingConfig):
 
     # Override max_workers with Kafka-appropriate default (GEProfilingConfig defaults to 5 * cpu_count)
     max_workers: int = Field(
-        default=1,
+        default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for profiling. Kafka profiling can now be parallelized.",
     )
 
@@ -122,9 +144,9 @@ class KafkaSourceConfig(
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
-    enable_schemaless_fallback: bool = Field(
-        default=True,
-        description="When enabled, automatically falls back to schema-less processing for topics not found in the schema registry. This allows DataHub to extract schema information from actual message data instead of failing.",
+    schemaless_fallback: SchemalessFallback = Field(
+        default=SchemalessFallback(),
+        description="Settings for schema-less fallback when topics are not found in schema registry",
     )
     disable_topic_record_naming_strategy: bool = Field(
         default=False,

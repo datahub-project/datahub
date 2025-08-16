@@ -1,5 +1,8 @@
 import json
 import logging
+import os
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from hashlib import md5
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
@@ -18,6 +21,7 @@ from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
+from datahub.ingestion.source.kafka.kafka_config import SchemalessFallback
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
@@ -55,6 +59,22 @@ class FieldAnalysis:
 
 
 FieldInfo = Dict[str, FieldAnalysis]
+
+
+@dataclass
+class CachedSchemaInference:
+    """Cached schema inference result with TTL."""
+
+    schema_fields: List[SchemaField]
+    timestamp: float
+
+    def is_expired(self, ttl_minutes: int) -> bool:
+        """Check if the cached result has expired."""
+        return time.time() - self.timestamp > (ttl_minutes * 60)
+
+
+# Global cache for schema inference results
+_schema_inference_cache: Dict[str, CachedSchemaInference] = {}
 
 
 @dataclass
@@ -299,7 +319,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
             if not is_key_schema:
                 # Value schema is always expected. Check if we should fallback or warn.
-                if self.source_config.enable_schemaless_fallback:
+                if self.source_config.schemaless_fallback.enabled:
                     logger.info(
                         f"Schema registry subject not found for {kafka_entity}: {topic}. "
                         f"Falling back to schema-less processing to infer schema from message data."
@@ -311,7 +331,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                         title="Unable to find a matching subject name for the topic in the schema registry",
                         message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
                         "If this is unexpected, check the topic_subject_map and topic_naming related configs. "
-                        "Consider enabling 'enable_schemaless_fallback' to automatically infer schema from message data.",
+                        "Consider enabling 'schemaless_fallback.enabled' to automatically infer schema from message data.",
                         context=topic,
                     )
 
@@ -324,7 +344,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 is_key_schema=is_key_schema,
             )
         elif (
-            self.source_config.enable_schemaless_fallback
+            self.source_config.schemaless_fallback.enabled
             and not is_key_schema
             and not is_subject
         ):
@@ -333,23 +353,366 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
 
         return (schema, fields)
 
-    def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
+    def get_schema_and_fields_batch(
+        self, topics: List[str], is_key_schema: bool = False
+    ) -> Dict[str, Tuple[Optional[Schema], List[SchemaField]]]:
         """
-        Infer schema fields from actual message data when no schema registry entry exists.
-        This provides a fallback mechanism for schema-less topics.
+        Get schemas and fields for multiple topics in batch, using parallel processing for schema-less fallback.
+        This is the main entry point for batch schema processing.
+        """
+        results = {}
+        topics_needing_fallback = []
+
+        # First, try to get schemas from schema registry
+        for topic in topics:
+            try:
+                schema, fields = self._get_schema_and_fields(
+                    topic, is_key_schema, is_subject=False
+                )
+                results[topic] = (schema, fields)
+
+                # If no schema was found and fallback is enabled, add to fallback list
+                if (
+                    schema is None
+                    and not fields
+                    and self.source_config.schemaless_fallback.enabled
+                    and not is_key_schema
+                ):
+                    topics_needing_fallback.append(topic)
+
+            except Exception as e:
+                logger.warning(f"Failed to get schema for topic {topic}: {e}")
+                if self.source_config.schemaless_fallback.enabled and not is_key_schema:
+                    topics_needing_fallback.append(topic)
+                else:
+                    results[topic] = (None, [])
+
+        # Process topics needing fallback in batch (parallel if enabled)
+        if topics_needing_fallback:
+            logger.info(
+                f"Processing {len(topics_needing_fallback)} topics with schema-less fallback"
+            )
+            fallback_results = self.infer_schemas_batch(topics_needing_fallback)
+
+            # Update results with fallback schemas
+            for topic, inferred_fields in fallback_results.items():
+                results[topic] = (None, inferred_fields)
+
+        return results
+
+    def infer_schemas_batch(self, topics: List[str]) -> Dict[str, List[SchemaField]]:
+        """
+        Infer schemas for multiple topics in parallel for improved performance.
+        Returns a dictionary mapping topic names to their inferred schema fields.
+        """
+        if not topics:
+            return {}
+
+        fallback_config = self.source_config.schemaless_fallback
+
+        # Filter topics that need schema inference (check cache)
+        topics_to_process = []
+        results = {}
+
+        for topic in topics:
+            cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
+            if cache_key in _schema_inference_cache:
+                cached_result = _schema_inference_cache[cache_key]
+                if not cached_result.is_expired(60):  # 60 minute TTL
+                    logger.debug(f"Using cached schema inference for topic {topic}")
+                    results[topic] = cached_result.schema_fields
+                    continue
+                else:
+                    # Remove expired cache entry
+                    del _schema_inference_cache[cache_key]
+            topics_to_process.append(topic)
+
+        if not topics_to_process:
+            logger.debug("All topics found in cache, no schema inference needed")
+            return results
+
+        # Process topics in parallel if max_workers > 1
+        if fallback_config.max_workers > 1 and len(topics_to_process) > 1:
+            logger.info(
+                f"Processing {len(topics_to_process)} topics in parallel for schema inference"
+            )
+            parallel_results = self._infer_schemas_parallel(
+                topics_to_process, fallback_config
+            )
+            results.update(parallel_results)
+        else:
+            # Sequential processing
+            logger.debug(
+                f"Processing {len(topics_to_process)} topics sequentially for schema inference"
+            )
+            for topic in topics_to_process:
+                try:
+                    schema_fields = self._infer_schema_from_messages(topic)
+                    results[topic] = schema_fields
+                except Exception as e:
+                    logger.warning(f"Failed to infer schema for topic {topic}: {e}")
+                    results[topic] = []
+
+        return results
+
+    def _infer_schemas_parallel(
+        self, topics: List[str], fallback_config: SchemalessFallback
+    ) -> Dict[str, List[SchemaField]]:
+        """
+        Process multiple topics in parallel using ThreadPoolExecutor.
+        """
+        results = {}
+
+        # Intelligent worker calculation based on system resources and configuration
+        cpu_count = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
+
+        # Use the smaller of: configured max, number of topics, or 2x CPU cores (reasonable for I/O bound work)
+        max_workers = min(
+            fallback_config.max_workers,
+            len(topics),
+            cpu_count
+            * 2,  # I/O bound work can benefit from more threads than CPU cores
+        )
+
+        logger.info(
+            f"Using {max_workers} parallel workers for {len(topics)} topics (CPU cores: {cpu_count})"
+        )
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all tasks
+            future_to_topic = {
+                executor.submit(
+                    self._infer_schema_from_messages_internal, topic, fallback_config
+                ): topic
+                for topic in topics
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_topic):
+                topic = future_to_topic[future]
+                try:
+                    schema_fields = future.result()
+                    results[topic] = schema_fields
+                    logger.debug(f"Completed schema inference for topic {topic}")
+                except Exception as e:
+                    logger.warning(f"Failed to infer schema for topic {topic}: {e}")
+                    results[topic] = []
+
+        logger.info(f"Completed parallel schema inference for {len(topics)} topics")
+        return results
+
+    def _infer_schema_from_messages_internal(
+        self, topic: str, fallback_config: SchemalessFallback
+    ) -> List[SchemaField]:
+        """
+        Internal method for schema inference without caching logic (used by parallel processing).
         """
         try:
-            # Use a direct Kafka consumer to sample messages without circular imports
-            sample_messages = self._sample_topic_messages(topic)
+            # Use optimized message sampling
+            sample_messages = self._sample_topic_messages_optimized(
+                topic, fallback_config
+            )
 
             if not sample_messages:
-                logger.warning(
-                    f"No sample messages found for topic {topic} to infer schema"
-                )
+                logger.debug(f"Skipping empty topic {topic} for schema inference")
                 return []
 
             # Infer schema fields from the sample data
             inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
+
+            # Cache the result (thread-safe)
+            if inferred_fields:
+                cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
+                _schema_inference_cache[cache_key] = CachedSchemaInference(
+                    schema_fields=inferred_fields, timestamp=time.time()
+                )
+
+            logger.debug(
+                f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
+            )
+
+            return inferred_fields
+
+        except Exception as e:
+            logger.warning(
+                f"Failed to infer schema from messages for topic {topic}: {e}. "
+                f"Topic will be processed without schema information."
+            )
+            return []
+
+    def _sample_topic_messages_optimized(
+        self, topic: str, fallback_config: SchemalessFallback
+    ) -> List[Dict[str, MessageValue]]:
+        """
+        Optimized message sampling with hybrid strategy: try latest first, fallback to earliest.
+        """
+        strategy = fallback_config.sample_strategy.lower()
+
+        if strategy == "hybrid":
+            # Try latest first for speed
+            logger.debug(f"Trying 'latest' sampling for topic {topic}")
+            messages = self._sample_messages_with_strategy(
+                topic, fallback_config, "latest"
+            )
+
+            if not messages:
+                logger.debug(
+                    f"No recent messages found, trying 'earliest' for topic {topic}"
+                )
+                messages = self._sample_messages_with_strategy(
+                    topic, fallback_config, "earliest"
+                )
+
+            return messages
+        elif strategy == "latest":
+            return self._sample_messages_with_strategy(topic, fallback_config, "latest")
+        else:  # earliest or any other value
+            return self._sample_messages_with_strategy(
+                topic, fallback_config, "earliest"
+            )
+
+    def _sample_messages_with_strategy(
+        self,
+        topic: str,
+        fallback_config: SchemalessFallback,
+        offset_strategy: str,
+    ) -> List[Dict[str, MessageValue]]:
+        """
+        Sample messages from a topic with the specified offset strategy.
+        """
+        start_time = time.time()
+
+        try:
+            # Create a consumer with optimized settings for fast sampling
+            consumer_config = {
+                "bootstrap.servers": self.source_config.connection.bootstrap,
+                "group.id": f"datahub-schema-inference-{topic}-{offset_strategy}-{int(time.time())}",
+                "auto.offset.reset": offset_strategy,
+                "enable.auto.commit": False,
+                "fetch.min.bytes": 1,  # Don't wait for large batches
+                "fetch.wait.max.ms": 100,  # Short wait time
+                "session.timeout.ms": 6000,  # Shorter session timeout
+                **self.source_config.connection.consumer_config,
+            }
+
+            consumer = Consumer(consumer_config)
+            consumer.subscribe([topic])
+
+            messages: List[Dict[str, MessageValue]] = []
+            attempts = 0
+
+            # For 'latest' strategy, use shorter timeout since we expect recent activity
+            timeout_seconds = (
+                fallback_config.sample_timeout_seconds * 0.3  # 30% of normal timeout
+                if offset_strategy == "latest"
+                else fallback_config.sample_timeout_seconds
+            )
+
+            # For 'latest' strategy, reduce poll attempts since we're looking for recent messages
+            max_attempts = (
+                10  # Cap at 10 for latest
+                if offset_strategy == "latest"
+                else 20  # Standard attempts for earliest
+            )
+
+            while (
+                len(messages) < 5  # Sample 5 messages
+                and attempts < max_attempts
+                and (time.time() - start_time) < timeout_seconds
+            ):
+                msg = consumer.poll(timeout=0.5)  # Short poll timeout
+                attempts += 1
+
+                if msg is None:
+                    continue
+                if msg.error():
+                    continue
+
+                try:
+                    # Try to decode the message value
+                    value = msg.value()
+                    if value is None:
+                        continue
+
+                    # Try JSON decoding first (most common case)
+                    if isinstance(value, bytes):
+                        try:
+                            decoded_value = json.loads(value.decode("utf-8"))
+                            if isinstance(decoded_value, dict):
+                                messages.append(decoded_value)
+                                continue
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            pass
+
+                        # If JSON fails, try to create a simple structure
+                        try:
+                            messages.append(
+                                {"raw_value": value.decode("utf-8", errors="replace")}
+                            )
+                        except Exception:
+                            messages.append({"raw_value": str(value)})
+                    elif isinstance(value, dict):
+                        messages.append(value)
+                    else:
+                        messages.append({"value": str(value)})
+
+                except Exception as e:
+                    logger.debug(f"Failed to process message for schema inference: {e}")
+                    continue
+
+            consumer.close()
+
+            elapsed_time = time.time() - start_time
+            logger.debug(
+                f"Sampled {len(messages)} messages from topic {topic} using '{offset_strategy}' strategy "
+                f"in {elapsed_time:.2f}s ({attempts} poll attempts)"
+            )
+
+            return messages
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to sample messages from topic {topic} with '{offset_strategy}' strategy: {e}"
+            )
+            return []
+
+    def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
+        """
+        Infer schema fields from actual message data when no schema registry entry exists.
+        This provides a fallback mechanism for schema-less topics with performance optimizations.
+        """
+        fallback_config = self.source_config.schemaless_fallback
+
+        # Check cache first (always enabled with 60 minute TTL)
+        cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
+        if cache_key in _schema_inference_cache:
+            cached_result = _schema_inference_cache[cache_key]
+            if not cached_result.is_expired(60):  # 60 minute TTL
+                logger.debug(f"Using cached schema inference for topic {topic}")
+                return cached_result.schema_fields
+            else:
+                # Remove expired cache entry
+                del _schema_inference_cache[cache_key]
+
+        try:
+            # Use optimized message sampling
+            sample_messages = self._sample_topic_messages_optimized(
+                topic, fallback_config
+            )
+
+            if not sample_messages:
+                logger.debug(f"Skipping empty topic {topic} for schema inference")
+                return []
+
+            # Infer schema fields from the sample data
+            inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
+
+            # Cache the result
+            if inferred_fields:
+                cache_key = f"{self.source_config.connection.bootstrap}:{topic}"
+                _schema_inference_cache[cache_key] = CachedSchemaInference(
+                    schema_fields=inferred_fields, timestamp=time.time()
+                )
 
             logger.info(
                 f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"

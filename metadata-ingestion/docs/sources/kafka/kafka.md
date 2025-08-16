@@ -248,7 +248,7 @@ The Kafka source supports comprehensive data profiling of message content to gen
 
 #### Schema-less Topic Support
 
-By default, DataHub can automatically fall back to schema-less processing for topics not found in the schema registry:
+DataHub can automatically fall back to schema-less processing for topics not found in the schema registry:
 
 ```yaml
 source:
@@ -256,16 +256,93 @@ source:
   config:
     # ... other config ...
 
-    # Enable automatic fallback to schema-less processing (enabled by default)
-    enable_schemaless_fallback: true
+    # Configure schema-less fallback
+    schemaless_fallback:
+      enabled: true # Enable automatic fallback (disabled by default)
+      max_workers: 20 # Parallel processing for multiple topics (default: 5 * CPU cores)
+      sample_timeout_seconds: 2.0 # Timeout per topic
+      sample_strategy: "hybrid" # "earliest", "latest", or "hybrid"
 ```
 
-When `enable_schemaless_fallback` is enabled:
+When `schemaless_fallback.enabled` is true:
 
 - Topics without schema registry entries will automatically have their schema inferred from message data
 - DataHub will sample a few messages from the topic to determine field names and types
 - This allows ingestion to succeed even for topics that don't use the schema registry
 - The inferred schema will include field descriptions showing sample values
+
+#### Performance Tuning
+
+For better performance when using schema-less fallback, you can tune the sampling behavior:
+
+```yaml
+source:
+  type: kafka
+  config:
+    # ... other config ...
+
+    schemaless_fallback:
+      enabled: true
+      max_workers: 10 # Parallel processing (default: 5 * CPU cores)
+      sample_timeout_seconds: 1.0 # Limit time per topic (default: 2.0)
+      sample_strategy: "latest" # Sampling strategy (default: "hybrid")
+```
+
+**Performance Benefits:**
+
+- **Caching**: Inferred schemas are automatically cached (60 minute TTL) to avoid re-sampling
+- **Timeouts**: Configurable limits prevent hanging on slow/empty topics
+- **Parallel Processing**: Multiple topics processed simultaneously using ThreadPoolExecutor
+- **Auto-scaling**: Worker count automatically scales based on CPU cores and topic count
+- **Hybrid Sampling**: Tries recent messages first (fast), falls back to historical data if needed
+- **Optimized Consumer**: Fast Kafka consumer settings for quick message sampling
+
+#### Configuration Examples for Different Scenarios
+
+**High-Performance Setup (Many topics, powerful machine)**:
+
+```yaml
+schemaless_fallback:
+  enabled: true
+  max_workers: 20 # Higher parallelism
+  sample_timeout_seconds: 1.0
+  sample_strategy: "latest" # Fastest - recent messages only
+```
+
+**Resource-Constrained Setup (Limited CPU/memory)**:
+
+```yaml
+schemaless_fallback:
+  enabled: true
+  max_workers: 2 # Lower parallelism
+  sample_timeout_seconds: 2.0
+  sample_strategy: "hybrid"
+```
+
+**Conservative Setup (Prioritize accuracy over speed)**:
+
+```yaml
+schemaless_fallback:
+  enabled: true
+  max_workers: 5
+  sample_timeout_seconds: 5.0
+  sample_strategy: "earliest" # Most comprehensive - scan from beginning
+```
+
+#### Sampling Strategies
+
+DataHub supports three sampling strategies for schema inference:
+
+- **`hybrid` (default)**: Tries `latest` first for speed, falls back to `earliest` if no recent messages found. Best of both worlds.
+- **`latest`**: Only reads recent messages. Fastest but may fail on quiet topics.
+- **`earliest`**: Scans from the beginning of topic history. Most comprehensive but slower on large topics.
+
+**Strategy Performance Comparison**:
+| Strategy | Speed | Coverage | Best For |
+|----------|-------|----------|----------|
+| `latest` | ⚡⚡⚡ | 🔍 | Active topics, speed priority |
+| `hybrid` | ⚡⚡ | 🔍🔍🔍 | **Recommended - balanced** |
+| `earliest` | ⚡ | 🔍🔍🔍 | Comprehensive analysis |
 
 If you prefer the old behavior (warnings for missing schemas), set `enable_schemaless_fallback: false`.
 

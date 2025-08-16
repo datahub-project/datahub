@@ -1,5 +1,7 @@
 """Tests for Kafka configuration, especially profiling config changes."""
 
+import os
+
 import pytest
 from pydantic import ValidationError
 
@@ -43,7 +45,9 @@ class TestKafkaProfilingConfig:
 
         # Kafka-specific defaults
         assert config.sample_size == 1000  # Override from base class
-        assert config.max_workers == 1  # Override from base class
+        assert config.max_workers == 5 * (
+            os.cpu_count() or 4
+        )  # Override from base class
         assert config.max_sample_time_seconds == 60
         assert config.sampling_strategy == "latest"
         assert config.cache_sample_results
