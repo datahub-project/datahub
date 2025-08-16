@@ -20,6 +20,10 @@ from typing import (
     cast,
 )
 
+from datahub.ingestion.source.kafka.kafka_utils import (
+    decode_kafka_message_value,
+)
+
 if TYPE_CHECKING:
     from confluent_kafka.schema_registry.schema_registry_client import Schema
 
@@ -801,21 +805,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                 "Failed to decode Avro message for topic", topic, exc=e
                             )
 
-                    # Fallback to JSON decode if no schema or Avro decode fails
-                    try:
-                        decoded = json.loads(data.decode("utf-8"))
-                        if isinstance(decoded, (dict, list)):
-                            if isinstance(decoded, list):
-                                decoded = {"item": decoded}
-                            return flatten_json(
-                                decoded,
-                                max_depth=self.source_config.profiling.flatten_max_depth,
-                            )
-                        return decoded
-                    except Exception as e:
-                        # If JSON fails, use base64 as last resort
-                        logger.warning(e)
-                        return base64.b64encode(data).decode("utf-8")
+                    return decode_kafka_message_value(
+                        data,
+                        topic,
+                        flatten_json_func=flatten_json,
+                        max_depth=self.source_config.profiling.flatten_max_depth,
+                    )
 
             except Exception as e:
                 logger.warning(f"Failed to process message part: {e}")

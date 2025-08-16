@@ -25,6 +25,9 @@ from datahub.ingestion.source.kafka.kafka_config import SchemalessFallback
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
+from datahub.ingestion.source.kafka.kafka_utils import (
+    process_kafka_message_for_sampling,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
@@ -308,8 +311,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                         f"Schema registry subject not found for {kafka_entity}: {topic}. "
                         f"Falling back to schema-less processing to infer schema from message data."
                     )
-                    # Set a flag to indicate this topic should use schemaless fallback
-                    self.report.report_topic_scanned(f"{topic}_schemaless_fallback")
                 else:
                     self.report.warning(
                         title="Unable to find a matching subject name for the topic in the schema registry",
@@ -556,27 +557,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                     if value is None:
                         continue
 
-                    # Try JSON decoding first (most common case)
-                    if isinstance(value, bytes):
-                        try:
-                            decoded_value = json.loads(value.decode("utf-8"))
-                            if isinstance(decoded_value, dict):
-                                messages.append(decoded_value)
-                                continue
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            pass
-
-                        # If JSON fails, try to create a simple structure
-                        try:
-                            messages.append(
-                                {"raw_value": value.decode("utf-8", errors="replace")}
-                            )
-                        except Exception:
-                            messages.append({"raw_value": str(value)})
-                    elif isinstance(value, dict):
-                        messages.append(value)
-                    else:
-                        messages.append({"value": str(value)})
+                    processed_message = process_kafka_message_for_sampling(value)
+                    messages.append(processed_message)
 
                 except Exception as e:
                     logger.debug(f"Failed to process message for schema inference: {e}")
