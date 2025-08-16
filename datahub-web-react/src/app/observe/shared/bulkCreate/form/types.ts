@@ -9,6 +9,7 @@ import {
     DatasetFreshnessSourceType,
     DatasetVolumeSourceType,
     DateInterval,
+    EntityChangeDetailsInput,
 } from '@types';
 
 export type FreshnessFormState = {
@@ -28,4 +29,13 @@ export type VolumeFormState = {
     volumeSchedule: CronSchedule | undefined;
     volumeActions: AssertionActionsInput;
     volumeSourceType: DatasetVolumeSourceType;
+};
+
+export type SubscriptionsFormState = {
+    personalSubscriptionEnabled: boolean;
+    personalEntityChangeTypes: EntityChangeDetailsInput[];
+    personalUserUrn: string;
+    groupSubscriptionEnabled: boolean;
+    selectedGroups: string[];
+    groupEntityChangeTypes: EntityChangeDetailsInput[];
 };

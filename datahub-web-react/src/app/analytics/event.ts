@@ -1417,6 +1417,7 @@ export interface BulkCreateAssertionSubmissionEvent extends BaseEvent {
     hasFreshnessAssertion: boolean;
     hasFieldMetricAssertion: boolean;
     hasVolumeAssertion: boolean;
+    hasSubscription: boolean;
 }
 
 export interface BulkCreateAssertionCompletedEvent extends BaseEvent {
@@ -1429,6 +1430,9 @@ export interface BulkCreateAssertionCompletedEvent extends BaseEvent {
     hasFreshnessAssertion: boolean;
     hasFieldMetricAssertion: boolean;
     hasVolumeAssertion: boolean;
+    hasSubscription: boolean;
+    successSubscriptionCount: number;
+    failedSubscriptionCount: number;
 }
 
 export interface ClickUserProfileEvent extends BaseEvent {

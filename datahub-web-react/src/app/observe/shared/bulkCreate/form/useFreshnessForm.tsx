@@ -1,5 +1,5 @@
 import { SimpleSelect, Text, ToggleCard } from '@components';
-import { Divider, Form, InputNumber, Radio, message } from 'antd';
+import { Divider, Form, InputNumber, Radio } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -38,10 +38,8 @@ const FreshnessIntervalLabelWrapper = styled.div({
 
 export const useFreshnessForm = ({
     selectedPlatformUrn,
-    canEnableAssertions,
 }: {
     selectedPlatformUrn?: string;
-    canEnableAssertions: boolean;
 }): {
     component: React.ReactNode;
     state: FreshnessFormState;
@@ -86,11 +84,7 @@ export const useFreshnessForm = ({
             title="Freshness"
             value={freshnessAssertionEnabled}
             onToggle={() => {
-                if (canEnableAssertions) {
-                    setFreshnessAssertionEnabled((enabled) => !enabled);
-                } else {
-                    message.warn('Please select a platform to enable freshness assertions.');
-                }
+                setFreshnessAssertionEnabled((enabled) => !enabled);
             }}
         >
             {/* --------------------------------- Title --------------------------------- */}

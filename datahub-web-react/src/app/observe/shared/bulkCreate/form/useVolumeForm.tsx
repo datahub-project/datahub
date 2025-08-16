@@ -1,5 +1,5 @@
 import { SimpleSelect, Text, ToggleCard } from '@components';
-import { Divider, Form, message } from 'antd';
+import { Divider, Form } from 'antd';
 import React, { useEffect } from 'react';
 
 import { AssertionActionsForm } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/AssertionActionsForm';
@@ -21,10 +21,8 @@ import { AssertionActionsInput, CronSchedule, DatasetVolumeSourceType } from '@t
 
 export const useVolumeForm = ({
     selectedPlatformUrn,
-    canEnableAssertions,
 }: {
     selectedPlatformUrn?: string;
-    canEnableAssertions: boolean;
 }): {
     component: React.ReactNode;
     state: VolumeFormState;
@@ -58,11 +56,7 @@ export const useVolumeForm = ({
             title="Volume"
             value={volumeAssertionEnabled}
             onToggle={() => {
-                if (canEnableAssertions) {
-                    setVolumeAssertionEnabled((enabled) => !enabled);
-                } else {
-                    message.warn('Please select a platform to enable volume assertions.');
-                }
+                setVolumeAssertionEnabled((enabled) => !enabled);
             }}
         >
             <Text size="md" color="gray" colorLevel={1700}>

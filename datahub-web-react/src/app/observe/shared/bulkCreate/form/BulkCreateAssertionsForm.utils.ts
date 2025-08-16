@@ -6,7 +6,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { BulkCreateDatasetAssertionsSpec, FreshnessCriteria } from '@app/observe/shared/bulkCreate/constants';
 import { DEFAULT_CRON_SCHEDULE } from '@app/observe/shared/bulkCreate/form/BulkCreateAssertionsForm.constants';
-import { FreshnessFormState, VolumeFormState } from '@app/observe/shared/bulkCreate/form/types';
+import { FreshnessFormState, SubscriptionsFormState, VolumeFormState } from '@app/observe/shared/bulkCreate/form/types';
 import { OperatorId } from '@app/tests/builder/steps/definition/builder/property/types/operators';
 import { LogicalOperatorType, LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
 
@@ -218,23 +218,66 @@ export const buildVolumeAssertionSpec = (
     return volumeAssertionSpec;
 };
 
+export const buildSubscriptionSpecs = (
+    subscriptionFormState: SubscriptionsFormState,
+): BulkCreateDatasetAssertionsSpec['subscriptionSpecs'] => {
+    const {
+        personalSubscriptionEnabled,
+        personalEntityChangeTypes,
+        personalUserUrn,
+        groupSubscriptionEnabled,
+        selectedGroups,
+        groupEntityChangeTypes,
+    } = subscriptionFormState;
+
+    if (!personalSubscriptionEnabled && !groupSubscriptionEnabled) {
+        return undefined;
+    }
+
+    const subscriptionSpecs: NonNullable<BulkCreateDatasetAssertionsSpec['subscriptionSpecs']> = [];
+
+    // Add personal subscription if enabled
+    if (personalSubscriptionEnabled && personalEntityChangeTypes.length > 0) {
+        subscriptionSpecs.push({
+            subscriberUrn: personalUserUrn,
+            entityChangeTypes: personalEntityChangeTypes,
+        });
+    }
+
+    // Add group subscriptions if enabled and groups are selected
+    if (groupSubscriptionEnabled && selectedGroups.length > 0 && groupEntityChangeTypes.length > 0) {
+        selectedGroups.forEach((groupUrn) => {
+            subscriptionSpecs.push({
+                subscriberUrn: groupUrn,
+                entityChangeTypes: groupEntityChangeTypes,
+            });
+        });
+    }
+
+    return subscriptionSpecs.length > 0 ? subscriptionSpecs : undefined;
+};
+
 /**
  * Converts the state of the form into a BulkCreateDatasetAssertionsSpec.
  * This is called in the onCreateAssertions handler of the BulkCreateAssertionsForm component.
  * @param state - The state of the form.
+ * @param currentUserUrn - The URN of the currently authenticated user.
  * @returns The BulkCreateDatasetAssertionsSpec.
  */
 export const stateToBulkCreateDatasetAssertionsSpec = ({
     filters,
     freshnessFormState,
     volumeFormState,
+    subscriptionFormState,
 }: {
     filters: LogicalPredicate;
     freshnessFormState: FreshnessFormState;
     volumeFormState: VolumeFormState;
+    subscriptionFormState: SubscriptionsFormState;
 }): BulkCreateDatasetAssertionsSpec => {
     const freshnessAssertionSpec = buildFreshnessAssertionSpec(freshnessFormState);
     const volumeAssertionSpec = buildVolumeAssertionSpec(volumeFormState);
+    const subscriptionSpecs = buildSubscriptionSpecs(subscriptionFormState);
 
     return {
         assetSelector: {
@@ -242,5 +285,6 @@ export const stateToBulkCreateDatasetAssertionsSpec = ({
         },
         freshnessAssertionSpec,
         volumeAssertionSpec,
+        subscriptionSpecs,
     };
 };

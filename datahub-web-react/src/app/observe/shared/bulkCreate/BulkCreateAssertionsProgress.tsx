@@ -159,11 +159,77 @@ type Props = {
     onDone: () => void;
 };
 
+const getItemLabel = (item: any) => {
+    if (item.type === 'assertion') {
+        return getAssertionTypeLabel(item.assertionType);
+    }
+    if (item.type === 'subscriber') {
+        // Extract display name from subscriber URN
+        const urnParts = item.subscriberUrn.split(':');
+        if (urnParts.length >= 3 && urnParts[2] === 'corpGroup') {
+            // Extract group name from URN (e.g., "urn:li:corpGroup:my-group" -> "my-group")
+            const groupName = urnParts.length >= 4 ? urnParts[3] : item.subscriberUrn;
+            return `Group Subscription (${groupName})`;
+        }
+        if (urnParts.length >= 3 && urnParts[2] === 'corpuser') {
+            return `Personal Subscription`;
+        }
+        return `Subscription (${item.subscriberUrn})`;
+    }
+    return 'Unknown';
+};
+
 export default function BulkCreateAssertionsProgress({ progress, onDone }: Props) {
     const { total, completed, successful, errored } = progress;
 
     const progressPercentage = total > 0 ? (completed / total) * 100 : 0;
     const isCompleted = completed === total && total > 0;
+
+    // Count assertions and subscriptions separately for better messaging
+    const assertionCount =
+        successful.filter((item) => item.type === 'assertion').length +
+        errored.filter((item) => item.type === 'assertion').length;
+    const subscriptionCount =
+        successful.filter((item) => item.type === 'subscriber').length +
+        errored.filter((item) => item.type === 'subscriber').length;
+
+    const getProgressTitle = () => {
+        if (isCompleted) {
+            if (assertionCount > 0 && subscriptionCount > 0) {
+                return 'Bulk Creation Complete';
+            }
+            if (assertionCount > 0) {
+                return 'Bulk Assertion Creation Complete';
+            }
+            if (subscriptionCount > 0) {
+                return 'Bulk Subscription Creation Complete';
+            }
+            return 'Bulk Creation Complete';
+        }
+        if (assertionCount > 0 && subscriptionCount > 0) {
+            return `Creating Assertions & Subscriptions... ${completed}/${total}`;
+        }
+        if (assertionCount > 0) {
+            return `Creating Assertions... ${completed}/${total}`;
+        }
+        if (subscriptionCount > 0) {
+            return `Creating Subscriptions... ${completed}/${total}`;
+        }
+        return `Creating... ${completed}/${total}`;
+    };
+
+    const getCompletionMessage = () => {
+        if (assertionCount > 0 && subscriptionCount > 0) {
+            return `All assertions and subscriptions have been processed. ${successful.length} successful, ${errored.length} errors.`;
+        }
+        if (assertionCount > 0) {
+            return `All assertions have been processed. ${successful.length} successful, ${errored.length} errors.`;
+        }
+        if (subscriptionCount > 0) {
+            return `All subscriptions have been processed. ${successful.length} successful, ${errored.length} errors.`;
+        }
+        return `All items have been processed. ${successful.length} successful, ${errored.length} errors.`;
+    };
 
     const renderSuccessfulSummary = () => {
         if (successful.length === 0) return null;
@@ -175,8 +241,10 @@ export default function BulkCreateAssertionsProgress({ progress, onDone }: Props
         const tooltipContent = (
             <TooltipContent>
                 {successful.map((item) => (
-                    <TooltipItem key={`${item.dataset}-${item.assertionType}`}>
-                        {extractDatasetNameFromUrn(item.dataset)} – {getAssertionTypeLabel(item.assertionType)}
+                    <TooltipItem
+                        key={`${item.dataset}-${item.type === 'assertion' ? item.assertionType : item.subscriberUrn}`}
+                    >
+                        {extractDatasetNameFromUrn(item.dataset)} – {getItemLabel(item)}
                     </TooltipItem>
                 ))}
             </TooltipContent>
@@ -189,8 +257,10 @@ export default function BulkCreateAssertionsProgress({ progress, onDone }: Props
                 </Typography.Text>
                 <SuccessfulSummary>
                     {visibleSuccessful.map((item) => (
-                        <SuccessfulPill key={`${item.dataset}-${item.assertionType}`}>
-                            {extractDatasetNameFromUrn(item.dataset)} – {getAssertionTypeLabel(item.assertionType)}
+                        <SuccessfulPill
+                            key={`${item.dataset}-${item.type === 'assertion' ? item.assertionType : item.subscriberUrn}`}
+                        >
+                            {extractDatasetNameFromUrn(item.dataset)} – {getItemLabel(item)}
                         </SuccessfulPill>
                     ))}
                     {remainingCount > 0 && (
@@ -214,12 +284,11 @@ export default function BulkCreateAssertionsProgress({ progress, onDone }: Props
                 <StyledCollapse ghost>
                     {errored.map((error) => (
                         <Collapse.Panel
-                            key={`${error.dataset}-${error.assertionType}`}
+                            key={`${error.dataset}-${error.type === 'assertion' ? error.assertionType : error.subscriberUrn}`}
                             header={
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                     <ErrorIcon />
-                                    <strong>{extractDatasetNameFromUrn(error.dataset)}</strong>{' '}
-                                    {getAssertionTypeLabel(error.assertionType)}
+                                    <strong>{extractDatasetNameFromUrn(error.dataset)}</strong> {getItemLabel(error)}
                                 </div>
                             }
                         >
@@ -235,11 +304,7 @@ export default function BulkCreateAssertionsProgress({ progress, onDone }: Props
         <Container>
             <ProgressContainer>
                 <StatusRow>
-                    <ProgressText>
-                        {isCompleted
-                            ? 'Bulk Assertion Creation Complete'
-                            : `Creating Assertions... ${completed}/${total}`}
-                    </ProgressText>
+                    <ProgressText>{getProgressTitle()}</ProgressText>
                     <div style={{ display: 'flex', gap: 16 }}>
                         <StatusItem>
                             <SuccessIcon />
@@ -260,7 +325,7 @@ export default function BulkCreateAssertionsProgress({ progress, onDone }: Props
             {isCompleted && (
                 <CompletedMessage>
                     <CheckCircleFilled />
-                    All assertions have been processed. {successful.length} successful, {errored.length} errors.
+                    {getCompletionMessage()}
                 </CompletedMessage>
             )}
 

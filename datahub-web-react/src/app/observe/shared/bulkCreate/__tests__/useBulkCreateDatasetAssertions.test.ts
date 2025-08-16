@@ -21,6 +21,7 @@ import {
     Dataset,
     DatasetFreshnessSourceType,
     DatasetVolumeSourceType,
+    EntityChangeType,
     EntityType,
     FabricType,
     FreshnessAssertionScheduleType,
@@ -1501,6 +1502,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1509,6 +1513,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1519,7 +1524,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(volumeCallCount).toBe(1);
@@ -1536,10 +1541,12 @@ describe('buildCreateAssertionsForDataset', () => {
                 successful: [
                     {
                         dataset: dataset.urn,
+                        type: 'assertion',
                         assertionType: AssertionType.Freshness,
                     },
                     {
                         dataset: dataset.urn,
+                        type: 'assertion',
                         assertionType: AssertionType.Volume,
                     },
                 ],
@@ -1561,6 +1568,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1569,6 +1579,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1578,7 +1589,7 @@ describe('buildCreateAssertionsForDataset', () => {
             );
             const freshnessSpec = createMockFreshnessSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, undefined);
+            await createAssertionsForDataset(dataset, freshnessSpec, undefined, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(volumeCallCount).toBe(0);
@@ -1592,6 +1603,7 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Freshness,
             });
         });
@@ -1610,6 +1622,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1618,6 +1633,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1627,7 +1643,7 @@ describe('buildCreateAssertionsForDataset', () => {
             );
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, undefined, volumeSpec);
+            await createAssertionsForDataset(dataset, undefined, volumeSpec, undefined);
 
             expect(freshnessCallCount).toBe(0);
             expect(volumeCallCount).toBe(1);
@@ -1641,6 +1657,7 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Volume,
             });
         });
@@ -1659,6 +1676,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1667,6 +1687,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1675,7 +1696,7 @@ describe('buildCreateAssertionsForDataset', () => {
                 'urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)',
             );
 
-            await createAssertionsForDataset(dataset, undefined, undefined);
+            await createAssertionsForDataset(dataset, undefined, undefined, undefined);
 
             expect(freshnessCallCount).toBe(0);
             expect(volumeCallCount).toBe(0);
@@ -1708,6 +1729,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1716,6 +1740,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1726,7 +1751,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(volumeCallCount).toBe(1);
@@ -1740,11 +1765,13 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Volume,
             });
             expect(updatedProgress.errored).toHaveLength(1);
             expect(updatedProgress.errored[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Freshness,
                 error: 'Freshness assertion failed',
             });
@@ -1765,6 +1792,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 throw volumeError;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1773,6 +1803,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1783,7 +1814,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(volumeCallCount).toBe(1);
@@ -1797,11 +1828,13 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(updatedProgress.successful).toHaveLength(1);
             expect(updatedProgress.successful[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Freshness,
             });
             expect(updatedProgress.errored).toHaveLength(1);
             expect(updatedProgress.errored[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Volume,
                 error: 'Volume assertion failed',
             });
@@ -1823,6 +1856,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 throw volumeError;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1831,6 +1867,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1841,7 +1878,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(volumeCallCount).toBe(1);
@@ -1857,11 +1894,13 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(updatedProgress.errored).toEqual([
                 {
                     dataset: dataset.urn,
+                    type: 'assertion',
                     assertionType: AssertionType.Freshness,
                     error: 'Freshness assertion failed',
                 },
                 {
                     dataset: dataset.urn,
+                    type: 'assertion',
                     assertionType: AssertionType.Volume,
                     error: 'Volume assertion failed',
                 },
@@ -1882,6 +1921,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeCallCount++;
                 throw new Error('Object error');
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1890,6 +1932,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1900,7 +1943,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(volumeCallCount).toBe(1);
@@ -1914,11 +1957,13 @@ describe('buildCreateAssertionsForDataset', () => {
             expect(updatedProgress.errored).toHaveLength(2);
             expect(updatedProgress.errored[0]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Freshness,
                 error: 'String error',
             });
             expect(updatedProgress.errored[1]).toEqual({
                 dataset: dataset.urn,
+                type: 'assertion',
                 assertionType: AssertionType.Volume,
                 error: 'Object error',
             });
@@ -1936,6 +1981,9 @@ describe('buildCreateAssertionsForDataset', () => {
             const mockUpsertVolume = async () => {
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -1944,6 +1992,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -1954,7 +2003,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             // Verify progress update function was called once
             expect(progressCallCount).toBe(1);
@@ -1963,8 +2012,15 @@ describe('buildCreateAssertionsForDataset', () => {
             const currentProgress: ProgressTracker = {
                 total: 100,
                 completed: 50,
-                successful: [{ dataset: 'other:dataset', assertionType: AssertionType.Freshness }],
-                errored: [{ dataset: 'other:dataset', assertionType: AssertionType.Volume, error: 'Previous error' }],
+                successful: [{ dataset: 'other:dataset', type: 'assertion', assertionType: AssertionType.Freshness }],
+                errored: [
+                    {
+                        dataset: 'other:dataset',
+                        type: 'assertion',
+                        assertionType: AssertionType.Volume,
+                        error: 'Previous error',
+                    },
+                ],
             };
 
             const updatedProgress = progressUpdaterFn!(currentProgress);
@@ -1973,12 +2029,17 @@ describe('buildCreateAssertionsForDataset', () => {
                 total: 100, // Should preserve total
                 completed: 51, // Should increment by 1
                 successful: [
-                    { dataset: 'other:dataset', assertionType: AssertionType.Freshness }, // Previous success preserved
-                    { dataset: dataset.urn, assertionType: AssertionType.Freshness }, // New successes added
-                    { dataset: dataset.urn, assertionType: AssertionType.Volume },
+                    { dataset: 'other:dataset', type: 'assertion', assertionType: AssertionType.Freshness }, // Previous success preserved
+                    { dataset: dataset.urn, type: 'assertion', assertionType: AssertionType.Freshness }, // New successes added
+                    { dataset: dataset.urn, type: 'assertion', assertionType: AssertionType.Volume },
                 ],
                 errored: [
-                    { dataset: 'other:dataset', assertionType: AssertionType.Volume, error: 'Previous error' }, // Previous errors preserved
+                    {
+                        dataset: 'other:dataset',
+                        type: 'assertion',
+                        assertionType: AssertionType.Volume,
+                        error: 'Previous error',
+                    }, // Previous errors preserved
                 ],
             });
         });
@@ -1993,6 +2054,9 @@ describe('buildCreateAssertionsForDataset', () => {
             const mockUpsertVolume = async () => {
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
                 progressCallCount++;
                 progressUpdaterFn = updater;
@@ -2001,6 +2065,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -2011,7 +2076,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const freshnessSpec = createMockFreshnessSpec();
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec);
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, undefined);
 
             expect(progressCallCount).toBe(1);
             expect(progressUpdaterFn).toBeDefined();
@@ -2019,9 +2084,14 @@ describe('buildCreateAssertionsForDataset', () => {
             const currentProgress: ProgressTracker = {
                 total: 100,
                 completed: 75,
-                successful: [{ dataset: 'existing:success', assertionType: AssertionType.Volume }],
+                successful: [{ dataset: 'existing:success', type: 'assertion', assertionType: AssertionType.Volume }],
                 errored: [
-                    { dataset: 'existing:error', assertionType: AssertionType.Freshness, error: 'Existing error' },
+                    {
+                        dataset: 'existing:error',
+                        type: 'assertion',
+                        assertionType: AssertionType.Freshness,
+                        error: 'Existing error',
+                    },
                 ],
             };
 
@@ -2047,6 +2117,9 @@ describe('buildCreateAssertionsForDataset', () => {
             const mockUpsertVolume = async () => {
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = () => {
                 // No-op for this test
             };
@@ -2054,6 +2127,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -2063,7 +2137,7 @@ describe('buildCreateAssertionsForDataset', () => {
             );
             const freshnessSpec = createMockFreshnessSpec();
 
-            await createAssertionsForDataset(dataset, freshnessSpec, undefined);
+            await createAssertionsForDataset(dataset, freshnessSpec, undefined, undefined);
 
             expect(freshnessCallCount).toBe(1);
             expect(freshnessParams).toEqual(buildUpsertFreshnessAssertionParams(dataset, freshnessSpec));
@@ -2081,6 +2155,9 @@ describe('buildCreateAssertionsForDataset', () => {
                 volumeParams = params;
                 return { data: {} } as any;
             };
+            const mockSyncSubscription = async () => {
+                return { data: {} } as any;
+            };
             const mockSetProgress = () => {
                 // No-op for this test
             };
@@ -2088,6 +2165,7 @@ describe('buildCreateAssertionsForDataset', () => {
             const createAssertionsForDataset = buildCreateAssertionsForDataset(
                 mockUpsertFreshness,
                 mockUpsertVolume,
+                mockSyncSubscription,
                 mockSetProgress,
             );
 
@@ -2097,10 +2175,376 @@ describe('buildCreateAssertionsForDataset', () => {
             );
             const volumeSpec = createMockVolumeSpec();
 
-            await createAssertionsForDataset(dataset, undefined, volumeSpec);
+            await createAssertionsForDataset(dataset, undefined, volumeSpec, undefined);
 
             expect(volumeCallCount).toBe(1);
             expect(volumeParams).toEqual(buildUpsertVolumeAssertionParams(dataset, volumeSpec));
+        });
+    });
+
+    describe('Subscription functionality', () => {
+        it('should successfully create subscriptions when subscription specs are provided', async () => {
+            let subscriptionCallCount = 0;
+            const subscriptionParams: any[] = [];
+            let progressCallCount = 0;
+            let progressUpdaterFn: ((current: ProgressTracker) => ProgressTracker) | undefined;
+
+            const mockUpsertFreshness = async () => {
+                return { data: {} } as any;
+            };
+            const mockUpsertVolume = async () => {
+                return { data: {} } as any;
+            };
+            const mockSyncSubscription = async (params: any) => {
+                subscriptionCallCount++;
+                subscriptionParams.push(params);
+                return { data: {} } as any;
+            };
+            const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
+                progressCallCount++;
+                progressUpdaterFn = updater;
+            };
+
+            const createAssertionsForDataset = buildCreateAssertionsForDataset(
+                mockUpsertFreshness,
+                mockUpsertVolume,
+                mockSyncSubscription,
+                mockSetProgress,
+            );
+
+            const dataset = createMockDataset(
+                SNOWFLAKE_URN,
+                'urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)',
+            );
+            const subscriptionSpecs = [
+                {
+                    subscriberUrn: 'urn:li:corpuser:user1',
+                    entityChangeTypes: [{ entityChangeType: EntityChangeType.AssertionFailed }],
+                },
+                {
+                    subscriberUrn: 'urn:li:corpuser:user2',
+                    entityChangeTypes: [
+                        { entityChangeType: EntityChangeType.AssertionPassed },
+                        { entityChangeType: EntityChangeType.IncidentRaised },
+                    ],
+                },
+            ];
+
+            await createAssertionsForDataset(dataset, undefined, undefined, subscriptionSpecs);
+
+            expect(subscriptionCallCount).toBe(2);
+            expect(progressCallCount).toBe(1);
+            expect(progressUpdaterFn).toBeDefined();
+
+            // Verify subscription parameters
+            expect(subscriptionParams[0]).toEqual({
+                variables: {
+                    input: {
+                        entityUrn: dataset.urn,
+                        actorUrn: 'urn:li:corpuser:user1',
+                        entityChangeTypes: [{ entityChangeType: EntityChangeType.AssertionFailed }],
+                    },
+                },
+            });
+            expect(subscriptionParams[1]).toEqual({
+                variables: {
+                    input: {
+                        entityUrn: dataset.urn,
+                        actorUrn: 'urn:li:corpuser:user2',
+                        entityChangeTypes: [
+                            { entityChangeType: EntityChangeType.AssertionPassed },
+                            { entityChangeType: EntityChangeType.IncidentRaised },
+                        ],
+                    },
+                },
+            });
+
+            // Verify progress update
+            const currentProgress = createMockProgress();
+            const updatedProgress = progressUpdaterFn!(currentProgress);
+
+            expect(updatedProgress.successful).toHaveLength(2);
+            expect(updatedProgress.successful[0]).toEqual({
+                dataset: dataset.urn,
+                type: 'subscriber',
+                subscriberUrn: 'urn:li:corpuser:user1',
+            });
+            expect(updatedProgress.successful[1]).toEqual({
+                dataset: dataset.urn,
+                type: 'subscriber',
+                subscriberUrn: 'urn:li:corpuser:user2',
+            });
+            expect(updatedProgress.errored).toHaveLength(0);
+        });
+
+        it('should handle subscription errors', async () => {
+            let subscriptionCallCount = 0;
+            let progressCallCount = 0;
+            let progressUpdaterFn: ((current: ProgressTracker) => ProgressTracker) | undefined;
+
+            const mockUpsertFreshness = async () => {
+                return { data: {} } as any;
+            };
+            const mockUpsertVolume = async () => {
+                return { data: {} } as any;
+            };
+            const mockSyncSubscription = async (params: any) => {
+                subscriptionCallCount++;
+                if (params.variables.input.actorUrn === 'urn:li:corpuser:user1') {
+                    throw new Error('Subscription failed for user1');
+                }
+                return { data: {} } as any;
+            };
+            const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
+                progressCallCount++;
+                progressUpdaterFn = updater;
+            };
+
+            const createAssertionsForDataset = buildCreateAssertionsForDataset(
+                mockUpsertFreshness,
+                mockUpsertVolume,
+                mockSyncSubscription,
+                mockSetProgress,
+            );
+
+            const dataset = createMockDataset(
+                SNOWFLAKE_URN,
+                'urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)',
+            );
+            const subscriptionSpecs = [
+                {
+                    subscriberUrn: 'urn:li:corpuser:user1',
+                    entityChangeTypes: [{ entityChangeType: EntityChangeType.AssertionFailed }],
+                },
+                {
+                    subscriberUrn: 'urn:li:corpuser:user2',
+                    entityChangeTypes: [{ entityChangeType: EntityChangeType.AssertionPassed }],
+                },
+            ];
+
+            await createAssertionsForDataset(dataset, undefined, undefined, subscriptionSpecs);
+
+            expect(subscriptionCallCount).toBe(2);
+            expect(progressCallCount).toBe(1);
+            expect(progressUpdaterFn).toBeDefined();
+
+            // Verify progress update
+            const currentProgress = createMockProgress();
+            const updatedProgress = progressUpdaterFn!(currentProgress);
+
+            expect(updatedProgress.successful).toHaveLength(1);
+            expect(updatedProgress.successful[0]).toEqual({
+                dataset: dataset.urn,
+                type: 'subscriber',
+                subscriberUrn: 'urn:li:corpuser:user2',
+            });
+            expect(updatedProgress.errored).toHaveLength(1);
+            expect(updatedProgress.errored[0]).toEqual({
+                dataset: dataset.urn,
+                type: 'subscriber',
+                subscriberUrn: 'urn:li:corpuser:user1',
+                error: 'Subscription failed for user1',
+            });
+        });
+
+        it('should create both assertions and subscriptions together', async () => {
+            let freshnessCallCount = 0;
+            let volumeCallCount = 0;
+            let subscriptionCallCount = 0;
+            let progressCallCount = 0;
+            let progressUpdaterFn: ((current: ProgressTracker) => ProgressTracker) | undefined;
+
+            const mockUpsertFreshness = async () => {
+                freshnessCallCount++;
+                return { data: {} } as any;
+            };
+            const mockUpsertVolume = async () => {
+                volumeCallCount++;
+                return { data: {} } as any;
+            };
+            const mockSyncSubscription = async () => {
+                subscriptionCallCount++;
+                return { data: {} } as any;
+            };
+            const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
+                progressCallCount++;
+                progressUpdaterFn = updater;
+            };
+
+            const createAssertionsForDataset = buildCreateAssertionsForDataset(
+                mockUpsertFreshness,
+                mockUpsertVolume,
+                mockSyncSubscription,
+                mockSetProgress,
+            );
+
+            const dataset = createMockDataset(
+                SNOWFLAKE_URN,
+                'urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)',
+            );
+            const freshnessSpec = createMockFreshnessSpec();
+            const volumeSpec = createMockVolumeSpec();
+            const subscriptionSpecs = [
+                {
+                    subscriberUrn: 'urn:li:corpuser:user1',
+                    entityChangeTypes: [{ entityChangeType: EntityChangeType.AssertionFailed }],
+                },
+            ];
+
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, subscriptionSpecs);
+
+            expect(freshnessCallCount).toBe(1);
+            expect(volumeCallCount).toBe(1);
+            expect(subscriptionCallCount).toBe(1);
+            expect(progressCallCount).toBe(1);
+            expect(progressUpdaterFn).toBeDefined();
+
+            // Verify progress update
+            const currentProgress = createMockProgress();
+            const updatedProgress = progressUpdaterFn!(currentProgress);
+
+            expect(updatedProgress.successful).toHaveLength(3);
+            expect(updatedProgress.successful).toEqual([
+                {
+                    dataset: dataset.urn,
+                    type: 'assertion',
+                    assertionType: AssertionType.Freshness,
+                },
+                {
+                    dataset: dataset.urn,
+                    type: 'assertion',
+                    assertionType: AssertionType.Volume,
+                },
+                {
+                    dataset: dataset.urn,
+                    type: 'subscriber',
+                    subscriberUrn: 'urn:li:corpuser:user1',
+                },
+            ]);
+            expect(updatedProgress.errored).toHaveLength(0);
+        });
+
+        it('should handle mixed assertion and subscription errors', async () => {
+            let progressCallCount = 0;
+            let progressUpdaterFn: ((current: ProgressTracker) => ProgressTracker) | undefined;
+
+            const mockUpsertFreshness = async () => {
+                throw new Error('Freshness failed');
+            };
+            const mockUpsertVolume = async () => {
+                return { data: {} } as any;
+            };
+            const mockSyncSubscription = async () => {
+                throw new Error('Subscription failed');
+            };
+            const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
+                progressCallCount++;
+                progressUpdaterFn = updater;
+            };
+
+            const createAssertionsForDataset = buildCreateAssertionsForDataset(
+                mockUpsertFreshness,
+                mockUpsertVolume,
+                mockSyncSubscription,
+                mockSetProgress,
+            );
+
+            const dataset = createMockDataset(
+                SNOWFLAKE_URN,
+                'urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)',
+            );
+            const freshnessSpec = createMockFreshnessSpec();
+            const volumeSpec = createMockVolumeSpec();
+            const subscriptionSpecs = [
+                {
+                    subscriberUrn: 'urn:li:corpuser:user1',
+                    entityChangeTypes: [{ entityChangeType: EntityChangeType.AssertionFailed }],
+                },
+            ];
+
+            await createAssertionsForDataset(dataset, freshnessSpec, volumeSpec, subscriptionSpecs);
+
+            expect(progressCallCount).toBe(1);
+            expect(progressUpdaterFn).toBeDefined();
+
+            // Verify progress update
+            const currentProgress = createMockProgress();
+            const updatedProgress = progressUpdaterFn!(currentProgress);
+
+            expect(updatedProgress.successful).toHaveLength(1);
+            expect(updatedProgress.successful[0]).toEqual({
+                dataset: dataset.urn,
+                type: 'assertion',
+                assertionType: AssertionType.Volume,
+            });
+            expect(updatedProgress.errored).toHaveLength(2);
+            expect(updatedProgress.errored).toEqual([
+                {
+                    dataset: dataset.urn,
+                    type: 'assertion',
+                    assertionType: AssertionType.Freshness,
+                    error: 'Freshness failed',
+                },
+                {
+                    dataset: dataset.urn,
+                    type: 'subscriber',
+                    subscriberUrn: 'urn:li:corpuser:user1',
+                    error: 'Subscription failed',
+                },
+            ]);
+        });
+
+        it('should handle empty subscription specs array', async () => {
+            let subscriptionCallCount = 0;
+            let progressCallCount = 0;
+            let progressUpdaterFn: ((current: ProgressTracker) => ProgressTracker) | undefined;
+
+            const mockUpsertFreshness = async () => {
+                return { data: {} } as any;
+            };
+            const mockUpsertVolume = async () => {
+                return { data: {} } as any;
+            };
+            const mockSyncSubscription = async () => {
+                subscriptionCallCount++;
+                return { data: {} } as any;
+            };
+            const mockSetProgress = (updater: (current: ProgressTracker) => ProgressTracker) => {
+                progressCallCount++;
+                progressUpdaterFn = updater;
+            };
+
+            const createAssertionsForDataset = buildCreateAssertionsForDataset(
+                mockUpsertFreshness,
+                mockUpsertVolume,
+                mockSyncSubscription,
+                mockSetProgress,
+            );
+
+            const dataset = createMockDataset(
+                SNOWFLAKE_URN,
+                'urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)',
+            );
+            const freshnessSpec = createMockFreshnessSpec();
+            const subscriptionSpecs: any[] = [];
+
+            await createAssertionsForDataset(dataset, freshnessSpec, undefined, subscriptionSpecs);
+
+            expect(subscriptionCallCount).toBe(0);
+            expect(progressCallCount).toBe(1);
+            expect(progressUpdaterFn).toBeDefined();
+
+            // Verify progress update
+            const currentProgress = createMockProgress();
+            const updatedProgress = progressUpdaterFn!(currentProgress);
+
+            expect(updatedProgress.successful).toHaveLength(1);
+            expect(updatedProgress.successful[0]).toEqual({
+                dataset: dataset.urn,
+                type: 'assertion',
+                assertionType: AssertionType.Freshness,
+            });
+            expect(updatedProgress.errored).toHaveLength(0);
         });
     });
 });

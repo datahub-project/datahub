@@ -23,6 +23,7 @@ import {
     useUpsertDatasetVolumeAssertionMonitorMutation,
 } from '@graphql/assertion.generated';
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { SyncSubscriptionMutationFn, useSyncSubscriptionMutation } from '@graphql/subscriptions.generated';
 import {
     AssertionStdOperator,
     AssertionStdParameterType,
@@ -196,6 +197,7 @@ export const buildUpsertVolumeAssertionParams = (
  * @internal
  * @param upsertDatasetFreshnessAssertion - The mutation function to upsert a freshness assertion.
  * @param upsertDatasetVolumeAssertion - The mutation function to upsert a volume assertion.
+ * @param syncSubscription - The mutation function to sync a subscription.
  * @param setProgress - The function to set the progress tracker.
  * @returns A function that creates assertions for a dataset.
  */
@@ -203,17 +205,19 @@ export const buildCreateAssertionsForDataset =
     (
         upsertDatasetFreshnessAssertion: UpsertDatasetFreshnessAssertionMonitorMutationFn,
         upsertDatasetVolumeAssertion: UpsertDatasetVolumeAssertionMonitorMutationFn,
+        syncSubscription: SyncSubscriptionMutationFn,
         setProgress: (updater: (currentProgress: ProgressTracker) => ProgressTracker) => void,
     ) =>
     async (
         dataset: Dataset,
         freshnessAssertionSpec: BulkCreateDatasetAssertionsSpec['freshnessAssertionSpec'],
         volumeAssertionSpec: BulkCreateDatasetAssertionsSpec['volumeAssertionSpec'],
+        subscriptionSpecs: BulkCreateDatasetAssertionsSpec['subscriptionSpecs'],
     ) => {
         const successes: ProgressTracker['successful'] = [];
         const errors: ProgressTracker['errored'] = [];
 
-        // 1.2.1 Create the freshness assertion
+        // 1. Create the freshness assertion
         if (freshnessAssertionSpec) {
             // Upsert the freshness assertion
             try {
@@ -222,33 +226,69 @@ export const buildCreateAssertionsForDataset =
                 );
                 successes.push({
                     dataset: dataset.urn,
+                    type: 'assertion',
                     assertionType: AssertionType.Freshness,
                 });
             } catch (error) {
                 errors.push({
                     dataset: dataset.urn,
+                    type: 'assertion',
                     assertionType: AssertionType.Freshness,
                     error: error instanceof Error ? error.message : 'Unknown error',
                 });
             }
         }
 
-        // 1.2.2 Create the volume assertion
+        // 2. Create the volume assertion
         if (volumeAssertionSpec) {
             // Upsert the volume assertion
             try {
                 await upsertDatasetVolumeAssertion(buildUpsertVolumeAssertionParams(dataset, volumeAssertionSpec));
                 successes.push({
                     dataset: dataset.urn,
+                    type: 'assertion',
                     assertionType: AssertionType.Volume,
                 });
             } catch (error) {
                 errors.push({
                     dataset: dataset.urn,
+                    type: 'assertion',
                     assertionType: AssertionType.Volume,
                     error: error instanceof Error ? error.message : 'Unknown error',
                 });
             }
+        }
+
+        // 3. Create the subscriptions
+        if (subscriptionSpecs) {
+            await Promise.allSettled(
+                subscriptionSpecs.map((subscriptionSpec) =>
+                    syncSubscription({
+                        variables: {
+                            input: {
+                                entityUrn: dataset.urn,
+                                actorUrn: subscriptionSpec.subscriberUrn,
+                                entityChangeTypes: subscriptionSpec.entityChangeTypes,
+                            },
+                        },
+                    })
+                        .then(() => {
+                            successes.push({
+                                dataset: dataset.urn,
+                                type: 'subscriber',
+                                subscriberUrn: subscriptionSpec.subscriberUrn,
+                            });
+                        })
+                        .catch((error) => {
+                            errors.push({
+                                dataset: dataset.urn,
+                                type: 'subscriber',
+                                subscriberUrn: subscriptionSpec.subscriberUrn,
+                                error: error instanceof Error ? error.message : 'Unknown error',
+                            });
+                        }),
+                ),
+            );
         }
 
         // Update the progress tracker
@@ -267,6 +307,7 @@ export const buildCreateAssertionsForDataset =
 export const useBulkCreateDatasetAssertions = () => {
     const [upsertDatasetFreshnessAssertion] = useUpsertDatasetFreshnessAssertionMonitorMutation();
     const [upsertDatasetVolumeAssertion] = useUpsertDatasetVolumeAssertionMonitorMutation();
+    const [syncSubscription] = useSyncSubscriptionMutation();
 
     const { refetch: refetchSearchResults } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -285,11 +326,13 @@ export const useBulkCreateDatasetAssertions = () => {
     const createAssertionsForDataset = buildCreateAssertionsForDataset(
         upsertDatasetFreshnessAssertion,
         upsertDatasetVolumeAssertion,
+        syncSubscription,
         setProgress,
     );
 
     const bulkCreateDatasetAssertions = async (bulkCreateDatasetAssertionsSpec: BulkCreateDatasetAssertionsSpec) => {
-        const { assetSelector, freshnessAssertionSpec, volumeAssertionSpec } = bulkCreateDatasetAssertionsSpec;
+        const { assetSelector, freshnessAssertionSpec, volumeAssertionSpec, subscriptionSpecs } =
+            bulkCreateDatasetAssertionsSpec;
         const { filters } = assetSelector;
         setProgress({
             total: 0,
@@ -336,6 +379,7 @@ export const useBulkCreateDatasetAssertions = () => {
                 hasFreshnessAssertion: !!freshnessAssertionSpec,
                 hasFieldMetricAssertion: false,
                 hasVolumeAssertion: !!volumeAssertionSpec,
+                hasSubscription: !!subscriptionSpecs?.length,
             });
         } catch (error) {
             console.error('Error sending bulk create assertion submission event', error);
@@ -348,7 +392,7 @@ export const useBulkCreateDatasetAssertions = () => {
 
         await Promise.allSettled(
             datasets.map(async (dataset) =>
-                createAssertionsForDataset(dataset, freshnessAssertionSpec, volumeAssertionSpec),
+                createAssertionsForDataset(dataset, freshnessAssertionSpec, volumeAssertionSpec, subscriptionSpecs),
             ),
         );
 
@@ -358,12 +402,22 @@ export const useBulkCreateDatasetAssertions = () => {
                 type: EventType.BulkCreateAssertionCompletedEvent,
                 surface: 'dataset-health',
                 entityCount: results.data.searchAcrossEntities.total,
-                failedAssertionCount: progressRef.current.errored.length,
-                successAssertionCount: progressRef.current.successful.length,
+                failedAssertionCount: progressRef.current.errored.filter((assertion) => assertion.type === 'assertion')
+                    .length,
+                successAssertionCount: progressRef.current.successful.filter(
+                    (assertion) => assertion.type === 'assertion',
+                ).length,
                 totalAssertionCount: progressRef.current.total,
                 hasFreshnessAssertion: !!freshnessAssertionSpec,
                 hasVolumeAssertion: !!volumeAssertionSpec,
                 hasFieldMetricAssertion: false,
+                hasSubscription: !!subscriptionSpecs?.length,
+                successSubscriptionCount: progressRef.current.successful.filter(
+                    (assertion) => assertion.type === 'subscriber',
+                ).length,
+                failedSubscriptionCount: progressRef.current.errored.filter(
+                    (assertion) => assertion.type === 'subscriber',
+                ).length,
             });
         } catch (error) {
             console.error('Error sending bulk create assertion completed event', error);

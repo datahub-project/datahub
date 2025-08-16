@@ -8,7 +8,9 @@ import { DEFAULT_ASSET_SELECTOR_FILTERS } from '@app/observe/shared/bulkCreate/f
 import { stateToBulkCreateDatasetAssertionsSpec } from '@app/observe/shared/bulkCreate/form/BulkCreateAssertionsForm.utils';
 import { AssertionsConfiguration } from '@app/observe/shared/bulkCreate/form/steps/AssertionsConfiguration';
 import { AssetsSelection } from '@app/observe/shared/bulkCreate/form/steps/AssetsSelection';
+import { SubscriptionConfiguration } from '@app/observe/shared/bulkCreate/form/steps/SubscriptionConfiguration';
 import { useFreshnessForm } from '@app/observe/shared/bulkCreate/form/useFreshnessForm';
+import { useSubscriptionsForm } from '@app/observe/shared/bulkCreate/form/useSubscriptionsForm';
 import { useVolumeForm } from '@app/observe/shared/bulkCreate/form/useVolumeForm';
 import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
 
@@ -27,9 +29,10 @@ const ActionButtons = styled.div`
     justify-content: flex-end;
 `;
 
-type Steps = 'asset_selection' | 'assertion_configuration';
+type Steps = 'asset_selection' | 'assertion_configuration' | 'subscription_configuration';
 const ASSET_SELECTION_STEP: Steps = 'asset_selection';
 const ASSERTION_CONFIGURATION_STEP: Steps = 'assertion_configuration';
+const SUBSCRIPTION_CONFIGURATION_STEP: Steps = 'subscription_configuration';
 
 type Props = {
     onSubmit: (spec: BulkCreateDatasetAssertionsSpec) => void;
@@ -38,10 +41,28 @@ type Props = {
 export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
     const [step, setStep] = useState<Steps>(ASSET_SELECTION_STEP);
     const onNextStep = () => {
-        setStep(step === ASSET_SELECTION_STEP ? ASSERTION_CONFIGURATION_STEP : ASSERTION_CONFIGURATION_STEP);
+        switch (step) {
+            case ASSET_SELECTION_STEP:
+                setStep(ASSERTION_CONFIGURATION_STEP);
+                break;
+            case ASSERTION_CONFIGURATION_STEP:
+                setStep(SUBSCRIPTION_CONFIGURATION_STEP);
+                break;
+            default:
+            // Do nothing.
+        }
     };
     const onPrevStep = () => {
-        setStep(step === ASSERTION_CONFIGURATION_STEP ? ASSET_SELECTION_STEP : ASSET_SELECTION_STEP);
+        switch (step) {
+            case SUBSCRIPTION_CONFIGURATION_STEP:
+                setStep(ASSERTION_CONFIGURATION_STEP);
+                break;
+            case ASSERTION_CONFIGURATION_STEP:
+                setStep(ASSET_SELECTION_STEP);
+                break;
+            default:
+            // Do nothing.
+        }
     };
 
     // --------------------------------- Asset Selector state --------------------------------- //
@@ -53,21 +74,22 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
     const selectedPlatformUrn: string | undefined =
         selectedPlatformOperand?.type === 'property' ? selectedPlatformOperand?.values?.[0] : undefined;
 
-    const canEnableAssertions = selectedPlatformUrn !== undefined;
+    const isPlatformSelected = selectedPlatformUrn !== undefined;
 
     // --------------------------------- Freshness Assertion state --------------------------------- //
     const { component: freshnessForm, state: freshnessFormState } = useFreshnessForm({
         selectedPlatformUrn,
-        canEnableAssertions,
     });
     const { freshnessAssertionEnabled, freshnessSourceType } = freshnessFormState;
 
     // --------------------------------- Volume Assertion state --------------------------------- //
     const { component: volumeForm, state: volumeFormState } = useVolumeForm({
         selectedPlatformUrn,
-        canEnableAssertions,
     });
     const { volumeAssertionEnabled, volumeSourceType } = volumeFormState;
+
+    // --------------------------------- Subscription state --------------------------------- //
+    const { component: subscriptionForm, state: subscriptionFormState } = useSubscriptionsForm();
 
     // --------------------------------- Event Handlers --------------------------------- //
     const onCreateAssertions = () => {
@@ -84,6 +106,7 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
                 filters,
                 freshnessFormState,
                 volumeFormState,
+                subscriptionFormState,
             }),
         );
     };
@@ -98,20 +121,42 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
                 <AssertionsConfiguration freshnessForm={freshnessForm} volumeForm={volumeForm} />
             )}
 
+            {step === 'subscription_configuration' && <SubscriptionConfiguration subscriptionForm={subscriptionForm} />}
+
             <Divider />
 
             <ActionButtons>
                 <Button onClick={onPrevStep} variant="outline">
                     Back
                 </Button>
-                {step === 'asset_selection' && <Button onClick={onNextStep}>Next</Button>}
-                {step === 'assertion_configuration' && (
-                    <CreateButton
-                        onClick={onCreateAssertions}
-                        disabled={!freshnessAssertionEnabled && !volumeAssertionEnabled}
+                {step === 'asset_selection' && (
+                    <Button
+                        onClick={() => {
+                            if (isPlatformSelected) {
+                                onNextStep();
+                            } else {
+                                message.warn('Please select a platform to continue.');
+                            }
+                        }}
                     >
-                        Create Assertions
-                    </CreateButton>
+                        Next
+                    </Button>
+                )}
+                {step === 'assertion_configuration' && (
+                    <Button
+                        onClick={() => {
+                            if (freshnessAssertionEnabled || volumeAssertionEnabled) {
+                                onNextStep();
+                            } else {
+                                message.warn('Please enable at least one assertion type to continue.');
+                            }
+                        }}
+                    >
+                        Next
+                    </Button>
+                )}
+                {step === 'subscription_configuration' && (
+                    <CreateButton onClick={onCreateAssertions}>Create Assertions</CreateButton>
                 )}
             </ActionButtons>
         </Wrapper>

@@ -9,6 +9,7 @@ import {
     DatasetFreshnessAssertionParametersInput,
     DatasetFreshnessSourceType,
     DatasetVolumeAssertionParametersInput,
+    EntityChangeDetailsInput,
     EntityType,
     FabricType,
     FreshnessAssertionSchedule,
@@ -146,20 +147,49 @@ export type BulkCreateDatasetAssertionsSpec = {
         actions?: AssertionActionsInput;
         evaluationSchedule: CronScheduleInput;
     };
+    subscriptionSpecs?: {
+        subscriberUrn: string;
+        entityChangeTypes: EntityChangeDetailsInput[];
+    }[];
 };
+
+type ProgressTrackerItemBase = {
+    dataset: string;
+};
+
+type ProgressTrackerSuccessItem = ProgressTrackerItemBase &
+    (
+        | {
+              type: 'assertion';
+              assertionType: AssertionType;
+          }
+        | {
+              type: 'subscriber';
+              subscriberUrn: string;
+          }
+    );
+
+type ProgressTrackerErrorItemBase = ProgressTrackerItemBase & {
+    error: string;
+};
+
+type ProgressTrackerErroredItem = ProgressTrackerErrorItemBase &
+    (
+        | {
+              type: 'assertion';
+              assertionType: AssertionType;
+          }
+        | {
+              type: 'subscriber';
+              subscriberUrn: string;
+          }
+    );
 
 export type ProgressTracker = {
     total: number;
     completed: number;
-    successful: {
-        dataset: string;
-        assertionType: AssertionType;
-    }[];
-    errored: {
-        dataset: string;
-        assertionType: AssertionType;
-        error: string;
-    }[];
+    successful: ProgressTrackerSuccessItem[];
+    errored: ProgressTrackerErroredItem[];
 };
 
 export const MAX_BULK_CREATE_DATASET_ASSERTIONS_COUNT = 5000;

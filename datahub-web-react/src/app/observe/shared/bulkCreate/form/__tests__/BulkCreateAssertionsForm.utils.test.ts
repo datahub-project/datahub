@@ -4,11 +4,12 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import {
     buildFreshnessAssertionSpec,
+    buildSubscriptionSpecs,
     buildVolumeAssertionSpec,
     mapExclusionWindows,
     validateAndTransformAssetSelectorFilters,
 } from '@app/observe/shared/bulkCreate/form/BulkCreateAssertionsForm.utils';
-import { FreshnessFormState, VolumeFormState } from '@app/observe/shared/bulkCreate/form/types';
+import { FreshnessFormState, SubscriptionsFormState, VolumeFormState } from '@app/observe/shared/bulkCreate/form/types';
 import { OperatorId } from '@app/tests/builder/steps/definition/builder/property/types/operators';
 import { LogicalOperatorType, LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
 
@@ -19,6 +20,8 @@ import {
     DatasetVolumeSourceType,
     DateInterval,
     DayOfWeek,
+    EntityChangeDetailsInput,
+    EntityChangeType,
     EntityType,
     FreshnessAssertionScheduleType,
 } from '@types';
@@ -798,6 +801,322 @@ describe('BulkCreateAssertionsForm.utils', () => {
                 expect(result?.inferenceSettings.trainingDataLookbackWindowDays).toBeDefined(); // Should use default
                 expect(result?.inferenceSettings.exclusionWindows).toEqual([]); // Should map to empty array
             });
+        });
+    });
+
+    describe('buildSubscriptionSpecs', () => {
+        const mockPersonalEntityChangeTypes: EntityChangeDetailsInput[] = [
+            { entityChangeType: EntityChangeType.AssertionFailed },
+            { entityChangeType: EntityChangeType.AssertionPassed },
+        ];
+
+        const mockGroupEntityChangeTypes: EntityChangeDetailsInput[] = [
+            { entityChangeType: EntityChangeType.IncidentRaised },
+            { entityChangeType: EntityChangeType.IncidentResolved },
+        ];
+
+        const mockPersonalUserUrn = 'urn:li:corpuser:testuser';
+        const mockGroupUrns = ['urn:li:corpGroup:group1', 'urn:li:corpGroup:group2'];
+
+        it('should return undefined when neither personal nor group subscriptions are enabled', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: false,
+                personalEntityChangeTypes: mockPersonalEntityChangeTypes,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: false,
+                selectedGroups: mockGroupUrns,
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toBeUndefined();
+        });
+
+        it('should return personal subscription spec when personal subscription is enabled with entity change types', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: mockPersonalEntityChangeTypes,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: false,
+                selectedGroups: [],
+                groupEntityChangeTypes: [],
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: mockPersonalUserUrn,
+                    entityChangeTypes: mockPersonalEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should not include personal subscription when enabled but no entity change types selected', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: [],
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: false,
+                selectedGroups: [],
+                groupEntityChangeTypes: [],
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toBeUndefined();
+        });
+
+        it('should return group subscription specs when group subscription is enabled with groups and entity change types', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: false,
+                personalEntityChangeTypes: [],
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: mockGroupUrns,
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group1',
+                    entityChangeTypes: mockGroupEntityChangeTypes,
+                },
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group2',
+                    entityChangeTypes: mockGroupEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should not include group subscriptions when enabled but no groups selected', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: false,
+                personalEntityChangeTypes: [],
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: [],
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toBeUndefined();
+        });
+
+        it('should not include group subscriptions when enabled but no entity change types selected', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: false,
+                personalEntityChangeTypes: [],
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: mockGroupUrns,
+                groupEntityChangeTypes: [],
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toBeUndefined();
+        });
+
+        it('should return both personal and group subscription specs when both are enabled', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: mockPersonalEntityChangeTypes,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: ['urn:li:corpGroup:group1'],
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: mockPersonalUserUrn,
+                    entityChangeTypes: mockPersonalEntityChangeTypes,
+                },
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group1',
+                    entityChangeTypes: mockGroupEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should handle single entity change type for personal subscription', () => {
+            const singleEntityChangeType: EntityChangeDetailsInput[] = [
+                { entityChangeType: EntityChangeType.AssertionError },
+            ];
+
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: singleEntityChangeType,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: false,
+                selectedGroups: [],
+                groupEntityChangeTypes: [],
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: mockPersonalUserUrn,
+                    entityChangeTypes: singleEntityChangeType,
+                },
+            ]);
+        });
+
+        it('should handle single group for group subscription', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: false,
+                personalEntityChangeTypes: [],
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: ['urn:li:corpGroup:singleGroup'],
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: 'urn:li:corpGroup:singleGroup',
+                    entityChangeTypes: mockGroupEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should handle multiple entity change types', () => {
+            const multipleEntityChangeTypes: EntityChangeDetailsInput[] = [
+                { entityChangeType: EntityChangeType.AssertionFailed },
+                { entityChangeType: EntityChangeType.AssertionPassed },
+                { entityChangeType: EntityChangeType.AssertionError },
+                { entityChangeType: EntityChangeType.IncidentRaised },
+                { entityChangeType: EntityChangeType.IncidentResolved },
+                { entityChangeType: EntityChangeType.OperationColumnAdded },
+            ];
+
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: multipleEntityChangeTypes,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: false,
+                selectedGroups: [],
+                groupEntityChangeTypes: [],
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: mockPersonalUserUrn,
+                    entityChangeTypes: multipleEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should handle multiple groups with different entity change types for personal and group subscriptions', () => {
+            const personalEntityChangeTypes: EntityChangeDetailsInput[] = [
+                { entityChangeType: EntityChangeType.AssertionFailed },
+            ];
+
+            const groupEntityChangeTypes: EntityChangeDetailsInput[] = [
+                { entityChangeType: EntityChangeType.IncidentRaised },
+                { entityChangeType: EntityChangeType.OperationColumnAdded },
+            ];
+
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: ['urn:li:corpGroup:group1', 'urn:li:corpGroup:group2', 'urn:li:corpGroup:group3'],
+                groupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: mockPersonalUserUrn,
+                    entityChangeTypes: personalEntityChangeTypes,
+                },
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group1',
+                    entityChangeTypes: groupEntityChangeTypes,
+                },
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group2',
+                    entityChangeTypes: groupEntityChangeTypes,
+                },
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group3',
+                    entityChangeTypes: groupEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should return only personal subscription when personal is enabled but group conditions are not met', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: mockPersonalEntityChangeTypes,
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: [], // No groups selected
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: mockPersonalUserUrn,
+                    entityChangeTypes: mockPersonalEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should return only group subscriptions when group is enabled but personal conditions are not met', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: [], // No entity change types
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: mockGroupUrns,
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toEqual([
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group1',
+                    entityChangeTypes: mockGroupEntityChangeTypes,
+                },
+                {
+                    subscriberUrn: 'urn:li:corpGroup:group2',
+                    entityChangeTypes: mockGroupEntityChangeTypes,
+                },
+            ]);
+        });
+
+        it('should return undefined when all subscriptions are enabled but none meet the conditions', () => {
+            const subscriptionFormState: SubscriptionsFormState = {
+                personalSubscriptionEnabled: true,
+                personalEntityChangeTypes: [], // No entity change types
+                personalUserUrn: mockPersonalUserUrn,
+                groupSubscriptionEnabled: true,
+                selectedGroups: [], // No groups selected
+                groupEntityChangeTypes: mockGroupEntityChangeTypes,
+            };
+
+            const result = buildSubscriptionSpecs(subscriptionFormState);
+
+            expect(result).toBeUndefined();
         });
     });
 

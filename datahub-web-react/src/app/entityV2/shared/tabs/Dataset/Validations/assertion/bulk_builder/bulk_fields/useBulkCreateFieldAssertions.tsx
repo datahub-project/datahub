@@ -113,6 +113,7 @@ export const useBulkCreateFieldAssertions = () => {
                 hasFieldMetricAssertion: true,
                 hasFreshnessAssertion: false,
                 hasVolumeAssertion: false,
+                hasSubscription: false,
             });
         } catch (error) {
             console.error('Error sending bulk create assertion submission event', error);
@@ -171,6 +172,9 @@ export const useBulkCreateFieldAssertions = () => {
                 hasFreshnessAssertion: false,
                 hasFieldMetricAssertion: true,
                 hasVolumeAssertion: false,
+                hasSubscription: false,
+                successSubscriptionCount: 0,
+                failedSubscriptionCount: 0,
             });
         } catch (error) {
             console.error('Error sending bulk create assertion completed event', error);
