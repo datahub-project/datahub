@@ -1180,8 +1180,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 domain_urn=domain_urn,
             )
 
-        # Note: Profiling is now handled in batch after all topics are processed
-
     def _extract_record(
         self,
         topic: str,

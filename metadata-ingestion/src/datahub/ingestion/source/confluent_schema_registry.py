@@ -332,8 +332,9 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             and not is_key_schema
             and not is_subject
         ):
-            # Attempt to infer schema from message data when no schema registry entry exists
-            fields = self._infer_schema_from_messages(topic)
+            # Schema inference will be handled in batch processing for better performance
+            # Don't infer schema here - let get_schema_and_fields_batch handle it
+            fields = []
 
         return (schema, fields)
 
@@ -443,9 +444,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
             future_to_topic = {
-                executor.submit(
-                    self._infer_schema_from_messages_internal, topic, fallback_config
-                ): topic
+                executor.submit(self._infer_schema_from_messages, topic): topic
                 for topic in topics
             }
 
@@ -463,45 +462,11 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         logger.info(f"Completed parallel schema inference for {len(topics)} topics")
         return results
 
-    def _infer_schema_from_messages_internal(
-        self, topic: str, fallback_config: SchemalessFallback
-    ) -> List[SchemaField]:
-        """
-        Internal method for schema inference without caching logic (used by parallel processing).
-        """
-        try:
-            # Use optimized message sampling
-            sample_messages = self._sample_topic_messages_optimized(
-                topic, fallback_config
-            )
-
-            if not sample_messages:
-                logger.debug(f"Skipping empty topic {topic} for schema inference")
-                return []
-
-            # Infer schema fields from the sample data
-            inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
-
-            # Return the inferred fields directly (no caching needed)
-
-            logger.debug(
-                f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
-            )
-
-            return inferred_fields
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to infer schema from messages for topic {topic}: {e}. "
-                f"Topic will be processed without schema information."
-            )
-            return []
-
-    def _sample_topic_messages_optimized(
+    def _sample_topic_messages(
         self, topic: str, fallback_config: SchemalessFallback
     ) -> List[Dict[str, MessageValue]]:
         """
-        Optimized message sampling with hybrid strategy: try latest first, fallback to earliest.
+        Sample messages from a Kafka topic with hybrid strategy: try latest first, fallback to earliest.
         """
         strategy = fallback_config.sample_strategy.lower()
 
@@ -641,10 +606,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         fallback_config = self.source_config.schemaless_fallback
 
         try:
-            # Use optimized message sampling
-            sample_messages = self._sample_topic_messages_optimized(
-                topic, fallback_config
-            )
+            # Sample messages from the topic
+            sample_messages = self._sample_topic_messages(topic, fallback_config)
 
             if not sample_messages:
                 logger.debug(f"Skipping empty topic {topic} for schema inference")
@@ -666,79 +629,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 f"Failed to infer schema from messages for topic {topic}: {e}. "
                 f"Topic will be processed without schema information."
             )
-            return []
-
-    def _sample_topic_messages(
-        self, topic: str, max_messages: int = 10
-    ) -> List[Dict[str, MessageValue]]:
-        """
-        Sample messages from a Kafka topic for schema inference.
-        """
-
-        try:
-            # Create a consumer for sampling
-            consumer_config = {
-                "bootstrap.servers": self.source_config.connection.bootstrap,
-                "group.id": f"datahub-schema-inference-{topic}",
-                "auto.offset.reset": "earliest",
-                "enable.auto.commit": False,
-                **self.source_config.connection.consumer_config,
-            }
-
-            consumer = Consumer(consumer_config)
-            consumer.subscribe([topic])
-
-            messages: List[Dict[str, MessageValue]] = []
-            attempts = 0
-            max_attempts = 50  # Try up to 50 polls
-
-            while len(messages) < max_messages and attempts < max_attempts:
-                msg = consumer.poll(timeout=1.0)
-                attempts += 1
-
-                if msg is None:
-                    continue
-                if msg.error():
-                    continue
-
-                try:
-                    # Try to decode the message value
-                    value = msg.value()
-                    if value is None:
-                        continue
-
-                    # Try JSON decoding first
-                    if isinstance(value, bytes):
-                        try:
-                            decoded_value = json.loads(value.decode("utf-8"))
-                            if isinstance(decoded_value, dict):
-                                messages.append(decoded_value)
-                        except (json.JSONDecodeError, UnicodeDecodeError):
-                            # If JSON fails, try to create a simple structure
-                            try:
-                                messages.append(
-                                    {
-                                        "raw_value": value.decode(
-                                            "utf-8", errors="replace"
-                                        )
-                                    }
-                                )
-                            except Exception:
-                                messages.append({"raw_value": str(value)})
-                    elif isinstance(value, dict):
-                        messages.append(value)
-                    else:
-                        messages.append({"value": str(value)})
-
-                except Exception as e:
-                    logger.debug(f"Failed to process message for schema inference: {e}")
-                    continue
-
-            consumer.close()
-            return messages
-
-        except Exception as e:
-            logger.debug(f"Failed to sample messages from topic {topic}: {e}")
             return []
 
     def _extract_fields_from_samples(
