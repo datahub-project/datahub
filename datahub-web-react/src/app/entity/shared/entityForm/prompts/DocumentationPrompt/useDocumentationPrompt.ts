@@ -71,10 +71,8 @@ export default function useDocumentationPrompt({ prompt, submitResponse, field }
     }, [initialValue, previousInitial]);
 
     function updateDocumentation(value: string) {
-        if (value !== initialValue) {
-            setDocumentationValue(value);
-            setHasEdited(true);
-        }
+        setDocumentationValue(value);
+        setHasEdited(value !== initialValue);
     }
 
     function submitDocumentationResponse() {

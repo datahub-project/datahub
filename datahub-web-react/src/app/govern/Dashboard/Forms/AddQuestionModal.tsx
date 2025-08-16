@@ -88,7 +88,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
             if (question) {
                 questionId = question.id;
                 const updatedQuestions = questions?.map((ques) =>
-                    ques.id === question.id ? { id: ques.id, ...formData } : ques,
+                    ques.id === question.id ? { id: ques.id, required: isRequired, ...formData } : ques,
                 );
                 setFormValues({ ...formValues, questions: updatedQuestions });
             } else {
@@ -97,6 +97,7 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                 const newQuestion = {
                     ...formData,
                     id: questionId,
+                    required: isRequired,
                 };
                 setFormValues({ ...formValues, questions: [...questions, newQuestion] });
             }
