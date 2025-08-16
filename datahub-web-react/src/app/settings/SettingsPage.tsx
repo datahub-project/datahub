@@ -23,7 +23,6 @@ import { AccessTokens } from '@app/settings/AccessTokens';
 import { Preferences } from '@app/settings/Preferences';
 import { Features } from '@app/settings/features/Features';
 import ManagePosts from '@app/settings/posts/ManagePosts';
-import { NoPageFound } from '@app/shared/NoPageFound';
 import { useAppConfig } from '@app/useAppConfig';
 
 const MenuItem = styled(Menu.Item)`
@@ -117,7 +116,7 @@ export const SettingsPage = () => {
     // Filter paths based on privileges and feature flags
     const PATHS = ALL_PATHS.filter((pathConfig) => {
         const { path: pathKey, requiresPrivilege } = pathConfig;
-        
+
         // Apply existing logic for feature flags and specific conditions
         if (pathKey === 'permissions' && !showPolicies) return false;
         if (pathKey === 'identities' && !showUsersGroups) return false;
@@ -125,25 +124,24 @@ export const SettingsPage = () => {
         if (pathKey === 'ownership' && !showOwnershipTypes) return false;
         if (pathKey === 'posts' && !showHomePagePosts) return false;
         if (pathKey === 'features' && !showFeatures) return false;
-        
+
         // For other paths, check the privilege requirement
         if (requiresPrivilege && me?.platformPrivileges) {
             return Boolean(me.platformPrivileges[requiresPrivilege]);
         }
-        
+
         // Always allow paths without privilege requirements
         return true;
     });
 
     const DEFAULT_PATH = PATHS[0] || { path: 'preferences', content: <Preferences /> };
-    
+
     const subRoutes = PATHS.map((p) => p.path.replace('/', ''));
     const currPathName = pathname.replace(path, '');
     const trimmedPathName = currPathName.endsWith('/') ? pathname.slice(0, pathname.length - 1) : currPathName;
     const splitPathName = trimmedPathName.split('/');
     const providedPath = splitPathName[1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
-
 
     return (
         <PageContainer>
