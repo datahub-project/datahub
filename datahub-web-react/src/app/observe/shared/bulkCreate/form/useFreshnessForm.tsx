@@ -158,7 +158,7 @@ export const useFreshnessForm = ({
                             />
                         </FreshnessIntervalLabelWrapper>
                         <Text size="sm" color="gray" colorLevel={1700}>
-                            Check for a table update within a certain period of time, run on a configurable schedule.
+                            Check for a dataset update within a certain period of time, run on a configurable schedule.
                         </Text>
                     </Radio>
                 </RadioGroup>,

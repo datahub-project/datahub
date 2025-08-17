@@ -5,8 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { EMAIL_SINK, NOTIFICATION_SINKS } from '@app/settings/platform/types';
-import { isSinkEnabled } from '@app/settings/utils';
+import { isEmailSinkSupportedGlobally } from '@app/settings/utils';
 import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
 import {
     selectEmail,
@@ -111,10 +110,7 @@ export default function EmailNotificationRecipientSection({ isPersonal }: Props)
 
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
-        isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
-    );
-    const emailSinkSupported = globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
+    const emailSinkSupported = isEmailSinkSupportedGlobally(globalSettings?.globalSettings, config);
 
     const updateEmailInState = (channelName: string) => {
         const emailData: EmailState = {

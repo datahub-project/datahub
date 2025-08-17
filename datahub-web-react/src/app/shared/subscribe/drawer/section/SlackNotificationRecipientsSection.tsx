@@ -6,8 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
-import { isSinkEnabled } from '@app/settings/utils';
+import { isSlackSinkSupported as isSlackSinkSupportedGlobally } from '@app/settings/utils';
 import useDrawerActions from '@app/shared/subscribe/drawer/state/actions';
 import {
     selectIsPersonal,
@@ -125,10 +124,7 @@ export default function SlackNotificationRecipientSection() {
 
     const channelInputRef = useRef<InputRef>(null);
     const { data: globalSettings } = useGetGlobalSettingsQuery();
-    const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) =>
-        isSinkEnabled(sink.id, globalSettings?.globalSettings, config),
-    );
-    const slackSinkSupported = globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+    const isSlackSinkSupported = isSlackSinkSupportedGlobally(globalSettings?.globalSettings, config);
 
     useEffect(() => {
         form.setFieldsValue({ slackFormValue: slack.subscription.channel });
@@ -197,7 +193,7 @@ export default function SlackNotificationRecipientSection() {
         let slackSinkHtml = (
             <StyledSlackSection>
                 <Space direction="vertical">
-                    {slackSinkSupported && !isSlackEditing ? (
+                    {isSlackSinkSupported && !isSlackEditing ? (
                         <UseDefaultText>
                             To:&nbsp;
                             <>
@@ -223,7 +219,7 @@ export default function SlackNotificationRecipientSection() {
                                             ref={channelInputRef}
                                             placeholder={slackInputPlaceholder}
                                             data-testid="alternative-slack-member-id"
-                                            disabled={!slackSinkSupported}
+                                            disabled={!isSlackSinkSupported}
                                             value={slackChannelName}
                                             onChange={onChangeChannelInput}
                                             status={!slackChannelName ? 'error' : undefined}
@@ -237,7 +233,7 @@ export default function SlackNotificationRecipientSection() {
                 </Space>
             </StyledSlackSection>
         );
-        if (!slackSinkSupported) {
+        if (!isSlackSinkSupported) {
             slackSinkHtml = isAdminAccess ? (
                 <DisabledText>
                     Slack notifications are disabled. In order to enable,{' '}
@@ -258,7 +254,7 @@ export default function SlackNotificationRecipientSection() {
         <NotificationSwitchContainer>
             <SwitchWrapper>
                 <StyledSwitch
-                    disabled={!slackSinkSupported}
+                    disabled={!isSlackSinkSupported}
                     size="small"
                     checked={slack.enabled}
                     onChange={onChangeSlackSwitch}
@@ -274,7 +270,7 @@ export default function SlackNotificationRecipientSection() {
                 />
             )}
             {renderSlackSink()}
-            {isSlackEditing && slackSinkSupported && (
+            {isSlackEditing && isSlackSinkSupported && (
                 <>
                     <MemberIdInstructionText>
                         {isPersonal ? (
@@ -295,7 +291,7 @@ export default function SlackNotificationRecipientSection() {
                     </MemberIdInstructionText>
                 </>
             )}
-            {slackSinkSupported && (
+            {isSlackSinkSupported && (
                 <TestNotificationButtonWrapper>
                     <TestNotificationButton
                         integration="slack"

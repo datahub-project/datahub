@@ -29,7 +29,7 @@ export const updateUserNotificationSettingsFunction = ({
     const sinkTypesAdded = difference(sinkTypes, baseSinkTypes ?? []);
     const sinkTypesRemoved = difference(baseSinkTypes, sinkTypes);
 
-    updateUserNotificationSettings({
+    return updateUserNotificationSettings({
         variables: {
             input: {
                 notificationSettings: {
@@ -85,7 +85,7 @@ export const updateGroupNotificationSettingsFunction = ({
     const sinkTypesAdded = difference(sinkTypes, baseSinkTypes ?? []);
     const sinkTypesRemoved = difference(baseSinkTypes, sinkTypes);
 
-    updateGroupNotificationSettings({
+    return updateGroupNotificationSettings({
         variables: {
             input: {
                 groupUrn,

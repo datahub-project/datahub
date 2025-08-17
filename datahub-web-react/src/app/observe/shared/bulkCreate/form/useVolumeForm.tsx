@@ -59,8 +59,9 @@ export const useVolumeForm = ({
                 setVolumeAssertionEnabled((enabled) => !enabled);
             }}
         >
+            {/* --------------------------------- Title --------------------------------- */}
             <Text size="md" color="gray" colorLevel={1700}>
-                Monitor the row count anomalies within your datasets with AI.
+                Find out when there are row count anomalies within your datasets.
             </Text>
 
             {volumeAssertionEnabled && [

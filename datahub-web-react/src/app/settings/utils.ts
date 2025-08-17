@@ -1,4 +1,4 @@
-import { EMAIL_SINK, SLACK_SINK } from '@app/settings/platform/types';
+import { EMAIL_SINK, NOTIFICATION_SINKS, SLACK_SINK } from '@app/settings/platform/types';
 
 import { AccessTokenDuration, AccessTokenType, AppConfig, GlobalSettings } from '@types';
 
@@ -63,4 +63,28 @@ export const isSinkEnabled = (
         default:
             return false;
     }
+};
+
+/**
+ * Checks if the Slack sink is supported based on global settings and app configuration.
+ * This utility consolidates the logic that was duplicated across multiple components.
+ */
+export const isSlackSinkSupported = (
+    globalSettings?: Partial<GlobalSettings> | null,
+    config?: Partial<AppConfig> | null,
+): boolean => {
+    const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings, config));
+    return globallyEnabledSinks.some((sink) => sink.id === SLACK_SINK.id);
+};
+
+/**
+ * Checks if the Email sink is supported based on global settings and app configuration.
+ * This utility consolidates the logic that was duplicated across multiple components.
+ */
+export const isEmailSinkSupportedGlobally = (
+    globalSettings?: Partial<GlobalSettings> | null,
+    config?: Partial<AppConfig> | null,
+): boolean => {
+    const globallyEnabledSinks = NOTIFICATION_SINKS.filter((sink) => isSinkEnabled(sink.id, globalSettings, config));
+    return globallyEnabledSinks.some((sink) => sink.id === EMAIL_SINK.id);
 };

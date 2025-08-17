@@ -53,7 +53,7 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
         : groupNotificationSettings?.getGroupNotificationSettings?.sinkTypes;
 
     const onUpdateUserNotificationSettings = ({ emailSettings, slackSettings, sinkTypes }: UpdateSettingsInput) => {
-        updateUserNotificationSettingsFunction({
+        return updateUserNotificationSettingsFunction({
             slackSettings,
             emailSettings,
             baseSinkTypes,
@@ -64,7 +64,7 @@ const useActorSinkSettings = ({ isPersonal, groupUrn }: Props) => {
     };
 
     const onUpdateGroupNotificationSettings = ({ emailSettings, slackSettings, sinkTypes }: UpdateSettingsInput) => {
-        updateGroupNotificationSettingsFunction({
+        return updateGroupNotificationSettingsFunction({
             groupUrn: groupUrn || '',
             slackSettings,
             emailSettings,
