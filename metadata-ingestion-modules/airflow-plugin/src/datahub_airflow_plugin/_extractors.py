@@ -5,14 +5,13 @@ from typing import TYPE_CHECKING, Optional
 
 from airflow.models.operator import Operator
 from airflow.providers.openlineage.extractors.manager import (
-    ExtractorManager as ExtractorManager,
     BaseExtractor as BaseExtractor,
-    TaskMetadata as TaskMetadata
+    ExtractorManager as ExtractorManager,
+    TaskMetadata as TaskMetadata,
 )
-from airflow.providers.openlineage.extractors.base import OperatorLineage
 from openlineage.airflow.extractors import (
     BaseExtractor as OLBaseExtractor,
-    ExtractorManager as OLExtractorManager,
+    # ExtractorManager as OLExtractorManager,
     TaskMetadata as OLTaskMetadata,
 )
 from openlineage.airflow.extractors.snowflake_extractor import OLSnowflakeExtractor
