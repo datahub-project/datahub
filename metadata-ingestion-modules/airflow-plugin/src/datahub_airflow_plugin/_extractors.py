@@ -5,9 +5,8 @@ from typing import TYPE_CHECKING, Optional
 
 from airflow.models.operator import Operator
 from airflow.providers.openlineage.extractors.manager import (
-    BaseExtractor as BaseExtractor,
-    ExtractorManager as ExtractorManager,
-    TaskMetadata as TaskMetadata,
+    ExtractorManager,
+    OperatorLineage,
 )
 from openlineage.airflow.extractors import (
     BaseExtractor as OLBaseExtractor,
@@ -110,7 +109,7 @@ class ExtractorManager(ExtractorManager):
         task_instance: Optional["TaskInstance"] = None,
         task_uuid: Optional[str] = None,
         graph: Optional["DataHubGraph"] = None,
-    ) -> TaskMetadata:
+    ) -> OperatorLineage:
         self._graph = graph
         with self._patch_extractors():
             return super().extract_metadata(
@@ -208,7 +207,7 @@ def _parse_sql_into_task_metadata(
     platform: str,
     default_database: Optional[str],
     default_schema: Optional[str],
-) -> TaskMetadata:
+) -> OLTaskMetadata:
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
 
     run_facets = {}
