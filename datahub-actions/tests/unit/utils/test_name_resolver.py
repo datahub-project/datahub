@@ -25,7 +25,7 @@ from datahub_actions.utils.name_resolver import (
 
 
 def test_domain_name_resolver_without_graph():
-    """Test DomainNameResolver fallback behavior when DataHubGraph is None"""
+    # Test DomainNameResolver fallback behavior when DataHubGraph is None
     resolver = DomainNameResolver()
     domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
     entity_name = resolver.get_entity_name(domain_urn, None)
@@ -36,7 +36,8 @@ def test_domain_name_resolver_with_graph():
     resolver = DomainNameResolver()
     domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
     mock_graph = Mock()
-    """Test DomainNameResolver when DataHubGraph is available but no properties found"""
+
+    # Test DomainNameResolver when DataHubGraph is available but no properties found
     mock_graph.get_aspect.return_value = None
     entity_name = resolver.get_entity_name(domain_urn, mock_graph)
     mock_graph.get_aspect.assert_called_once_with(
@@ -44,7 +45,7 @@ def test_domain_name_resolver_with_graph():
     )
     assert entity_name == "marketing-domain"
 
-    """Test DomainNameResolver when DataHubGraph returns properties with name"""
+    # Test DomainNameResolver when DataHubGraph returns properties with name
     mock_properties = DomainPropertiesClass(name="Marketing Domain")
     mock_graph.get_aspect.return_value = mock_properties
     entity_name = resolver.get_entity_name(domain_urn, mock_graph)
