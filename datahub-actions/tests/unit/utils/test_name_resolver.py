@@ -16,12 +16,7 @@ from unittest.mock import Mock
 
 from datahub.metadata.schema_classes import DomainPropertiesClass
 from datahub.utilities.urns.urn import Urn
-from datahub_actions.utils.name_resolver import (
-    DomainNameResolver,
-    _name_resolver_registry,
-    get_entity_name_from_urn,
-    get_entity_qualifier_from_urn,
-)
+from datahub_actions.utils.name_resolver import DomainNameResolver
 
 
 def test_domain_name_resolver_without_graph():
@@ -53,5 +48,3 @@ def test_domain_name_resolver_with_graph():
         str(domain_urn), DomainPropertiesClass
     )
     assert entity_name == "Marketing Domain"
-
-
