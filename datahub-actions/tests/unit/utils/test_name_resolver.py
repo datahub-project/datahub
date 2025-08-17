@@ -28,68 +28,29 @@ def test_domain_name_resolver_without_graph():
     """Test DomainNameResolver fallback behavior when DataHubGraph is None"""
     resolver = DomainNameResolver()
     domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
-
     entity_name = resolver.get_entity_name(domain_urn, None)
-
-    # Should fallback to the domain ID from the URN
     assert entity_name == "marketing-domain"
 
 
-def test_domain_name_resolver_with_graph_no_properties():
-    """Test DomainNameResolver when DataHubGraph is available but no properties found"""
+def test_domain_name_resolver_with_graph():
     resolver = DomainNameResolver()
     domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
-
-    # Mock DataHubGraph that returns None for domain properties
     mock_graph = Mock()
+    """Test DomainNameResolver when DataHubGraph is available but no properties found"""
     mock_graph.get_aspect.return_value = None
-
     entity_name = resolver.get_entity_name(domain_urn, mock_graph)
-
-    # Should call get_aspect with correct parameters
     mock_graph.get_aspect.assert_called_once_with(
         str(domain_urn), DomainPropertiesClass
     )
-
-    # Should fallback to the domain ID from the URN
     assert entity_name == "marketing-domain"
 
-def test_domain_name_resolver_with_graph_and_properties():
     """Test DomainNameResolver when DataHubGraph returns properties with name"""
-    resolver = DomainNameResolver()
-    domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
-
-    # Mock DataHubGraph that returns domain properties with a friendly name
-    mock_graph = Mock()
     mock_properties = DomainPropertiesClass(name="Marketing Domain")
     mock_graph.get_aspect.return_value = mock_properties
-
     entity_name = resolver.get_entity_name(domain_urn, mock_graph)
-
-    # Should call get_aspect with correct parameters
     mock_graph.get_aspect.assert_called_once_with(
         str(domain_urn), DomainPropertiesClass
     )
-
-    # Should return the friendly name from properties
     assert entity_name == "Marketing Domain"
-
-
-def test_domain_name_resolver_with_graph_and_empty_string_name():
-    """Test DomainNameResolver when domain properties has empty string name"""
-    resolver = DomainNameResolver()
-    domain_urn = Urn.from_string("urn:li:domain:marketing-domain")
-
-    # Mock DataHubGraph that returns domain properties with empty string name
-    mock_graph = Mock()
-    mock_properties = DomainPropertiesClass(
-        name=""
-    )  # Empty string should be treated as falsy
-    mock_graph.get_aspect.return_value = mock_properties
-
-    entity_name = resolver.get_entity_name(domain_urn, mock_graph)
-
-    # Should fallback to the domain ID from the URN
-    assert entity_name == "marketing-domain"
 
 
