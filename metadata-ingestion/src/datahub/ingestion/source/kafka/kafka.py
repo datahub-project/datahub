@@ -20,6 +20,9 @@ from typing import (
     cast,
 )
 
+from datahub.ingestion.source.kafka.kafka_schema_inference import (
+    KafkaSchemaInference,
+)
 from datahub.ingestion.source.kafka.kafka_utils import (
     decode_kafka_message_value,
 )
@@ -269,6 +272,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         self.schema_registry_client: KafkaSchemaRegistryBase = (
             KafkaSource.create_schema_registry(config, self.report)
         )
+
+        if self.source_config.schemaless_fallback.enabled:
+            self.schema_inference = KafkaSchemaInference(
+                bootstrap_servers=self.source_config.connection.bootstrap,
+                consumer_config=self.source_config.connection.consumer_config,
+                fallback_config=self.source_config.schemaless_fallback,
+                max_workers=self.source_config.profiling.max_workers,
+            )
         if self.source_config.domain:
             self.domain_registry = DomainRegistry(
                 cached_domains=[k for k in self.source_config.domain],
@@ -344,6 +355,27 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             topic_names, is_key_schema=True
         )
 
+        # Handle schemaless fallback for topics without schemas
+        if self.source_config.schemaless_fallback.enabled:
+            topics_needing_fallback = [
+                topic
+                for topic in topic_names
+                if topic_value_schemas.get(topic, (None, []))[0] is None
+                and not topic_value_schemas.get(topic, (None, []))[1]
+            ]
+
+            if topics_needing_fallback:
+                logger.info(
+                    f"Processing {len(topics_needing_fallback)} topics with schema-less fallback"
+                )
+                fallback_results = self.schema_inference.infer_schemas_batch(
+                    topics_needing_fallback
+                )
+
+                # Update results with fallback schemas
+                for topic, inferred_fields in fallback_results.items():
+                    topic_value_schemas[topic] = (None, inferred_fields)
+
         # Process topics sequentially (fast since schemas are pre-fetched) and collect profiling tasks
         profiling_tasks = []
 
@@ -364,11 +396,26 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     key_fields,
                 )
 
-                # Collect profiling task if profiling is enabled
+                # Collect profiling task if profiling is enabled and we have schema information
                 if (
                     self.source_config.profiling.enabled
                     and self.source_config.is_profiling_enabled()
                 ):
+                    # Check if we have any schema information (from registry or inference)
+                    has_schema_info = (
+                        value_schema is not None
+                        or key_schema is not None
+                        or value_fields
+                        or key_fields
+                    )
+
+                    if not has_schema_info:
+                        logger.debug(
+                            f"Skipping profiling for topic {topic} - no schema information available "
+                            f"(not in schema registry and schemaless fallback failed/disabled)"
+                        )
+                        continue
+
                     # Build dataset URN
                     dataset_urn = make_dataset_urn_with_platform_instance(
                         platform=self.platform,
@@ -377,26 +424,19 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         env=self.source_config.env,
                     )
 
-                    # Build schema metadata if available
-                    schema_metadata = None
-                    if (
-                        value_schema is not None
-                        or key_schema is not None
-                        or value_fields
-                        or key_fields
-                    ):
-                        schema_metadata = (
-                            self.schema_registry_client.build_schema_metadata_with_key(
-                                topic,
-                                make_data_platform_urn(self.platform),
-                                value_schema,
-                                value_fields,
-                                key_schema,
-                                key_fields,
-                            )
+                    # Build schema metadata (we know we have schema info at this point)
+                    schema_metadata = (
+                        self.schema_registry_client.build_schema_metadata_with_key(
+                            topic,
+                            make_data_platform_urn(self.platform),
+                            value_schema,
+                            value_fields,
+                            key_schema,
+                            key_fields,
                         )
+                    )
 
-                    # Get samples for this topic
+                    # Collect samples for profiling (we have schema context for better profiling)
                     samples = self.get_sample_messages(topic)
                     if samples:
                         profiling_tasks.append(
@@ -404,6 +444,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         )
                         logger.debug(
                             f"Added profiling task for topic {topic} with {len(samples)} samples"
+                        )
+                    else:
+                        logger.debug(
+                            f"No samples collected for topic {topic}, skipping profiling"
                         )
 
             except Exception as e:
@@ -801,9 +845,38 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                                     )
                                 return decoded_value
                         except Exception as e:
-                            self.report.report_warning(
-                                "Failed to decode Avro message for topic", topic, exc=e
-                            )
+                            # Enhanced error handling for specific Avro issues
+                            error_msg = str(e)
+                            if "InvalidAvroBinaryEncoding" in error_msg:
+                                logger.debug(
+                                    f"Invalid Avro binary encoding for topic {topic}: {error_msg}"
+                                )
+                                # Skip this message but continue processing
+                                return {
+                                    "avro_decode_error": "Invalid binary encoding",
+                                    "raw_data_length": len(data),
+                                }
+                            elif "SchemaResolutionException" in error_msg:
+                                logger.debug(
+                                    f"Avro schema resolution error for topic {topic}: {error_msg}"
+                                )
+                                # Skip this message but continue processing
+                                return {
+                                    "avro_schema_error": "Schema resolution failed",
+                                    "raw_data_length": len(data),
+                                }
+                            else:
+                                logger.warning(
+                                    f"Avro decode error for topic {topic}: {error_msg}"
+                                )
+                                self.report.report_warning(
+                                    "avro_decode_error",
+                                    f"Failed to decode Avro message for topic {topic}: {error_msg}",
+                                )
+                                return {
+                                    "avro_decode_error": "General decode error",
+                                    "raw_data_length": len(data),
+                                }
 
                     return decode_kafka_message_value(
                         data,

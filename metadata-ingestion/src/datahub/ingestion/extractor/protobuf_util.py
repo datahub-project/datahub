@@ -168,15 +168,24 @@ def protobuf_schema_to_mce_fields(
     :param is_key_schema: True if it is a key-schema. Default is False (value-schema).
     :return: The list of MCE compatible SchemaFields.
     """
-    descriptor: FileDescriptor = _from_protobuf_schema_to_descriptors(
-        main_schema, imported_schemas
-    )
+    descriptor = _from_protobuf_schema_to_descriptors(main_schema, imported_schemas)
+
+    # Handle case where descriptor compilation failed
+    if descriptor is None:
+        logger.warning(
+            f"Failed to compile protobuf schema {main_schema.name}, returning empty fields"
+        )
+        return []
+
     graph: nx.DiGraph = _populate_graph(descriptor)
 
     if nx.is_directed_acyclic_graph(graph):
         return _schema_fields_from_dag(graph, is_key_schema)
     else:
-        raise Exception("Cyclic schemas are not supported")
+        logger.warning(
+            f"Cyclic schema detected in {main_schema.name}, returning empty fields"
+        )
+        return []
 
 
 #
@@ -330,7 +339,7 @@ def _create_schema_field(path: List[str], field: FieldDescriptor) -> _PathAndFie
 
 def _from_protobuf_schema_to_descriptors(
     main_schema: ProtobufSchema, imported_schemas: Optional[List[ProtobufSchema]] = None
-) -> FileDescriptor:
+) -> Optional[FileDescriptor]:
     if imported_schemas is None:
         imported_schemas = []
     imported_schemas.insert(0, main_schema)
@@ -383,14 +392,30 @@ def _from_protobuf_schema_to_descriptors(
         try:
             return grpc.protos(main_schema.name).DESCRIPTOR
         except Exception as e:
+            error_msg = str(e)
             logger.warning(f"Failed to compile protobuf schema {main_schema.name}: {e}")
-            # If compilation fails, try to provide more helpful error message
-            if "google.type" in str(e):
+
+            # Provide specific error messages for common issues
+            if "duplicate symbol" in error_msg.lower():
+                logger.error(
+                    f"Duplicate symbol error in {main_schema.name}. "
+                    f"This typically occurs when the same message type is defined multiple times "
+                    f"or when there are conflicting imports. Consider using schema evolution "
+                    f"or namespace isolation to resolve conflicts."
+                )
+            elif "google.type" in error_msg:
                 logger.error(
                     f"Google type definition error in {main_schema.name}. "
                     f"This may indicate missing google/type imports in the schema registry."
                 )
-            raise
+            elif "descriptor pool" in error_msg.lower():
+                logger.error(
+                    f"Descriptor pool error in {main_schema.name}. "
+                    f"This may indicate conflicting protobuf definitions or circular dependencies."
+                )
+            # Don't raise - let the caller handle the error gracefully
+            # This follows DataHub's pattern of logging warnings and continuing
+            return None
 
 
 def _get_column_type(descriptor: DescriptorBase) -> SchemaFieldDataType:

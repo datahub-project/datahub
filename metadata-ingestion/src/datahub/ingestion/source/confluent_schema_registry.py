@@ -1,15 +1,13 @@
+"""Confluent Schema Registry implementation for DataHub."""
+
 import json
 import logging
-import os
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from hashlib import md5
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple
 
 import avro.schema
 import jsonref
-from confluent_kafka import Consumer
 from confluent_kafka.schema_registry.schema_registry_client import (
     RegisteredSchema,
     Schema,
@@ -21,47 +19,18 @@ from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
-from datahub.ingestion.source.kafka.kafka_config import SchemalessFallback
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
-)
-from datahub.ingestion.source.kafka.kafka_utils import (
-    process_kafka_message_for_sampling,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,
     SchemaMetadata,
 )
-from datahub.metadata.schema_classes import (
-    ArrayTypeClass,
-    BooleanTypeClass,
-    NumberTypeClass,
-    OwnershipSourceTypeClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
-)
+from datahub.metadata.schema_classes import OwnershipSourceTypeClass
 from datahub.utilities.mapping import OperationProcessor
 
 logger = logging.getLogger(__name__)
-
-# Type aliases for better type safety
-MessageValue = Union[str, int, float, bool, Dict[str, Any], List[Any], None]
-
-
-@dataclass
-class FieldAnalysis:
-    """Analysis of a field from message samples."""
-
-    types: Set[str]
-    sample_values: List[str]
-
-    def __init__(self) -> None:
-        self.types = set()
-        self.sample_values = []
-
-
-FieldInfo = Dict[str, FieldAnalysis]
 
 
 @dataclass
@@ -69,13 +38,13 @@ class JsonSchemaWrapper:
     name: str
     subject: str
     content: str
-    references: List[Any]
+    references: List[Schema]
 
 
 class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
     """
-    This is confluent schema registry specific implementation of datahub.ingestion.source.kafka import SchemaRegistry
-    It knows how to get SchemaMetadata of a topic from ConfluentSchemaRegistry
+    Confluent Schema Registry implementation for DataHub.
+    Handles schema retrieval and parsing from Confluent Schema Registry.
     """
 
     def __init__(
@@ -150,7 +119,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
         return json.dumps(json.loads(schema_str), separators=(",", ":"))
 
     def get_schema_str_replace_confluent_ref_avro(
-        self, schema: Schema, schema_seen: Optional[set] = None
+        self, schema: Schema, schema_seen: Optional[Set[str]] = None
     ) -> str:
         if not schema.references:
             return self._compact_schema(schema.schema_str)
@@ -292,7 +261,7 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 )
                 schema = registered_schema.schema
             except Exception as e:
-                self.report.warning(
+                self.report.report_warning(
                     title="Failed to get subject schema from schema registry",
                     message=f"Failed to get {kafka_entity} {schema_type_str or ''} schema from schema registry",
                     context=(
@@ -305,13 +274,8 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 f"For {kafka_entity}: {topic}, the schema registry subject for the {schema_type_str} schema is not found."
             )
             if not is_key_schema:
-                # Value schema is always expected. Check if we should fallback or warn.
-                if self.source_config.schemaless_fallback.enabled:
-                    logger.info(
-                        f"Schema registry subject not found for {kafka_entity}: {topic}. "
-                        f"Falling back to schema-less processing to infer schema from message data."
-                    )
-                else:
+                # Value schema is always expected. Check if we should warn.
+                if not self.source_config.schemaless_fallback.enabled:
                     self.report.warning(
                         title="Unable to find a matching subject name for the topic in the schema registry",
                         message=f"The {kafka_entity} {schema_type_str or ''} is either schema-less, or no messages have been written to the {kafka_entity} yet. "
@@ -328,387 +292,26 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
                 schema=schema,
                 is_key_schema=is_key_schema,
             )
-        elif (
-            self.source_config.schemaless_fallback.enabled
-            and not is_key_schema
-            and not is_subject
-        ):
-            # Schema inference will be handled in batch processing for better performance
-            # Don't infer schema here - let get_schema_and_fields_batch handle it
-            fields = []
-
         return (schema, fields)
 
     def get_schema_and_fields_batch(
         self, topics: List[str], is_key_schema: bool = False
     ) -> Dict[str, Tuple[Optional[Schema], List[SchemaField]]]:
         """
-        Get schemas and fields for multiple topics in batch, using parallel processing for schema-less fallback.
-        This is the main entry point for batch schema processing.
+        Get schemas and fields for multiple topics in batch.
+        Simple implementation that calls _get_schema_and_fields for each topic.
         """
         results = {}
-        topics_needing_fallback = []
-
-        # First, try to get schemas from schema registry
         for topic in topics:
             try:
                 schema, fields = self._get_schema_and_fields(
                     topic, is_key_schema, is_subject=False
                 )
                 results[topic] = (schema, fields)
-
-                # If no schema was found and fallback is enabled, add to fallback list
-                if (
-                    schema is None
-                    and not fields
-                    and self.source_config.schemaless_fallback.enabled
-                    and not is_key_schema
-                ):
-                    topics_needing_fallback.append(topic)
-
             except Exception as e:
                 logger.warning(f"Failed to get schema for topic {topic}: {e}")
-                if self.source_config.schemaless_fallback.enabled and not is_key_schema:
-                    topics_needing_fallback.append(topic)
-                else:
-                    results[topic] = (None, [])
-
-        # Process topics needing fallback in batch (parallel if enabled)
-        if topics_needing_fallback:
-            logger.info(
-                f"Processing {len(topics_needing_fallback)} topics with schema-less fallback"
-            )
-            fallback_results = self.infer_schemas_batch(topics_needing_fallback)
-
-            # Update results with fallback schemas
-            for topic, inferred_fields in fallback_results.items():
-                results[topic] = (None, inferred_fields)
-
+                results[topic] = (None, [])
         return results
-
-    def infer_schemas_batch(self, topics: List[str]) -> Dict[str, List[SchemaField]]:
-        """
-        Infer schemas for multiple topics in parallel for improved performance.
-        Returns a dictionary mapping topic names to their inferred schema fields.
-        """
-        if not topics:
-            return {}
-
-        fallback_config = self.source_config.schemaless_fallback
-        results = {}
-
-        # Process topics in parallel if max_workers > 1
-        if fallback_config.max_workers > 1 and len(topics) > 1:
-            logger.info(
-                f"Processing {len(topics)} topics in parallel for schema inference"
-            )
-            parallel_results = self._infer_schemas_parallel(topics, fallback_config)
-            results.update(parallel_results)
-        else:
-            # Sequential processing
-            logger.debug(
-                f"Processing {len(topics)} topics sequentially for schema inference"
-            )
-            for topic in topics:
-                try:
-                    schema_fields = self._infer_schema_from_messages(topic)
-                    results[topic] = schema_fields
-                except Exception as e:
-                    logger.warning(f"Failed to infer schema for topic {topic}: {e}")
-                    results[topic] = []
-
-        return results
-
-    def _infer_schemas_parallel(
-        self, topics: List[str], fallback_config: SchemalessFallback
-    ) -> Dict[str, List[SchemaField]]:
-        """
-        Process multiple topics in parallel using ThreadPoolExecutor.
-        """
-        results = {}
-
-        # Intelligent worker calculation based on system resources and configuration
-        cpu_count = os.cpu_count() or 4  # Fallback to 4 if cpu_count() returns None
-
-        # Use the smaller of: configured max, number of topics, or 2x CPU cores (reasonable for I/O bound work)
-        max_workers = min(
-            fallback_config.max_workers,
-            len(topics),
-            cpu_count
-            * 2,  # I/O bound work can benefit from more threads than CPU cores
-        )
-
-        logger.info(
-            f"Using {max_workers} parallel workers for {len(topics)} topics (CPU cores: {cpu_count})"
-        )
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Submit all tasks
-            future_to_topic = {
-                executor.submit(self._infer_schema_from_messages, topic): topic
-                for topic in topics
-            }
-
-            # Collect results as they complete
-            for future in as_completed(future_to_topic):
-                topic = future_to_topic[future]
-                try:
-                    schema_fields = future.result()
-                    results[topic] = schema_fields
-                    logger.debug(f"Completed schema inference for topic {topic}")
-                except Exception as e:
-                    logger.warning(f"Failed to infer schema for topic {topic}: {e}")
-                    results[topic] = []
-
-        logger.info(f"Completed parallel schema inference for {len(topics)} topics")
-        return results
-
-    def _sample_topic_messages(
-        self, topic: str, fallback_config: SchemalessFallback
-    ) -> List[Dict[str, MessageValue]]:
-        """
-        Sample messages from a Kafka topic with hybrid strategy: try latest first, fallback to earliest.
-        """
-        strategy = fallback_config.sample_strategy.lower()
-
-        if strategy == "hybrid":
-            # Try latest first for speed
-            logger.debug(f"Trying 'latest' sampling for topic {topic}")
-            messages = self._sample_messages_with_strategy(
-                topic, fallback_config, "latest"
-            )
-
-            if not messages:
-                logger.debug(
-                    f"No recent messages found, trying 'earliest' for topic {topic}"
-                )
-                messages = self._sample_messages_with_strategy(
-                    topic, fallback_config, "earliest"
-                )
-
-            return messages
-        elif strategy == "latest":
-            return self._sample_messages_with_strategy(topic, fallback_config, "latest")
-        else:  # earliest or any other value
-            return self._sample_messages_with_strategy(
-                topic, fallback_config, "earliest"
-            )
-
-    def _sample_messages_with_strategy(
-        self,
-        topic: str,
-        fallback_config: SchemalessFallback,
-        offset_strategy: str,
-    ) -> List[Dict[str, MessageValue]]:
-        """
-        Sample messages from a topic with the specified offset strategy.
-        """
-        start_time = time.time()
-
-        try:
-            # Create a consumer with optimized settings for fast sampling
-            consumer_config = {
-                "bootstrap.servers": self.source_config.connection.bootstrap,
-                "group.id": f"datahub-schema-inference-{topic}-{offset_strategy}-{int(time.time())}",
-                "auto.offset.reset": offset_strategy,
-                "enable.auto.commit": False,
-                "fetch.min.bytes": 1,  # Don't wait for large batches
-                "fetch.wait.max.ms": 100,  # Short wait time
-                "session.timeout.ms": 6000,  # Shorter session timeout
-                **self.source_config.connection.consumer_config,
-            }
-
-            consumer = Consumer(consumer_config)
-            consumer.subscribe([topic])
-
-            messages: List[Dict[str, MessageValue]] = []
-            attempts = 0
-
-            # For 'latest' strategy, use shorter timeout since we expect recent activity
-            timeout_seconds = (
-                fallback_config.sample_timeout_seconds * 0.3  # 30% of normal timeout
-                if offset_strategy == "latest"
-                else fallback_config.sample_timeout_seconds
-            )
-
-            # For 'latest' strategy, reduce poll attempts since we're looking for recent messages
-            max_attempts = (
-                10  # Cap at 10 for latest
-                if offset_strategy == "latest"
-                else 20  # Standard attempts for earliest
-            )
-
-            while (
-                len(messages) < 5  # Sample 5 messages
-                and attempts < max_attempts
-                and (time.time() - start_time) < timeout_seconds
-            ):
-                msg = consumer.poll(timeout=0.5)  # Short poll timeout
-                attempts += 1
-
-                if msg is None:
-                    continue
-                if msg.error():
-                    continue
-
-                try:
-                    # Try to decode the message value
-                    value = msg.value()
-                    if value is None:
-                        continue
-
-                    processed_message = process_kafka_message_for_sampling(value)
-                    messages.append(processed_message)
-
-                except Exception as e:
-                    logger.debug(f"Failed to process message for schema inference: {e}")
-                    continue
-
-            consumer.close()
-
-            elapsed_time = time.time() - start_time
-            logger.debug(
-                f"Sampled {len(messages)} messages from topic {topic} using '{offset_strategy}' strategy "
-                f"in {elapsed_time:.2f}s ({attempts} poll attempts)"
-            )
-
-            return messages
-
-        except Exception as e:
-            logger.debug(
-                f"Failed to sample messages from topic {topic} with '{offset_strategy}' strategy: {e}"
-            )
-            return []
-
-    def _infer_schema_from_messages(self, topic: str) -> List[SchemaField]:
-        """
-        Infer schema fields from actual message data when no schema registry entry exists.
-        This provides a fallback mechanism for schema-less topics.
-        """
-        fallback_config = self.source_config.schemaless_fallback
-
-        try:
-            # Sample messages from the topic
-            sample_messages = self._sample_topic_messages(topic, fallback_config)
-
-            if not sample_messages:
-                logger.debug(f"Skipping empty topic {topic} for schema inference")
-                return []
-
-            # Infer schema fields from the sample data
-            inferred_fields = self._extract_fields_from_samples(topic, sample_messages)
-
-            # Return the inferred fields directly (no caching needed)
-
-            logger.info(
-                f"Successfully inferred {len(inferred_fields)} schema fields from message data for topic {topic}"
-            )
-
-            return inferred_fields
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to infer schema from messages for topic {topic}: {e}. "
-                f"Topic will be processed without schema information."
-            )
-            return []
-
-    def _extract_fields_from_samples(
-        self, topic: str, sample_messages: List[Dict[str, MessageValue]]
-    ) -> List[SchemaField]:
-        """
-        Extract schema fields from sample message data.
-        """
-
-        # Collect all unique field paths and their types from samples
-        field_info: FieldInfo = {}
-
-        for message in sample_messages[
-            :50
-        ]:  # Limit to first 50 messages for performance
-            if not isinstance(message, dict):
-                continue
-
-            # Flatten the message to get all field paths
-            from datahub.ingestion.source.kafka.kafka_profiler import flatten_json
-
-            try:
-                flattened = flatten_json(message, max_depth=5)  # Reasonable depth limit
-
-                for field_path, value in flattened.items():
-                    if field_path not in field_info:
-                        field_info[field_path] = FieldAnalysis()
-
-                    # Determine the type of this value
-                    if value is None:
-                        field_info[field_path].types.add("null")
-                    elif isinstance(value, bool):
-                        field_info[field_path].types.add("boolean")
-                    elif isinstance(value, int):
-                        field_info[field_path].types.add("long")
-                    elif isinstance(value, float):
-                        field_info[field_path].types.add("double")
-                    elif isinstance(value, str):
-                        field_info[field_path].types.add("string")
-                    elif isinstance(value, (list, tuple)):
-                        field_info[field_path].types.add("array")
-                    elif isinstance(value, dict):
-                        field_info[field_path].types.add("record")
-                    else:
-                        field_info[field_path].types.add("string")  # Default to string
-
-                    # Keep a few sample values
-                    if len(field_info[field_path].sample_values) < 3:
-                        field_info[field_path].sample_values.append(str(value))
-
-            except Exception as e:
-                logger.debug(
-                    f"Failed to process message sample for schema inference: {e}"
-                )
-                continue
-
-        # Convert field info to SchemaField objects
-        schema_fields = []
-        for field_path, info in field_info.items():
-            try:
-                # Determine the best type for this field
-                types = info.types
-
-                if "double" in types or "float" in types:
-                    data_type = SchemaFieldDataTypeClass(type=NumberTypeClass())
-                    native_type = "double"
-                elif "long" in types or "int" in types:
-                    data_type = SchemaFieldDataTypeClass(type=NumberTypeClass())
-                    native_type = "long"
-                elif "boolean" in types:
-                    data_type = SchemaFieldDataTypeClass(type=BooleanTypeClass())
-                    native_type = "boolean"
-                elif "array" in types:
-                    data_type = SchemaFieldDataTypeClass(
-                        type=ArrayTypeClass(nestedType=["string"])
-                    )
-                    native_type = "array"
-                else:
-                    data_type = SchemaFieldDataTypeClass(type=StringTypeClass())
-                    native_type = "string"
-
-                # Create the schema field
-                schema_field = SchemaField(
-                    fieldPath=field_path,
-                    type=data_type,
-                    nativeDataType=native_type,
-                    description=f"Inferred from message data. Sample values: {', '.join(info.sample_values[:3])}",
-                    nullable=("null" in types),
-                    recursive=False,
-                )
-
-                schema_fields.append(schema_field)
-
-            except Exception as e:
-                logger.debug(f"Failed to create schema field for {field_path}: {e}")
-                continue
-
-        return schema_fields
 
     def _load_json_schema_with_resolved_references(
         self, schema: Schema, name: str, subject: str
@@ -752,22 +355,49 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
 
         elif schema.schema_type == "PROTOBUF":
-            imported_schemas: List[ProtobufSchema] = (
-                self.get_schemas_from_confluent_ref_protobuf(schema)
-            )
-            base_name: str = topic.replace(".", "_")
-            fields = protobuf_util.protobuf_schema_to_mce_fields(
-                ProtobufSchema(
-                    (
-                        f"{base_name}-key.proto"
-                        if is_key_schema
-                        else f"{base_name}-value.proto"
+            try:
+                imported_schemas: List[ProtobufSchema] = (
+                    self.get_schemas_from_confluent_ref_protobuf(schema)
+                )
+                base_name: str = topic.replace(".", "_")
+                fields = protobuf_util.protobuf_schema_to_mce_fields(
+                    ProtobufSchema(
+                        (
+                            f"{base_name}-key.proto"
+                            if is_key_schema
+                            else f"{base_name}-value.proto"
+                        ),
+                        schema.schema_str,
                     ),
-                    schema.schema_str,
-                ),
-                imported_schemas,
-                is_key_schema=is_key_schema,
-            )
+                    imported_schemas,
+                    is_key_schema=is_key_schema,
+                )
+            except Exception as e:
+                error_msg = str(e)
+                if "duplicate symbol" in error_msg.lower():
+                    logger.warning(
+                        f"Protobuf duplicate symbol error for topic {topic}: {error_msg}. "
+                        f"This often occurs with schema evolution or multiple versions of the same message type."
+                    )
+                    # Return empty fields but don't fail completely
+                    fields = []
+                elif "descriptor pool" in error_msg.lower():
+                    logger.warning(
+                        f"Protobuf descriptor pool error for topic {topic}: {error_msg}. "
+                        f"This may indicate conflicting protobuf definitions."
+                    )
+                    # Return empty fields but don't fail completely
+                    fields = []
+                else:
+                    logger.warning(
+                        f"Failed to process protobuf schema for topic {topic}: {e}"
+                    )
+                    self.report.report_warning(
+                        "protobuf_schema_parsing_error",
+                        f"Failed to parse protobuf schema for topic {topic}: {e}",
+                    )
+                    # Always continue processing - don't raise
+                    fields = []
         elif schema.schema_type == "JSON":
             base_name = topic.replace(".", "_")
             canonical_name = (
@@ -790,46 +420,6 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             )
         return fields
 
-    def _get_schema_metadata(
-        self, topic: str, platform_urn: str, is_subject: bool
-    ) -> Optional[SchemaMetadata]:
-        # Process the value schema
-        schema, fields = self._get_schema_and_fields(
-            topic=topic,
-            is_key_schema=False,
-            is_subject=is_subject,
-        )  # type: Tuple[Optional[Schema], List[SchemaField]]
-
-        # Process the key schema
-        key_schema, key_fields = self._get_schema_and_fields(
-            topic=topic,
-            is_key_schema=True,
-            is_subject=is_subject,
-        )  # type:Tuple[Optional[Schema], List[SchemaField]]
-
-        # Create the schemaMetadata aspect.
-        if schema is not None or key_schema is not None:
-            # create a merged string for the combined schemas and compute an md5 hash across
-            schema_as_string = (schema.schema_str if schema is not None else "") + (
-                key_schema.schema_str if key_schema is not None else ""
-            )
-            md5_hash: str = md5(schema_as_string.encode()).hexdigest()
-
-            return SchemaMetadata(
-                schemaName=topic,
-                version=0,
-                hash=md5_hash,
-                platform=platform_urn,
-                platformSchema=KafkaSchema(
-                    documentSchema=schema.schema_str if schema else "",
-                    documentSchemaType=schema.schema_type if schema else None,
-                    keySchema=key_schema.schema_str if key_schema else None,
-                    keySchemaType=key_schema.schema_type if key_schema else None,
-                ),
-                fields=key_fields + fields,
-            )
-        return None
-
     def get_schema_metadata(
         self, topic: str, platform_urn: str, is_subject: bool
     ) -> Optional[SchemaMetadata]:
@@ -840,14 +430,14 @@ class ConfluentSchemaRegistry(KafkaSchemaRegistryBase):
             topic=topic,
             is_key_schema=False,
             is_subject=is_subject,
-        )  # type: Tuple[Optional[Schema], List[SchemaField]]
+        )
 
         # Process the key schema
         key_schema, key_fields = self._get_schema_and_fields(
             topic=topic,
             is_key_schema=True,
             is_subject=is_subject,
-        )  # type:Tuple[Optional[Schema], List[SchemaField]]
+        )
 
         # Create the schemaMetadata aspect.
         if schema is not None or key_schema is not None:

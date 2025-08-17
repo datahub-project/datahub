@@ -468,3 +468,96 @@ profiling:
 ```
 
 This is particularly useful for topics with complex nested messages or potential circular references.
+
+## Troubleshooting
+
+### Schema Parsing Errors
+
+DataHub automatically handles schema parsing errors gracefully and continues processing. Common issues and solutions:
+
+#### Avro Binary Encoding Errors
+
+**Error:** `avro.errors.InvalidAvroBinaryEncoding: Read 0 bytes, expected 1 bytes`
+
+**Solution:** Enable schemaless fallback to automatically infer schemas:
+
+```yaml
+source:
+  type: kafka
+  config:
+    schemaless_fallback:
+      enabled: true # Automatically infer schemas when parsing fails
+      sample_strategy: "hybrid" # Try latest messages first, fallback to earliest
+```
+
+#### Protobuf Duplicate Symbol Errors
+
+**Error:** `Couldn't build proto file into descriptor pool: duplicate symbol`
+
+**Solution:** DataHub logs warnings and continues processing. Topics with schema conflicts will use inferred schemas if schemaless fallback is enabled.
+
+#### Schema Registry Connection Issues
+
+If schema registry is unavailable, enable schemaless fallback:
+
+```yaml
+source:
+  type: kafka
+  config:
+    connection:
+      schema_registry_url: "http://localhost:8081"
+    schemaless_fallback:
+      enabled: true # Fallback when registry is unavailable
+```
+
+### Performance Optimization
+
+For large Kafka clusters with many topics:
+
+> **Note:** The `profiling.max_workers` setting controls parallelization for both profiling and schema inference operations, following DataHub's standard configuration patterns.
+
+```yaml
+source:
+  type: kafka
+  config:
+    # Filter topics to reduce processing time
+    topic_patterns:
+      allow: ["prod_.*", "analytics_.*"]
+      deny: [".*_temp", ".*_test"]
+
+    # Optimize profiling (also controls schema inference parallelization)
+    profiling:
+      enabled: true
+      max_workers: 20 # Controls both profiling AND schema inference parallelization
+      sample_size: 100 # Reduce sample size for faster processing
+
+    # Optimize schema inference
+    schemaless_fallback:
+      enabled: true
+      sample_timeout_seconds: 1.0 # Faster sampling
+```
+
+### Common Configuration Issues
+
+#### Missing Topic Metadata
+
+Ensure proper Kafka permissions:
+
+```bash
+# For Confluent Cloud, ensure ACLs allow DESCRIBE operations
+Topic Name = *
+Permission = ALLOW
+Operation = DESCRIBE
+Pattern Type = LITERAL
+```
+
+#### Memory Issues with Large Topics
+
+For topics with large messages or high volume:
+
+```yaml
+profiling:
+  enabled: true
+  sample_size: 50 # Reduce memory usage
+  flatten_max_depth: 2 # Prevent deep recursion
+```

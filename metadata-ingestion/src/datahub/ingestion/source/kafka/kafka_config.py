@@ -1,4 +1,3 @@
-import os
 from typing import Dict, Optional
 
 from pydantic import Field, PositiveInt
@@ -26,10 +25,7 @@ class SchemalessFallback(ConfigModel):
         default=False,
         description="Enable automatic fallback to schema-less processing for topics not found in the schema registry.",
     )
-    max_workers: int = Field(
-        default=5 * (os.cpu_count() or 4),
-        description="Maximum number of topics to process in parallel for schema inference. Set to 1 to disable parallel processing.",
-    )
+
     sample_timeout_seconds: float = Field(
         default=2.0,
         description="Maximum time to spend sampling messages from a single topic (in seconds).",
@@ -75,11 +71,7 @@ class ProfilerConfig(GEProfilingConfig):
         description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process.",
     )
 
-    # Override max_workers with Kafka-appropriate default (GEProfilingConfig defaults to 5 * cpu_count)
-    max_workers: int = Field(
-        default=5 * (os.cpu_count() or 4),
-        description="Number of worker threads to use for profiling. Kafka profiling can now be parallelized.",
-    )
+    # Inherits max_workers from GEProfilingConfig - controls profiling and schema inference parallelization
 
     # Kafka-specific field for handling complex nested JSON/Avro structures
     flatten_max_depth: int = Field(
@@ -117,6 +109,7 @@ class KafkaSourceConfig(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
+
     meta_mapping: Dict = Field(
         default={},
         description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
