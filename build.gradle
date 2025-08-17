@@ -397,6 +397,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
     exclude group: 'com.typesafe.play', module: 'shaded-oauth'
+    exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
     
     // Tomcat excluded for jetty
