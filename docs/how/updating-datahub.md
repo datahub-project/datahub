@@ -59,6 +59,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Known Issues
 
+- Internal Schema Registry - The internal schema registry does not supply a compatible schema for older MCP messages. The short term recommendation is to process all MCPs before upgrading to this release.
+
 ### Potential Downtime
 
 ### Deprecations
