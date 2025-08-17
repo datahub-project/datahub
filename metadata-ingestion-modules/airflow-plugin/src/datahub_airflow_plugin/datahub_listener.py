@@ -39,11 +39,8 @@ from airflow.providers.openlineage.utils.utils import (
     print_warning,
 )
 from airflow.providers.openlineage import conf
-from airflow.providers.openlineage.extractors.manager import ExtractorManager
-from airflow.providers.openlineage.extractors.base import OperatorLineage
 from airflow.providers.openlineage.plugins.adapter import OpenLineageAdapter, RunState
 from openlineage.client.serde import Serde
-# from airflow.providers.openlineage.client.serde import Serde
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataJob
@@ -445,10 +442,6 @@ class DataHubListener:
             assert task is not None
             dag: "DAG" = task.dag  # type: ignore[assignment]
             start_date = task_instance.start_date
-            # self._on_task_instance_running(task_instance, dag, dagrun, task, start_date)
-
-
-            #TODO: Datahub specific methods below
 
             datajob = AirflowGenerator.generate_datajob(
                 cluster=self.config.cluster,
@@ -462,7 +455,7 @@ class DataHubListener:
             # TODO: Make use of get_task_location to extract github urls.
 
             # Add lineage info.
-            self._extract_lineage(datajob, dagrun, task, task_instance)
+            self._extract_lineage(datajob, dagrun, task, task_instance, start_date)
 
             # TODO: Add handling for Airflow mapped tasks using task_instance.map_index
 
@@ -541,8 +534,6 @@ class DataHubListener:
                 return
 
             # self._on_task_instance_running(task_instance, dag, dag_run, task, start_date)
-
-            # TODO: Datahub specific methods below
 
             datajob = AirflowGenerator.generate_datajob(
                 cluster=self.config.cluster,
