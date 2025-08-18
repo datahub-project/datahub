@@ -16,6 +16,7 @@ Produces the following variables and supports token replacement
  e.g. -PreleaseVersion=0.2.3.4 will set the jar version to 0.2.3-4
 
  **/
+apply from: './gradle/versioning/extractDefaultCliVersion.gradle'
 
 import groovy.json.JsonBuilder
 
@@ -29,16 +30,14 @@ def snapshotVersion = false
 // metadata-integration/java/versioning.gradle reads javaVersion as version.
 def javaVersion = ""
 
-// Used to tag docker images. If the project property tag is set, use it as is (posssibly add suffixes like slim, pythonVersion if applicable). 
+// Used to tag docker images. If the project property tag is set, use it as is (posssibly add suffixes like slim, pythonVersion if applicable).
 // Otherwise, compute the tag from the version.
-def versionTag = "" 
-
+def versionTag = ""
 
 if (project.hasProperty("releaseVersion")) {
   version = releaseVersion
   detailedVersionString = releaseVersion
   javaVersion = version
-  cliVersion = version // Assume that the release version corresponds to already-released CLI version.
 } else {
   try {
       // apply this plugin in a try-catch block so that we can handle cases without .git directory
@@ -88,6 +87,9 @@ if (project.hasProperty("releaseVersion")) {
       }
   }
 }
+
+// Compute the default cli version.
+cliVersion = project.ext.extractDefaultCliVersion(version)
 
 if (project.hasProperty("tag")) {
   versionTag = tag
