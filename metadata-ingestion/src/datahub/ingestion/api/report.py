@@ -161,6 +161,7 @@ class SourceReportSubtypes:
     entity_type: str
     subType: str = field(default="unknown")
     aspects: Dict[str, int] = field(default_factory=dict)
+    is_stale: bool = field(default=False)
 
 
 class ReportAttribute(BaseModel):
@@ -217,6 +218,7 @@ class ExamplesReport(Report, Closeable):
                 "entityType": lambda val: val.entity_type,
                 "subTypes": lambda val: val.subType,
                 "aspects": lambda val: json.dumps(val.aspects),
+                "is_stale": lambda val: val.is_stale,
             },
         )
 
@@ -377,6 +379,13 @@ class ExamplesReport(Report, Closeable):
                 aspects=aspects_dict,
             )
 
+    def add_stale_entity_removal_urn(self, urn: str) -> None:
+        """Mark a URN as being soft deleted due to staleness."""
+        assert self._file_based_dict is not None
+        if urn in self._file_based_dict:
+            self._file_based_dict[urn].is_stale = True
+            self._file_based_dict.mark_dirty(urn)
+
     def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
         urn = wu.get_urn()
 
@@ -398,10 +407,12 @@ class ExamplesReport(Report, Closeable):
         if self._file_based_dict is None:
             return
 
+        # Query that excludes all aspects from stale entity removal URNs
         query = """
         SELECT entityType, subTypes, aspects, count(*) as count
         FROM urn_aspects 
-        group by entityType, subTypes, aspects
+        WHERE is_stale = 0
+        GROUP BY entityType, subTypes, aspects
         """
 
         entity_subtype_aspect_counts: Dict[str, Dict[str, Dict[str, int]]] = (
@@ -410,6 +421,7 @@ class ExamplesReport(Report, Closeable):
         entity_subtype_aspect_counts_exist: Dict[str, Dict[str, Dict[str, int]]] = (
             defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
         )
+
         for row in self._file_based_dict.sql_query(query):
             entity_type = row["entityType"]
             sub_type = row["subTypes"]
