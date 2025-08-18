@@ -146,7 +146,7 @@ class TestExternalConnectionConfig:
         mock_response.raise_for_status.return_value = None
 
         with patch(
-            "datahub.ingestion.source.dbt.dbt_external_connections.requests.get",
+            "datahub.ingestion.source.data_lake_common.file_loader.requests.get",
             return_value=mock_response,
         ):
             result = config.load_file_as_json("https://example.com/file.json")

@@ -4,7 +4,6 @@ import tempfile
 from pathlib import Path
 from typing import Dict, Optional
 
-import requests
 from pydantic import Field
 
 from datahub.configuration.git import GitInfo
@@ -153,18 +152,10 @@ class ExternalConnectionConfig(DataLakeConnectionConfig):
         """
         if is_git_uri(uri):
             return self._load_git_file_as_json(uri)
-        elif is_data_lake_uri(uri):
-            # Delegate to the inherited data lake file loading functionality
-            return load_file_as_json(uri, self)
-        elif uri.startswith(("http://", "https://")):
-            # Regular HTTP/HTTPS URL (not detected as cloud URI)
-            response = requests.get(uri)
-            response.raise_for_status()
-            return response.json()
         else:
-            # Local file path
-            with open(uri, "r", encoding="utf-8") as f:
-                return json.load(f)
+            # Delegate all non-Git URIs to the centralized file loader
+            # This handles cloud storage, HTTP/HTTPS, and local files with security protections
+            return load_file_as_json(uri, self)
 
     def _load_git_file_as_json(self, uri: str) -> Dict:
         """
@@ -214,6 +205,9 @@ class ExternalConnectionConfig(DataLakeConnectionConfig):
             )
 
             # Load the file from the cloned repository
+            # Prevent path traversal attacks
+            if "../" in file_path or "..\\" in file_path:
+                raise ValueError("Invalid file path")
             full_file_path = Path(cloned_path) / file_path
             with open(full_file_path, "r", encoding="utf-8") as f:
                 return json.load(f)
