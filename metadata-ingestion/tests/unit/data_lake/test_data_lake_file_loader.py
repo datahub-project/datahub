@@ -161,29 +161,21 @@ class TestDataLakeFileLoader:
         data_lake_connections = DataLakeConnectionConfig()
 
         # Test S3 without AWS connection
-        with pytest.raises(
-            ValueError, match="Please provide aws_connection configuration"
-        ):
+        with pytest.raises(ValueError, match="AWS connection required for S3 URI"):
             load_file_as_json("s3://bucket/file.json", data_lake_connections)
 
         # Test GCS without GCS connection
-        with pytest.raises(
-            ValueError, match="Please provide gcs_connection configuration"
-        ):
+        with pytest.raises(ValueError, match="GCS connection required for GCS URI"):
             load_file_as_json("gs://bucket/file.json", data_lake_connections)
 
         # Test Azure without Azure connection
-        with pytest.raises(
-            ValueError, match="Please provide azure_connection configuration"
-        ):
+        with pytest.raises(ValueError, match="Azure connection required for ABS URI"):
             load_file_as_json(
                 "https://account.blob.core.windows.net/container/file.json",
                 data_lake_connections,
             )
 
-        with pytest.raises(
-            ValueError, match="Please provide azure_connection configuration"
-        ):
+        with pytest.raises(ValueError, match="Azure connection required for ABS URI"):
             load_file_as_json(
                 "abfss://container@account.dfs.core.windows.net/file.json",
                 data_lake_connections,

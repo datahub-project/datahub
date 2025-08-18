@@ -20,12 +20,11 @@ from datahub.configuration import ConfigModel
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.azure.azure_common import AzureConnectionConfig
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
-from datahub.ingestion.source.data_lake_common.object_store import (
-    ABSObjectStore,
-    GCSObjectStore,
-    S3ObjectStore,
-    get_object_store_for_uri,
-)
+
+# NOTE: Object store classes are imported locally in functions to avoid loading
+# cloud dependencies until actually needed. While the classes themselves don't
+# have cloud dependencies, importing this module loads AwsConnectionConfig,
+# AzureConnectionConfig, and GCPCredential which do load cloud SDKs.
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,16 @@ def is_data_lake_uri(uri: str) -> bool:
     if not uri:
         return False
 
-    return get_object_store_for_uri(uri) is not None
+    # Local imports to avoid loading unnecessary cloud dependencies
+    from datahub.ingestion.source.data_lake_common.object_store import (
+        ABSObjectStore,
+        GCSObjectStore,
+        S3ObjectStore,
+    )
+
+    # Check if any object store can handle this URI
+    object_stores = [S3ObjectStore, GCSObjectStore, ABSObjectStore]
+    return any(store.is_uri(uri) for store in object_stores)
 
 
 def get_data_lake_uri_type(uri: str) -> Optional[str]:
@@ -63,15 +71,77 @@ def get_data_lake_uri_type(uri: str) -> Optional[str]:
     if not uri:
         return None
 
-    object_store = get_object_store_for_uri(uri)
-    if object_store == S3ObjectStore:
+    # Local imports to avoid loading unnecessary cloud dependencies
+    from datahub.ingestion.source.data_lake_common.object_store import (
+        ABSObjectStore,
+        GCSObjectStore,
+        S3ObjectStore,
+    )
+
+    # Check each object store type
+    if S3ObjectStore.is_uri(uri):
         return "s3"
-    elif object_store == GCSObjectStore:
+    elif GCSObjectStore.is_uri(uri):
         return "gcs"
-    elif object_store == ABSObjectStore:
+    elif ABSObjectStore.is_uri(uri):
         return "azure"
     else:
         return None
+
+
+# Individual URI detection functions for specific connectors
+def is_s3_uri(uri: str) -> bool:
+    """
+    Check if a URI is for Amazon S3.
+
+    Uses the centralized S3ObjectStore detection from data_lake_common.
+    Local import to avoid loading unnecessary cloud dependencies.
+
+    Args:
+        uri: The URI to check
+
+    Returns:
+        bool: True if the URI is for S3, False otherwise
+    """
+    from datahub.ingestion.source.data_lake_common.object_store import S3ObjectStore
+
+    return S3ObjectStore.is_uri(uri)
+
+
+def is_gcs_uri(uri: str) -> bool:
+    """
+    Check if a URI is for Google Cloud Storage.
+
+    Uses the centralized GCSObjectStore detection from data_lake_common.
+    Local import to avoid loading unnecessary cloud dependencies.
+
+    Args:
+        uri: The URI to check
+
+    Returns:
+        bool: True if the URI is for GCS, False otherwise
+    """
+    from datahub.ingestion.source.data_lake_common.object_store import GCSObjectStore
+
+    return GCSObjectStore.is_uri(uri)
+
+
+def is_abs_uri(uri: str) -> bool:
+    """
+    Check if a URI is for Azure Blob Storage.
+
+    Uses the centralized ABSObjectStore detection from data_lake_common.
+    Local import to avoid loading unnecessary cloud dependencies.
+
+    Args:
+        uri: The URI to check
+
+    Returns:
+        bool: True if the URI is for ABS, False otherwise
+    """
+    from datahub.ingestion.source.data_lake_common.object_store import ABSObjectStore
+
+    return ABSObjectStore.is_uri(uri)
 
 
 class DataLakeConnectionConfig(ConfigModel):
@@ -139,16 +209,23 @@ class DataLakeConnectionConfig(ConfigModel):
         gcs_uris = []
         azure_uris = []
 
+        # Local imports to avoid loading unnecessary cloud dependencies
+        from datahub.ingestion.source.data_lake_common.object_store import (
+            ABSObjectStore,
+            GCSObjectStore,
+            S3ObjectStore,
+        )
+
         for uri in uris:
             if not uri:
                 continue
 
-            object_store = get_object_store_for_uri(uri)
-            if object_store == S3ObjectStore:
+            # Check each object store type
+            if S3ObjectStore.is_uri(uri):
                 s3_uris.append(uri)
-            elif object_store == GCSObjectStore:
+            elif GCSObjectStore.is_uri(uri):
                 gcs_uris.append(uri)
-            elif object_store == ABSObjectStore:
+            elif ABSObjectStore.is_uri(uri):
                 azure_uris.append(uri)
 
         # Check for missing connections

@@ -11,7 +11,9 @@ from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
     get_object_key,
     get_object_store_bucket_name,
-    get_object_store_for_uri,
+)
+from datahub.ingestion.source.data_lake_common.object_store_client import (
+    ObjectStoreClient,
 )
 
 
@@ -309,7 +311,7 @@ class TestUtilityFunctions:
     )
     def test_get_object_store_for_uri(self, uri, expected):
         """Test the get_object_store_for_uri function."""
-        assert get_object_store_for_uri(uri) == expected
+        assert ObjectStoreClient.get_object_store_for_uri(uri) == expected
 
     @pytest.mark.parametrize(
         "uri,expected",

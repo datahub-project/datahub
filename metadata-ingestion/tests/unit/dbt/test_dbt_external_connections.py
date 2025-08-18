@@ -171,9 +171,7 @@ class TestExternalConnectionConfig:
         config = ExternalConnectionConfig()
 
         # Should raise error for cloud URIs without connections
-        with pytest.raises(
-            ValueError, match="Please provide aws_connection configuration"
-        ):
+        with pytest.raises(ValueError, match="AWS connection required for S3 URI"):
             config.load_file_as_json("s3://bucket/file.json")
 
         # Should delegate to data lake file loader when connections are provided
@@ -326,19 +324,35 @@ class TestDbtSpecificFunctionality:
 
     def test_backwards_compatibility_function_names(self):
         """Test that backwards compatibility function names still work."""
-        from datahub.ingestion.source.dbt.dbt_external_connections import (
-            get_data_lake_uri_type,
+        # Import the centralized is_data_lake_uri (the actual legacy function that existed)
+        from datahub.ingestion.source.data_lake_common.connections import (
             is_data_lake_uri,
         )
 
-        # These functions should now include Git and HTTP URIs for backwards compatibility
+        # Test data lake URIs (cloud storage only - backwards compatible)
         assert is_data_lake_uri("s3://bucket/file.json")
-        assert is_data_lake_uri("git@github.com:owner/repo.git")
-        assert is_data_lake_uri("https://example.com/file.json")
+        assert is_data_lake_uri("gs://bucket/file.json")
+        assert is_data_lake_uri(
+            "abfss://container@account.dfs.core.windows.net/file.json"
+        )
 
-        assert get_data_lake_uri_type("s3://bucket/file.json") == "s3"
-        assert get_data_lake_uri_type("git@github.com:owner/repo.git") == "git"
-        assert get_data_lake_uri_type("https://example.com/file.json") == "http"
+        # Test that non-data-lake URIs return False (correct behavior)
+        assert not is_data_lake_uri("git@github.com:owner/repo.git")
+        assert not is_data_lake_uri("https://example.com/file.json")
+
+        # Test the NEW dbt-specific functions (not legacy - these are new functionality)
+        from datahub.ingestion.source.dbt.dbt_external_connections import (
+            get_dbt_external_uri_type,
+            is_dbt_external_uri,
+        )
+
+        assert get_dbt_external_uri_type("s3://bucket/file.json") == "s3"
+        assert get_dbt_external_uri_type("git@github.com:owner/repo.git") == "git"
+        assert get_dbt_external_uri_type("https://example.com/file.json") == "http"
+
+        assert is_dbt_external_uri("s3://bucket/file.json")
+        assert is_dbt_external_uri("git@github.com:owner/repo.git")
+        assert is_dbt_external_uri("https://example.com/file.json")
 
     def test_mixed_external_connections(self):
         """Test configuration with both data lake and Git connections."""

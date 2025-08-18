@@ -1,12 +1,13 @@
+import json
 import re
 from abc import ABC, abstractmethod
-
-# Add imports for source customization
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Optional, TypeVar
 from urllib.parse import unquote
 
 # Don't import TableData at the module level to avoid circular imports
 # from datahub.ingestion.source.s3.source import TableData
+# Don't import ObjectStoreClient at the module level to avoid circular imports
+# from datahub.ingestion.source.data_lake_common.object_store_client import ObjectStoreClient
 
 T = TypeVar("T")
 
@@ -99,23 +100,61 @@ class ObjectStoreInterface(ABC):
         pass
 
     @classmethod
-    def get_object_store_bucket_name(cls, uri: str) -> str:
+    @abstractmethod
+    def load_file_as_json(cls, uri: str, connection_config: Any) -> Dict[str, Any]:
         """
-        Get the bucket name from the URI, handling foreign URIs if supported.
-
-        The default implementation just calls get_bucket_name, but subclasses
-        can override this to handle URIs from other object stores.
+        Load a file from the object store as JSON.
 
         Args:
-            uri: The URI to get the bucket name from
+            uri: The URI of the file to load
+            connection_config: The connection configuration for this object store
 
         Returns:
-            The bucket name
+            Dict[str, Any]: The loaded JSON content
 
         Raises:
-            ValueError: If the URI is not supported
+            ValueError: If the URI is not valid for this object store
+            Exception: If file loading fails
         """
-        return cls.get_bucket_name(uri)
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load_file_as_text(cls, uri: str, connection_config: Any) -> str:
+        """
+        Load a file from the object store as text.
+
+        Args:
+            uri: The URI of the file to load
+            connection_config: The connection configuration for this object store
+
+        Returns:
+            str: The loaded text content
+
+        Raises:
+            ValueError: If the URI is not valid for this object store
+            Exception: If file loading fails
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load_file_as_bytes(cls, uri: str, connection_config: Any) -> bytes:
+        """
+        Load a file from the object store as bytes.
+
+        Args:
+            uri: The URI of the file to load
+            connection_config: The connection configuration for this object store
+
+        Returns:
+            bytes: The loaded file content
+
+        Raises:
+            ValueError: If the URI is not valid for this object store
+            Exception: If file loading fails
+        """
+        pass
 
 
 class S3ObjectStore(ObjectStoreInterface):
@@ -163,20 +202,34 @@ class S3ObjectStore(ObjectStoreInterface):
         return parts[1]
 
     @classmethod
-    def get_object_store_bucket_name(cls, uri: str) -> str:
-        """
-        Get the bucket name from an S3 URI.
+    def load_file_as_json(cls, uri: str, connection_config: Any) -> Dict[str, Any]:
+        """Load a file from S3 as JSON."""
+        s3_client = connection_config.get_s3_client()
+        bucket_name = cls.get_bucket_name(uri)
+        key = cls.get_object_key(uri)
 
-        Args:
-            uri: The URI to get the bucket name from
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return json.loads(response["Body"].read())
 
-        Returns:
-            The bucket name
+    @classmethod
+    def load_file_as_text(cls, uri: str, connection_config: Any) -> str:
+        """Load a file from S3 as text."""
+        s3_client = connection_config.get_s3_client()
+        bucket_name = cls.get_bucket_name(uri)
+        key = cls.get_object_key(uri)
 
-        Raises:
-            ValueError: If the URI is not an S3 URI
-        """
-        return cls.get_bucket_name(uri)
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return response["Body"].read().decode("utf-8")
+
+    @classmethod
+    def load_file_as_bytes(cls, uri: str, connection_config: Any) -> bytes:
+        """Load a file from S3 as bytes."""
+        s3_client = connection_config.get_s3_client()
+        bucket_name = cls.get_bucket_name(uri)
+        key = cls.get_object_key(uri)
+
+        response = s3_client.get_object(Bucket=bucket_name, Key=key)
+        return response["Body"].read()
 
 
 class GCSObjectStore(ObjectStoreInterface):
@@ -217,20 +270,43 @@ class GCSObjectStore(ObjectStoreInterface):
         return parts[1]
 
     @classmethod
-    def get_object_store_bucket_name(cls, uri: str) -> str:
-        """
-        Get the bucket name from a GCS URI.
+    def load_file_as_json(cls, uri: str, connection_config: Any) -> Dict[str, Any]:
+        """Load a file from GCS as JSON."""
+        from google.cloud import storage
 
-        Args:
-            uri: The URI to get the bucket name from
+        client = storage.Client.from_service_account_info(connection_config.to_dict())
+        bucket_name = cls.get_bucket_name(uri)
+        blob_name = cls.get_object_key(uri)
 
-        Returns:
-            The bucket name
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+        return json.loads(blob.download_as_text())
 
-        Raises:
-            ValueError: If the URI is not a GCS URI
-        """
-        return cls.get_bucket_name(uri)
+    @classmethod
+    def load_file_as_text(cls, uri: str, connection_config: Any) -> str:
+        """Load a file from GCS as text."""
+        from google.cloud import storage
+
+        client = storage.Client.from_service_account_info(connection_config.to_dict())
+        bucket_name = cls.get_bucket_name(uri)
+        blob_name = cls.get_object_key(uri)
+
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+        return blob.download_as_text()
+
+    @classmethod
+    def load_file_as_bytes(cls, uri: str, connection_config: Any) -> bytes:
+        """Load a file from GCS as bytes."""
+        from google.cloud import storage
+
+        client = storage.Client.from_service_account_info(connection_config.to_dict())
+        bucket_name = cls.get_bucket_name(uri)
+        blob_name = cls.get_object_key(uri)
+
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_name)
+        return blob.download_as_bytes()
 
 
 class ABSObjectStore(ObjectStoreInterface):
@@ -308,92 +384,60 @@ class ABSObjectStore(ObjectStoreInterface):
                 return ""
             return parts[1]
 
+    @classmethod
+    def load_file_as_json(cls, uri: str, connection_config: Any) -> Dict[str, Any]:
+        """Load a file from Azure Blob Storage as JSON."""
+        blob_service_client = connection_config.get_blob_service_client()
+        container_name = cls.get_bucket_name(uri)
+        blob_name = cls.get_object_key(uri)
 
-# Registry of all object store implementations
-OBJECT_STORE_REGISTRY: Dict[str, Type[ObjectStoreInterface]] = {
-    "s3": S3ObjectStore,
-    "gcs": GCSObjectStore,
-    "abs": ABSObjectStore,
-}
-
-
-def get_object_store_for_uri(uri: str) -> Optional[Type[ObjectStoreInterface]]:
-    """
-    Get the appropriate object store implementation for the given URI.
-
-    Args:
-        uri: The URI to get the object store for
-
-    Returns:
-        The object store implementation, or None if no matching implementation is found
-    """
-    for object_store in OBJECT_STORE_REGISTRY.values():
-        if object_store.is_uri(uri):
-            return object_store
-    return None
-
-
-def get_object_store_bucket_name(uri: str) -> str:
-    """
-    Get the bucket name from any supported object store URI.
-
-    This function acts as a central dispatcher that:
-    1. Identifies the appropriate object store implementation for the URI
-    2. Uses that implementation to extract the bucket name
-    3. Falls back to specific URI format parsing if needed
-
-    Args:
-        uri: The URI to get the bucket name from
-
-    Returns:
-        The bucket name
-
-    Raises:
-        ValueError: If the URI is not supported by any registered object store
-    """
-    # First try to find the native implementation for this URI
-    object_store = get_object_store_for_uri(uri)
-    if object_store:
-        return object_store.get_bucket_name(uri)
-
-    # If no native implementation, handle specific URI formats directly
-    if uri.startswith("gs://"):
-        return uri[5:].split("/")[0]
-    elif any(uri.startswith(prefix) for prefix in S3ObjectStore.PREFIXES):
-        prefix_length = next(
-            len(prefix) for prefix in S3ObjectStore.PREFIXES if uri.startswith(prefix)
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
         )
-        return uri[prefix_length:].split("/")[0]
-    elif uri.startswith(ABSObjectStore.PREFIX):
-        return uri[len(ABSObjectStore.PREFIX) :].split("@")[0]
-    elif ABSObjectStore.HTTPS_REGEX.match(uri):
-        # Handle HTTPS Azure Blob Storage URLs
-        match = ABSObjectStore.HTTPS_REGEX.match(uri)
-        if match:
-            stripped = uri[len(match.group(1)) :]
-            return stripped.split("/")[0]
+        return json.loads(blob_client.download_blob().readall())
 
-    raise ValueError(f"Unsupported URI format: {uri}")
+    @classmethod
+    def load_file_as_text(cls, uri: str, connection_config: Any) -> str:
+        """Load a file from Azure Blob Storage as text."""
+        blob_service_client = connection_config.get_blob_service_client()
+        container_name = cls.get_bucket_name(uri)
+        blob_name = cls.get_object_key(uri)
+
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
+        )
+        return blob_client.download_blob().readall().decode("utf-8")
+
+    @classmethod
+    def load_file_as_bytes(cls, uri: str, connection_config: Any) -> bytes:
+        """Load a file from Azure Blob Storage as bytes."""
+        blob_service_client = connection_config.get_blob_service_client()
+        container_name = cls.get_bucket_name(uri)
+        blob_name = cls.get_object_key(uri)
+
+        blob_client = blob_service_client.get_blob_client(
+            container=container_name, blob=blob_name
+        )
+        return blob_client.download_blob().readall()
+
+
+# Legacy functions for backwards compatibility
+def get_object_store_bucket_name(uri: str) -> str:
+    """DEPRECATED: Use ObjectStoreClient.get_bucket_name() instead."""
+    from datahub.ingestion.source.data_lake_common.object_store_client import (
+        ObjectStoreClient,
+    )
+
+    return ObjectStoreClient.get_bucket_name(uri)
 
 
 def get_object_key(uri: str) -> str:
-    """
-    Get the object key from any supported object store URI.
+    """DEPRECATED: Use ObjectStoreClient.get_object_key() instead."""
+    from datahub.ingestion.source.data_lake_common.object_store_client import (
+        ObjectStoreClient,
+    )
 
-    Args:
-        uri: The URI to get the object key from
-
-    Returns:
-        The object key
-
-    Raises:
-        ValueError: If the URI is not supported by any registered object store
-    """
-    object_store = get_object_store_for_uri(uri)
-    if object_store:
-        return object_store.get_object_key(uri)
-
-    raise ValueError(f"Unsupported URI format: {uri}")
+    return ObjectStoreClient.get_object_key(uri)
 
 
 class ObjectStoreSourceAdapter:
@@ -468,8 +512,12 @@ class ObjectStoreSourceAdapter:
             return None
 
         # Get the bucket name and key from the S3 URI
-        bucket_name = get_object_store_bucket_name(table_data.table_path)
-        key = get_object_key(table_data.table_path)
+        from datahub.ingestion.source.data_lake_common.object_store_client import (
+            ObjectStoreClient,
+        )
+
+        bucket_name = ObjectStoreClient.get_bucket_name(table_data.table_path)
+        key = ObjectStoreClient.get_object_key(table_data.table_path)
 
         # Use the provided region or default to us-east-1
         aws_region = region or "us-east-1"
@@ -491,8 +539,12 @@ class ObjectStoreSourceAdapter:
             return None
 
         # Get the bucket name and key from the GCS URI
-        bucket_name = get_object_store_bucket_name(table_data.table_path)
-        key = get_object_key(table_data.table_path)
+        from datahub.ingestion.source.data_lake_common.object_store_client import (
+            ObjectStoreClient,
+        )
+
+        bucket_name = ObjectStoreClient.get_bucket_name(table_data.table_path)
+        key = ObjectStoreClient.get_object_key(table_data.table_path)
 
         # Return the basic GCS console URL
         return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{key}"
