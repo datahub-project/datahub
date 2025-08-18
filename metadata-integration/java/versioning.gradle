@@ -3,7 +3,7 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def cliMajorVersion = "0.15.0" // base default cli major version
+def cliVersion = "1.2.0" // base default cli version
 
 task readJsonData {
   def inputFile = file("${rootProject.buildDir}/version.json")
@@ -13,7 +13,7 @@ task readJsonData {
     def data = jsonSlurper.parse(inputFile)
 
     detailedVersionString = data.fullVersion
-    cliMajorVersion = data.cliMajorVersion
+    cliVersion = data.cliVersion
     version = data.javaVersion
   } else {
     println "JSON file not found: ${inputFile.path}"

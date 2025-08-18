@@ -9,7 +9,7 @@ git tags can be of a few forms:
 Produces the following variables and supports token replacement
 - version: server version amenable for creating jars
 - fullVersion: full version string 
-- cliMajorVersion: cli version amenable for binding to server as a default
+- cliVersion: cli version amenable for binding to server as a default
   0.8.44 or 0.8.44-1 (for clean tags) or 0.8.45-SNAPSHOT (for unclean repositories)
 
  All inference can be overridden by passing in the releaseVersion property
@@ -20,7 +20,9 @@ Produces the following variables and supports token replacement
 import groovy.json.JsonBuilder
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def cliMajorVersion = "1.2.0" // base default cli major version
+// Important: The default version of the CLI used for GMS + bundled into docker images.
+// This gets overridden by the releaseVersion property set during OSS releases for convenience.
+def cliVersion = "1.2.0"
 def snapshotVersion = false
 
 // This is the version field that had a slightly different implementation for embedding in jars.
@@ -36,6 +38,7 @@ if (project.hasProperty("releaseVersion")) {
   version = releaseVersion
   detailedVersionString = releaseVersion
   javaVersion = version
+  cliVersion = version // Assume that the release version corresponds to already-released CLI version.
 } else {
   try {
       // apply this plugin in a try-catch block so that we can handle cases without .git directory
@@ -55,7 +58,6 @@ if (project.hasProperty("releaseVersion")) {
 
   // trim version if it is of size 4 to size 3
   def versionParts = version.tokenize(".")
-  cliMajorVersion = version
   if (versionParts.size() > 3) {
     // at-least 4 part version
     // we check if the 4th part is a .0 in which case we want to create a release
@@ -72,11 +74,11 @@ if (project.hasProperty("releaseVersion")) {
       if (versionParts[versionParts.size()-1].isInteger()) {
         def base_version = versionParts[0..versionParts.size()-2].join('.')
         version = base_version + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
-        cliMajorVersion = base_version + "." + versionParts[versionParts.size()-1]
+        cliVersion = base_version + "." + versionParts[versionParts.size()-1]
       } else {
         // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
         version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
-        cliMajorVersion = versionParts[0..versionParts.size()-1].join('.')
+        cliVersion = versionParts[0..versionParts.size()-1].join('.')
       }
 
       // differences from metadata-integration/java/versioning.gradle
@@ -98,7 +100,7 @@ if (project.hasProperty("tag")) {
 // Note: No task, we want this executed during config phase, once for rootProject.
 def data = [
     fullVersion: detailedVersionString,
-    cliMajorVersion: cliMajorVersion,
+    cliVersion: cliVersion,
     version: version,
     javaVersion: javaVersion,
     versionTag: versionTag
@@ -116,7 +118,7 @@ outputFile.text = jsonBuilder.toPrettyString()
 
 task printVersionDetails() {
   println("fullVersion=" + detailedVersionString)
-  println("cliMajorVersion=" + cliMajorVersion)
+  println("cliVersion=" + cliVersion)
   println("version=" +  version)
   println("versionTag=" + versionTag)
 }
