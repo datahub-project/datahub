@@ -13,9 +13,9 @@ from datahub_integrations.experimentation.chatbot.chatbot import (
     Prompt,
 )
 from datahub_integrations.experimentation.chatbot.eval_helpers import (
-    extract_datahub_links_from_response,
+    check_for_invalid_links,
     extract_response_from_history_json,
-    extract_urns_from_history,
+    extract_valid_urns_from_history,
 )
 from datahub_integrations.experimentation.chatbot.judge import (
     validate_expected_tool_calls,
@@ -29,20 +29,20 @@ def expected_tool_calls_metric_fn(
     predictions: pd.Series, targets: pd.Series
 ) -> mlflow_metrics.MetricValue:
     """Validate expected tool calls are present in chat history."""
-    all_scores: List[bool] = []
+    all_scores: List[float] = []
     all_justifications: List[str] = []
-    judged_scores: List[bool] = []
+    judged_scores: List[float] = []
 
     for prediction, target in zip(predictions, targets, strict=False):
         prompt = Prompt.model_validate_json(target)
         # Skip if no expected_tool_calls defined in target
         if prompt.expected_tool_calls is None:
-            all_scores.append(False)
+            all_scores.append(0)
             all_justifications.append("No expected tool calls defined for this prompt")
             continue
 
-        if prediction is None or prediction == "" or prediction == "None":
-            all_scores.append(False)
+        if prediction is None or prediction == "":
+            all_scores.append(0)
             all_justifications.append("No chat history to evaluate")
             continue
 
@@ -55,16 +55,16 @@ def expected_tool_calls_metric_fn(
                 history, prompt.expected_tool_calls
             )
 
-            all_scores.append(validation_result.is_valid)
+            all_scores.append(1 if validation_result.is_valid else 0)
             all_justifications.append(validation_result.justification)
-            judged_scores.append(validation_result.is_valid)
+            judged_scores.append(1 if validation_result.is_valid else 0)
 
         except Exception as e:
             import traceback
 
             traceback.print_exc()
             logger.warning(f"Error validating expected tool calls: {e}")
-            all_scores.append(False)
+            all_scores.append(0)
             all_justifications.append(f"Error validating tool calls: {str(e)}")
 
     return mlflow_metrics.MetricValue(
@@ -72,7 +72,7 @@ def expected_tool_calls_metric_fn(
         justifications=all_justifications,
         aggregate_results={
             "pass_percentage": (
-                100 * len([s for s in judged_scores if s]) / len(judged_scores)
+                100 * sum(judged_scores) / len(judged_scores)
                 if len(judged_scores) > 0
                 else 0
             ),
@@ -81,14 +81,13 @@ def expected_tool_calls_metric_fn(
     )
 
 
-# TODO: also validate instance name and entity type in entity link
 def has_valid_links_metric_fn(
     predictions: pd.Series, targets: pd.Series
 ) -> mlflow_metrics.MetricValue:
     """Check if all DataHub links in response reference valid URNs from tool results."""
-    all_scores: List[bool] = []
+    all_scores: List[float] = []
     all_justifications: List[str] = []
-    judged_scores: List[bool] = []
+    judged_scores: List[float] = []
 
     for prediction, _target in zip(predictions, targets, strict=False):
         # Extract response from chat history
@@ -96,41 +95,37 @@ def has_valid_links_metric_fn(
 
         if not response:
             # Skip entries with no response
-            all_scores.append(False)
+            all_scores.append(0)
             all_justifications.append("No response to evaluate")
             continue
 
         history = ChatHistory.model_validate_json(prediction)
 
         # Extract valid URNs from chat history
-        valid_urns = extract_urns_from_history(history)
+        valid_urns = extract_valid_urns_from_history(history)
 
         # Extract DataHub links from response
-        # TODO: extract other links . e.g. the URN only links [table_name](urn:li:dataset:...), this is invalid
-        response_urns = extract_datahub_links_from_response(response)
-        logger.debug(f"Response URNs: {response_urns}")
-
-        # Check if all response URNs are valid
-        invalid_urns = list(set(response_urns) - set(valid_urns))
-
-        is_valid = len(invalid_urns) == 0
-        all_scores.append(is_valid)
+        prompt = Prompt.model_validate_json(_target)
+        frontend_base_url = f"https://{prompt.instance}.acryl.io"
+        invalid_links = check_for_invalid_links(response, valid_urns, frontend_base_url)
+        is_valid = len(invalid_links) == 0
+        all_scores.append(1 if is_valid else 0)
 
         if not is_valid:
-            all_justifications.append(f"Invalid URNs found: {invalid_urns}")
-            logger.info(f"Invalid URNs found: {invalid_urns}")
+            all_justifications.append(f"Invalid Links found: {invalid_links}")
+            logger.info(f"Invalid Links found: {invalid_links}")
             logger.info(f"Valid URNs from history: {valid_urns}")
         else:
             all_justifications.append("No invalid URNs found")
 
-        judged_scores.append(is_valid)
+        judged_scores.append(1 if is_valid else 0)
 
     return mlflow_metrics.MetricValue(
         scores=all_scores,  # type: ignore
         justifications=all_justifications,
         aggregate_results={
             "pass_percentage": (
-                100 * len(list(filter(lambda x: x, judged_scores))) / len(judged_scores)
+                100 * sum(judged_scores) / len(judged_scores)
                 if len(judged_scores) > 0
                 else 0
             ),
@@ -153,7 +148,7 @@ def run_tool_eval_metric_fn(
     for prediction, _target in zip(predictions, targets, strict=False):
         if prediction is None or prediction == "" or prediction == "None":
             # Skip entries with no response
-            all_scores.append(False)
+            all_scores.append(1)
             all_justifications.append("No chat history to evaluate")
             continue
 
@@ -206,7 +201,7 @@ def run_tool_eval_metric_fn(
 
         except Exception as e:
             logger.warning(f"Error parsing chat history for tool evaluation: {e}")
-            all_scores.append(False)
+            all_scores.append(0)
             all_justifications.append(f"Error parsing history: {str(e)}")
 
     # Calculate aggregate results

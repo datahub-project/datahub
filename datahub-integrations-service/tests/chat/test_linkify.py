@@ -7,6 +7,12 @@ def test_slackify_markdown() -> None:
     assert slackify_markdown(text) == expected
 
 
+def test_slackify_markdown_full_dataset_link() -> None:
+    text = "For [pet_profiles](https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cpet_profiles%2CPROD%29) the owner is Donald Duck."
+    expected = "For <https://company.acryl.io/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cpet_profiles%2CPROD%29|pet_profiles> the owner is Donald Duck."
+    assert slackify_markdown(text) == expected
+
+
 def test_datahub_linkify_dataset_link() -> None:
     text = "For [pet_profiles](urn:li:dataset:(urn:li:dataPlatform:bigquery,staging.long_tail_companions.adoption.pet_profiles,PROD)) the owner is Donald Duck."
     expected = "For [@pet_profiles](urn:li:dataset:(urn:li:dataPlatform:bigquery,staging.long_tail_companions.adoption.pet_profiles,PROD)) the owner is Donald Duck."

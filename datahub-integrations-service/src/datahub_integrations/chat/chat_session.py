@@ -96,6 +96,7 @@ def respond_to_user(
     response: str,
     follow_up_suggestions: Optional[List[str]] = None,
 ) -> NextMessage:
+    # TODO: auto-fix URN only links here?
     return NextMessage(text=response, suggestions=follow_up_suggestions or [])
 
 

@@ -1,8 +1,9 @@
 import re
 import urllib.parse
 from functools import lru_cache
-from typing import List
+from typing import List, Tuple
 
+from datahub.ingestion.graph.links import make_url_for_urn
 from loguru import logger
 
 from datahub_integrations.chat.chat_history import (
@@ -10,6 +11,7 @@ from datahub_integrations.chat.chat_history import (
     ChatHistory,
     ToolResult,
 )
+from datahub_integrations.experimentation.docs_generation.metrics import extract_links
 
 
 def _extract_urns_from_dict(data: dict) -> List[str]:
@@ -29,10 +31,8 @@ def _extract_urns_from_dict(data: dict) -> List[str]:
     return urns
 
 
-def extract_urns_from_history(history: ChatHistory) -> List[str]:
+def extract_valid_urns_from_history(history: ChatHistory) -> List[str]:
     """Extract all URNs from tool call results in chat history."""
-    if not history:
-        return []
 
     try:
         urns = []
@@ -57,15 +57,15 @@ def extract_urns_from_history(history: ChatHistory) -> List[str]:
         return []
 
 
-def extract_datahub_links_from_response(response: str) -> List[str]:
+def extract_full_datahub_links_from_response(response: str) -> List[Tuple[str, str]]:
     """Extract DataHub links from response in format https://xxx.acryl.io/<entity>/<urn>."""
     if not response:
         return []
 
     # Pattern to match DataHub links with URNs, assuming URNs are url encoded
-    pattern = r"https://[^/]+\.acryl\.io/[^/]+/([^\)]+)"
+    pattern = r"\[([^\]]+)\]\((https://[^/]+\.acryl\.io/[^/]+/[^\)]+)\)"
     matches = re.findall(pattern, response)
-    return [urllib.parse.unquote(urn.strip("\\/")) for urn in matches]
+    return [(text, urllib.parse.unquote(link.strip("\\/"))) for text, link in matches]
 
 
 def extract_response_from_history(history: ChatHistory) -> str | None:
@@ -92,3 +92,31 @@ def extract_response_from_history_json(history_json: str) -> str | None:
         return None
     history = ChatHistory.model_validate_json(history_json)
     return extract_response_from_history(history)
+
+
+def check_for_invalid_links(
+    response: str, valid_urns: List[str], frontend_base_url: str
+) -> List[Tuple[str, str]]:
+    """Check if the response contains invalid links and return the invalid links."""
+    response_links = extract_full_datahub_links_from_response(response)
+
+    response_links += extract_links(response)
+
+    invalid_links = []
+
+    for response_link in response_links:
+        urn = _extract_urn_from_link(response_link[1])
+        if urn not in valid_urns:
+            invalid_links.append(response_link)
+            continue
+
+        valid_link = make_url_for_urn(frontend_base_url, urn)
+        if urllib.parse.unquote(valid_link.strip("\\/")) != response_link[1]:
+            invalid_links.append(response_link)
+            continue
+
+    return invalid_links
+
+
+def _extract_urn_from_link(full_link: str) -> str:
+    return full_link[full_link.find("urn:li:") :]
