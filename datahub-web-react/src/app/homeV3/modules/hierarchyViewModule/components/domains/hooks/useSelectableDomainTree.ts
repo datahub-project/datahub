@@ -53,7 +53,7 @@ export default function useSelectableDomainTree(
         if (!rootDomainsMoreLoading && hasMoreRootNodes) {
             const domains = await loadMoreRootDomains(tree.nodes.length, loadBatchSize);
             if (domains) {
-                const treeNodes = domains.map((domain) => convertDomainToTreeNode(domain, true));
+                const treeNodes = domains.map((domain) => convertDomainToTreeNode(domain));
                 tree.merge(preprocessRootNodes(treeNodes));
             }
         }
