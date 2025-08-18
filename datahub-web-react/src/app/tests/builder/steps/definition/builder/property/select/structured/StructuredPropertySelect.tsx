@@ -18,11 +18,26 @@ type Props = {
  * Select a structured property from a dropdown. Allow search values.
  */
 export const StructuredPropertySelect = ({ selectedProperty, entityTypes, onSelect, onClear }: Props) => {
-    console.log(entityTypes);
-
     const [searchProperties, { data: propertiesSearchData }] = useSearchStructuredPropertiesLazyQuery();
     const searchResults = propertiesSearchData?.searchAcrossEntities?.searchResults || [];
-    const properties = searchResults.map((result) => result.entity) as StructuredPropertyEntity[];
+    const allProperties = searchResults.map((result) => result.entity) as StructuredPropertyEntity[];
+
+    // Filter structured properties to only show those that are compatible with the selected entity types
+    const properties = allProperties.filter((property) => {
+        if (!entityTypes || entityTypes.length === 0) {
+            // If no entity types are selected, show all properties
+            return true;
+        }
+
+        const propertyEntityTypes = property.definition?.entityTypes?.map((et) => et.info?.type) || [];
+        if (propertyEntityTypes.length === 0) {
+            // If the structured property doesn't specify entity types, it applies to all entities
+            return true;
+        }
+
+        // Check if at least one of the selected entity types is supported by this structured property
+        return entityTypes.some((selectedType) => propertyEntityTypes.includes(selectedType));
+    });
 
     // Local of property urn to property object.
     const urnToProperty = createPropertyUrnMap(properties);

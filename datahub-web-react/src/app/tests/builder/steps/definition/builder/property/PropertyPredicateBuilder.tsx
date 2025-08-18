@@ -9,6 +9,7 @@ import { Property } from '@app/tests/builder/steps/definition/builder/property/t
 import {
     getPropertyById,
     isOwnershipTypeId,
+    isSchemaFieldStructuredPropertyId,
     isStructuredPropertyId,
 } from '@app/tests/builder/steps/definition/builder/property/utils';
 import { PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
@@ -36,6 +37,10 @@ enum PropertyPredicateBuilderType {
      * Display the structured property predicate builder. Used for generating predicates that reference specific structured properties
      */
     STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY',
+    /**
+     * Display the schema field structured property predicate builder. Used for generating predicates that reference structured properties on schema fields
+     */
+    SCHEMA_FIELD_STRUCTURED_PROPERTY = 'SCHEMA_FIELD_STRUCTURED_PROPERTY',
     /**
      * Display the ownership type property predicate builder. Used for generating predicates that reference specific custom ownership types
      */
@@ -85,14 +90,17 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
         } else if (isStructuredPropertyId(selectedPropertyId)) {
             // Case 1
             setBuilderType(PropertyPredicateBuilderType.STRUCTURED_PROPERTY);
-        } else if (isOwnershipTypeId(selectedPropertyId)) {
+        } else if (isSchemaFieldStructuredPropertyId(selectedPropertyId)) {
             // Case 2
+            setBuilderType(PropertyPredicateBuilderType.SCHEMA_FIELD_STRUCTURED_PROPERTY);
+        } else if (isOwnershipTypeId(selectedPropertyId)) {
+            // Case 3
             setBuilderType(PropertyPredicateBuilderType.OWNERSHIP_TYPE);
         } else if (getPropertyById(selectedPropertyId, properties)) {
-            // Case 3
+            // Case 4
             setBuilderType(PropertyPredicateBuilderType.PROPERTY_SELECT);
         } else {
-            // Case 4
+            // Case 5
             setBuilderType(PropertyPredicateBuilderType.CUSTOM);
         }
     }, [selectedPredicate, properties, setBuilderType]);
@@ -142,6 +150,15 @@ export const PropertyPredicateBuilder = ({ selectedPredicate, properties, onChan
                     onChangeProperty={onChangeProperty}
                     onChangeOperator={onChangeOperator}
                     onChangeValues={onChangeValues}
+                />
+            )}
+            {builderType === PropertyPredicateBuilderType.SCHEMA_FIELD_STRUCTURED_PROPERTY && (
+                <StructuredPropertyPredicateBuilder
+                    selectedPredicate={selectedPredicate}
+                    onChangeProperty={onChangeProperty}
+                    onChangeOperator={onChangeOperator}
+                    onChangeValues={onChangeValues}
+                    isSchemaFieldProperty
                 />
             )}
             {builderType === PropertyPredicateBuilderType.OWNERSHIP_TYPE && (

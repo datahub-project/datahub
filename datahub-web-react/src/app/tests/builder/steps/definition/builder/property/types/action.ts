@@ -12,9 +12,10 @@ const DATA_ASSETS = [
     EntityType.DataFlow,
     EntityType.DataJob,
     EntityType.Container,
+    EntityType.DataProduct,
 ] as const;
 
-const LOGICAL_ENTITIES = [EntityType.GlossaryTerm] as const;
+const LOGICAL_ENTITIES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Domain] as const;
 
 export const ENTITY_GROUPS = {
     /** Data assets that support most metadata operations */
@@ -65,7 +66,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't support tag operations
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't support tag operations
     },
     {
         id: ActionId.REMOVE_TAGS,
@@ -76,7 +77,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't support tag operations
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't support tag operations
     },
     {
         id: ActionId.ADD_GLOSSARY_TERMS,
@@ -87,7 +88,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't have glossary terms attached to itself
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.REMOVE_GLOSSARY_TERMS,
@@ -98,7 +99,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // GlossaryTerm excluded - doesn't have glossary terms attached to itself
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.ADD_OWNERS,

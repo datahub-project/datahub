@@ -1,3 +1,4 @@
+import { SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID } from '@app/tests/builder/steps/definition/builder/property/constants';
 import { ACTION_TYPES, ActionId, ActionType } from '@app/tests/builder/steps/definition/builder/property/types/action';
 import {
     Property,
@@ -6,6 +7,7 @@ import {
     dataAssetProps,
     entityProperties,
 } from '@app/tests/builder/steps/definition/builder/property/types/properties';
+import { isSchemaFieldStructuredPropertyId } from '@app/tests/builder/steps/definition/builder/property/utils';
 import { LogicalPredicate, PropertyPredicate } from '@app/tests/builder/steps/definition/builder/types';
 import { convertTestPredicateToLogicalPredicate } from '@app/tests/builder/steps/definition/builder/utils';
 import { TestDefinition } from '@app/tests/types';
@@ -110,12 +112,17 @@ const AUTO_ASSET_CATEGORIES = (() => {
 
         const entityPropertyIds = extractPropertyIds(entityProp.properties);
 
-        // Check if this entity supports data asset properties
+        // Check if this entity supports base entity properties (from assetProps)
+        const supportsBaseEntityProps = Array.from(AUTO_PROPERTY_SUPPORT.BASE_ENTITY_ONLY).some((propId) =>
+            entityPropertyIds.has(propId),
+        );
+
+        // Also check for data asset specific properties
         const supportsDataAssetProps = Array.from(AUTO_PROPERTY_SUPPORT.DATA_ASSET_ONLY).some((propId) =>
             entityPropertyIds.has(propId),
         );
 
-        if (supportsDataAssetProps) {
+        if (supportsBaseEntityProps || supportsDataAssetProps) {
             categories.DATA_ASSETS.add(entityProp.type);
         } else {
             categories.METADATA_ASSETS.add(entityProp.type);
@@ -182,6 +189,14 @@ export const ASSET_CATEGORIES = AUTO_ASSET_CATEGORIES;
  */
 export function isPropertySupportedForEntities(propertyId: string, entityTypes: EntityType[]): boolean {
     if (entityTypes.length === 0) return true; // No entities selected, allow all properties
+
+    // Schema field structured properties are only supported by datasets
+    if (
+        isSchemaFieldStructuredPropertyId(propertyId) ||
+        propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+    ) {
+        return entityTypes.every((type) => type === EntityType.Dataset);
+    }
 
     // Universal properties are supported by all entities
     if (AUTO_PROPERTY_SUPPORT.UNIVERSAL.has(propertyId)) {
@@ -265,6 +280,14 @@ function formatEntityName(entityType: EntityType, pluralize = false): string {
 function getUnsupportedEntitiesForProperty(propertyId: string, entityTypes: EntityType[]): string[] {
     return entityTypes
         .filter((entityType) => {
+            // Schema field structured properties are only supported by datasets
+            if (
+                isSchemaFieldStructuredPropertyId(propertyId) ||
+                propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+            ) {
+                return entityType !== EntityType.Dataset;
+            }
+
             // Check if this specific entity type supports this property
             const entityConfig = entityProperties.find((ep) => ep.type === entityType);
             if (!entityConfig) return true; // If entity config not found, consider it unsupported
@@ -354,9 +377,24 @@ export function getValidationWarnings(
             const unsupportedEntities = getUnsupportedEntitiesForProperty(propertyId, entityTypes);
             const unsupportedEntitiesText = unsupportedEntities.join(', ');
 
+            // Special message for schema field structured properties
+            let message: string;
+            if (
+                isSchemaFieldStructuredPropertyId(propertyId) ||
+                propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+            ) {
+                const displayName =
+                    propertyId === SCHEMA_FIELD_STRUCTURED_PROPERTY_REFERENCE_PLACEHOLDER_ID
+                        ? 'Column Structured Property'
+                        : propertyId;
+                message = `Property "${displayName}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`;
+            } else {
+                message = `Property "${propertyId}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`;
+            }
+
             warnings.push({
                 type: 'property',
-                message: `Property "${propertyId}" is not available for ${unsupportedEntitiesText}. This property only works with data assets.`,
+                message,
                 propertyId,
             });
         }
