@@ -105,6 +105,7 @@ class DBTCoreConfig(DBTCommonConfig):
     git_info: Optional[GitReference] = Field(
         None,
         description="Reference to your git location to enable easy navigation from DataHub to your dbt files.",
+        hidden_from_docs=True,
     )
 
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
@@ -120,6 +121,18 @@ class DBTCoreConfig(DBTCommonConfig):
                 "See documentation for the new unified configuration format."
             )
         return aws_connection
+
+    @validator("git_info", always=True)
+    def git_info_deprecation_warning(
+        cls, git_info: Optional[GitReference], values: Dict, **kwargs: Any
+    ) -> Optional[GitReference]:
+        """Add deprecation warning if git_info is used."""
+        if git_info is not None:
+            logger.warning(
+                "The 'git_info' field is deprecated for file loading. Use 'external_connections.git_info' instead. "
+                "The top-level 'git_info' is now only used for navigation links in the DataHub UI."
+            )
+        return git_info
 
     @validator("external_connections", always=True)
     def validate_external_connections(
@@ -723,6 +736,18 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         return filtered_nodes
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
-        if self.config.git_info and node.dbt_file_path:
-            return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
+        if node.dbt_file_path:
+            # Check for git_info in external_connections first (preferred)
+            if (
+                self.config.external_connections
+                and self.config.external_connections.git_info
+            ):
+                return self.config.external_connections.git_info.get_url_for_file_path(
+                    node.dbt_file_path
+                )
+
+            # Fall back to legacy git_info for backwards compatibility
+            if self.config.git_info:
+                return self.config.git_info.get_url_for_file_path(node.dbt_file_path)
+
         return None

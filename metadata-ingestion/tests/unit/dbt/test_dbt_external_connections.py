@@ -12,6 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.configuration.git import GitInfo, GitReference
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig
 from datahub.ingestion.source.dbt.dbt_external_connections import (
     ExternalConnectionConfig,
     get_external_uri_type,
@@ -114,8 +117,6 @@ class TestExternalConnectionConfig:
             config.validate_connections_for_uris(["s3://bucket/file.json"])
 
         # Should work with proper connections (now flattened)
-        from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-
         config.aws_connection = AwsConnectionConfig(
             aws_access_key_id="test",
             aws_secret_access_key="test",
@@ -132,8 +133,6 @@ class TestExternalConnectionConfig:
             config.validate_connections_for_uris(["git@github.com:owner/repo.git"])
 
         # Should work with git_info
-        from datahub.configuration.git import GitInfo
-
         config.git_info = GitInfo(repo="git@github.com:owner/repo.git", branch="main")
         config.validate_connections_for_uris(["git@github.com:owner/repo.git"])
 
@@ -200,8 +199,6 @@ class TestExternalConnectionConfig:
         import tempfile
         from pathlib import Path
 
-        from datahub.configuration.git import GitInfo
-
         config = ExternalConnectionConfig(
             git_info=GitInfo(repo="git@github.com:owner/repo.git", branch="main")
         )
@@ -232,8 +229,6 @@ class TestBackwardsCompatibility:
 
     def test_data_lake_connections_work(self):
         """Test that data lake connections work properly."""
-        from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-
         config = ExternalConnectionConfig(
             aws_connection=AwsConnectionConfig(
                 aws_access_key_id="test",
@@ -246,8 +241,6 @@ class TestBackwardsCompatibility:
 
     def test_git_connections_work(self):
         """Test that Git connections work properly."""
-        from datahub.configuration.git import GitInfo
-
         config = ExternalConnectionConfig(
             git_info=GitInfo(repo="git@github.com:owner/repo.git", branch="main")
         )
@@ -272,8 +265,6 @@ class TestBackwardsCompatibility:
     def test_dbt_core_config_backwards_compatibility(self):
         """Test that DBTCoreConfig maintains backwards compatibility with original validation behavior."""
         from pydantic import ValidationError
-
-        from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig
 
         # Test that S3 URIs without external_connections raise ValidationError (updated behavior)
         config_dict = {
@@ -351,9 +342,6 @@ class TestDbtSpecificFunctionality:
 
     def test_mixed_external_connections(self):
         """Test configuration with both data lake and Git connections."""
-        from datahub.configuration.git import GitInfo
-        from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-
         config = ExternalConnectionConfig(
             aws_connection=AwsConnectionConfig(
                 aws_access_key_id="test",
@@ -372,3 +360,66 @@ class TestDbtSpecificFunctionality:
                 "/local/path/file4.json",
             ]
         )
+
+
+class TestNavigationLinks:
+    """Test navigation link functionality with both old and new Git configurations."""
+
+    def test_navigation_links_with_external_connections_git_info(self):
+        """Test that navigation links work with external_connections.git_info"""
+        config = DBTCoreConfig(
+            manifest_path="target/manifest.json",
+            catalog_path="target/catalog.json",
+            target_platform="postgres",
+            external_connections=ExternalConnectionConfig(
+                git_info=GitInfo(
+                    repo="https://github.com/my-org/dbt-project", branch="main"
+                )
+            ),
+        )
+
+        # Test that the git_info can generate navigation URLs
+        node_path = "models/my_model.sql"
+        expected_url = (
+            "https://github.com/my-org/dbt-project/blob/main/models/my_model.sql"
+        )
+
+        assert config.external_connections is not None
+        assert config.external_connections.git_info is not None
+        actual_url = config.external_connections.git_info.get_url_for_file_path(
+            node_path
+        )
+
+        assert actual_url == expected_url
+
+    def test_navigation_links_priority_external_over_legacy(self):
+        """Test that external_connections.git_info takes priority over legacy git_info for navigation"""
+        config = DBTCoreConfig(
+            manifest_path="target/manifest.json",
+            catalog_path="target/catalog.json",
+            target_platform="postgres",
+            # Legacy config (should be ignored for navigation)
+            git_info=GitReference(
+                repo="https://github.com/old-org/old-project", branch="old-branch"
+            ),
+            # New config (should take priority)
+            external_connections=ExternalConnectionConfig(
+                git_info=GitInfo(
+                    repo="https://github.com/new-org/new-project", branch="new-branch"
+                )
+            ),
+        )
+
+        # Test that the external_connections.git_info generates the correct URL
+        node_path = "models/my_model.sql"
+        expected_url = (
+            "https://github.com/new-org/new-project/blob/new-branch/models/my_model.sql"
+        )
+
+        assert config.external_connections is not None
+        assert config.external_connections.git_info is not None
+        actual_url = config.external_connections.git_info.get_url_for_file_path(
+            node_path
+        )
+
+        assert actual_url == expected_url

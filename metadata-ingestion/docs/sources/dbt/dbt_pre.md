@@ -110,6 +110,8 @@ external_connections:
 
 **Note**: Git repositories are cloned locally during ingestion, so ensure sufficient disk space and network access.
 
+**Important**: The `external_connections.git_info` configuration provides both file loading from Git repositories AND navigation links in the DataHub UI. For users migrating from the legacy `git_info` field, you won't lose navigation functionality.
+
 To generate these files, we recommend this workflow for dbt build and datahub ingestion.
 
 ```sh
