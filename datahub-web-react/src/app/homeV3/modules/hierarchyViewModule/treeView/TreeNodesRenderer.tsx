@@ -35,24 +35,24 @@ export default function TreeNodesRenderer() {
 
     return (
         <InlineBlockWrapper $hasExpanded={hasAnyExpanded}>
-        <Wrapper>
-            {loadRootNodes ? (
-                <NodesLoaderWrapper
-                    trigger={loadingTriggerType}
-                    total={rootNodesTotal}
-                    current={rootNodesLength}
-                    enabled={!rootNodesLoading}
-                    depth={0}
-                    onLoad={loadRootNodes}
-                    pageSize={numberOfChildrenToLoad}
-                >
-                    {nodes.map(renderNode)}
-                </NodesLoaderWrapper>
-            ) : (
-                nodes.map(renderNode)
-            )}
-            {rootNodesLoading && <TreeNodesViewLoader depth={0} />}
-        </Wrapper>
+            <Wrapper>
+                {loadRootNodes ? (
+                    <NodesLoaderWrapper
+                        trigger={loadingTriggerType}
+                        total={rootNodesTotal}
+                        current={rootNodesLength}
+                        enabled={!rootNodesLoading}
+                        depth={0}
+                        onLoad={loadRootNodes}
+                        pageSize={numberOfChildrenToLoad}
+                    >
+                        {nodes.map(renderNode)}
+                    </NodesLoaderWrapper>
+                ) : (
+                    nodes.map(renderNode)
+                )}
+                {rootNodesLoading && <TreeNodesViewLoader depth={0} />}
+            </Wrapper>
         </InlineBlockWrapper>
     );
 }
