@@ -74,11 +74,9 @@ if (project.hasProperty("releaseVersion")) {
       if (versionParts[versionParts.size()-1].isInteger()) {
         def base_version = versionParts[0..versionParts.size()-2].join('.')
         version = base_version + '.' + (versionParts[versionParts.size()-1].toInteger()+1).toString() + "-SNAPSHOT"
-        cliVersion = base_version + "." + versionParts[versionParts.size()-1]
       } else {
         // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
         version = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
-        cliVersion = versionParts[0..versionParts.size()-1].join('.')
       }
 
       // differences from metadata-integration/java/versioning.gradle
