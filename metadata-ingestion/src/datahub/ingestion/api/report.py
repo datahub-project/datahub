@@ -407,7 +407,6 @@ class ExamplesReport(Report, Closeable):
         if self._file_based_dict is None:
             return
 
-        # Query that excludes all aspects from stale entity removal URNs
         query = """
         SELECT entityType, subTypes, aspects, count(*) as count
         FROM urn_aspects 
