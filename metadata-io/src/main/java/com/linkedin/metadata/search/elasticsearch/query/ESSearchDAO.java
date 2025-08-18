@@ -443,6 +443,15 @@ public class ESSearchDAO {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     Filter transformedFilters = transformFilterForEntities(postFilters, indexConvention);
 
+    SearchDocFieldFetchConfig searchDocFieldFetchConfig = null;
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    if (searchFlags != null && searchFlags.getFetchExtraFields() != null) {
+      Set<String> allFieldsToFetch =
+          new HashSet<>(SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SEARCH);
+      allFieldsToFetch.addAll(searchFlags.getFetchExtraFields());
+      searchDocFieldFetchConfig = new SearchDocFieldFetchConfig().fieldsToFetch(allFieldsToFetch);
+    }
+
     SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
                 opContext,
@@ -452,7 +461,14 @@ public class ESSearchDAO {
                 queryFilterRewriteChain,
                 searchServiceConfig)
             .getSearchRequest(
-                opContext, finalInput, transformedFilters, sortCriteria, from, size, facets)
+                opContext,
+                finalInput,
+                transformedFilters,
+                sortCriteria,
+                from,
+                size,
+                facets,
+                searchDocFieldFetchConfig)
             .indices(
                 entityNames.stream()
                     .map(indexConvention::getEntityIndexName)

@@ -293,11 +293,66 @@ public class SearchRequestHandler extends BaseRequestHandler {
         sortCriteria);
   }
 
+  /**
+   * Constructs the search request from the query, filter, sort and pagination information with
+   * support for custom field fetching configuration.
+   *
+   * @param input the search input text
+   * @param filter the request filter. Can be null
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
+   * @param from index to start the search from
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @param fieldFetchConfig configuration for which fields to fetch
+   * @return a valid search request
+   */
+  @Nonnull
+  @WithSpan
+  public SearchRequest getSearchRequest(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      List<SortCriterion> sortCriteria,
+      int from,
+      @Nullable Integer size,
+      @Nonnull List<String> facets,
+      @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
+    SearchSourceBuilder searchSourceBuilder =
+        constructSearchSourceBuilder(from, size, fieldFetchConfig);
+
+    SearchRequest searchRequest = new SearchRequest();
+    return buildSearchRequestPageAgnostic(
+        opContext,
+        searchRequest,
+        searchSourceBuilder,
+        input,
+        searchFlags,
+        filterQuery,
+        facets,
+        sortCriteria);
+  }
+
   private SearchSourceBuilder constructSearchSourceBuilder(int from, @Nullable Integer size) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
     searchSourceBuilder.fetchSource(DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(new String[0]), null);
+    return searchSourceBuilder;
+  }
+
+  private SearchSourceBuilder constructSearchSourceBuilder(
+      int from, @Nullable Integer size, @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    searchSourceBuilder.from(from);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
+
+    if (fieldFetchConfig == null) {
+      fieldFetchConfig = new SearchDocFieldFetchConfig();
+    }
+    searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
     return searchSourceBuilder;
   }
 
