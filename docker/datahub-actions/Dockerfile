@@ -205,6 +205,8 @@ RUN ./build_bundled_venvs_unified.sh
 USER 0
 RUN rm -rf /tmp/build_bundled_venvs_unified.py /tmp/build_bundled_venvs_unified.sh
 
+USER datahub
+
 # =============================================================================
 # END BUNDLED VENVS SECTION
 # =============================================================================
