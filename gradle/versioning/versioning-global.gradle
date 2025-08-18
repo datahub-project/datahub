@@ -16,14 +16,12 @@ Produces the following variables and supports token replacement
  e.g. -PreleaseVersion=0.2.3.4 will set the jar version to 0.2.3-4
 
  **/
-apply from: './gradle/versioning/extractDefaultCliVersion.gradle'
+apply from: rootProject.file('gradle/versioning/resolveDefaultCliVersion.gradle')
+apply from: rootProject.file('gradle/versioning/cliVersion.gradle')
 
 import groovy.json.JsonBuilder
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-// Important: The default version of the CLI used for GMS + bundled into docker images.
-// This gets overridden by the releaseVersion property set during OSS releases for convenience.
-def cliVersion = "1.2.0"
 def snapshotVersion = false
 
 // This is the version field that had a slightly different implementation for embedding in jars.
@@ -88,9 +86,6 @@ if (project.hasProperty("releaseVersion")) {
   }
 }
 
-// Compute the default cli version.
-cliVersion = project.ext.extractDefaultCliVersion(version)
-
 if (project.hasProperty("tag")) {
   versionTag = tag
 } else {
@@ -100,7 +95,7 @@ if (project.hasProperty("tag")) {
 // Note: No task, we want this executed during config phase, once for rootProject.
 def data = [
     fullVersion: detailedVersionString,
-    cliVersion: cliVersion,
+    cliVersion: project.ext.cliVersion,
     version: version,
     javaVersion: javaVersion,
     versionTag: versionTag
@@ -118,7 +113,7 @@ outputFile.text = jsonBuilder.toPrettyString()
 
 task printVersionDetails() {
   println("fullVersion=" + detailedVersionString)
-  println("cliVersion=" + cliVersion)
+  println("cliVersion=" + project.ext.cliVersion)
   println("version=" +  version)
   println("versionTag=" + versionTag)
 }

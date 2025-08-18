@@ -1,12 +1,13 @@
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.filters.ReplaceTokens
 
+apply from: rootProject.file('gradle/versioning/cliVersion.gradle')
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
 def inputFile = file("${rootProject.buildDir}/version.json")
 
 ext {
-  cliVersion = "1.2.0"
+  cliVersion = project.ext.cliVersion
   versionTag = "v${detailedVersionString}"
 }
 
