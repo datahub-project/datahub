@@ -4,7 +4,6 @@ import logging
 import re
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import urlparse
 
 import dateutil.parser
 import requests
@@ -28,7 +27,6 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
-from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
     DBTColumn,
     DBTCommonConfig,
@@ -36,6 +34,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+)
+from datahub.ingestion.source.dbt.dbt_external_connections import (
+    ExternalConnectionConfig,
 )
 from datahub.ingestion.source.dbt.dbt_tests import DBTTest, DBTTestResult
 
@@ -87,9 +88,18 @@ class DBTCoreConfig(DBTCommonConfig):
         "run_results_path", "run_results_paths", transform=lambda x: [x] if x else []
     )
 
+    # Backwards compatibility: Keep aws_connection but hide from docs
     aws_connection: Optional[AwsConnectionConfig] = Field(
         default=None,
         description="When fetching manifest files from s3, configuration for aws connection details",
+        hidden_from_docs=True,
+    )
+
+    # Unified external connections configuration
+    external_connections: Optional[ExternalConnectionConfig] = Field(
+        default=None,
+        description="Configuration for external connections (S3, GCS, Azure, Git). "
+        "Use this for all external file access instead of individual connection fields.",
     )
 
     git_info: Optional[GitReference] = Field(
@@ -100,25 +110,55 @@ class DBTCoreConfig(DBTCommonConfig):
     _github_info_deprecated = pydantic_renamed_field("github_info", "git_info")
 
     @validator("aws_connection", always=True)
-    def aws_connection_needed_if_s3_uris_present(
+    def aws_connection_deprecation_warning(
         cls, aws_connection: Optional[AwsConnectionConfig], values: Dict, **kwargs: Any
     ) -> Optional[AwsConnectionConfig]:
-        # first check if there are fields that contain s3 uris
-        uris = [
-            values.get(f)
-            for f in [
-                "manifest_path",
-                "catalog_path",
-                "sources_path",
-            ]
-        ] + values.get("run_results_paths", [])
-        s3_uris = [uri for uri in uris if is_s3_uri(uri or "")]
-
-        if s3_uris and aws_connection is None:
-            raise ValueError(
-                f"Please provide aws_connection configuration, since s3 uris have been provided {s3_uris}"
+        """Add deprecation warning if aws_connection is used."""
+        if aws_connection is not None:
+            logger.warning(
+                "The 'aws_connection' field is deprecated. Please use 'external_connections' instead. "
+                "See documentation for the new unified configuration format."
             )
         return aws_connection
+
+    @validator("external_connections", always=True)
+    def validate_external_connections(
+        cls,
+        external_connections: Optional[ExternalConnectionConfig],
+        values: Dict,
+        **kwargs: Any,
+    ) -> Optional[ExternalConnectionConfig]:
+        """Validate and create data lake connections, handling backwards compatibility."""
+        # Get all URIs that might need data lake connections
+        uris = [
+            values.get("manifest_path"),
+            values.get("catalog_path"),
+            values.get("sources_path"),
+        ] + values.get("run_results_paths", [])
+        uris = [uri for uri in uris if uri is not None]
+
+        # If external_connections is already provided, validate it
+        if external_connections is not None:
+            external_connections.validate_connections_for_uris(uris)
+            return external_connections
+
+        # Backwards compatibility: create from aws_connection if provided
+        aws_connection = values.get("aws_connection")
+        if aws_connection is not None:
+            unified_config = ExternalConnectionConfig(aws_connection=aws_connection)
+            unified_config.validate_connections_for_uris(uris)
+            return unified_config
+
+        # If no connections provided, validate that none are needed
+        # This will raise appropriate errors if data lake URIs are used without connections
+        temp_config = ExternalConnectionConfig()
+        temp_config.validate_connections_for_uris(uris)
+
+        return None
+
+    def get_external_connections(self) -> Optional[ExternalConnectionConfig]:
+        """Get the effective data lake connections configuration."""
+        return self.external_connections
 
 
 def get_columns(
@@ -485,12 +525,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = DBTCoreConfig.parse_obj_allow_extras(config_dict)
+            external_connections = source_config.get_external_connections()
+
             DBTCoreSource.load_file_as_json(
-                source_config.manifest_path, source_config.aws_connection
+                source_config.manifest_path,
+                external_connections,
             )
             if source_config.catalog_path is not None:
                 DBTCoreSource.load_file_as_json(
-                    source_config.catalog_path, source_config.aws_connection
+                    source_config.catalog_path,
+                    external_connections,
                 )
             test_report.basic_connectivity = CapabilityReport(capable=True)
         except Exception as e:
@@ -501,17 +545,15 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
     @staticmethod
     def load_file_as_json(
-        uri: str, aws_connection: Optional[AwsConnectionConfig]
+        uri: str,
+        external_connections: Optional[ExternalConnectionConfig] = None,
     ) -> Dict:
+        if external_connections:
+            return external_connections.load_file_as_json(uri)
+
+        # Fallback for non-data lake URIs
         if re.match("^https?://", uri):
             return json.loads(requests.get(uri).text)
-        elif is_s3_uri(uri):
-            u = urlparse(uri)
-            assert aws_connection
-            response = aws_connection.get_s3_client().get_object(
-                Bucket=u.netloc, Key=u.path.lstrip("/")
-            )
-            return json.loads(response["Body"].read().decode("utf-8"))
         else:
             with open(uri) as f:
                 return json.load(f)
@@ -526,8 +568,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         Optional[str],
         Optional[str],
     ]:
+        external_connections = self.config.get_external_connections()
         dbt_manifest_json = self.load_file_as_json(
-            self.config.manifest_path, self.config.aws_connection
+            self.config.manifest_path,
+            external_connections,
         )
         dbt_manifest_metadata = dbt_manifest_json["metadata"]
         self.report.manifest_info = dict(
@@ -540,7 +584,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         dbt_catalog_metadata = None
         if self.config.catalog_path is not None:
             dbt_catalog_json = self.load_file_as_json(
-                self.config.catalog_path, self.config.aws_connection
+                self.config.catalog_path,
+                external_connections,
             )
             dbt_catalog_metadata = dbt_catalog_json.get("metadata", {})
             self.report.catalog_info = dict(
@@ -556,7 +601,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         if self.config.sources_path is not None:
             dbt_sources_json = self.load_file_as_json(
-                self.config.sources_path, self.config.aws_connection
+                self.config.sources_path,
+                external_connections,
             )
             sources_results = dbt_sources_json["results"]
         else:
@@ -650,7 +696,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             # This will populate the test_results and model_performance fields on each node.
             all_nodes = load_run_results(
                 self.config,
-                self.load_file_as_json(run_results_path, self.config.aws_connection),
+                self.load_file_as_json(
+                    run_results_path,
+                    self.config.get_external_connections(),
+                ),
                 all_nodes,
             )
 

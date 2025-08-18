@@ -1,5 +1,14 @@
 Ingesting metadata from dbt requires either using the **dbt** module or the **dbt-cloud** module.
 
+The **dbt** module supports loading artifact files from multiple sources:
+
+- **Local file system** (traditional approach)
+- **Cloud storage** (S3, Google Cloud Storage, Azure Blob Storage)
+- **Git repositories** (GitHub, GitLab, etc.)
+- **HTTP/HTTPS URLs**
+
+This enables flexible CI/CD workflows where dbt artifacts can be stored centrally and accessed by DataHub without file transfers.
+
 ### Concept Mapping
 
 | Source Concept | DataHub Concept                                                        | Notes              |

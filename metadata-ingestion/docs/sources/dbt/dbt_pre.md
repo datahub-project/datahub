@@ -15,6 +15,101 @@ The artifacts used by this source are:
   - This file contains metadata from the result of a dbt run, e.g. dbt test
   - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
 
+### File Location Options
+
+The dbt connector supports loading these artifact files from multiple locations:
+
+#### Local File System (Default)
+
+The traditional approach where files are stored locally on the machine running DataHub ingestion:
+
+```yaml
+manifest_path: "/path/to/target/manifest.json"
+catalog_path: "/path/to/target/catalog.json"
+```
+
+#### Cloud Storage
+
+Load files directly from cloud storage services:
+
+- **Amazon S3**: `s3://bucket-name/path/to/manifest.json`
+- **Google Cloud Storage**: `gs://bucket-name/path/to/catalog.json`
+- **Azure Blob Storage**:
+  - `https://account.blob.core.windows.net/container/sources.json`
+  - `abfss://container@account.dfs.core.windows.net/path/to/file.json`
+
+#### Git Repositories
+
+Load files directly from Git repositories (useful for CI/CD workflows):
+
+- **SSH**: `git@github.com:org/repo.git/target/manifest.json`
+- **HTTPS**: `https://github.com/org/repo/raw/main/target/catalog.json`
+- **GitLab**: `git@gitlab.com:org/repo.git/target/manifest.json`
+
+#### HTTP/HTTPS URLs
+
+Load files from any web server:
+
+```yaml
+manifest_path: "https://my-server.com/artifacts/manifest.json"
+```
+
+### External Connections Configuration
+
+When using cloud storage or Git repositories, you need to configure the appropriate connections in the `external_connections` section:
+
+#### AWS S3 Connection
+
+```yaml
+external_connections:
+  aws_connection:
+    aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+    aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+    aws_region: "us-east-1"
+    # Optional: Use IAM role instead of access keys
+    # aws_role: "arn:aws:iam::123456789012:role/DataHubRole"
+```
+
+#### Google Cloud Storage Connection
+
+```yaml
+external_connections:
+  gcs_connection:
+    type: "service_account"
+    project_id: "${GCP_PROJECT_ID}"
+    private_key_id: "${GCP_PRIVATE_KEY_ID}"
+    private_key: "${GCP_PRIVATE_KEY}"
+    client_email: "${GCP_CLIENT_EMAIL}"
+    client_id: "${GCP_CLIENT_ID}"
+```
+
+#### Azure Blob Storage Connection
+
+```yaml
+external_connections:
+  azure_connection:
+    account_name: "${AZURE_ACCOUNT_NAME}"
+    account_key: "${AZURE_ACCOUNT_KEY}"
+    # Alternative authentication methods:
+    # account_url: "https://myaccount.blob.core.windows.net"
+    # sas_token: "${AZURE_SAS_TOKEN}"
+```
+
+#### Git Repository Connection
+
+```yaml
+external_connections:
+  git_info:
+    repo: "git@github.com:my-org/dbt-project.git"
+    branch: "main" # Optional, defaults to default branch
+    # For private repositories, provide SSH deploy key:
+    deploy_key: "${GITHUB_DEPLOY_KEY}"
+    # Or path to deploy key file:
+    # deploy_key_file: "/path/to/deploy_key"
+```
+
+**Note**: Git repositories are cloned locally during ingestion, so ensure sufficient disk space and network access.
+
 To generate these files, we recommend this workflow for dbt build and datahub ingestion.
 
 ```sh

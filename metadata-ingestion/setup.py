@@ -345,6 +345,16 @@ data_lake_profiling = {
     *cachetools_lib,
 }
 
+data_lake_common = {
+    # Core data lake dependencies for S3, GCS, Azure Blob Storage, and Git support
+    *aws_common,  # S3 support (boto3, botocore)
+    "google-cloud-storage",  # GCS support
+    "azure-storage-blob>=12.19.0",  # Azure Blob Storage support
+    "azure-identity>=1.21.0",  # Azure authentication
+    "GitPython>2",  # Git repository cloning and access
+    "requests",  # HTTP/HTTPS file loading
+}
+
 delta_lake = {
     *s3_base,
     *abs_base,
@@ -443,7 +453,7 @@ plugins: Dict[str, Set[str]] = {
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "delta-lake": {*data_lake_profiling, *delta_lake},
-    "dbt": {"requests"} | dbt_common | aws_common,
+    "dbt": dbt_common | data_lake_common,
     "dbt-cloud": {"requests"} | dbt_common,
     "dremio": {"requests"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2"},

@@ -11,8 +11,6 @@ source:
     job_id: "${DBT_JOB_ID}" # set to your dbt cloud job id
     run_id: # set to your dbt cloud run id. This is optional, and defaults to the latest run
 
-    target_platform: postgres
-
     # Options
     target_platform: "${TARGET_PLATFORM_ID}" # e.g. bigquery/postgres/etc.
 
