@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { generateSummaryText } from '@app/observe/shared/bulkCreate/form/useSubscriptionsForm.utils';
+import { generateSummaryText } from '@app/observe/shared/bulkCreate/form/subscriptions/NotificationTypesSelector.utils';
 
 import { EntityChangeType } from '@types';
 

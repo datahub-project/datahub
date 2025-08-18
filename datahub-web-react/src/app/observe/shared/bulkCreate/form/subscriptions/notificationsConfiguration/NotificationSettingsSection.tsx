@@ -3,8 +3,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { EmailNotificationSettings } from '@app/observe/shared/bulkCreate/form/notificationsConfiguration/EmailNotificationSettings';
-import { SlackNotificationSettings } from '@app/observe/shared/bulkCreate/form/notificationsConfiguration/SlackNotificationSettings';
+import { EmailNotificationSettings } from '@app/observe/shared/bulkCreate/form/subscriptions/notificationsConfiguration/EmailNotificationSettings';
+import { SlackNotificationSettings } from '@app/observe/shared/bulkCreate/form/subscriptions/notificationsConfiguration/SlackNotificationSettings';
 import useActorSinkSettings from '@app/shared/subscribe/drawer/useSinkSettings';
 
 import { useGetGlobalSettingsQuery } from '@graphql/settings.generated';

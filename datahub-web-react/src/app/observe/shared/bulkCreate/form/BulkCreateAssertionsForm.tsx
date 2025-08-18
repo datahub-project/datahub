@@ -9,8 +9,8 @@ import { stateToBulkCreateDatasetAssertionsSpec } from '@app/observe/shared/bulk
 import { AssertionsConfiguration } from '@app/observe/shared/bulkCreate/form/steps/AssertionsConfiguration';
 import { AssetsSelection } from '@app/observe/shared/bulkCreate/form/steps/AssetsSelection';
 import { SubscriptionConfiguration } from '@app/observe/shared/bulkCreate/form/steps/SubscriptionConfiguration';
+import { useSubscriptionsForm } from '@app/observe/shared/bulkCreate/form/subscriptions/useSubscriptionsForm';
 import { useFreshnessForm } from '@app/observe/shared/bulkCreate/form/useFreshnessForm';
-import { useSubscriptionsForm } from '@app/observe/shared/bulkCreate/form/useSubscriptionsForm';
 import { useVolumeForm } from '@app/observe/shared/bulkCreate/form/useVolumeForm';
 import { LogicalPredicate } from '@app/tests/builder/steps/definition/builder/types';
 

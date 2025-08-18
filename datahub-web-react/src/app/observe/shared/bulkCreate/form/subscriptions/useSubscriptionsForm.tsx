@@ -1,20 +1,21 @@
-import { SimpleSelect, Text, colors } from '@components';
-import { CaretDown, CaretRight, Question } from '@phosphor-icons/react';
-import { Collapse, Switch, Tooltip, Tree } from 'antd';
+import { Button, SimpleSelect, Text, colors } from '@components';
+import { Question } from '@phosphor-icons/react';
+import { Switch, Tooltip } from 'antd';
 import { DataNode } from 'antd/lib/tree';
-import { Check } from 'phosphor-react';
 import React, { Key, useState } from 'react';
 import styled from 'styled-components';
 
-import { NotificationSettingsSection } from '@app/observe/shared/bulkCreate/form/notificationsConfiguration/NotificationSettingsSection';
+import CreateGroupModal from '@app/identity/group/CreateGroupModal';
+import { NotificationTypesSelector } from '@app/observe/shared/bulkCreate/form/subscriptions/NotificationTypesSelector';
 import { SubscriptionsFormState } from '@app/observe/shared/bulkCreate/form/types';
-import { generateSummaryText } from '@app/observe/shared/bulkCreate/form/useSubscriptionsForm.utils';
+import Loading from '@app/shared/Loading';
+import { getGroupOptions } from '@app/shared/subscribe/drawer/section/SelectGroupSection.utils';
 import { getEntityChangeTypesFromCheckedKeys, getTreeDataForEntity } from '@app/shared/subscribe/drawer/utils';
 import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 
-import { CorpGroup, EntityChangeDetailsInput, EntityChangeType, EntityRelationship, EntityType } from '@types';
+import { CorpGroup, EntityChangeDetailsInput, EntityChangeType, EntityRelationshipsResult, EntityType } from '@types';
 
 // Default selected notification types
 const DEFAULT_SELECTED_KEYS = [
@@ -56,87 +57,12 @@ const SwitchContainer = styled.div`
     }
 `;
 
-const TreeContainer = styled.div`
-    margin-left: 16px;
-    margin-top: 8px;
-
-    .ant-tree-checkbox .ant-tree-checkbox-inner {
-        border-color: ${colors.gray[300]};
-    }
-
-    .ant-tree-node-content-wrapper {
-        background: none;
-        cursor: auto;
-
-        &:hover {
-            background: none;
-        }
-    }
-
-    .ant-tree .ant-tree-node-content-wrapper.ant-tree-node-selected {
-        background-color: transparent;
-    }
-`;
-
 const GroupSelectContainer = styled.div`
     margin-top: 16px;
     margin-bottom: 24px;
-`;
-
-const StyledCollapse = styled(Collapse)`
-    .ant-collapse-header {
-        padding: 8px 0 !important;
-        padding-bottom: 0px !important;
-        align-items: center;
-    }
-
-    .ant-collapse-content-box {
-        padding-top: 0px !important;
-        padding-bottom: 0px !important;
-    }
-
-    .ant-collapse-arrow {
-        margin-right: 8px !important;
-        line-height: 32px;
-    }
-
-    &.ant-collapse {
-        border-radius: 0 !important;
-        border: none;
-        background: none;
-    }
-
-    .ant-collapse-item {
-        border-radius: 0 !important;
-        border: none;
-
-        &:last-child {
-            border-bottom: none;
-        }
-    }
-`;
-
-const CollapseHeader = styled.div`
     display: flex;
-    align-items: center;
-    font-size: 14px;
-    font-weight: 500;
-    color: ${colors.gray[500]};
-`;
-
-const StyledIcon = styled.div`
-    svg {
-        height: 16px;
-        width: 16px;
-        color: ${colors.gray[500]};
-    }
-`;
-
-const SummaryLabel = styled(Text)`
-    margin-left: 0;
-    font-size: 14px;
-    color: ${colors.gray[600]};
-    font-weight: 600;
+    flex-direction: column;
+    gap: 8px;
 `;
 
 const SubtitleContainer = styled.div`
@@ -169,10 +95,8 @@ const TooltipIcon = styled.div`
     }
 `;
 
-const SummaryLabelCheck = styled(Check)`
-    position: relative;
-    top: 2px;
-    margin-right: 4px;
+const NewGroupButton = styled(Button)`
+    align-self: flex-end;
 `;
 
 export const useSubscriptionsForm = (): {
@@ -181,7 +105,7 @@ export const useSubscriptionsForm = (): {
 } => {
     // --------------------------------- State variables --------------------------------- //
     const entityRegistry = useEntityRegistry();
-    const { relationships } = useGroupRelationships();
+    const { relationships, ownedGroupSearchResults, refetch: refetchGroups } = useGroupRelationships();
     const currentUserUrn = useGetAuthenticatedUserUrn();
 
     // Personal subscription state
@@ -195,6 +119,9 @@ export const useSubscriptionsForm = (): {
     const [groupCheckedKeys, setGroupCheckedKeys] = useState<Key[]>([]);
     const [groupNotificationTypesExpanded, setGroupNotificationTypesExpanded] = useState<boolean>(false);
 
+    const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
+    const [isRefetching, setIsRefetching] = useState(false);
+
     // --------------------------------- Helper functions --------------------------------- //
     const convertKeysToEntityChangeTypes = (keys: Key[]): EntityChangeDetailsInput[] => {
         const entityChangeTypes = getEntityChangeTypesFromCheckedKeys(keys);
@@ -203,18 +130,11 @@ export const useSubscriptionsForm = (): {
         }));
     };
 
-    const convertGroupRelationshipToOption = (relationship: EntityRelationship) => {
-        const group: CorpGroup = relationship?.entity as CorpGroup;
-        return {
-            label: entityRegistry.getDisplayName(EntityType.CorpGroup, group),
-            value: group?.urn,
-        };
-    };
-
-    const groupOptions =
-        relationships
-            ?.filter((relationship) => !!relationship)
-            .map((relationship) => convertGroupRelationshipToOption(relationship as EntityRelationship)) || [];
+    const groupOptions = getGroupOptions(
+        relationships as EntityRelationshipsResult['relationships'],
+        ownedGroupSearchResults,
+        entityRegistry,
+    );
 
     // --------------------------------- Event handlers --------------------------------- //
     const onPersonalCheck = (checkedKeysValue: any) => {
@@ -280,43 +200,16 @@ export const useSubscriptionsForm = (): {
                 </SwitchContainer>
 
                 {personalSubscriptionEnabled && (
-                    <div style={{ marginTop: 16 }}>
-                        {!personalNotificationTypesExpanded && personalCheckedKeys.length > 0 && (
-                            <SummaryLabel>
-                                {personalCheckedKeys.length ? <SummaryLabelCheck size={16} /> : null}{' '}
-                                {generateSummaryText(personalCheckedKeys)}
-                            </SummaryLabel>
-                        )}
-                        <StyledCollapse
-                            ghost
-                            expandIcon={({ isActive }) => (
-                                <StyledIcon>{isActive ? <CaretDown /> : <CaretRight />}</StyledIcon>
-                            )}
-                            onChange={(activeKey) => {
-                                setPersonalNotificationTypesExpanded(
-                                    Array.isArray(activeKey) ? activeKey.length > 0 : !!activeKey,
-                                );
-                            }}
-                        >
-                            <Collapse.Panel
-                                header={<CollapseHeader>Select Notification Types</CollapseHeader>}
-                                key="personal-notifications"
-                            >
-                                <TreeContainer>
-                                    <Tree
-                                        checkable
-                                        checkedKeys={personalCheckedKeys}
-                                        onCheck={onPersonalCheck}
-                                        treeData={treeData}
-                                        defaultExpandAll
-                                    />
-                                </TreeContainer>
-                            </Collapse.Panel>
-                        </StyledCollapse>
-
-                        {/* Notification Settings for Personal Subscription */}
-                        {personalSubscriptionEnabled && <NotificationSettingsSection isPersonal groupUrn={undefined} />}
-                    </div>
+                    <NotificationTypesSelector
+                        checkedKeys={personalCheckedKeys}
+                        onCheck={onPersonalCheck}
+                        notificationTypesExpanded={personalNotificationTypesExpanded}
+                        setNotificationTypesExpanded={setPersonalNotificationTypesExpanded}
+                        treeData={treeData}
+                        isPersonal
+                        groupUrn={undefined}
+                        panelKey="personal-notifications"
+                    />
                 )}
             </SectionContainer>
 
@@ -330,6 +223,7 @@ export const useSubscriptionsForm = (): {
                 {groupSubscriptionEnabled && (
                     <>
                         <GroupSelectContainer>
+                            {/* Select group dropdown */}
                             <SimpleSelect
                                 isMultiSelect={false}
                                 placeholder="Select groups to notify..."
@@ -339,50 +233,51 @@ export const useSubscriptionsForm = (): {
                                 width="full"
                                 showClear
                             />
+                            {/* Option to create a group instead */}
+                            <NewGroupButton
+                                variant="link"
+                                onClick={() => setIsCreateGroupModalOpen(true)}
+                                disabled={isRefetching}
+                            >
+                                {isRefetching ? (
+                                    [<Loading marginTop={0} height={12} />, <Text>Creating...</Text>]
+                                ) : (
+                                    <Text>Create Group</Text>
+                                )}
+                            </NewGroupButton>
                         </GroupSelectContainer>
 
                         {selectedGroups.length > 0 && (
-                            <>
-                                {!groupNotificationTypesExpanded && groupCheckedKeys.length > 0 && (
-                                    <SummaryLabel>
-                                        {groupCheckedKeys.length ? <SummaryLabelCheck size={16} /> : null}{' '}
-                                        {generateSummaryText(groupCheckedKeys)}
-                                    </SummaryLabel>
-                                )}
-                                <StyledCollapse
-                                    ghost
-                                    expandIcon={({ isActive }) => (
-                                        <StyledIcon>{isActive ? <CaretDown /> : <CaretRight />}</StyledIcon>
-                                    )}
-                                    onChange={(activeKey) => {
-                                        setGroupNotificationTypesExpanded(
-                                            Array.isArray(activeKey) ? activeKey.length > 0 : !!activeKey,
-                                        );
-                                    }}
-                                >
-                                    <Collapse.Panel
-                                        header={<CollapseHeader>Select Notification Types</CollapseHeader>}
-                                        key="group-notifications"
-                                    >
-                                        <TreeContainer>
-                                            <Tree
-                                                checkable
-                                                checkedKeys={groupCheckedKeys}
-                                                onCheck={onGroupCheck}
-                                                treeData={treeData}
-                                                defaultExpandAll
-                                            />
-                                        </TreeContainer>
-                                    </Collapse.Panel>
-                                </StyledCollapse>
-
-                                {/* Notification Settings for Group Subscription */}
-                                <NotificationSettingsSection isPersonal={false} groupUrn={selectedGroups[0]} />
-                            </>
+                            <NotificationTypesSelector
+                                checkedKeys={groupCheckedKeys}
+                                onCheck={onGroupCheck}
+                                notificationTypesExpanded={groupNotificationTypesExpanded}
+                                setNotificationTypesExpanded={setGroupNotificationTypesExpanded}
+                                treeData={treeData}
+                                isPersonal={false}
+                                groupUrn={selectedGroups[0]}
+                                panelKey="group-notifications"
+                            />
                         )}
                     </>
                 )}
             </SectionContainer>
+
+            {/* --------------------------------- Create group modal --------------------------------- */}
+            {isCreateGroupModalOpen && (
+                <CreateGroupModal
+                    onClose={() => setIsCreateGroupModalOpen(false)}
+                    onCreate={(group: CorpGroup) => {
+                        setIsCreateGroupModalOpen(false);
+                        setIsRefetching(true);
+                        setTimeout(() => {
+                            refetchGroups();
+                            setIsRefetching(false);
+                            setSelectedGroups([group.urn]);
+                        }, 3000);
+                    }}
+                />
+            )}
         </div>
     );
 
