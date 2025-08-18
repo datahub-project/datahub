@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Configuration from environment variables
-BUNDLED_VENV_PLUGINS="${BUNDLED_VENV_PLUGINS:-s3,demo-data,snowflake,bigquery,databricks,tableau,powerbi,looker,kafka}"
+BUNDLED_VENV_PLUGINS="${BUNDLED_VENV_PLUGINS:-s3,demo-data}"
 BUNDLED_CLI_VERSION="${BUNDLED_CLI_VERSION:-}"
 DATAHUB_BUNDLED_VENV_PATH="${DATAHUB_BUNDLED_VENV_PATH:-/opt/datahub/venvs}"
 

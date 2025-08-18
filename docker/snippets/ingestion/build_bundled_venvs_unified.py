@@ -60,7 +60,7 @@ def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base
 def main():
     """Main function to generate and create all bundled venvs."""
     # Get configuration from environment
-    plugins_str = os.environ.get('BUNDLED_VENV_PLUGINS', 's3,demo-data,snowflake,bigquery,databricks,tableau,powerbi,looker,kafka')
+    plugins_str = os.environ.get('BUNDLED_VENV_PLUGINS', 's3,demo-data')
     bundled_cli_version = os.environ.get('BUNDLED_CLI_VERSION')
     venv_base_path = os.environ.get('DATAHUB_BUNDLED_VENV_PATH', '/opt/datahub/venvs')
 
