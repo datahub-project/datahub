@@ -6,7 +6,7 @@ import { useSidebarFilters } from '@app/searchV2/sidebar/useSidebarFilters';
 import useIntersect from '@app/shared/useIntersect';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';
 
-import { GetBrowseResultsV2Query, useGetBrowseResultsV2LazyQuery } from '@graphql/browseV2.generated';
+import { GetBrowseResultsV2Query, useGetBrowseResultsV2Query } from '@graphql/browseV2.generated';
 
 type Props = {
     skip: boolean;
@@ -40,8 +40,39 @@ const useBrowsePagination = ({ skip }: Props) => {
     const total = latestData?.browseV2?.total ?? -1;
     const done = !!latestData && groups.length >= total;
 
-    const [getBrowseResultsV2, { data, error, refetch }] = useGetBrowseResultsV2LazyQuery({
+    const [start, setStart] = useState(0);
+    const { loading, error, refetch } = useGetBrowseResultsV2Query({
+        skip,
         fetchPolicy: isInFormContext ? 'no-cache' : 'cache-first',
+        variables: {
+            input: {
+                type,
+                path,
+                start,
+                count: BROWSE_PAGE_SIZE,
+                orFilters: sidebarFilters.orFilters,
+                viewUrn: sidebarFilters.viewUrn,
+                query: sidebarFilters.query,
+                formFilter,
+            },
+        },
+        onCompleted: (data) => {
+            const newStart = data?.browseV2?.start ?? -1;
+            if (newStart === 0) initializing.current = false;
+            if (initializing.current || !data || newStart < 0) return;
+
+            setStartToBrowseMap((previousMap) => {
+                const newMap: typeof previousMap = { [newStart]: data };
+
+                Object.keys(previousMap)
+                    .map(Number)
+                    .forEach((previousStart) => {
+                        if (previousStart < newStart) newMap[previousStart] = previousMap[previousStart];
+                    });
+
+                return newMap;
+            });
+        },
     });
 
     const retry = () => {
@@ -55,64 +86,11 @@ const useBrowsePagination = ({ skip }: Props) => {
         }
     }, [shouldRefetch, refetch, setShouldRefetch]);
 
-    const getBrowseResultsV2WithDeps = useCallback(
-        (start: number) => {
-            if (skip) return;
-            getBrowseResultsV2({
-                variables: {
-                    input: {
-                        type,
-                        path,
-                        start,
-                        count: BROWSE_PAGE_SIZE,
-                        orFilters: sidebarFilters.orFilters,
-                        viewUrn: sidebarFilters.viewUrn,
-                        query: sidebarFilters.query,
-                        formFilter,
-                    },
-                },
-            });
-        },
-        [
-            getBrowseResultsV2,
-            path,
-            sidebarFilters.orFilters,
-            sidebarFilters.query,
-            sidebarFilters.viewUrn,
-            skip,
-            type,
-            formFilter,
-        ],
-    );
-
-    useEffect(() => {
-        initializing.current = true;
-        getBrowseResultsV2WithDeps(0);
-    }, [getBrowseResultsV2WithDeps]);
-
-    useEffect(() => {
-        const newStart = data?.browseV2?.start ?? -1;
-        if (newStart === 0) initializing.current = false;
-        if (initializing.current || !data || newStart < 0) return;
-
-        setStartToBrowseMap((previousMap) => {
-            const newMap: typeof previousMap = { [newStart]: data };
-
-            Object.keys(previousMap)
-                .map(Number)
-                .forEach((previousStart) => {
-                    if (previousStart < newStart) newMap[previousStart] = previousMap[previousStart];
-                });
-
-            return newMap;
-        });
-    }, [data]);
-
     const advancePage = useCallback(() => {
         const newStart = latestStart + BROWSE_PAGE_SIZE;
         if (initializing.current || error || done || latestStart < 0 || total <= 0 || newStart >= total) return;
-        getBrowseResultsV2WithDeps(newStart);
-    }, [done, error, getBrowseResultsV2WithDeps, latestStart, total]);
+        setStart(newStart);
+    }, [done, error, latestStart, total]);
 
     const { observableRef } = useIntersect({
         skip,
@@ -121,6 +99,7 @@ const useBrowsePagination = ({ skip }: Props) => {
     });
 
     return {
+        loading: start > 0 && loading, // Don't display loading indicator for first page
         loaded: !!latestData || !!error,
         error,
         groups,

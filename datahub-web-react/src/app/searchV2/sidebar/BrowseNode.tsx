@@ -1,4 +1,5 @@
 import { FolderOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -71,7 +72,7 @@ const BrowseNode = () => {
         trackSelectNodeEvent(isNowSelected ? 'select' : 'deselect', 'browse');
     };
 
-    const { error, groups, loaded, observable, path, retry } = useBrowsePagination({
+    const { error, groups, loading, loaded, observable, path, retry } = useBrowsePagination({
         skip: !isOpen || !browseResultGroup.hasSubGroups,
     });
 
@@ -118,6 +119,7 @@ const BrowseNode = () => {
                             <BrowseNode />
                         </BrowseProvider>
                     ))}
+                    {loading && <Loader size="sm" />}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}
                 </ExpandableNode.Body>

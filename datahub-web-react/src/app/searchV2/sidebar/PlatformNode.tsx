@@ -1,3 +1,4 @@
+import { Loader } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -82,7 +83,7 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
         trackSelectNodeEvent(isNowPlatformOnlySelected ? 'select' : 'deselect', 'platform');
     };
 
-    const { error, groups, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
+    const { error, groups, loading, loaded, observable, path, retry } = useBrowsePagination({ skip: !isOpen });
 
     const color = REDESIGN_COLORS.TEXT_HEADING;
 
@@ -169,6 +170,7 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                             <BrowseNode />
                         </BrowseProvider>
                     ))}
+                    {loading && <Loader size="sm" />}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
                     {observable}
                 </ExpandableNode.Body>
