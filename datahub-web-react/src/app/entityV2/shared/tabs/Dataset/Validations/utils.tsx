@@ -40,7 +40,8 @@ export const getOperatorDescription = (operator: AssertionStdOperator) => {
         case AssertionStdOperator.Between:
             return 'between';
         default:
-            throw new Error(`Unknown operator ${operator}`);
+            console.error('Unknown operator', operator);
+            return 'an unknown operator';
     }
 };
 
@@ -57,7 +58,8 @@ export const getParameterDescription = (parameters: AssertionStdParameters) => {
             parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
         )}`;
     }
-    throw new Error('Invalid assertion parameters provided');
+    console.error('Invalid assertion parameters provided', parameters);
+    return 'an unknown criteria';
 };
 
 export const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType) => {
