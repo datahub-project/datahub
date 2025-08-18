@@ -16,6 +16,13 @@ export const StyledList = styled(List)`
     flex: 1;
     overflow: auto;
 
+    .ant-spin-nested-loading {
+                ${(props) =>
+                    props.containerHeight !== undefined
+                        ? `height: ${props.containerHeight}px;`
+                        : ''}
+            }
+
     .ant-list-items > .ant-list-item {
         padding-right: 0px;
         padding-left: 0px;
@@ -103,7 +110,8 @@ export const EntitySearchResults = ({
     compactUserSearchCardStyle,
     noResultsMessage,
     selectLimit,
-}: Props) => {
+    containerHeight,
+}: Props & { containerHeight?: number }) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
 

@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import LanguageIcon from '@mui/icons-material/Language';
 import { Pagination, Spin, Typography } from 'antd';
-import React from 'react';
+import React, {useRef, useEffect, useState} from 'react';
 import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
@@ -195,6 +195,31 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+    const resultContainerRef = useRef<HTMLDivElement>(null);
+    const paginationInfoContainerRef = useRef<HTMLDivElement>(null);
+
+    const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
+
+    useEffect(() => {
+            const calculateHeight = () => {
+                if (!loading && resultContainerRef.current && paginationInfoContainerRef.current) {
+                    const maxHeight = document.getElementById("searchableContent").offsetHeight;
+                    const paginationHeight = paginationInfoContainerRef.current.offsetHeight;
+                    const resultContentStartPoint = resultContainerRef.current.getBoundingClientRect().top
+                     + window.scrollY;
+                    const heightFound = maxHeight - resultContentStartPoint - paginationHeight;
+                    setContainerHeight(heightFound);
+                }
+            };
+
+            calculateHeight();
+
+            // Recalculate height on loading or window resize
+            window.addEventListener('resize', calculateHeight);
+            return () => {
+                window.removeEventListener('resize', calculateHeight);
+            };
+        }, [loading, showFilters]);
 
     return (
         <>
@@ -212,7 +237,7 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
 
-                <ResultContainer>
+                <ResultContainer ref={resultContainerRef}>
                     {view && (
                         <ViewsContainer>
                             <ViewLabel>View</ViewLabel>
@@ -258,11 +283,12 @@ export const EmbeddedListSearchResults = ({
                             bordered={false}
                             entityAction={entityAction}
                             compactUserSearchCardStyle={compactUserSearchCardStyle}
+                            containerHeight={containerHeight}
                         />
                     )}
                 </ResultContainer>
             </SearchBody>
-            <PaginationInfoContainer>
+            <PaginationInfoContainer ref={paginationInfoContainerRef}>
                 <PaginationInfo>
                     <b>
                         {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
