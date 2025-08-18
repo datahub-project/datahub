@@ -78,11 +78,6 @@ def load_file_as_json(
     # Handle HTTP/HTTPS URLs (that are not data lake URIs)
     if uri.startswith(("http://", "https://")):
         logger.debug(f"Loading file from HTTP/HTTPS: {uri}")
-        # Prevent SSRF attacks by validating URL scheme
-        if not uri.startswith(("https://", "http://")):
-            raise ValueError(
-                "Invalid URL scheme. Only https:// and http:// are allowed."
-            )
         response = requests.get(uri)
         response.raise_for_status()
         return response.json()
