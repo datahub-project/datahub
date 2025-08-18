@@ -110,11 +110,6 @@ class ContainerWUCreator:
 
     @staticmethod
     def get_protocol(path: str) -> str:
-        """
-        Get the protocol prefix from any supported object store URI.
-
-        Delegates to the ObjectStoreClient for unified handling.
-        """
         object_store = ObjectStoreClient.get_object_store_for_uri(path)
         if object_store:
             prefix = object_store.get_prefix(path)
@@ -127,11 +122,6 @@ class ContainerWUCreator:
 
     @staticmethod
     def get_bucket_name(path: str) -> str:
-        """
-        Get the bucket/container name from any supported object store URI.
-
-        Delegates to the ObjectStoreClient.get_bucket_name static method.
-        """
         return ObjectStoreClient.get_bucket_name(path)
 
     def get_sub_types(self) -> str:
@@ -144,11 +134,6 @@ class ContainerWUCreator:
         raise ValueError(f"Unable to sub type for platform: {self.platform}")
 
     def get_base_full_path(self, path: str) -> str:
-        """
-        Get the object key/path from any supported object store URI.
-
-        Delegates to the ObjectStoreClient for unified handling.
-        """
         object_store = ObjectStoreClient.get_object_store_for_uri(path)
         if object_store:
             return object_store.get_object_key(path)
