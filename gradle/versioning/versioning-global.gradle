@@ -9,8 +9,7 @@ git tags can be of a few forms:
 Produces the following variables and supports token replacement
 - version: server version amenable for creating jars
 - fullVersion: full version string 
-- cliVersion: cli version amenable for binding to server as a default
-  0.8.44 or 0.8.44-1 (for clean tags) or 0.8.45-SNAPSHOT (for unclean repositories)
+- cliVersion: cli version to use with DataHub Server by default
 
  All inference can be overridden by passing in the releaseVersion property
  e.g. -PreleaseVersion=0.2.3.4 will set the jar version to 0.2.3-4
