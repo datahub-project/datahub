@@ -91,6 +91,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    SiblingsClass,
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
@@ -1511,19 +1512,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             mcp_raw=mcp,
                             is_primary_source=False,
                         )
-
-                    # Create patch for dbt entity (make it secondary when dbt_is_primary_sibling=False)
-                    dbt_patch = DatasetPatchBuilder(node_datahub_urn)
-                    dbt_patch.add_sibling(
-                        target_platform_urn, primary=self.config.dbt_is_primary_sibling
-                    )
-
-                    for mcp in dbt_patch.build():
-                        yield MetadataWorkUnit(
-                            id=MetadataWorkUnit.generate_workunit_id(mcp),
-                            mcp_raw=mcp,
-                            is_primary_source=False,
-                        )
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=node_datahub_urn,
+                        aspect=SiblingsClass(
+                            siblings=[target_platform_urn],
+                            primary=self.config.dbt_is_primary_sibling,
+                        ),
+                    ).as_workunit()
 
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
