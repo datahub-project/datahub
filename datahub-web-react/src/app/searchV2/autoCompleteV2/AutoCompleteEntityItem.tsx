@@ -18,11 +18,12 @@ import { Entity, MatchedField } from '@src/types.generated';
 
 const Container = styled.div<{
     $navigateOnlyOnNameClick?: boolean;
+    $padding?: string;
 }>`
     display: flex;
     flex-direction: row;
     justify-content: space-between;
-    padding: 8px 13px 8px 8px;
+    padding: ${(props) => (props.$padding ? props.$padding : '8px 13px 8px 8px')};
 
     ${(props) =>
         !props.$navigateOnlyOnNameClick &&
@@ -91,14 +92,25 @@ const TypeContainer = styled.div`
     align-items: center;
 `;
 
+const Icons = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 interface EntityAutocompleteItemProps {
     entity: Entity;
     query?: string;
     siblings?: Entity[];
     matchedFields?: MatchedField[];
     variant?: EntityItemVariant;
-    customDetailsRenderer?: (entity: Entity) => void;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
     navigateOnlyOnNameClick?: boolean;
+    dragIconRenderer?: () => React.ReactNode;
+    hideSubtitle?: boolean;
+    hideMatches?: boolean;
+    padding?: string;
+    onClick?: () => void;
 }
 
 export default function AutoCompleteEntityItem({
@@ -109,6 +121,11 @@ export default function AutoCompleteEntityItem({
     variant,
     customDetailsRenderer,
     navigateOnlyOnNameClick,
+    dragIconRenderer,
+    hideSubtitle,
+    hideMatches,
+    padding,
+    onClick,
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
@@ -143,11 +160,20 @@ export default function AutoCompleteEntityItem({
     );
 
     return (
-        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick}>
+        <Container $navigateOnlyOnNameClick={navigateOnlyOnNameClick} $padding={padding} onClick={onClick}>
             <ContentContainer>
-                <IconContainer $variant={variant}>
-                    <EntityIcon entity={entity} siblings={siblings} />
-                </IconContainer>
+                {dragIconRenderer ? (
+                    <Icons>
+                        {dragIconRenderer()}
+                        <IconContainer $variant={variant}>
+                            <EntityIcon entity={entity} siblings={siblings} />
+                        </IconContainer>
+                    </Icons>
+                ) : (
+                    <IconContainer $variant={variant}>
+                        <EntityIcon entity={entity} siblings={siblings} />
+                    </IconContainer>
+                )}
 
                 <DescriptionContainer>
                     <HoverEntityTooltip
@@ -159,20 +185,24 @@ export default function AutoCompleteEntityItem({
                         <DisplayNameWrapper>{displayNameContent}</DisplayNameWrapper>
                     </HoverEntityTooltip>
 
-                    <EntitySubtitle
-                        entity={entity}
-                        color={variantProps?.subtitleColor}
-                        colorLevel={variantProps?.subtitleColorLevel}
-                    />
+                    {!hideSubtitle && (
+                        <EntitySubtitle
+                            entity={entity}
+                            color={variantProps?.subtitleColor}
+                            colorLevel={variantProps?.subtitleColorLevel}
+                        />
+                    )}
 
-                    <Matches
-                        matchedFields={matchedFields}
-                        entity={entity}
-                        query={query}
-                        displayName={displayName}
-                        color={variantProps?.matchColor}
-                        colorLevel={variantProps?.matchColorLevel}
-                    />
+                    {!hideMatches && (
+                        <Matches
+                            matchedFields={matchedFields}
+                            entity={entity}
+                            query={query}
+                            displayName={displayName}
+                            color={variantProps?.matchColor}
+                            colorLevel={variantProps?.matchColorLevel}
+                        />
+                    )}
                 </DescriptionContainer>
             </ContentContainer>
 

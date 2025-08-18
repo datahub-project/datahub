@@ -1,10 +1,10 @@
-import { CloseOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import useRemoveRelatedTerms from '@app/entityV2/glossaryTerm/profile/useRemoveRelatedTerms';
+import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
@@ -69,14 +69,13 @@ function RelatedTerm(props: Props) {
 
     return (
         <ListItem>
-            <Profile>
-                {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
-                {isEditable && (
-                    <TransparentButton size="small" onClick={onRemove}>
-                        <CloseOutlined size={5} /> Remove Relationship
-                    </TransparentButton>
-                )}
-            </Profile>
+            <SearchCardContext.Provider
+                value={{ showRemovalFromList: isEditable, removeText: 'Remove Relationship', onRemove }}
+            >
+                <Profile>
+                    {entityRegistry.renderPreview(EntityType.GlossaryTerm, PreviewType.PREVIEW, data?.glossaryTerm)}
+                </Profile>
+            </SearchCardContext.Provider>
         </ListItem>
     );
 }

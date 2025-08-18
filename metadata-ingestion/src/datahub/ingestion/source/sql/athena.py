@@ -347,12 +347,18 @@ class Partitionitem:
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Supported for S3 tables",
-    subtype_modifier=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Supported for S3 tables",
-    subtype_modifier=[SourceCapabilityModifier.TABLE],
+    subtype_modifier=[
+        SourceCapabilityModifier.VIEW,
+        SourceCapabilityModifier.TABLE,
+    ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):

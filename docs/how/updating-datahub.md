@@ -20,6 +20,7 @@
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 - #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
+- #14162: Added fields to SystemMetadata updating the MCP Avro schema which can affect users of external schema registries with mixed version deployments.
 
 -->
 
@@ -57,6 +58,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13601: The `use_queries_v2` flag is now enabled by default for Snowflake and BigQuery ingestion. This improves the quality of lineage and quantity of queries extracted.
 
 ### Known Issues
+
+- Internal Schema Registry - The internal schema registry does not supply a compatible schema for older MCP messages. The short term recommendation is to process all MCPs before upgrading to this release.
 
 ### Potential Downtime
 

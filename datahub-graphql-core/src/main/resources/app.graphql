@@ -192,6 +192,11 @@ type PlatformPrivileges {
   Whether the user can manage platform features.
   """
   manageFeatures: Boolean!
+
+  """
+  Whether the user can manage default home page template.
+  """
+  manageHomePageTemplates: Boolean!
 }
 
 """
@@ -744,6 +749,11 @@ type FeatureFlagsConfig {
   showLineageExpandMore: Boolean!
 
   """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -762,6 +772,11 @@ type FeatureFlagsConfig {
   Enables logical models feature
   """
   logicalModelsEnabled: Boolean!
+
+  """
+  Enables displaying the homepage user role underneath the name. Only available for custom home page.
+  """
+  showHomepageUserRole: Boolean!
 }
 
 """
