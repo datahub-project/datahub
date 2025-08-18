@@ -20,7 +20,7 @@ Produces the following variables and supports token replacement
 import groovy.json.JsonBuilder
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def cliMajorVersion = "0.15.0" // base default cli major version
+def cliMajorVersion = "1.2.0" // base default cli major version
 def snapshotVersion = false
 
 // This is the version field that had a slightly different implementation for embedding in jars.

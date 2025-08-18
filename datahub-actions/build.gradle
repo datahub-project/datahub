@@ -145,8 +145,8 @@ docker {
 
   defaultVariant = "slim"
   variants = [
-    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version]],
-    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version]]
+    "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliMajorVersion]],
+    "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version, BUNDLED_CLI_VERSION: cliMajorVersion]]
   ]
 }
 
