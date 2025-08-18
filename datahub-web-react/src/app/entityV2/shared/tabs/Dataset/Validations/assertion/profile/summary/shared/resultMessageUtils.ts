@@ -299,7 +299,7 @@ const getFormattedReasonTextForDefaultAssertion = (run: AssertionRunEvent) => {
 export const getFormattedReasonText = (assertion: Assertion, run: AssertionRunEvent) => {
     if (run?.result?.type === AssertionResultType.Init) {
         return assertion.info?.source?.type === AssertionSourceType.Inferred
-            ? 'Collecting data to train the model. Evaluation will begin once training is complete. This can take up to 7 days.'
+            ? 'Collecting data to train the model. Evaluation will begin once training is complete. In order to pick up on seasonality, this can take up to 7 days.'
             : 'Initial data recorded successfully. Assertion result will be available on the next evaluation.';
     }
     if (run?.result?.type === AssertionResultType.Error) {

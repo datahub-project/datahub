@@ -171,10 +171,6 @@ export const tryGetPrimaryMetricValueFromAssertionRunEvent = (
     runEvent: AssertionRunEvent,
     maybeFallbackAssertionType?: AssertionType,
 ): number | undefined => {
-    const isInitializing = runEvent.result?.type === AssertionResultType.Init;
-    if (isInitializing) {
-        return undefined;
-    }
     switch (runEvent.result?.assertion?.type ?? maybeFallbackAssertionType) {
         case AssertionType.Sql:
             return tryGetSqlAssertionNumericalResult(runEvent.result);
