@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: "tsdbpass"
       POSTGRES_DB: "tsdb"
     ports:
-      - '5432:5432'
+      - '55432:5432'
     volumes:
       - ./setup:/setup
       - ./setup/setup.sql:/docker-entrypoint-initdb.d/01-setup.sql

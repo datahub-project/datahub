@@ -8,7 +8,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2024-01-15 10:00:00"
-TIMESCALEDB_PORT = 5432
+TIMESCALEDB_PORT = 55432
 
 
 @pytest.fixture(scope="module")

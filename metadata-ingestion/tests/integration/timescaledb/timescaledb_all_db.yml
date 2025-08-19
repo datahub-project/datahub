@@ -3,7 +3,7 @@ source:
   config:
     username: tsdbuser
     password: tsdbpass
-    host_port: localhost:5432
+    host_port: localhost:55432
     # No database specified - will ingest all databases
 
     emit_timescaledb_metadata: true

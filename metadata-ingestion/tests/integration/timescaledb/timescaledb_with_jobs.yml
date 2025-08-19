@@ -3,7 +3,7 @@ source:
   config:
     username: tsdbuser
     password: tsdbpass
-    host_port: localhost:5432
+    host_port: localhost:55432
     database: tsdb
 
     # Enable job extraction
