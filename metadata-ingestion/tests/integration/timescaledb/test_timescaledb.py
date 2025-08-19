@@ -18,8 +18,26 @@ def test_resources_dir(pytestconfig):
 
 def is_timescaledb_up(container_name: str) -> bool:
     """Check if TimescaleDB is responsive on a container"""
+    # Check if database is ready to accept connections
     cmd = f"docker logs {container_name} 2>&1 | grep 'database system is ready to accept connections'"
-    ret = subprocess.run(cmd, shell=True)
+    ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if ret.returncode != 0:
+        return False
+
+    # Check if initialization scripts have completed
+    cmd = f"docker logs {container_name} 2>&1 | grep 'PostgreSQL init process complete'"
+    ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if ret.returncode != 0:
+        # If init process complete message not found, check for TimescaleDB extension
+        cmd = f"docker logs {container_name} 2>&1 | grep -E '(CREATE EXTENSION|timescaledb)'"
+        ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        if ret.returncode != 0:
+            return False
+
+    # Use docker exec to test database connectivity instead of psycopg2
+    # This avoids import issues during container startup
+    cmd = f"docker exec {container_name} pg_isready -U tsdbuser -d tsdb -h localhost"
+    ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     return ret.returncode == 0
 
 
@@ -32,7 +50,7 @@ def timescaledb_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             docker_services,
             "test-timescaledb",
             TIMESCALEDB_PORT,
-            timeout=120,
+            timeout=300,  # Increased timeout for CI environments
             checker=lambda: is_timescaledb_up("test-timescaledb"),
         )
         yield docker_services

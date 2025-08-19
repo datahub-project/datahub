@@ -1,4 +1,5 @@
 # docker-compose.yml
+version: '3.8'
 services:
   test-timescaledb:
     container_name: "test-timescaledb"
@@ -8,6 +9,8 @@ services:
       POSTGRES_USER: "tsdbuser"
       POSTGRES_PASSWORD: "tsdbpass"
       POSTGRES_DB: "tsdb"
+      POSTGRES_INITDB_ARGS: "--auth-local=trust --auth-host=md5"
+      POSTGRES_HOST_AUTH_METHOD: "trust"
     ports:
       - '55432:5432'
     volumes:
@@ -20,3 +23,9 @@ services:
       - shared_preload_libraries=timescaledb
       - -c
       - timescaledb.telemetry_level=off
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tsdbuser -d tsdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
