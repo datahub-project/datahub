@@ -4,13 +4,16 @@ services:
   test-timescaledb:
     container_name: "test-timescaledb"
     hostname: timescaledb
-    image: timescale/timescaledb:latest-pg15
+    image: timescale/timescaledb:2.21.2-pg15
     environment:
       POSTGRES_USER: "tsdbuser"
       POSTGRES_PASSWORD: "tsdbpass"
       POSTGRES_DB: "tsdb"
       POSTGRES_INITDB_ARGS: "--auth-local=trust --auth-host=md5"
       POSTGRES_HOST_AUTH_METHOD: "trust"
+      PGUSER: "tsdbuser"
+      PGPASSWORD: "tsdbpass"
+      PGDATABASE: "tsdb"
     ports:
       - '55432:5432'
     volumes:

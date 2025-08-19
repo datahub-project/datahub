@@ -1,4 +1,5 @@
 import subprocess
+import time
 
 import pytest
 from freezegun import freeze_time
@@ -18,27 +19,53 @@ def test_resources_dir(pytestconfig):
 
 def is_timescaledb_up(container_name: str) -> bool:
     """Check if TimescaleDB is responsive on a container"""
+
     # Check if database is ready to accept connections
     cmd = f"docker logs {container_name} 2>&1 | grep 'database system is ready to accept connections'"
     ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if ret.returncode != 0:
+        print(f"Database not ready yet for {container_name}")
         return False
 
     # Check if initialization scripts have completed
     cmd = f"docker logs {container_name} 2>&1 | grep 'PostgreSQL init process complete'"
     ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     if ret.returncode != 0:
-        # If init process complete message not found, check for TimescaleDB extension
-        cmd = f"docker logs {container_name} 2>&1 | grep -E '(CREATE EXTENSION|timescaledb)'"
+        # If init process complete message not found, check for TimescaleDB extension creation
+        cmd = (
+            f"docker logs {container_name} 2>&1 | grep 'CREATE EXTENSION.*timescaledb'"
+        )
         ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
         if ret.returncode != 0:
+            print(f"TimescaleDB extension not created yet for {container_name}")
             return False
 
-    # Use docker exec to test database connectivity instead of psycopg2
-    # This avoids import issues during container startup
+    # Wait a bit for any remaining initialization
+    time.sleep(2)
+
+    # Use docker exec to test database connectivity
     cmd = f"docker exec {container_name} pg_isready -U tsdbuser -d tsdb -h localhost"
     ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    return ret.returncode == 0
+    if ret.returncode != 0:
+        print(f"pg_isready failed for {container_name}: {ret.stdout} {ret.stderr}")
+        return False
+
+    # Try a simple query to make sure database is fully operational
+    cmd = f"docker exec {container_name} psql -U tsdbuser -d tsdb -c 'SELECT 1;'"
+    ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if ret.returncode != 0:
+        print(f"Simple query failed for {container_name}: {ret.stdout} {ret.stderr}")
+        return False
+
+    # Check if TimescaleDB extension is actually loaded
+    cmd = f"docker exec {container_name} psql -U tsdbuser -d tsdb -c \"SELECT extname FROM pg_extension WHERE extname = 'timescaledb';\""
+    ret = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    if ret.returncode != 0 or "timescaledb" not in ret.stdout:
+        print(f"TimescaleDB extension not loaded for {container_name}")
+        return False
+
+    print(f"TimescaleDB container {container_name} is fully ready")
+    return True
 
 
 @pytest.fixture(scope="module")
