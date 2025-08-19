@@ -366,17 +366,9 @@ def _maybe_print_upgrade_message(
         is_cloud = version_stats.server.is_cloud_server
 
         if not is_cloud:
-            if version_stats.server.current_server_default_cli_version:
-                # Use server's recommended CLI version for compatibility check
-                client_server_compat = is_client_server_compatible(
-                    version_stats.client.current,
-                    version_stats.server.current_server_default_cli_version,
-                )
-            else:
-                # Fall back to direct server version comparison
-                client_server_compat = is_client_server_compatible(
-                    version_stats.client.current, version_stats.server.current
-                )
+            client_server_compat = is_client_server_compatible(
+                version_stats.client.current, version_stats.server.current
+            )
 
         if latest_release_date and current_release_date:
             assert version_stats.client.latest
