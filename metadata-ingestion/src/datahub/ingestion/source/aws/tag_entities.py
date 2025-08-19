@@ -1,5 +1,10 @@
 import logging
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.aws.platform_resource_repository import (
+        GluePlatformResourceRepository,
+    )
 
 from pydantic import BaseModel
 
@@ -7,7 +12,6 @@ from datahub.api.entities.external.external_entities import (
     ExternalEntity,
     ExternalEntityId,
     LinkedResourceSet,
-    PlatformResourceRepository,
 )
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
@@ -15,10 +19,8 @@ from datahub.api.entities.external.lake_formation_external_entites import (
 from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceKey,
-    PlatformResourceSearchFields,
 )
 from datahub.metadata.urns import TagUrn
-from datahub.utilities.search_utils import ElasticDocumentQuery
 from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
@@ -29,8 +31,12 @@ class LakeFormationTagSyncContext(BaseModel):
     platform_instance: Optional[str] = None
     catalog: Optional[str] = None
 
+    # Making it compatible with SyncContext interface
+    def get_platform_instance(self) -> Optional[str]:
+        return self.platform_instance
 
-class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
+
+class LakeFormationTagPlatformResourceId(ExternalEntityId):
     """
     A LakeFormationTag is a unique identifier for a Lakeformation tag.
     """
@@ -41,9 +47,6 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     catalog: Optional[str] = None
     exists_in_lake_formation: bool = False
     persisted: bool = False
-
-    def __hash__(self) -> int:
-        return hash(self.to_platform_resource_key().id)
 
     # this is a hack to make sure the property is a string and not private pydantic field
     @staticmethod
@@ -61,24 +64,26 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
 
     @classmethod
-    def from_tag(
+    def get_or_create_from_tag(
         cls,
         tag: LakeFormationTag,
-        platform_instance: Optional[str],
-        platform_resource_repository: PlatformResourceRepository,
-        catalog: Optional[str] = None,
+        platform_resource_repository: "GluePlatformResourceRepository",
         exists_in_lake_formation: bool = False,
+        catalog_id: Optional[str] = None,
     ) -> "LakeFormationTagPlatformResourceId":
         """
         Creates a LakeFormationTagPlatformResourceId from a LakeFormationTag.
         """
 
+        # Use catalog_id if provided, otherwise fall back to repository catalog
+        effective_catalog = catalog_id or platform_resource_repository.catalog
+
         existing_platform_resource = cls.search_by_urn(
             tag.to_datahub_tag_urn().urn(),
             platform_resource_repository=platform_resource_repository,
             tag_sync_context=LakeFormationTagSyncContext(
-                platform_instance=platform_instance,
-                catalog=catalog,
+                platform_instance=platform_resource_repository.platform_instance,
+                catalog=effective_catalog,
             ),
         )
         if existing_platform_resource:
@@ -90,9 +95,9 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
         return LakeFormationTagPlatformResourceId(
             tag_key=str(tag.key),
             tag_value=str(tag.value) if tag.value is not None else None,
-            platform_instance=platform_instance,
+            platform_instance=platform_resource_repository.platform_instance,
+            catalog=effective_catalog,
             exists_in_lake_formation=exists_in_lake_formation,
-            catalog=catalog,
             persisted=False,
         )
 
@@ -100,64 +105,48 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
     def search_by_urn(
         cls,
         urn: str,
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: "GluePlatformResourceRepository",
         tag_sync_context: LakeFormationTagSyncContext,
     ) -> Optional["LakeFormationTagPlatformResourceId"]:
-        mapped_tags = [
-            t
-            for t in platform_resource_repository.search_by_filter(
-                ElasticDocumentQuery.create_from(
-                    (
-                        PlatformResourceSearchFields.RESOURCE_TYPE,
-                        str(LakeFormationTagPlatformResourceId._RESOURCE_TYPE()),
-                    ),
-                    (PlatformResourceSearchFields.SECONDARY_KEYS, urn),
-                )
-            )
-        ]
-        logger.info(
-            f"Found {len(mapped_tags)} mapped tags for URN {urn}. {mapped_tags}"
-        )
-        if len(mapped_tags) > 0:
-            for platform_resource in mapped_tags:
-                if (
-                    platform_resource.resource_info
-                    and platform_resource.resource_info.value
-                ):
-                    lake_formation_tag_platform_resource = (
-                        LakeFormationTagPlatformResource(
-                            **platform_resource.resource_info.value.as_pydantic_object(
-                                LakeFormationTagPlatformResource
-                            ).dict()
-                        )
-                    )
-                    if (
-                        lake_formation_tag_platform_resource.id.platform_instance
-                        == tag_sync_context.platform_instance
-                        and lake_formation_tag_platform_resource.id.catalog
-                        == tag_sync_context.catalog
-                    ):
-                        lake_formation_tag_id = lake_formation_tag_platform_resource.id
-                        lake_formation_tag_id.exists_in_lake_formation = True
-                        lake_formation_tag_id.persisted = True
-                        return lake_formation_tag_id
-                else:
-                    logger.warning(
-                        f"Platform resource {platform_resource} does not have a resource_info value"
-                    )
-                    continue
+        """
+        Search for existing Lake Formation tag entity by URN using repository caching.
 
-            # If we reach here, it means we did not find a mapped tag for the URN
-            logger.info(
-                f"No mapped tag found for URN {urn} with platform instance {tag_sync_context.platform_instance}. Creating a new LakeFormationTagPlatformResourceId."
-            )
+        This method now delegates to the repository's search_entity_by_urn method to ensure
+        consistent caching behavior across all platform implementations.
+        """
+        # Use repository's cached search method instead of duplicating search logic
+        existing_entity_id = platform_resource_repository.search_entity_by_urn(urn)
+
+        if existing_entity_id:
+            # Verify platform instance and catalog match
+            if (
+                existing_entity_id.platform_instance
+                == tag_sync_context.platform_instance
+                and existing_entity_id.catalog == tag_sync_context.catalog
+            ):
+                logger.info(
+                    f"Found existing LakeFormationTagPlatformResourceId for URN {urn}: {existing_entity_id}"
+                )
+                # Create a new ID with the correct state instead of mutating
+                return LakeFormationTagPlatformResourceId(
+                    tag_key=existing_entity_id.tag_key,
+                    tag_value=existing_entity_id.tag_value,
+                    platform_instance=existing_entity_id.platform_instance,
+                    catalog=existing_entity_id.catalog,
+                    exists_in_lake_formation=True,  # This tag exists in Lake Formation
+                    persisted=True,  # And it's persisted in DataHub
+                )
+
+        logger.info(
+            f"No mapped tag found for URN {urn} with platform instance {tag_sync_context.platform_instance}. Creating a new LakeFormationTagPlatformResourceId."
+        )
         return None
 
     @classmethod
     def from_datahub_urn(
         cls,
         urn: str,
-        platform_resource_repository: PlatformResourceRepository,
+        platform_resource_repository: "GluePlatformResourceRepository",
         tag_sync_context: LakeFormationTagSyncContext,
     ) -> "LakeFormationTagPlatformResourceId":
         """
@@ -188,11 +177,17 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
                 logger.info(
                     f"Tag {new_tag_id} already exists in platform resource repository with {resource_key}"
                 )
-                new_tag_id.exists_in_lake_formation = (
-                    True  # TODO: Check if this is a safe assumption
+                # Create a new ID with the correct state instead of mutating
+                return LakeFormationTagPlatformResourceId(
+                    tag_key=new_tag_id.tag_key,
+                    tag_value=new_tag_id.tag_value,
+                    platform_instance=new_tag_id.platform_instance,
+                    catalog=new_tag_id.catalog,
+                    exists_in_lake_formation=True,  # This tag exists in Lake Formation
+                    persisted=new_tag_id.persisted,
                 )
             return new_tag_id
-        raise ValueError(f"Unable to create SnowflakeTagId from DataHub URN: {urn}")
+        raise ValueError(f"Unable to create LakeFormationTagId from DataHub URN: {urn}")
 
     @classmethod
     def generate_tag_id(
@@ -223,7 +218,7 @@ class LakeFormationTagPlatformResourceId(BaseModel, ExternalEntityId):
         )
 
 
-class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
+class LakeFormationTagPlatformResource(ExternalEntity):
     datahub_urns: LinkedResourceSet
     managed_by_datahub: bool
     id: LakeFormationTagPlatformResourceId
@@ -246,46 +241,29 @@ class LakeFormationTagPlatformResource(BaseModel, ExternalEntity):
         )
 
     @classmethod
-    def get_from_datahub(
+    def create_default(
         cls,
-        lake_formation_tag_id: LakeFormationTagPlatformResourceId,
-        platform_resource_repository: PlatformResourceRepository,
-        managed_by_datahub: bool = False,
+        entity_id: ExternalEntityId,
+        managed_by_datahub: bool,
     ) -> "LakeFormationTagPlatformResource":
-        # Search for linked DataHub URNs
-        platform_resources = [
-            r
-            for r in platform_resource_repository.search_by_filter(
-                ElasticDocumentQuery.create_from(
-                    (
-                        PlatformResourceSearchFields.RESOURCE_TYPE,
-                        str(LakeFormationTagPlatformResourceId._RESOURCE_TYPE()),
-                    ),
-                    (
-                        PlatformResourceSearchFields.PRIMARY_KEY,
-                        f"{lake_formation_tag_id.tag_key}/{lake_formation_tag_id.tag_value}",
-                    ),
-                )
-            )
-        ]
-        for platform_resource in platform_resources:
-            if (
-                platform_resource.resource_info
-                and platform_resource.resource_info.value
-            ):
-                lf_tag = LakeFormationTagPlatformResource(
-                    **platform_resource.resource_info.value.as_pydantic_object(
-                        LakeFormationTagPlatformResource
-                    ).dict()
-                )
-                if (
-                    lf_tag.id.platform_instance
-                    == lake_formation_tag_id.platform_instance
-                    and lf_tag.id.catalog == lake_formation_tag_id.catalog
-                ):
-                    return lf_tag
+        """Create a default Lake Formation tag entity when none found in DataHub."""
+        # Type narrowing: we know this will be a LakeFormationTagPlatformResourceId
+        assert isinstance(entity_id, LakeFormationTagPlatformResourceId), (
+            f"Expected LakeFormationTagPlatformResourceId, got {type(entity_id)}"
+        )
+
+        # Create a new entity ID with correct default state instead of mutating
+        default_entity_id = LakeFormationTagPlatformResourceId(
+            tag_key=entity_id.tag_key,
+            tag_value=entity_id.tag_value,
+            platform_instance=entity_id.platform_instance,
+            catalog=entity_id.catalog,
+            exists_in_lake_formation=False,  # New entities don't exist in Lake Formation yet
+            persisted=False,  # New entities are not persisted yet
+        )
+
         return cls(
-            id=lake_formation_tag_id,
+            id=default_entity_id,
             datahub_urns=LinkedResourceSet(urns=[]),
             managed_by_datahub=managed_by_datahub,
             allowed_values=None,

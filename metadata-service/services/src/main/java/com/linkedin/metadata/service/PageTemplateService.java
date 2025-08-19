@@ -33,6 +33,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class PageTemplateService {
   private final EntityClient entityClient;
+  private static final String DEFAULT_HOME_PAGE_TEMPLATE_URN =
+      "urn:li:dataHubPageTemplate:home_default_1";
 
   public PageTemplateService(@Nonnull EntityClient entityClient) {
     this.entityClient = entityClient;
@@ -200,6 +202,11 @@ public class PageTemplateService {
    */
   public void checkDeleteTemplatePermissions(
       @Nonnull OperationContext opContext, @Nonnull final Urn templateUrn) {
+
+    if (Objects.equals(templateUrn.toString(), DEFAULT_HOME_PAGE_TEMPLATE_URN)) {
+      throw new UnauthorizedException("Attempted to delete the default page template");
+    }
+
     DataHubPageTemplateProperties properties = getPageTemplateProperties(opContext, templateUrn);
 
     if (properties == null) {

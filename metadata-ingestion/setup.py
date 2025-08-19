@@ -131,6 +131,7 @@ great_expectations_lib = {
     #    This was derived from work done by @jskrzypek in
     #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
     "acryl-great-expectations==0.15.50.1",
+    "jupyter_server>=2.14.1",  # CVE-2024-35178
 }
 
 sqlalchemy_lib = {
