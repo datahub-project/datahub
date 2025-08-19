@@ -350,7 +350,7 @@ module.exports = {
               to: "docs/townhalls",
             },
             {
-              label: "Adoption Stories",
+              label: "Customer Stories",
               href: "https://datahub.com/resources/?2004611554=dh-stories",
             },
           ],
