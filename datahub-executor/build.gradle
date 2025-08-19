@@ -113,7 +113,6 @@ clean.dependsOn cleanPythonCache
 
 docker {
     dependsOn (':metadata-ingestion-modules:acryl-cloud:codegen')
-
     name "${docker_registry}/${docker_repo}:${versionTag}"
     dockerfile file("${rootProject.projectDir}/docker/datahub-executor/Dockerfile")
     files fileTree(rootProject.projectDir) {
@@ -136,7 +135,7 @@ docker {
     }
     additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
-    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BASE_IMAGE: "${docker_registry}/datahub-ingestion"]
+    def dockerBuildArgs = [DOCKER_VERSION: "${version}-slim", RELEASE_VERSION: python_docker_version, BASE_IMAGE: "${docker_registry}/datahub-ingestion", BUNDLED_CLI_VERSION: cliVersion]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
     if (project.hasProperty('pipMirrorUrl')) {

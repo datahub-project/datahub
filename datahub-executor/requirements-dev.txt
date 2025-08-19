@@ -21,7 +21,7 @@ acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-executor==0.2.5
+acryl-executor==0.2.6
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -58,6 +58,7 @@ amqp==5.3.1
 anyio==4.7.0
     # via
     #   -r requirements.txt
+    #   acryl-executor
     #   jupyter-server
     #   starlette
     #   watchfiles
@@ -690,6 +691,7 @@ loguru==0.7.2
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+    #   acryl-executor
 lxml==5.3.0
     # via
     #   -r requirements.txt

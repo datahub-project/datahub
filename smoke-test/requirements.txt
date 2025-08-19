@@ -23,7 +23,7 @@ deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1
-acryl-executor==0.2.2
+acryl-executor==0.2.6
 
 # Additional dependencies for telemetry API test
 confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
