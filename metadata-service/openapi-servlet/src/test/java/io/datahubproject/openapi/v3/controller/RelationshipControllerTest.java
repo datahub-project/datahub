@@ -11,9 +11,12 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
@@ -23,13 +26,13 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
@@ -40,6 +43,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
+@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller.RelationshipController"})
 @Import({
   SpringWebConfig.class,
   TracingInterceptor.class,
@@ -54,13 +58,45 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
   @Autowired private MockMvc mockMvc;
   @Autowired private GraphService mockGraphService;
 
-  @Autowired
-  @Qualifier("systemOperationContext")
-  private OperationContext opContext;
-
   @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
+  }
+
+  @TestConfiguration
+  public static class RelationshipControllerTestConfig {
+    @MockBean private ConfigurationProvider configurationProvider;
+    @MockBean private EntityRegistry entityRegistry;
+    @MockBean private SystemTelemetryContext systemTelemetryContext;
+
+    @Bean
+    public ObjectMapper objectMapper() {
+      return new ObjectMapper();
+    }
+
+    @Bean(name = "systemOperationContext")
+    public OperationContext systemOperationContext() {
+      return TestOperationContexts.systemContextNoSearchAuthorization();
+    }
+
+    @Bean("graphService")
+    @Primary
+    public ElasticSearchGraphService graphService() {
+      return mock(ElasticSearchGraphService.class);
+    }
+
+    @Bean
+    public AuthorizerChain authorizerChain() {
+      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
+
+      Authentication authentication = mock(Authentication.class);
+      when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
+      when(authorizerChain.authorize(any()))
+          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      AuthenticationContext.setAuthentication(authentication);
+
+      return authorizerChain;
+    }
   }
 
   @Test
@@ -317,38 +353,5 @@ public class RelationshipControllerTest extends AbstractTestNGSpringContextTests
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
         .andExpect(jsonPath("$.scrollId").value("test-scroll-id"));
-  }
-
-  @TestConfiguration
-  public static class RelationshipControllerTestConfig {
-
-    @Bean(name = "systemOperationContext")
-    public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
-    }
-
-    @MockBean public GraphService graphService;
-
-    @Bean
-    @Primary
-    public SystemTelemetryContext systemTelemetryContext(
-        @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
-      return systemOperationContext.getSystemTelemetryContext();
-    }
-
-    @Bean
-    public AuthorizerChain authorizerChain() {
-      AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
-
-      Authentication authentication = mock(Authentication.class);
-      when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
-      AuthenticationContext.setAuthentication(authentication);
-
-      return authorizerChain;
-    }
-
-    @MockBean private ConfigurationProvider configurationProvider;
   }
 }

@@ -108,10 +108,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
-@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller"})
+@ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller.EntityController"})
 @Import({
   SpringWebConfig.class,
   TracingInterceptor.class,
+  EntityController.class,
   EntityControllerTest.EntityControllerTestConfig.class,
   EntityVersioningServiceFactory.class,
   GlobalControllerExceptionHandler.class, // ensure error responses
