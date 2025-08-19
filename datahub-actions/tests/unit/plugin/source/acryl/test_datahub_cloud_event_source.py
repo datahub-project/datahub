@@ -76,8 +76,8 @@ def test_create_source(
     """
     source = DataHubEventSource.create(base_config_dict, mock_pipeline_context)
     assert isinstance(source, DataHubEventSource)
-    # The consumer_id on the instance includes the action prefix from pipeline_name
-    assert source.consumer_id == "urn:li:dataHubAction:test-pipeline"
+    # The base_consumer_id on the instance includes the action prefix from pipeline_name
+    assert source.base_consumer_id == "urn:li:dataHubAction:test-pipeline"
 
 
 def test_get_pipeline_urn() -> None:
@@ -99,10 +99,13 @@ def test_source_initialization(
     """
     config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
     source = DataHubEventSource(config_model, mock_pipeline_context)
-    assert source.consumer_id == "urn:li:dataHubAction:test-pipeline"
-    assert isinstance(source.datahub_events_consumer, DataHubEventsConsumer)
+    assert source.base_consumer_id == "urn:li:dataHubAction:test-pipeline"
+    assert isinstance(source.topic_consumers, dict)
+    assert len(source.topic_consumers) == 1  # Default single topic
+    assert "PlatformEvent_v1" in source.topic_consumers
+    assert isinstance(source.topic_consumers["PlatformEvent_v1"], DataHubEventsConsumer)
     assert isinstance(source.ack_manager, AckManager)
-    assert source.safe_to_ack_offset is None
+    assert source.safe_to_ack_offsets == {"PlatformEvent_v1": None}
 
 
 def test_events_with_no_events(
@@ -115,7 +118,8 @@ def test_events_with_no_events(
 
     mock_consumer = MagicMock(spec=DataHubEventsConsumer)
     mock_consumer.offset_id = "offset-100"  # Set the mocked offset_id
-    source.datahub_events_consumer = mock_consumer
+    # Replace the consumer for the default topic
+    source.topic_consumers["PlatformEvent_v1"] = mock_consumer
 
     # We'll simulate that poll_events returns a response with 0 events repeatedly.
     empty_response = ExternalEventsResponse(offsetId="offset-100", count=0, events=[])
@@ -144,7 +148,8 @@ def test_events_with_some_events(
 
     mock_consumer = MagicMock(spec=DataHubEventsConsumer)
     mock_consumer.offset_id = "offset-100"
-    source.datahub_events_consumer = mock_consumer
+    # Replace the consumer for the default topic
+    source.topic_consumers["PlatformEvent_v1"] = mock_consumer
     mock_ack_manager = MagicMock(spec=AckManager)
     mock_ack_manager.outstanding_acks.side_effect = [0]
 
@@ -174,7 +179,9 @@ def test_events_with_some_events(
     assert emitted[0].event_type == ENTITY_CHANGE_EVENT_V1_TYPE
     assert isinstance(emitted[0].event, EntityChangeEvent)
     mock_ack_manager.get_meta.assert_called_once()
-    assert source.safe_to_ack_offset == "offset-100"  # Previous offset.
+    assert (
+        source.safe_to_ack_offsets["PlatformEvent_v1"] == "offset-100"
+    )  # Previous offset.
     assert mock_consumer.poll_events.call_count == 1
 
 
@@ -197,7 +204,8 @@ def test_outstanding_acks_timeout(
 
     mock_consumer = MagicMock(spec=DataHubEventsConsumer)
     mock_consumer.offset_id = "offset-100"
-    source.datahub_events_consumer = mock_consumer
+    # Replace the consumer for the default topic
+    source.topic_consumers["PlatformEvent_v1"] = mock_consumer
 
     source.running = True
 
@@ -255,9 +263,10 @@ def test_close(mock_pipeline_context: PipelineContext, base_config_dict: dict) -
     source = DataHubEventSource(config_model, mock_pipeline_context)
 
     mock_consumer = MagicMock(spec=DataHubEventsConsumer)
-    source.datahub_events_consumer = mock_consumer
+    # Replace the consumer for the default topic
+    source.topic_consumers["PlatformEvent_v1"] = mock_consumer
 
-    source.safe_to_ack_offset = "some-offset-id"
+    source.safe_to_ack_offsets["PlatformEvent_v1"] = "some-offset-id"
 
     source.close()
     assert source.running is False
@@ -320,6 +329,18 @@ def test_multiple_topics_config(
         METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
     ]
 
+    # Each topic should have its own consumer
+    assert len(source.topic_consumers) == 3
+    assert PLATFORM_EVENT_TOPIC_NAME in source.topic_consumers
+    assert METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME in source.topic_consumers
+    assert METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME in source.topic_consumers
+
+    # Each topic should have its own offset tracking
+    assert len(source.safe_to_ack_offsets) == 3
+    for topic in source.topics_list:
+        assert topic in source.safe_to_ack_offsets
+        assert source.safe_to_ack_offsets[topic] is None  # Initially None
+
 
 def test_single_topic_config_as_string(
     mock_pipeline_context: PipelineContext, base_config_dict: dict
@@ -332,6 +353,66 @@ def test_single_topic_config_as_string(
     source = DataHubEventSource(config_model, mock_pipeline_context)
 
     assert source.topics_list == [PLATFORM_EVENT_TOPIC_NAME]
+
+
+def test_backward_compatibility_single_platform_event(
+    mock_pipeline_context: PipelineContext, base_config_dict: dict
+) -> None:
+    """
+    Test backward compatibility: single PlatformEvent_v1 topic uses legacy consumer ID format.
+    """
+    # Default config has only PlatformEvent_v1
+    config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
+    source = DataHubEventSource(config_model, mock_pipeline_context)
+
+    # Should use legacy consumer ID format (no topic suffix)
+    platform_consumer = source.topic_consumers[PLATFORM_EVENT_TOPIC_NAME]
+    assert platform_consumer.consumer_id == "urn:li:dataHubAction:test-pipeline"
+
+
+def test_new_format_for_multiple_topics(
+    mock_pipeline_context: PipelineContext, base_config_dict: dict
+) -> None:
+    """
+    Test that multiple topics use new consumer ID format with topic suffixes.
+    """
+    base_config_dict["topics"] = [
+        PLATFORM_EVENT_TOPIC_NAME,
+        METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+    ]
+    config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
+    source = DataHubEventSource(config_model, mock_pipeline_context)
+
+    # Should use new consumer ID format with topic suffixes
+    platform_consumer = source.topic_consumers[PLATFORM_EVENT_TOPIC_NAME]
+    mcl_consumer = source.topic_consumers[METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME]
+
+    assert (
+        platform_consumer.consumer_id
+        == "urn:li:dataHubAction:test-pipeline-PlatformEvent_v1"
+    )
+    assert (
+        mcl_consumer.consumer_id
+        == "urn:li:dataHubAction:test-pipeline-MetadataChangeLog_Versioned_v1"
+    )
+
+
+def test_new_format_for_single_non_platform_topic(
+    mock_pipeline_context: PipelineContext, base_config_dict: dict
+) -> None:
+    """
+    Test that single non-PlatformEvent topic uses new consumer ID format.
+    """
+    base_config_dict["topics"] = METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME
+    config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
+    source = DataHubEventSource(config_model, mock_pipeline_context)
+
+    # Should use new consumer ID format even for single topic (since it's not PlatformEvent_v1)
+    mcl_consumer = source.topic_consumers[METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME]
+    assert (
+        mcl_consumer.consumer_id
+        == "urn:li:dataHubAction:test-pipeline-MetadataChangeLog_Versioned_v1"
+    )
 
 
 def test_handle_mcl() -> None:

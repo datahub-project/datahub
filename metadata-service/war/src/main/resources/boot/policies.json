@@ -41,7 +41,8 @@
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
-        "MANAGE_HOME_PAGE_TEMPLATES"
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_METADATA_CHANGE_LOG_EVENTS"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -198,7 +199,19 @@
         "MANAGE_FEATURES",
         "MANAGE_SYSTEM_OPERATIONS",
         "GET_PLATFORM_EVENTS",
+<<<<<<< HEAD
         "MANAGE_HOME_PAGE_TEMPLATES"
+=======
+        "MANAGE_HOME_PAGE_TEMPLATES",
+        "GET_METADATA_CHANGE_LOG_EVENTS",
+        "VIEW_DOCUMENTATION_FORMS_PAGE",
+        "MANAGE_CONNECTIONS",
+        "MANAGE_MONITORS",
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE",
+        "MANAGE_ACTION_WORKFLOWS"
+>>>>>>> d267df5dbd (updating for 1 consumer per each topic)
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",

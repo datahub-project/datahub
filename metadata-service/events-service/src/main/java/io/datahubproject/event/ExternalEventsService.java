@@ -89,6 +89,8 @@ public class ExternalEventsService {
     long timeout =
         (pollTimeoutSeconds != null ? pollTimeoutSeconds : defaultPollTimeoutSeconds) * 1000L;
 
+    System.out.println(String.format("Final topic is %s", finalTopic));
+
     try {
       List<TopicPartition> partitions =
           consumer.partitionsFor(finalTopic).stream()
@@ -97,9 +99,10 @@ public class ExternalEventsService {
       consumer.assign(partitions);
 
       Map<TopicPartition, Long> partitionOffsets =
-          getPartitionOffsets(topic, offsetId, consumer, partitions, lookbackWindowDays);
+          getPartitionOffsets(finalTopic, offsetId, consumer, partitions, lookbackWindowDays);
 
       for (Map.Entry<TopicPartition, Long> entry : partitionOffsets.entrySet()) {
+        System.out.println(String.format("Seeking to topic is %s", entry.getKey().topic()));
         consumer.seek(entry.getKey(), entry.getValue());
       }
 

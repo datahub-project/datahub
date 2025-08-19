@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Union, cast
+from typing import Dict, Iterable, List, Optional, Union, cast
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.serialization_helper import post_json_transform
@@ -82,7 +82,9 @@ class DataHubEventSource(EventSource):
     def __init__(self, config: DataHubEventsSourceConfig, ctx: PipelineContext):
         self.ctx = ctx
         self.source_config = config
-        self.consumer_id = DataHubEventSource._get_pipeline_urn(self.ctx.pipeline_name)
+        self.base_consumer_id = DataHubEventSource._get_pipeline_urn(
+            self.ctx.pipeline_name
+        )
 
         # Convert topics to a list for consistent handling
         if isinstance(self.source_config.topics, str):
@@ -93,15 +95,30 @@ class DataHubEventSource(EventSource):
         # Ensure a Graph Instance was provided.
         assert self.ctx.graph is not None
 
-        self.datahub_events_consumer: DataHubEventsConsumer = DataHubEventsConsumer(
-            # TODO: This PipelineContext provides an Acryl Graph Instance
-            graph=self.ctx.graph.graph,
-            consumer_id=self.consumer_id,
-            lookback_days=self.source_config.lookback_days,
-            reset_offsets=self.source_config.reset_offsets,
-        )
+        # Create separate consumer for each topic to maintain independent offsets
+        self.topic_consumers: Dict[str, DataHubEventsConsumer] = {}
+        for topic in self.topics_list:
+            # Backward compatibility: if only PlatformEvent_v1, use legacy consumer ID format
+            if len(self.topics_list) == 1 and topic == PLATFORM_EVENT_TOPIC_NAME:
+                topic_consumer_id = (
+                    self.base_consumer_id
+                )  # Legacy format for existing deployments
+            else:
+                topic_consumer_id = (
+                    f"{self.base_consumer_id}-{topic}"  # New format for multi-topic
+                )
+
+            self.topic_consumers[topic] = DataHubEventsConsumer(
+                graph=self.ctx.graph.graph,
+                consumer_id=topic_consumer_id,
+                lookback_days=self.source_config.lookback_days,
+                reset_offsets=self.source_config.reset_offsets,
+            )
+
         self.ack_manager = AckManager()
-        self.safe_to_ack_offset: Optional[str] = None
+        self.safe_to_ack_offsets: Dict[str, Optional[str]] = {
+            topic: None for topic in self.topics_list
+        }
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
@@ -133,18 +150,21 @@ class DataHubEventSource(EventSource):
                         raise Exception(
                             f"Failed to process all events successfully after specified time {self.source_config.event_processing_time_max_duration_seconds}! If more time is required, please increase the timeout using this config. {self.ack_manager.acks.values()}",
                         )
-                logger.debug(
-                    f"Successfully processed events up to offset id {self.safe_to_ack_offset}"
-                )
-                self.safe_to_ack_offset = self.datahub_events_consumer.offset_id
-                logger.debug(f"Safe to ack offset: {self.safe_to_ack_offset}")
+                # Update safe-to-ack offsets for each topic
+                for topic in self.topics_list:
+                    consumer = self.topic_consumers[topic]
+                    self.safe_to_ack_offsets[topic] = consumer.offset_id
+                    logger.debug(
+                        f"Safe to ack offset for {topic}: {self.safe_to_ack_offsets[topic]}"
+                    )
 
-                # Poll events from all topics
+                # Poll events from all topics using their respective consumers
                 all_events = []
                 total_events = 0
 
                 for topic in self.topics_list:
-                    events_response = self.datahub_events_consumer.poll_events(
+                    consumer = self.topic_consumers[topic]
+                    events_response = consumer.poll_events(
                         topic=topic, poll_timeout_seconds=2
                     )
                     total_events += len(events_response.events)
@@ -213,13 +233,13 @@ class DataHubEventSource(EventSource):
         yield EventEnvelope(METADATA_CHANGE_LOG_EVENT_V1_TYPE, event, {})
 
     def close(self) -> None:
-        if self.datahub_events_consumer:
-            self.running = False
-            if self.safe_to_ack_offset:
-                self.datahub_events_consumer.commit_offsets(
-                    offset_id=self.safe_to_ack_offset
-                )
-            self.datahub_events_consumer.close()
+        self.running = False
+        # Close and commit offsets for each topic consumer
+        for topic, consumer in self.topic_consumers.items():
+            safe_offset = self.safe_to_ack_offsets.get(topic)
+            if safe_offset:
+                consumer.commit_offsets(offset_id=safe_offset)
+            consumer.close()
 
     def ack(self, event: EventEnvelope, processed: bool = True) -> None:
         self.ack_manager.ack(event.meta, processed=processed)
