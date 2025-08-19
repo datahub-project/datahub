@@ -162,6 +162,19 @@ datahub-gms:
       - name: KAFKA_CONSUMER_GROUP_ID
         value: "my-apps-mae-consumer"
         ....
+datahub-system-update:
+    ...
+    extraEnvs:
+      - name: METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+        value: "CustomMetadataChangeProposal_v1"
+      - name: METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME
+        value: "CustomMetadataChangeLogVersioned_v1"
+      - name: FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME
+        value: "CustomFailedMetadataChangeProposal_v1"
+      - name: KAFKA_CONSUMER_GROUP_ID
+        value: "my-apps-mae-consumer"
+        ....
+
 
 datahub-frontend:
     ...
@@ -189,10 +202,9 @@ datahub-mce-consumer;
 
 ## Other Components that use Kafka can be configured using environment variables:
 
-- kafka-setup
 - schema-registry
 
-## SASL/GSSAPI properties for kafka-setup and datahub-frontend via environment variables
+## SASL/GSSAPI properties for system-update and datahub-frontend via environment variables
 
 ```bash
 KAFKA_BOOTSTRAP_SERVER=broker:29092
