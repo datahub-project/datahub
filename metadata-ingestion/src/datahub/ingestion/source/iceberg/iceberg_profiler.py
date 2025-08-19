@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Iterable, Optional, cast
+from typing import Any, Callable, Dict, Iterable, Optional, TypeGuard, cast
 
 from pyiceberg.conversions import from_bytes
 from pyiceberg.schema import Schema
@@ -12,6 +12,7 @@ from pyiceberg.types import (
     IcebergType,
     IntegerType,
     LongType,
+    PrimitiveType,
     TimestampType,
     TimestamptzType,
     TimeType,
@@ -65,7 +66,7 @@ class IcebergProfiler:
         aggregated_values: Dict[int, Any],
         manifest_values: Dict[int, bytes],
     ) -> None:
-        for field_id, value_encoded in manifest_values.items():  # type: int, Any
+        for field_id, value_encoded in manifest_values.items():
             try:
                 field = schema.find_field(field_id)
             except ValueError:
@@ -240,7 +241,7 @@ class IcebergProfiler:
             return None
 
     @staticmethod
-    def _is_numeric_type(type: IcebergType) -> bool:
+    def _is_numeric_type(type: IcebergType) -> TypeGuard[PrimitiveType]:
         return isinstance(
             type,
             (

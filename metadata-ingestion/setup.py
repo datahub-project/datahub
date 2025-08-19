@@ -396,8 +396,9 @@ plugins: Dict[str, Set[str]] = {
         f"acryl-datahub-airflow-plugin{_self_pin}",
     },
     "circuit-breaker": {
-        "gql>=3.3.0",
-        "gql[requests]>=3.3.0",
+        # In gql v4, the execute() method's signature changed. Since we've updated
+        # our code to use the new signature, we need to pin to gql v4.
+        "gql[requests]>=4.0.0",
     },
     # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
     # but not the full sql_common.
