@@ -623,6 +623,134 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(MockMvcResultMatchers.jsonPath("$.scrollId").value("test-scroll-id"));
   }
 
+  @Test
+  public void testScrollEntitiesWithSliceParameters() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity().setEntity(TEST_URNS.get(0)),
+                        new SearchEntity().setEntity(TEST_URNS.get(1)))))
+            .setScrollId("test-scroll-id");
+
+    // Use ArgumentCaptor to capture the OperationContext and verify slice options
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            nullable(String.class)))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data()))),
+                TEST_URNS.get(1),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sliceId", "0")
+                .param("sliceMax", "2")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()))
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[1].urn").value(TEST_URNS.get(1).toString()));
+
+    // Verify that slice options were properly set in the operation context
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNotNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+    assertEquals(
+        0,
+        capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions().getId().intValue());
+    assertEquals(
+        2,
+        capturedOpContext
+            .getSearchContext()
+            .getSearchFlags()
+            .getSliceOptions()
+            .getMax()
+            .intValue());
+  }
+
+  @Test
+  public void testScrollEntitiesWithOnlyOneSliceParameter() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(
+                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))));
+
+    // Use ArgumentCaptor to capture the OperationContext and verify no slice options
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt(),
+            nullable(String.class)))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    // Test with only sliceId - should not set slice options
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sliceId", "0")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    // Verify that slice options were not set (both parameters are required)
+    OperationContext capturedOpContext = opContextCaptor.getValue();
+    assertNull(capturedOpContext.getSearchContext().getSearchFlags().getSliceOptions());
+  }
+
   public void testEntityVersioningFeatureFlagDisabled() throws Exception {
     Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
     Urn VERSION_SET_URN = UrnUtils.getUrn("urn:li:versionSet:test-version-set");

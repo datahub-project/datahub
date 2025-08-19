@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.utils;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.aspect.patch.template.TemplateUtil.*;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.query.filter.Condition.ANCESTORS_INCL;
 import static com.linkedin.metadata.query.filter.Condition.DESCENDANTS_INCL;
@@ -10,6 +11,7 @@ import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFie
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
@@ -26,8 +28,10 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,7 +44,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.opensearch.action.search.CreatePitRequest;
+import org.opensearch.action.search.CreatePitResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -1187,5 +1196,55 @@ public class ESUtils {
     }
 
     return boolQuery;
+  }
+
+  public static @Nonnull String computePointInTime(
+      String scrollId,
+      String keepAlive,
+      String elasticSearchImpl,
+      RestHighLevelClient client,
+      String... indexArray) {
+    if (scrollId != null) {
+      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
+      if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
+        return searchAfterWrapper.getPitId();
+      }
+    }
+    if (ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+      return createPointInTimeElasticSearch(client, indexArray, keepAlive);
+    } else if (ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH.equalsIgnoreCase(elasticSearchImpl)) {
+      return createPointInTimeOpenSearch(client, indexArray, keepAlive);
+    }
+    log.warn("Unsupported elasticsearch implementation: {}", elasticSearchImpl);
+    throw new IllegalStateException("Unsupported elasticsearch implementation.");
+  }
+
+  private static @Nonnull String createPointInTimeElasticSearch(
+      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+    String endPoint = String.join(",", indexArray) + "/_pit";
+    Request request = new Request("POST", endPoint);
+    request.addParameter("keep_alive", keepAlive);
+    try {
+      Response response = client.getLowLevelClient().performRequest(request);
+      Map<String, Object> mappedResponse =
+          OBJECT_MAPPER.readValue(response.getEntity().getContent(), new TypeReference<>() {});
+      return (String) mappedResponse.get("id");
+    } catch (IOException e) {
+      log.warn("Failed to generate PointInTime Identifier:", e);
+      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
+  }
+
+  private static @Nonnull String createPointInTimeOpenSearch(
+      RestHighLevelClient client, String[] indexArray, String keepAlive) {
+    try {
+      CreatePitRequest request =
+          new CreatePitRequest(TimeValue.parseTimeValue(keepAlive, "keepAlive"), false, indexArray);
+      CreatePitResponse response = client.createPit(request, RequestOptions.DEFAULT);
+      return response.getId();
+    } catch (IOException e) {
+      log.warn("Failed to generate PointInTime Identifier:", e);
+      throw new IllegalStateException("Failed to generate PointInTime Identifier.", e);
+    }
   }
 }

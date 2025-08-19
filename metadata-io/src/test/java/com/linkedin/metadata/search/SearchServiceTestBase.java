@@ -1,6 +1,5 @@
 package com.linkedin.metadata.search;
 
-import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
@@ -15,6 +14,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
@@ -63,15 +63,18 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   protected abstract ESIndexBuilder getIndexBuilder();
 
   @Nonnull
+  protected abstract String getElasticSearchImplementation();
+
+  @Nonnull
   protected abstract SearchConfiguration getSearchConfiguration();
 
   protected OperationContext operationContext;
   private SettingsBuilder settingsBuilder;
-  private ElasticSearchService elasticSearchService;
+  protected ElasticSearchService elasticSearchService;
   private CacheManager cacheManager;
-  private SearchService searchService;
+  protected SearchService searchService;
 
-  private static final String ENTITY_NAME = "testEntity";
+  protected static final String ENTITY_NAME = "testEntity";
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
@@ -121,24 +124,25 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
+    ElasticSearchConfiguration esConfig =
+        TEST_ES_SEARCH_CONFIG.toBuilder().implementation(getElasticSearchImplementation()).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
             false,
-            ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_ES_SEARCH_CONFIG,
+            getElasticSearchImplementation(),
+            esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
             getSearchClient(),
-            TEST_ES_SEARCH_CONFIG,
+            esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO =
-        new ESWriteDAO(TEST_ES_SEARCH_CONFIG, getSearchClient(), getBulkProcessor());
+    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
@@ -152,7 +156,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     return searchService;
   }
 
-  private void clearCache() {
+  protected void clearCache() {
     cacheManager.getCacheNames().forEach(cache -> cacheManager.getCache(cache).clear());
     resetSearchService();
   }

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
@@ -134,6 +135,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO graphQueryDAO =
         new ESGraphQueryDAO(
             null,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             null,
             TEST_GRAPH_SERVICE_CONFIG,
@@ -311,6 +314,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -374,6 +379,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -425,6 +432,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -493,6 +502,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             mockLineageRegistry,
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -633,6 +644,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             testConfig,
@@ -680,6 +693,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             testConfig,
