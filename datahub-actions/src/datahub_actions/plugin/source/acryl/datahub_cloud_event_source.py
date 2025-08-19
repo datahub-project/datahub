@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Union, cast
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.serialization_helper import post_json_transform
@@ -12,13 +12,17 @@ from datahub.metadata.schema_classes import GenericPayloadClass
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
+    METADATA_CHANGE_LOG_EVENT_V1_TYPE,
     EntityChangeEvent,
+    MetadataChangeLogEvent,
 )
 
 # May or may not need these.
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from datahub_actions.plugin.source.acryl.constants import (
     ENTITY_CHANGE_EVENT_NAME,
+    METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+    METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
     PLATFORM_EVENT_TOPIC_NAME,
 )
 from datahub_actions.plugin.source.acryl.datahub_cloud_events_ack_manager import (
@@ -41,9 +45,15 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
     except Exception as e:
         raise ValueError("Failed to parse into EntityChangeEvent") from e
 
+def build_metadata_change_log_event(msg: ExternalEvent) -> MetadataChangeLogEvent:
+    try:
+        return cast(MetadataChangeLogEvent, MetadataChangeLogEvent.from_json(msg.value))
+    except Exception as e:
+        raise ValueError("Failed to parse into MetadataChangeLogEvent") from e
+
 
 class DataHubEventsSourceConfig(ConfigModel):
-    topic: str = PLATFORM_EVENT_TOPIC_NAME
+    topics: Union[str, List[str]] = PLATFORM_EVENT_TOPIC_NAME
     consumer_id: Optional[str] = None  # Used to store offset for the consumer.
     lookback_days: Optional[int] = None
     reset_offsets: Optional[bool] = False
@@ -73,6 +83,12 @@ class DataHubEventSource(EventSource):
         self.source_config = config
         self.consumer_id = DataHubEventSource._get_pipeline_urn(self.ctx.pipeline_name)
 
+        # Convert topics to a list for consistent handling
+        if isinstance(self.source_config.topics, str):
+            self.topics_list = [self.source_config.topics]
+        else:
+            self.topics_list = self.source_config.topics
+
         # Ensure a Graph Instance was provided.
         assert self.ctx.graph is not None
 
@@ -93,7 +109,7 @@ class DataHubEventSource(EventSource):
 
     def events(self) -> Iterable[EventEnvelope]:
         logger.info("Starting DataHub Cloud events source...")
-        logger.info(f"Subscribing to the following topic: {self.source_config.topic}")
+        logger.info(f"Subscribing to the following topics: {self.topics_list}")
         self.running = True
         yield from self._poll_and_process_events()
 
@@ -122,20 +138,28 @@ class DataHubEventSource(EventSource):
                 self.safe_to_ack_offset = self.datahub_events_consumer.offset_id
                 logger.debug(f"Safe to ack offset: {self.safe_to_ack_offset}")
 
-                events_response = self.datahub_events_consumer.poll_events(
-                    topic=self.source_config.topic, poll_timeout_seconds=2
-                )
+                # Poll events from all topics
+                all_events = []
+                total_events = 0
+                
+                for topic in self.topics_list:
+                    events_response = self.datahub_events_consumer.poll_events(
+                        topic=topic, poll_timeout_seconds=2
+                    )
+                    total_events += len(events_response.events)
+                    
+                    # Process events from this topic
+                    for msg in events_response.events:
+                        all_events.append((topic, msg))
 
                 # Handle Idle Timeout
-                num_events = len(events_response.events)
-
-                if num_events == 0:
+                if total_events == 0:
                     if last_idle_response_timestamp == 0:
                         last_idle_response_timestamp = (
                             self._get_current_timestamp_seconds()
                         )
                     if self._should_idle_timeout(
-                        num_events, last_idle_response_timestamp
+                        total_events, last_idle_response_timestamp
                     ):
                         logger.info("Exiting main loop due to idle timeout")
                         return
@@ -144,8 +168,9 @@ class DataHubEventSource(EventSource):
                     last_idle_response_timestamp = 0  # Reset the idle timeout
 
                 event_envelopes: List[EventEnvelope] = []
-                for msg in events_response.events:
-                    for event_envelope in self.handle_pe(msg):
+                for topic, msg in all_events:
+                    # Route events based on topic type
+                    for event_envelope in self._route_event_by_topic(topic, msg):
                         event_envelope.meta = self.ack_manager.get_meta(event_envelope)
                         event_envelopes.append(event_envelope)
 
@@ -157,6 +182,15 @@ class DataHubEventSource(EventSource):
 
         logger.info("DataHub Events consumer exiting main loop")
 
+    def _route_event_by_topic(self, topic: str, msg: ExternalEvent) -> Iterable[EventEnvelope]:
+        """Route events to appropriate handlers based on topic type."""
+        if topic == PLATFORM_EVENT_TOPIC_NAME:
+            yield from self.handle_pe(msg)
+        elif topic in [METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME, METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME]:
+            yield from self.handle_mcl(msg)
+        else:
+            logger.warning(f"Unknown topic: {topic}, skipping event")
+
     @staticmethod
     def handle_pe(msg: ExternalEvent) -> Iterable[EventEnvelope]:
         value: dict = json.loads(msg.value)
@@ -166,6 +200,11 @@ class DataHubEventSource(EventSource):
         if ENTITY_CHANGE_EVENT_NAME == value["name"]:
             event = build_entity_change_event(payload)
             yield EventEnvelope(ENTITY_CHANGE_EVENT_V1_TYPE, event, {})
+
+    @staticmethod
+    def handle_mcl(msg: ExternalEvent) -> Iterable[EventEnvelope]:
+        event = build_metadata_change_log_event(msg)
+        yield EventEnvelope(METADATA_CHANGE_LOG_EVENT_V1_TYPE, event, {})
 
     def close(self) -> None:
         if self.datahub_events_consumer:
