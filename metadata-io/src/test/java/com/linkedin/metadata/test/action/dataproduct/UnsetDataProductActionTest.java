@@ -1,25 +1,23 @@
-package com.linkedin.metadata.test.action.domain;
+package com.linkedin.metadata.test.action.dataproduct;
 
-import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.DomainServiceAsync;
+import com.linkedin.metadata.service.DataProductService;
 import com.linkedin.metadata.test.action.ActionParameters;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
-public class UnsetDomainActionTest {
+public class UnsetDataProductActionTest {
 
   private static final List<Urn> DATASET_URNS =
       ImmutableList.of(
@@ -31,9 +29,6 @@ public class UnsetDomainActionTest {
           UrnUtils.getUrn("urn:li:dashboard:(looker,1)"),
           UrnUtils.getUrn("urn:li:dashboard:(looker,2)"));
 
-  // UnsetDomainAction doesn't require parameters since it removes ALL domains
-  private static final Map<String, List<String>> EMPTY_PARAMS = Collections.emptyMap();
-
   private static final List<Urn> ALL_URNS = new ArrayList<>();
 
   static {
@@ -41,33 +36,29 @@ public class UnsetDomainActionTest {
     ALL_URNS.addAll(DASHBOARD_URNS);
   }
 
-  private static final List<ResourceReference> ALL_REFERENCES =
-      ALL_URNS.stream()
-          .map(urn -> new ResourceReference(urn, null, null))
-          .collect(Collectors.toList());
+  // UnsetDataProductAction doesn't require parameters since it removes ALL data products from
+  // entities
+  private static final Map<String, List<String>> EMPTY_PARAMS = Collections.emptyMap();
 
   @Test
   public void testApply() throws Exception {
-    DomainServiceAsync service = mock(DomainServiceAsync.class);
+    DataProductService service = mock(DataProductService.class);
 
-    UnsetDomainAction action = new UnsetDomainAction(service);
+    UnsetDataProductAction action = new UnsetDataProductAction(service);
     ActionParameters params = new ActionParameters(EMPTY_PARAMS);
     action.apply(mock(OperationContext.class), ALL_URNS, params);
 
-    // Verify that batchUnsetDomain is called once with all URNs (removes ALL domains)
+    // Verify that batchUnsetDataProduct is called once (parameters will be ResourceReference now)
     Mockito.verify(service, Mockito.times(1))
-        .batchUnsetDomain(
-            any(OperationContext.class),
-            Mockito.eq(ALL_REFERENCES),
-            Mockito.eq(METADATA_TESTS_SOURCE));
+        .batchUnsetDataProduct(any(OperationContext.class), any(), any());
 
     Mockito.verifyNoMoreInteractions(service);
   }
 
   @Test
   public void testApplyEmptyUrns() throws Exception {
-    DomainServiceAsync service = mock(DomainServiceAsync.class);
-    UnsetDomainAction action = new UnsetDomainAction(service);
+    DataProductService service = mock(DataProductService.class);
+    UnsetDataProductAction action = new UnsetDataProductAction(service);
     ActionParameters params = new ActionParameters(EMPTY_PARAMS);
 
     // Apply with empty URN list should not call service
@@ -78,18 +69,18 @@ public class UnsetDomainActionTest {
 
   @Test
   public void testValidateNoValidation() {
-    UnsetDomainAction action = new UnsetDomainAction(mock(DomainServiceAsync.class));
+    UnsetDataProductAction action = new UnsetDataProductAction(mock(DataProductService.class));
     ActionParameters params = new ActionParameters(EMPTY_PARAMS);
 
-    // UnsetDomainAction extends NoValidationAction, so validation should pass
+    // UnsetDataProductAction extends NoValidationAction, so validation should pass
     action.validate(params);
   }
 
   @Test
   public void testValidateWithParams() {
-    UnsetDomainAction action = new UnsetDomainAction(mock(DomainServiceAsync.class));
+    UnsetDataProductAction action = new UnsetDataProductAction(mock(DataProductService.class));
     Map<String, List<String>> paramsWithValues =
-        Collections.singletonMap("values", ImmutableList.of("urn:li:domain:test"));
+        ImmutableMap.of("values", ImmutableList.of("urn:li:dataProduct:test"));
     ActionParameters params = new ActionParameters(paramsWithValues);
 
     // Should still pass validation even with parameters since NoValidationAction doesn't validate

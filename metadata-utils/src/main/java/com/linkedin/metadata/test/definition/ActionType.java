@@ -23,6 +23,10 @@ public enum ActionType {
   ADD_DOMAINS,
   /** Removes domains */
   REMOVE_DOMAINS,
+  /** Sets data product */
+  SET_DATA_PRODUCT,
+  /** Unsets data product */
+  UNSET_DATA_PRODUCT,
   /** Adds owners */
   ADD_OWNERS,
   /** Removes owners */

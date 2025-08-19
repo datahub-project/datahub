@@ -3,27 +3,28 @@ import { SelectInputMode, ValueTypeId } from '@app/tests/builder/steps/definitio
 import { EntityType } from '@types';
 
 /**
- * Entity type groups for action support
+ * Core entity type definitions for action support
  */
-const DATA_ASSETS = [
+const CORE_DATA_ASSETS = [
     EntityType.Dataset,
     EntityType.Dashboard,
     EntityType.Chart,
     EntityType.DataFlow,
     EntityType.DataJob,
     EntityType.Container,
-    EntityType.DataProduct,
 ] as const;
 
 const LOGICAL_ASSETS = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Domain] as const;
 
 export const ENTITY_GROUPS = {
-    /** Data assets that support most metadata operations */
-    DATA_ASSETS,
+    /** Data assets that support most metadata operations (including DataProduct) */
+    DATA_ASSETS: [...CORE_DATA_ASSETS, EntityType.DataProduct],
+    /** Assets that can be assigned to data products (per DataProductProperties.pdl) */
+    DATA_PRODUCT_ASSIGNABLE_ASSETS: CORE_DATA_ASSETS,
     /** Logical assets (metadata assets) */
     LOGICAL_ASSETS,
-    /** All assets including both data assets and logical assets */
-    ALL_ASSETS: [...DATA_ASSETS, ...LOGICAL_ASSETS],
+    /** All assets including data assets and logical assets */
+    ALL_ASSETS: [...CORE_DATA_ASSETS, EntityType.DataProduct, ...LOGICAL_ASSETS],
 } as const;
 
 /**
@@ -38,6 +39,8 @@ export enum ActionId {
     REMOVE_GLOSSARY_TERMS = 'remove_glossary_terms',
     SET_DOMAIN = 'set_domain',
     UNSET_DOMAIN = 'unset_domain',
+    SET_DATA_PRODUCT = 'set_data_product',
+    UNSET_DATA_PRODUCT = 'unset_data_product',
     DEPRECATE = 'deprecate',
     UN_DEPRECATE = 'un_deprecate',
 }
@@ -140,13 +143,33 @@ export const ACTION_TYPES: ActionType[] = [
     {
         id: ActionId.UNSET_DOMAIN,
         displayName: 'Remove Domain',
-        description: 'Remove Domain for an asset.',
-        valueType: ValueTypeId.URN_LIST,
+        description: 'Remove Domain assignment from an asset.',
+        valueType: ValueTypeId.NO_VALUE,
         valueOptions: {
-            entityTypes: [EntityType.Domain],
-            mode: SelectInputMode.SINGLE,
+            mode: SelectInputMode.NONE,
         },
         entityTypes: ENTITY_GROUPS.ALL_ASSETS,
+    },
+    {
+        id: ActionId.SET_DATA_PRODUCT,
+        displayName: 'Set Data Product',
+        description: 'Assign a specific Data Product to an asset.',
+        valueType: ValueTypeId.URN,
+        valueOptions: {
+            entityTypes: [EntityType.DataProduct],
+            mode: SelectInputMode.SINGLE,
+        },
+        entityTypes: ENTITY_GROUPS.DATA_PRODUCT_ASSIGNABLE_ASSETS, // Only specific assets can be assigned to data products
+    },
+    {
+        id: ActionId.UNSET_DATA_PRODUCT,
+        displayName: 'Remove Data Product',
+        description: 'Remove Data Product assignment from an asset.',
+        valueType: ValueTypeId.NO_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.NONE,
+        },
+        entityTypes: ENTITY_GROUPS.DATA_PRODUCT_ASSIGNABLE_ASSETS, // Only specific assets can be assigned to data products
     },
     {
         id: ActionId.DEPRECATE,

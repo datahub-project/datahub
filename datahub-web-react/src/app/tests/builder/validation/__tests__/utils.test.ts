@@ -562,22 +562,36 @@ describe('Validation Utils', () => {
                 { id: ActionId.ADD_OWNERS, displayName: 'Add Owners', description: 'Add owners to entities' },
                 { id: ActionId.DEPRECATE, displayName: 'Deprecate', description: 'Mark entities as deprecated' },
                 { id: ActionId.SET_DOMAIN, displayName: 'Set Domain', description: 'Set domain for entities' },
+                {
+                    id: ActionId.SET_DATA_PRODUCT,
+                    displayName: 'Set Data Product',
+                    description: 'Set data product for entities',
+                },
+                {
+                    id: ActionId.UNSET_DATA_PRODUCT,
+                    displayName: 'Remove Data Product',
+                    description: 'Remove data product for entities',
+                },
             ];
 
-            // For datasets - should support all actions
+            // For datasets - should support all actions including data product actions
             const datasetActions = filterActionTypesByEntities(allActions, [EntityType.Dataset]);
-            expect(datasetActions).toHaveLength(4);
+            expect(datasetActions).toHaveLength(6); // All 6 actions should be supported for datasets
 
-            // For glossary terms - should exclude ADD_TAGS
+            // For glossary terms - should exclude ADD_TAGS and data product actions (logical entities don't support data product actions)
             const glossaryActions = filterActionTypesByEntities(allActions, [EntityType.GlossaryTerm]);
-            expect(glossaryActions).toHaveLength(3);
+            expect(glossaryActions).toHaveLength(3); // ADD_OWNERS, DEPRECATE, and SET_DOMAIN
             expect(glossaryActions.some((a) => a.id === ActionId.ADD_TAGS)).toBe(false);
+            expect(glossaryActions.some((a) => a.id === ActionId.SET_DATA_PRODUCT)).toBe(false);
+            expect(glossaryActions.some((a) => a.id === ActionId.UNSET_DATA_PRODUCT)).toBe(false);
             expect(glossaryActions.some((a) => a.id === ActionId.ADD_OWNERS)).toBe(true);
+            expect(glossaryActions.some((a) => a.id === ActionId.SET_DOMAIN)).toBe(true);
 
             // For mixed entities - should only include actions supported by all
             const mixedActions = filterActionTypesByEntities(allActions, [EntityType.Dataset, EntityType.GlossaryTerm]);
-            expect(mixedActions.length).toBeLessThan(4);
+            expect(mixedActions.length).toBeLessThan(6);
             expect(mixedActions.some((a) => a.id === ActionId.ADD_TAGS)).toBe(false);
+            expect(mixedActions.some((a) => a.id === ActionId.SET_DATA_PRODUCT)).toBe(false);
         });
 
         it('should return all actions when no entities are selected', () => {

@@ -360,15 +360,15 @@ public class GlossaryTermService extends BaseService {
   }
 
   List<MetadataChangeProposal> patchAddGlossaryTerms(
-      List<com.linkedin.common.urn.Urn> ownerUrns,
+      List<com.linkedin.common.urn.Urn> glossaryTermUrns,
       List<ResourceReference> resources,
       AuditStamp lastModified) {
     final List<MetadataChangeProposal> mcps = new ArrayList<>();
     for (ResourceReference resource : resources) {
       GlossaryTermsPatchBuilder patchBuilder =
           new GlossaryTermsPatchBuilder().urn(resource.getUrn());
-      for (Urn ownerUrn : ownerUrns) {
-        patchBuilder.addTerm(ownerUrn, null);
+      for (Urn glossaryTermUrn : glossaryTermUrns) {
+        patchBuilder.addTerm(glossaryTermUrn, null);
       }
       patchBuilder.addAuditStamp(lastModified);
       mcps.add(patchBuilder.build());
