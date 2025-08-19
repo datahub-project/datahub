@@ -38,7 +38,12 @@ from datahub_integrations.gen_ai.bedrock import (
     get_bedrock_client,
     get_bedrock_model_env_variable,
 )
-from datahub_integrations.mcp.mcp_server import mcp, with_datahub_client
+from datahub_integrations.gen_ai.linkify import auto_fix_chat_links
+from datahub_integrations.mcp.mcp_server import (
+    get_datahub_client,
+    mcp,
+    with_datahub_client,
+)
 from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
 from datahub_integrations.slack.utils.string import truncate
 from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
@@ -102,7 +107,8 @@ def respond_to_user(
     response: str,
     follow_up_suggestions: Optional[List[str]] = None,
 ) -> NextMessage:
-    # TODO: auto-fix URN only links here?
+    client = get_datahub_client()
+    response = auto_fix_chat_links(response, client._graph.frontend_base_url)
     return NextMessage(text=response, suggestions=follow_up_suggestions or [])
 
 
@@ -429,15 +435,17 @@ class ChatSession:
             f"Generating next message for session {self.session_id}, currently have {len(self.history.messages)} messages/tool calls in chat history"
         )
         for i in range(MAX_TOOL_CALLS):
-            logger.info(f"Generating tool call {i}")
+            logger.info(f"Generating tool call {i} for session {self.session_id}")
             self._generate_tool_call()
 
             last_message = self.history.messages[-1]
             if self.is_respond_to_user(last_message):
-                logger.info("Respond to user call received")
+                logger.info(
+                    f"Respond to user call received for session {self.session_id}"
+                )
                 return NextMessage.model_validate(last_message.result)
             elif isinstance(last_message, AssistantMessage):
-                logger.info("End turn message received")
+                logger.info(f"End turn message received for session {self.session_id}")
                 return NextMessage(
                     text=last_message.text,
                     suggestions=[],

@@ -16,7 +16,6 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from loguru import logger
 
-from datahub_integrations.chat.linkify import datahub_linkify
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
     BedrockPromptMessage,
@@ -35,6 +34,7 @@ from datahub_integrations.gen_ai.description_context import (
     parse_table_desc_llm_output,
     transform_table_info_for_llm,
 )
+from datahub_integrations.gen_ai.linkify import auto_fix_entity_mention_links
 
 _MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 3000))
 MAX_COLUMNS_PER_BATCH = int(
@@ -364,7 +364,7 @@ def generate_table_description(
     table_description = parse_table_desc_llm_output(entity_descriptions)
 
     # post process table description to fix links
-    table_description = datahub_linkify(table_description)
+    table_description = auto_fix_entity_mention_links(table_description)
 
     return table_description
 

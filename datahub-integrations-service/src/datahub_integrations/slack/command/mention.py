@@ -17,7 +17,7 @@ from datahub_integrations.chat.chat_history import (
     Message,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
-from datahub_integrations.chat.linkify import slackify_markdown
+from datahub_integrations.chat.slackify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.command.mention_helpers import (
     DATAHUB_FEEDBACK_PROMPT,

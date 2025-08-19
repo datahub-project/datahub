@@ -5,11 +5,11 @@ import mlflow
 import pandas as pd
 from mlflow.metrics import MetricValue
 
-from datahub_integrations.chat.linkify import urn_regex
 from datahub_integrations.experimentation.docs_generation.eval_common import (
     to_entity_info_model,
 )
 from datahub_integrations.gen_ai.description_context import ExtractedTableInfo
+from datahub_integrations.gen_ai.linkify import urn_regex
 
 
 def has_table_description_metric_fn(
