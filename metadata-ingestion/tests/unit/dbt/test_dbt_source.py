@@ -697,8 +697,8 @@ def test_dbt_sibling_aspects_creation():
     # Our node_type="model" and materialization="table" will make this property return True
 
     # For models when dbt is primary - should not create sibling patches
-    should_create_siblings = (
-        source_dbt_primary._should_create_sibling_for_target_entity(model_node)
+    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
+        model_node
     )
     assert should_create_siblings is False
 
@@ -710,54 +710,10 @@ def test_dbt_sibling_aspects_creation():
     source_target_primary.config.dbt_is_primary_sibling = False
 
     # For models when target platform is primary - should create sibling patches
-    should_create_siblings = (
-        source_target_primary._should_create_sibling_for_target_entity(model_node)
+    should_create_siblings = source_target_primary._should_create_sibling_relationships(
+        model_node
     )
     assert should_create_siblings is True
-
-
-def test_dbt_sibling_aspects_respects_entity_filtering():
-    """Test that sibling patches are only created when entities are enabled."""
-    ctx = PipelineContext(run_id="test-run-id")
-    base_config = create_base_dbt_config()
-
-    # Configure to only emit test results (no models/sources)
-    base_config["entities_enabled"] = {"test_results": "ONLY"}
-    config = DBTCoreConfig(**base_config)
-    source = DBTCoreSource(config, ctx)
-
-    # Manually set the config value for testing
-    source.config.dbt_is_primary_sibling = False
-
-    model_node = DBTNode(
-        name="test_model",
-        database="test_db",
-        schema="test_schema",
-        alias=None,
-        comment="",
-        description="Test model",
-        language="sql",
-        raw_code=None,
-        dbt_adapter="postgres",
-        dbt_name="model.package.test_model",
-        dbt_file_path=None,
-        dbt_package_name="package",
-        node_type="model",
-        materialization="table",
-        max_loaded_at=None,
-        catalog_type=None,
-        missing_from_catalog=False,
-        owner=None,
-        compiled_code=None,
-    )
-    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
-    # Our node_type="model" and materialization="table" will make this property return True
-
-    # Should not create sibling patches when model emission is disabled
-    should_create_siblings = source._should_create_sibling_for_target_entity(model_node)
-    assert should_create_siblings is False, (
-        "Should not create sibling patches when entity type is disabled"
-    )
 
 
 def test_dbt_cloud_source_description_precedence() -> None:
