@@ -45,6 +45,7 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
     except Exception as e:
         raise ValueError("Failed to parse into EntityChangeEvent") from e
 
+
 def build_metadata_change_log_event(msg: ExternalEvent) -> MetadataChangeLogEvent:
     try:
         return cast(MetadataChangeLogEvent, MetadataChangeLogEvent.from_json(msg.value))
@@ -141,13 +142,13 @@ class DataHubEventSource(EventSource):
                 # Poll events from all topics
                 all_events = []
                 total_events = 0
-                
+
                 for topic in self.topics_list:
                     events_response = self.datahub_events_consumer.poll_events(
                         topic=topic, poll_timeout_seconds=2
                     )
                     total_events += len(events_response.events)
-                    
+
                     # Process events from this topic
                     for msg in events_response.events:
                         all_events.append((topic, msg))
@@ -182,11 +183,16 @@ class DataHubEventSource(EventSource):
 
         logger.info("DataHub Events consumer exiting main loop")
 
-    def _route_event_by_topic(self, topic: str, msg: ExternalEvent) -> Iterable[EventEnvelope]:
+    def _route_event_by_topic(
+        self, topic: str, msg: ExternalEvent
+    ) -> Iterable[EventEnvelope]:
         """Route events to appropriate handlers based on topic type."""
         if topic == PLATFORM_EVENT_TOPIC_NAME:
             yield from self.handle_pe(msg)
-        elif topic in [METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME, METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME]:
+        elif topic in [
+            METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+            METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+        ]:
             yield from self.handle_mcl(msg)
         else:
             logger.warning(f"Unknown topic: {topic}, skipping event")

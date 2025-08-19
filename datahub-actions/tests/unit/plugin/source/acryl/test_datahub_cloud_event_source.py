@@ -1,6 +1,5 @@
 # test_datahub_event_source.py
 
-import base64
 import json
 from typing import List, cast
 from unittest.mock import MagicMock, patch
@@ -15,6 +14,11 @@ from datahub_actions.event.event_registry import (
     MetadataChangeLogEvent,
 )
 from datahub_actions.pipeline.pipeline_context import PipelineContext
+from datahub_actions.plugin.source.acryl.constants import (
+    METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
+    METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+    PLATFORM_EVENT_TOPIC_NAME,
+)
 
 # Import your source + config classes from the correct module path.
 from datahub_actions.plugin.source.acryl.datahub_cloud_event_source import (
@@ -29,11 +33,6 @@ from datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer import (
     DataHubEventsConsumer,
     ExternalEvent,
     ExternalEventsResponse,
-)
-from datahub_actions.plugin.source.acryl.constants import (
-    METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME,
-    METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
-    PLATFORM_EVENT_TOPIC_NAME,
 )
 
 
@@ -314,7 +313,7 @@ def test_multiple_topics_config(
     ]
     config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
     source = DataHubEventSource(config_model, mock_pipeline_context)
-    
+
     assert source.topics_list == [
         PLATFORM_EVENT_TOPIC_NAME,
         METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
@@ -331,7 +330,7 @@ def test_single_topic_config_as_string(
     # topics config as string should be converted to list
     config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
     source = DataHubEventSource(config_model, mock_pipeline_context)
-    
+
     assert source.topics_list == [PLATFORM_EVENT_TOPIC_NAME]
 
 
@@ -348,31 +347,31 @@ def test_handle_mcl() -> None:
         "aspectName": "globalTags",
         "aspect": {
             "value": '{"tags":[{"tag":"urn:li:tag:pii"}]}',  # JSON string as per API format
-            "contentType": "application/json"
+            "contentType": "application/json",
         },
         "systemMetadata": {
             "lastObserved": 1651516475595,
             "runId": "test-run-id",
             "registryName": "testRegistry",
             "registryVersion": "1.0.0",
-            "properties": None
+            "properties": None,
         },
         "previousAspectValue": None,
         "previousSystemMetadata": None,
         "created": {
             "time": 1651516475594,
             "actor": "urn:li:corpuser:datahub",
-            "impersonator": None
-        }
+            "impersonator": None,
+        },
     }
-    
+
     msg = ExternalEvent(contentType="application/json", value=json.dumps(mcl_value))
-    
+
     envelopes: List[EventEnvelope] = list(DataHubEventSource.handle_mcl(msg))
     assert len(envelopes) == 1
     assert envelopes[0].event_type == METADATA_CHANGE_LOG_EVENT_V1_TYPE
     assert isinstance(envelopes[0].event, MetadataChangeLogEvent)
-    
+
     # Verify the event was parsed correctly
     mcl_event = envelopes[0].event
     assert mcl_event.entityUrn == "urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)"
@@ -389,27 +388,33 @@ def test_route_event_by_topic(
     """
     config_model = DataHubEventsSourceConfig.model_validate(base_config_dict)
     source = DataHubEventSource(config_model, mock_pipeline_context)
-    
+
     # Test platform event routing
     pe_value = '{"header":{"timestampMillis":1737170481713},"name":"entityChangeEvent","payload":{"value":"{\\"auditStamp\\":{\\"actor\\":\\"urn:li:corpuser:test\\",\\"time\\":1737170481713},\\"entityUrn\\":\\"urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)\\",\\"entityType\\":\\"dataset\\",\\"modifier\\":\\"urn:li:tag:test\\",\\"category\\":\\"TAG\\",\\"operation\\":\\"ADD\\",\\"version\\":0}","contentType":"application/json"}}'
     pe_msg = ExternalEvent(contentType="application/json", value=pe_value)
-    
+
     pe_envelopes = list(source._route_event_by_topic(PLATFORM_EVENT_TOPIC_NAME, pe_msg))
     assert len(pe_envelopes) == 1
     assert pe_envelopes[0].event_type == ENTITY_CHANGE_EVENT_V1_TYPE
-    
+
     # Test MCL event routing with mocked handler
     mcl_msg = ExternalEvent(contentType="application/json", value='{"test": "mcl"}')
-    
-    with patch.object(source, 'handle_mcl') as mock_handle_mcl:
-        mock_envelope = EventEnvelope(METADATA_CHANGE_LOG_EVENT_V1_TYPE, MagicMock(), {})
+
+    with patch.object(source, "handle_mcl") as mock_handle_mcl:
+        mock_envelope = EventEnvelope(
+            METADATA_CHANGE_LOG_EVENT_V1_TYPE, MagicMock(), {}
+        )
         mock_handle_mcl.return_value = [mock_envelope]
-        
-        mcl_envelopes = list(source._route_event_by_topic(METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME, mcl_msg))
+
+        mcl_envelopes = list(
+            source._route_event_by_topic(
+                METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME, mcl_msg
+            )
+        )
         assert len(mcl_envelopes) == 1
         assert mcl_envelopes[0].event_type == METADATA_CHANGE_LOG_EVENT_V1_TYPE
         mock_handle_mcl.assert_called_once_with(mcl_msg)
-    
+
     # Test unknown topic (should return no events)
     unknown_envelopes = list(source._route_event_by_topic("unknown_topic", pe_msg))
     assert len(unknown_envelopes) == 0
@@ -427,23 +432,19 @@ def test_build_metadata_change_log_event() -> None:
         "aspectName": "datasetProfile",
         "aspect": {
             "value": '{"rowCount": 1000, "columnCount": 5}',  # JSON string
-            "contentType": "application/json"
+            "contentType": "application/json",
         },
-        "systemMetadata": {
-            "lastObserved": 1651516475595,
-            "runId": "test-run"
-        },
-        "created": {
-            "time": 1651516475594,
-            "actor": "urn:li:corpuser:datahub"
-        }
+        "systemMetadata": {"lastObserved": 1651516475595, "runId": "test-run"},
+        "created": {"time": 1651516475594, "actor": "urn:li:corpuser:datahub"},
     }
-    
+
     msg = ExternalEvent(contentType="application/json", value=json.dumps(mcl_value))
     event = build_metadata_change_log_event(msg)
-    
+
     assert isinstance(event, MetadataChangeLogEvent)
-    assert event.entityUrn == "urn:li:dataset:(urn:li:dataPlatform:hive,test_dataset,PROD)"
+    assert (
+        event.entityUrn == "urn:li:dataset:(urn:li:dataPlatform:hive,test_dataset,PROD)"
+    )
     assert event.entityType == "dataset"
     assert event.aspectName == "datasetProfile"
     assert event.changeType == "UPSERT"
