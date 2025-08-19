@@ -280,9 +280,10 @@ microsoft_common = {
 }
 
 iceberg_common = {
-    # Iceberg Python SDK
-    # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
-    "pyiceberg>=0.4.0",
+    # The v0.4.0 release of pyiceberg requires pydantic>2. When we upgraded,
+    # we defensively added a lower bound of v0.8.0 but there's no strong reason
+    # that it needs to be that specific version (can be lowered or raised).
+    "pyiceberg>=0.8.0",
     *cachetools_lib,
 }
 

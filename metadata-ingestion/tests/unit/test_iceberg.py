@@ -402,6 +402,7 @@ def test_iceberg_map_to_schema_field(
         assert_field(schema_fields[1], None, False, expected_map_type)
 
         # The third field will be the value type
+        assert isinstance(map_column.field_type, MapType)
         assert_field(
             schema_fields[2],
             None,
