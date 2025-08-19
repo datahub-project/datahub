@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Union, cast
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.ingestion.graph.client import DataHubGraph
 
 # DataHub imports.
 from datahub.metadata.schema_classes import GenericPayloadClass
@@ -95,30 +96,66 @@ class DataHubEventSource(EventSource):
         # Ensure a Graph Instance was provided.
         assert self.ctx.graph is not None
 
-        # Create separate consumer for each topic to maintain independent offsets
-        self.topic_consumers: Dict[str, DataHubEventsConsumer] = {}
-        for topic in self.topics_list:
-            # Backward compatibility: if only PlatformEvent_v1, use legacy consumer ID format
-            if len(self.topics_list) == 1 and topic == PLATFORM_EVENT_TOPIC_NAME:
-                topic_consumer_id = (
-                    self.base_consumer_id
-                )  # Legacy format for existing deployments
-            else:
-                topic_consumer_id = (
-                    f"{self.base_consumer_id}-{topic}"  # New format for multi-topic
-                )
-
-            self.topic_consumers[topic] = DataHubEventsConsumer(
-                graph=self.ctx.graph.graph,
-                consumer_id=topic_consumer_id,
-                lookback_days=self.source_config.lookback_days,
-                reset_offsets=self.source_config.reset_offsets,
-            )
+        # Initialize topic consumers
+        self.topic_consumers = self._initialize_topic_consumers(
+            topics_list=self.topics_list,
+            base_consumer_id=self.base_consumer_id,
+            graph=self.ctx.graph.graph,
+            lookback_days=self.source_config.lookback_days,
+            reset_offsets=self.source_config.reset_offsets,
+        )
 
         self.ack_manager = AckManager()
         self.safe_to_ack_offsets: Dict[str, Optional[str]] = {
             topic: None for topic in self.topics_list
         }
+
+    def _initialize_topic_consumers(
+        self,
+        topics_list: List[str],
+        base_consumer_id: str,
+        graph: DataHubGraph,
+        lookback_days: Optional[int],
+        reset_offsets: Optional[bool],
+    ) -> Dict[str, DataHubEventsConsumer]:
+        """
+        Initialize DataHub consumers for each topic with appropriate consumer IDs.
+
+        Maintains backward compatibility by using the legacy consumer ID format
+        for single PlatformEvent_v1 deployments, and topic-suffixed IDs for
+        multi-topic or other single-topic deployments.
+
+        Args:
+            topics_list: List of topic names to create consumers for
+            base_consumer_id: Base consumer ID for the pipeline
+            graph: DataHub graph instance
+            lookback_days: Number of days to look back for events
+            reset_offsets: Whether to reset consumer offsets
+
+        Returns:
+            Dictionary mapping topic names to their corresponding consumers
+        """
+        topic_consumers: Dict[str, DataHubEventsConsumer] = {}
+
+        for topic in topics_list:
+            # Backward compatibility: if only PlatformEvent_v1, use legacy consumer ID format
+            if len(topics_list) == 1 and topic == PLATFORM_EVENT_TOPIC_NAME:
+                topic_consumer_id = (
+                    base_consumer_id  # Legacy format for existing deployments
+                )
+            else:
+                topic_consumer_id = (
+                    f"{base_consumer_id}-{topic}"  # New format for multi-topic
+                )
+
+            topic_consumers[topic] = DataHubEventsConsumer(
+                graph=graph,
+                consumer_id=topic_consumer_id,
+                lookback_days=lookback_days,
+                reset_offsets=reset_offsets,
+            )
+
+        return topic_consumers
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
