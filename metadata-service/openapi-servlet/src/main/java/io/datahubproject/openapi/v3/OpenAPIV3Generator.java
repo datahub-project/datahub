@@ -123,6 +123,9 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
+    components.addSchemas(
+        "ScrollWithFilters" + ENTITIES + ENTITY_RESPONSE_SUFFIX,
+        buildScrollEntitiesWithFilterSchema());
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
@@ -219,6 +222,7 @@ public class OpenAPIV3Generator {
 
     // --> Cross-entity Paths
     paths.addPathItem(PATH_PREFIX + "/entity/scroll", buildGenericListEntitiesPath());
+    paths.addPathItem(PATH_PREFIX + "/entity/scrollWithFilters", buildGenericScrollEntitiesPath());
 
     // --> Entity Paths
     definedEntitySpecs.forEach(
@@ -641,6 +645,78 @@ public class OpenAPIV3Generator {
                     .required(true)
                     .content(requestBatch))
             .responses(new ApiResponses().addApiResponse("200", apiBatchGetResponse)));
+
+    return result;
+  }
+
+  private static PathItem buildGenericScrollEntitiesPath() {
+    final PathItem result = new PathItem();
+    final List<Parameter> parameters =
+        List.of(
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SYSTEM_METADATA)
+                .description("Include systemMetadata with response.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_INCLUDE_SOFT_DELETE)
+                .description("Include soft-deleted aspects with response.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SKIP_CACHE)
+                .description("Skip cache when listing entities.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(newSchema().types(TYPE_STRING_NULLABLE)._default("5m")),
+            new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
+            new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
+            new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION));
+    final ApiResponse successApiResponse =
+        new ApiResponse()
+            .description("Success")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                newSchema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/ScrollWithFilters%s%s",
+                                            ENTITIES, ENTITY_RESPONSE_SUFFIX)))));
+
+    final RequestBody requestBody =
+        new RequestBody()
+            .description(
+                "Scroll entities and aspects. If the `aspects` list is not specified then NO aspects will be returned. If the `aspects` list is empty, all aspects will be returned.")
+            .required(false)
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                newSchema()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            ENTITIES, ENTITY_REQUEST_SUFFIX)))));
+
+    result.setPost(
+        new Operation()
+            .summary(String.format("Scroll/List %s.", ENTITIES))
+            .parameters(parameters)
+            .tags(List.of("Generic Entities"))
+            .description("Scroll indexed entities. Will not include soft deleted entities.")
+            .requestBody(requestBody)
+            .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
 
     return result;
   }
@@ -1419,6 +1495,25 @@ public class OpenAPIV3Generator {
         .description("Mixed-entity patch request body.")
         .additionalProperties(false)
         .properties(props);
+  }
+
+  private static Schema buildScrollEntitiesWithFilterSchema() {
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Scroll with filters across (list) " + ENTITIES + " objects.")
+        .required(List.of("entities"))
+        .addProperty(
+            NAME_SCROLL_ID, newSchema().type(TYPE_STRING).description("Scroll id for pagination."))
+        .addProperty(
+            "entities",
+            newSchema()
+                .type(TYPE_ARRAY)
+                .description(ENTITIES + " object.")
+                .items(
+                    newSchema()
+                        .$ref(
+                            String.format(
+                                "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))));
   }
 
   /**
