@@ -73,8 +73,19 @@ const { mockUsePageTemplateContext } = vi.hoisted(() => {
     };
 });
 
+// Mock function for useIsWorkflowsEnabled
+const { mockUseIsWorkflowsEnabled } = vi.hoisted(() => {
+    return {
+        mockUseIsWorkflowsEnabled: vi.fn(),
+    };
+});
+
 vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     usePageTemplateContext: mockUsePageTemplateContext,
+}));
+
+vi.mock('@app/workflows/useIsWorkflowsEnabled', () => ({
+    useIsWorkflowsEnabled: mockUseIsWorkflowsEnabled,
 }));
 
 // Mock components that are rendered inside the menu items
@@ -111,6 +122,9 @@ describe('useAddModuleMenu', () => {
             template: mockTemplate,
             globalTemplate: mockEmptyGlobalTemplate,
         });
+
+        // Default to workflows disabled
+        mockUseIsWorkflowsEnabled.mockReturnValue(false);
     });
 
     function getChildren(item: any): any[] {
@@ -333,5 +347,29 @@ describe('useAddModuleMenu', () => {
 
         expect(mockOpenModal).toHaveBeenCalledWith(DataHubPageModuleType.Hierarchy, mockPosition);
         expect(mockCloseMenu).toHaveBeenCalled();
+    });
+
+    describe('Workflows Module Feature Flag', () => {
+        it('should include workflows module when feature flag is enabled', () => {
+            mockUseIsWorkflowsEnabled.mockReturnValue(true);
+
+            const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
+
+            const { items } = result.current;
+            expect(items).toHaveLength(2);
+
+            // Check "Default" group has 4 children (with workflows)
+            expect(items?.[1]).toHaveProperty('key', 'customLargeModulesGroup');
+            // @ts-expect-error SubMenuItem should have children
+            expect(items?.[1]?.children).toHaveLength(4);
+            // @ts-expect-error SubMenuItem should have children
+            expect(items?.[1]?.children?.[0]).toHaveProperty('key', 'your-assets');
+            // @ts-expect-error SubMenuItem should have children
+            expect(items?.[1]?.children?.[1]).toHaveProperty('key', 'domains');
+            // @ts-expect-error SubMenuItem should have children
+            expect(items?.[1]?.children?.[2]).toHaveProperty('key', 'your-subscriptions');
+            // @ts-expect-error SubMenuItem should have children
+            expect(items?.[1]?.children?.[3]).toHaveProperty('key', 'workflows');
+        });
     });
 });

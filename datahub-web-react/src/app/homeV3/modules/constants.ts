@@ -11,6 +11,7 @@ export const MODULE_TYPE_TO_DESCRIPTION: Map<DataHubPageModuleType, string> = ne
     [DataHubPageModuleType.OwnedAssets, 'Assets the current user owns'],
     [DataHubPageModuleType.RichText, 'Pin docs for your DataHub users'],
     [DataHubPageModuleType.SubscribedAssets, 'Assets the current user is subscribed to'], // SaaS-only
+    [DataHubPageModuleType.Workflows, 'Start approval workflows for your data'],
 ]);
 
 export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Map([
@@ -21,6 +22,7 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, IconNames> = new Ma
     [DataHubPageModuleType.OwnedAssets, 'Database'],
     [DataHubPageModuleType.RichText, 'TextT'],
     [DataHubPageModuleType.SubscribedAssets, 'Bell'], // SaaS-only
+    [DataHubPageModuleType.Workflows, 'LockSimpleOpen'],
 ]);
 
 export const DEFAULT_MODULE_ICON = 'Database';
@@ -30,6 +32,7 @@ export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_assets',
     'urn:li:dataHubPageModule:your_subscriptions',
     'urn:li:dataHubPageModule:top_domains',
+    'urn:li:dataHubPageModule:workflows',
 ];
 
 export const DEFAULT_TEMPLATE_URN = 'urn:li:dataHubPageTemplate:home_default_1';
@@ -51,6 +54,7 @@ export const DEFAULT_GLOBAL_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.OwnedAssets,
     DataHubPageModuleType.Domains,
     DataHubPageModuleType.SubscribedAssets, // SaaS-only
+    DataHubPageModuleType.Workflows,
 ];
 
 export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
@@ -60,6 +64,7 @@ export const LARGE_MODULE_TYPES: DataHubPageModuleType[] = [
     DataHubPageModuleType.AssetCollection,
     DataHubPageModuleType.Hierarchy,
     DataHubPageModuleType.RichText,
+    DataHubPageModuleType.Workflows,
 ];
 
 export const SMALL_MODULE_TYPES: DataHubPageModuleType[] = [DataHubPageModuleType.Link];

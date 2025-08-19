@@ -226,6 +226,10 @@ enum DataHubPageModuleType {
   Module displaying assets subscribed to by a given user
   """
   SUBSCRIBED_ASSETS
+  """
+  Module displaying workflows that can be started
+  """
+  WORKFLOWS
 }
 
 """

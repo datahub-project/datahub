@@ -2,6 +2,7 @@ import React, { memo, useMemo } from 'react';
 
 import { ModuleProps } from '@app/homeV3/module/types';
 import SampleLargeModule from '@app/homeV3/modules/SampleLargeModule';
+import WorkflowsModule from '@app/homeV3/modules/WorkflowsModule';
 import YourAssetsModule from '@app/homeV3/modules/YourAssetsModule';
 import AssetCollectionModule from '@app/homeV3/modules/assetCollection/AssetCollectionModule';
 import DocumentationModule from '@app/homeV3/modules/documentation/DocumentationModule';
@@ -24,6 +25,7 @@ function Module(props: ModuleProps) {
         if (module.properties.type === DataHubPageModuleType.RichText) return DocumentationModule;
         if (module.properties.type === DataHubPageModuleType.Hierarchy) return HierarchyViewModule;
         if (module.properties.type === DataHubPageModuleType.SubscribedAssets) return SubscriptionsModule; // SaaS-only
+        if (module.properties.type === DataHubPageModuleType.Workflows) return WorkflowsModule;
 
         // TODO: remove the sample large module once we have other modules to fill this out
         console.error(`Issue finding module with type ${module.properties.type}`);

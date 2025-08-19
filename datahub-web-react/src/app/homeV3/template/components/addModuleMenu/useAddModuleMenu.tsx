@@ -11,6 +11,7 @@ import MenuItem from '@app/homeV3/template/components/addModuleMenu/components/M
 import ModuleMenuItem from '@app/homeV3/template/components/addModuleMenu/components/ModuleMenuItem';
 import { getCustomGlobalModules } from '@app/homeV3/template/components/addModuleMenu/utils';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { useIsWorkflowsEnabled } from '@app/workflows/useIsWorkflowsEnabled';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -49,12 +50,25 @@ const YOUR_SUBSCRIPTIONS_MODULE: PageModuleFragment = {
     },
 };
 
+const WORKFLOWS_MODULE: PageModuleFragment = {
+    urn: 'urn:li:dataHubPageModule:workflows',
+    type: EntityType.DatahubPageModule,
+    properties: {
+        name: 'Start a Workflow',
+        type: DataHubPageModuleType.Workflows,
+        visibility: { scope: PageModuleScope.Global },
+        params: {},
+    },
+};
+
 export default function useAddModuleMenu(position: ModulePositionInput, closeMenu: () => void) {
     const {
         addModule,
         moduleModalState: { open: openModal },
         globalTemplate,
     } = usePageTemplateContext();
+
+    const isWorkflowsEnabled = useIsWorkflowsEnabled();
 
     const handleAddExistingModule = useCallback(
         (module: PageModuleFragment) => {
@@ -196,11 +210,34 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
             },
         };
 
+        const workflows = {
+            name: 'Workflows',
+            key: 'workflows',
+            label: (
+                <MenuItem
+                    description="Start approval workflows for your data"
+                    title="Workflows"
+                    icon="LockSimpleOpen"
+                    isSmallModule={false}
+                />
+            ),
+
+            onClick: () => {
+                handleAddExistingModule(WORKFLOWS_MODULE);
+            },
+        };
+
+        // Build the default modules array conditionally
+        const defaultModules = [yourAssets, domains, yourSubscriptions];
+        if (isWorkflowsEnabled) {
+            defaultModules.push(workflows);
+        }
+
         items.push({
             key: 'customLargeModulesGroup',
             label: <GroupItem title="Default" />,
             type: 'group',
-            children: [yourAssets, domains, yourSubscriptions],
+            children: defaultModules,
         });
 
         // Add global custom modules if available
@@ -243,7 +280,7 @@ export default function useAddModuleMenu(position: ModulePositionInput, closeMen
         }
 
         return { items };
-    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule]);
+    }, [globalTemplate, handleOpenCreateModuleModal, handleAddExistingModule, isWorkflowsEnabled]);
 
     return menu;
 }
