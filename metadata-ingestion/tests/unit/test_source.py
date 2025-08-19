@@ -353,7 +353,7 @@ def test_discretize_dict_values():
     }
 
 
-def _add_status_aspect(source: FakeSource, urn: str, removed: bool = False):
+def _add_status_aspect(source: FakeSource, urn: str, removed: bool = False) -> None:
     """Helper to add a status aspect to a URN."""
     source.source_report.report_workunit(
         MetadataChangeProposalWrapper(
@@ -363,7 +363,7 @@ def _add_status_aspect(source: FakeSource, urn: str, removed: bool = False):
     )
 
 
-def _add_subtype_aspect(source: FakeSource, urn: str, subtype: str = "Table"):
+def _add_subtype_aspect(source: FakeSource, urn: str, subtype: str = "Table") -> None:
     """Helper to add a subtype aspect to a URN."""
     source.source_report.report_workunit(
         MetadataChangeProposalWrapper(
@@ -373,7 +373,7 @@ def _add_subtype_aspect(source: FakeSource, urn: str, subtype: str = "Table"):
     )
 
 
-def _add_profile_aspect(source: FakeSource, urn: str):
+def _add_profile_aspect(source: FakeSource, urn: str) -> None:
     """Helper to add a dataset profile aspect to a URN."""
     source.source_report.report_workunit(
         MetadataChangeProposalWrapper(
@@ -423,9 +423,6 @@ def test_stale_entity_removal_excludes_all_aspects():
     _add_status_aspect(source, stale_urn, removed=True)
     _add_subtype_aspect(source, stale_urn)
     _add_profile_aspect(source, stale_urn)
-
-    # Mark as stale entity removal
-    source.source_report.add_stale_entity_removal_urn(stale_urn)
 
     source.source_report.compute_stats()
 

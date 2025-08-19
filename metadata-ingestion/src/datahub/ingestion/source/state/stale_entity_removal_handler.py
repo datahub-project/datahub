@@ -220,17 +220,6 @@ class StaleEntityRemovalHandler(
         assert isinstance(report, StaleEntityRemovalSourceReport)
         report.report_workunit(wu)
         report.report_stale_entity_soft_deleted(urn)
-
-        # Mark this URN as stale entity removal to exclude from counts
-        # Most source reports extend ExamplesReport, so try to access it
-        if hasattr(report, "add_stale_entity_removal_urn"):
-            report.add_stale_entity_removal_urn(urn)
-        else:
-            report.report_warning(
-                title="Stale entity removal report does not support add_stale_entity_removal_urn",
-                message="The source report does not support adding stale entity removal URNs. This means that the source report will not be able to exclude stale entity removal URNs from counts.",
-            )
-
         return wu
 
     def add_urn_to_skip(self, urn: str) -> None:
