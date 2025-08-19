@@ -359,6 +359,40 @@ public class PageTemplateServiceTest {
     }
   }
 
+  @Test
+  public void testDeleteDefaultPageTemplateWithManagePermission() throws Exception {
+    // Arrange
+    Urn templateUrn = UrnUtils.getUrn("urn:li:dataHubPageTemplate:home_default_1");
+    PageTemplateService spyService = org.mockito.Mockito.spy(service);
+    // Create properties with GLOBAL scope
+    DataHubPageTemplateProperties properties = createTestTemplateProperties();
+    properties.getVisibility().setScope(PageTemplateScope.GLOBAL);
+    org.mockito.Mockito.doReturn(properties)
+        .when(spyService)
+        .getPageTemplateProperties(mockOpContext, templateUrn);
+
+    // Mock AuthUtil to return true for MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(true);
+
+      // Act & Assert
+      try {
+        spyService.deletePageTemplate(mockOpContext, templateUrn);
+        fail(
+            "Should throw UnauthorizedException when user doesn't have manage privilege for global template");
+      } catch (RuntimeException ex) {
+        assertTrue(ex.getCause() instanceof UnauthorizedException);
+        assertTrue(
+            ex.getCause().getMessage().contains("Attempted to delete the default page template"));
+      }
+    }
+  }
+
   private DataHubPageTemplateProperties createTestTemplateProperties() {
     DataHubPageTemplateProperties properties = new DataHubPageTemplateProperties();
 
