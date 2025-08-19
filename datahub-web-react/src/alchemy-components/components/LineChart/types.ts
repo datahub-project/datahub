@@ -31,6 +31,8 @@ export type LineChartProps = {
     renderTooltipGlyph?: (props: GlyphProps) => React.ReactElement | null;
     showGlyphOnSingleDataPoint?: boolean;
     renderGlyphOnSingleDataPoint?: React.FC<GlyphProps>;
+
+    dataTestId?: string;
 };
 
 export type GlyphProps = VisxGlyphProps<Datum>;
