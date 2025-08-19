@@ -14,7 +14,6 @@ import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchServiceTestBase;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -126,14 +125,15 @@ public class SearchServiceElasticSearchTest extends SearchServiceTestBase {
     clearCache();
 
     // Test without slice options - should return all results
-    SearchResult searchResultAll =
-        searchService.searchAcrossEntities(
+    ScrollResult searchResultAll =
+        searchService.scrollAcrossEntities(
             operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
             ImmutableList.of(),
             "slice_test_data",
             null,
             null,
-            0,
+            null,
+            null,
             10,
             null);
     assertEquals(searchResultAll.getNumEntities().intValue(), 4);

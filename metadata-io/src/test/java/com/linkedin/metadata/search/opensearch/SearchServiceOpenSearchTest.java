@@ -15,7 +15,7 @@ import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
-import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchServiceTestBase;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -125,21 +125,22 @@ public class SearchServiceOpenSearchTest extends SearchServiceTestBase {
     clearCache();
 
     // Test without slice options - should return all results
-    SearchResult searchResultAll =
-        searchService.searchAcrossEntities(
+    ScrollResult searchResultAll =
+        searchService.scrollAcrossEntities(
             operationContext.withSearchFlags(flags -> flags.setFulltext(true).setSkipCache(true)),
             ImmutableList.of(),
             "slice_test_data",
             null,
             null,
-            0,
+            null,
+            "2m",
             10,
             null);
     assertEquals(searchResultAll.getNumEntities().intValue(), 4);
 
     // Test with slice options - slice 0 of 2 (should get roughly half the results)
     SliceOptions slice0of2 = new SliceOptions().setId(0).setMax(2);
-    ScrollResult searchResultSlice0 =
+    ScrollResult searchResultSlice0A =
         searchService.scrollAcrossEntities(
             operationContext.withSearchFlags(
                 flags -> flags.setFulltext(true).setSkipCache(true).setSliceOptions(slice0of2)),
@@ -148,13 +149,26 @@ public class SearchServiceOpenSearchTest extends SearchServiceTestBase {
             null,
             Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING"))),
             null,
-            "10m",
-            10,
+            "2m",
+            1,
+            null);
+    ScrollResult searchResultSlice0B =
+        searchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(
+                flags -> flags.setFulltext(true).setSkipCache(true).setSliceOptions(slice0of2)),
+            ImmutableList.of(),
+            "slice_test_data",
+            null,
+            Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING"))),
+            searchResultSlice0A.getScrollId(),
+            "2m",
+            3,
             null);
 
-    // Test with slice options - slice 1 of 2 (should get the other half of results)
+    // Test with slice options - slice 1 of 2 (should get the other half of results, this time
+    // paginated)
     SliceOptions slice1of2 = new SliceOptions().setId(1).setMax(2);
-    ScrollResult searchResultSlice1 =
+    ScrollResult searchResultSlice1A =
         searchService.scrollAcrossEntities(
             operationContext.withSearchFlags(
                 flags -> flags.setFulltext(true).setSkipCache(true).setSliceOptions(slice1of2)),
@@ -163,37 +177,42 @@ public class SearchServiceOpenSearchTest extends SearchServiceTestBase {
             null,
             Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING"))),
             null,
-            "10m",
-            10,
+            "2m",
+            1,
+            null);
+    ScrollResult searchResultSlice1B =
+        searchService.scrollAcrossEntities(
+            operationContext.withSearchFlags(
+                flags -> flags.setFulltext(true).setSkipCache(true).setSliceOptions(slice1of2)),
+            ImmutableList.of(),
+            "slice_test_data",
+            null,
+            Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING"))),
+            searchResultSlice1A.getScrollId(),
+            "2m",
+            3,
             null);
 
     // Verify that slicing works - each slice should have some results
     // Note: The exact distribution may vary depending on the elasticsearch implementation
-    int slice0Count = searchResultSlice0.getNumEntities().intValue();
-    int slice1Count = searchResultSlice1.getNumEntities().intValue();
+    assertEquals(
+        searchResultSlice0A.getEntities().size()
+            + searchResultSlice0B.getEntities().size()
+            + searchResultSlice1A.getEntities().size()
+            + searchResultSlice1B.getEntities().size(),
+        4,
+        "Combined slice results should equal total results when slicing is working");
 
-    // Both slices should have at least some results (unless ES doesn't support slicing)
-    // The combined results should equal the total when slicing is working correctly
-    if (slice0Count > 0 || slice1Count > 0) {
-      // If slicing is supported, verify the slices contain different results
-      assertEquals(
-          slice0Count + slice1Count,
-          4,
-          "Combined slice results should equal total results when slicing is working");
-
-      // Verify that slice results are mutually exclusive
-      // (no document should appear in both slices)
-      for (SearchEntity entity0 : searchResultSlice0.getEntities()) {
-        for (SearchEntity entity1 : searchResultSlice1.getEntities()) {
-          if (entity0.getEntity().equals(entity1.getEntity())) {
-            throw new AssertionError(
-                "Found duplicate entity "
-                    + entity0.getEntity()
-                    + " in both slice 0 and slice 1 - slices should be mutually exclusive");
-          }
-        }
-      }
-    }
+    // Verify that slice results are mutually exclusive
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    searchEntities.addAll(searchResultSlice0A.getEntities());
+    searchEntities.addAll(searchResultSlice0B.getEntities());
+    searchEntities.addAll(searchResultSlice1A.getEntities());
+    searchEntities.addAll(searchResultSlice1B.getEntities());
+    assertEquals(
+        searchEntities.size(),
+        searchEntities.stream().map(SearchEntity::getEntity).distinct().count(),
+        "All slice results should be unique across slices");
 
     // Test with different slice configuration - slice 0 of 4
     SliceOptions slice0of4 = new SliceOptions().setId(0).setMax(4);
