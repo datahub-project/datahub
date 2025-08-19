@@ -214,6 +214,7 @@ class SupersetConfig(
     ingest_datasets: bool = Field(
         default=False, description="Enable to ingest datasets."
     )
+    
 
     provider: str = Field(default="db", description="Superset provider.")
     options: Dict = Field(default={}, description="")
@@ -233,6 +234,8 @@ class SupersetConfig(
         default={},
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
+    
+    ssl_verify: Optional[bool] = Field(default=True, description="SSL Verification.")
 
     class Config:
         # This is required to allow preset configs to get parsed
@@ -320,12 +323,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                 "refresh": True,
                 "provider": self.config.provider,
             },
+            verify=self.config.ssl_verify
         )
 
         self.access_token = login_response.json()["access_token"]
         logger.debug("Got access token from superset")
 
         requests_session = requests.Session()
+        requests_session.verify=self.config.ssl_verify
         requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
