@@ -92,7 +92,13 @@ export default function ProfilingRunsChart({ profiles, areAllProfilesPartitioned
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" title={profileModalTitle || 'Profile'} open={showModal} onCancel={onClose}>
+                <Modal
+                    buttons={[]}
+                    width="100%"
+                    title={profileModalTitle || 'Profile'}
+                    open={showModal}
+                    onCancel={onClose}
+                >
                     <TableStats
                         rowCount={selectedProfile.rowCount || -1}
                         columnCount={selectedProfile.columnCount || -1}

@@ -41,7 +41,18 @@ export const AddImageButton = () => {
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
-            <Modal title="Add Image" open={isModalVisible} okText="Save" onOk={handleOk} onCancel={handleCancel}>
+            <Modal
+                title="Add Image"
+                open={isModalVisible}
+                onCancel={handleCancel}
+                buttons={[
+                    {
+                        text: 'Save',
+                        variant: 'filled',
+                        onClick: handleOk,
+                    },
+                ]}
+            >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item
                         name="src"

@@ -4,6 +4,7 @@ import styled from 'styled-components';
 import { SearchSelect } from '@app/entity/shared/components/styled/search/SearchSelect';
 import { EntityAndType } from '@app/entity/shared/types';
 import ClickOutside from '@app/shared/ClickOutside';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Modal } from '@src/alchemy-components';
 
 import { EntityType } from '@types';
@@ -44,20 +45,11 @@ export const SearchSelectModal = ({
     hideToolbar,
 }: Props) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
     const onCancelSelect = () => {
         if (selectedEntities.length > 0) {
-            Modal.confirm({
-                title: `Exit Selection`,
-                content: `Are you sure you want to exit? ${selectedEntities.length} selection(s) will be cleared.`,
-                onOk() {
-                    onCancel?.();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setShowConfirmationModal(true);
         } else {
             onCancel?.();
         }
@@ -97,6 +89,13 @@ export const SearchSelectModal = ({
                     hideToolbar={hideToolbar}
                 />
             </StyledModal>
+            <ConfirmationModal
+                isOpen={showConfirmationModal}
+                handleClose={() => setShowConfirmationModal(false)}
+                handleConfirm={() => onCancel?.()}
+                modalTitle="Exit Selection"
+                modalText={`Are you sure you want to exit? ${selectedEntities.length} selection(s) will be cleared.`}
+            />
         </ClickOutside>
     );
 };

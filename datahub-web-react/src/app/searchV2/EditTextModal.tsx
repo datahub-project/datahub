@@ -1,5 +1,5 @@
 import { Modal } from '@components';
-import { Button, Input } from 'antd';
+import { Input } from 'antd';
 import React, { useState } from 'react';
 
 type Props = {
@@ -17,20 +17,19 @@ export const EditTextModal = ({ defaultValue, onCloseModal, onOk, title = 'Edit 
             open
             onCancel={onCloseModal}
             keyboard
-            footer={
-                <>
-                    <Button onClick={onCloseModal} type="text">
-                        Cancel
-                    </Button>
-                    <Button
-                        data-testid="edit-text-done-btn"
-                        disabled={stagedValue.trim().length === 0}
-                        onClick={() => onOk?.(stagedValue)}
-                    >
-                        Done
-                    </Button>
-                </>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    onClick: onCloseModal,
+                    variant: 'text',
+                },
+                {
+                    buttonDataTestId: 'edit-text-done-btn',
+                    disabled: stagedValue.trim().length === 0,
+                    onClick: () => onOk?.(stagedValue),
+                    text: 'Done',
+                },
+            ]}
         >
             <Input data-testid="edit-text-input" onChange={(e) => setStagedValue(e.target.value)} value={stagedValue} />
         </Modal>

@@ -60,7 +60,18 @@ export const LinkModal = (props: LinkModalProps) => {
     };
 
     return (
-        <Modal title="Add Link" okText="Save" onCancel={handleClose} onOk={handleOk} open={visible}>
+        <Modal
+            title="Add Link"
+            onCancel={handleClose}
+            open={visible}
+            buttons={[
+                {
+                    text: 'Save',
+                    variant: 'filled',
+                    onClick: handleOk,
+                },
+            ]}
+        >
             <Form
                 form={form}
                 layout="vertical"

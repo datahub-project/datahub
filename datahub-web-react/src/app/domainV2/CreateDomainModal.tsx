@@ -121,6 +121,20 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
             title="Create New Domain"
             open
             onCancel={onClose}
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'text',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Save',
+                    id: 'createDomainButton',
+                    buttonDataTestId: 'create-domain-button',
+                    onClick: onCreateDomain,
+                    disabled: !createButtonEnabled,
+                },
+            ]}
             footer={
                 <ModalButtonContainer>
                     <Button color="gray" onClick={onClose} variant="text">

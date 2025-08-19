@@ -49,6 +49,7 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 closable={false}
                 onCancel={onConfirmClose}
                 className="description-editor-wrapper"
+                buttons={[]}
             >
                 {(editMode && (
                     <DescriptionEditor

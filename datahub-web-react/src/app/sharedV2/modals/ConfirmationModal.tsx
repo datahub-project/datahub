@@ -1,12 +1,6 @@
-import { Button, Modal, Text, typography } from '@components';
+import { Modal, Text, typography } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-
-const ButtonsContainer = styled.div`
-    display: flex;
-    gap: 16px;
-    justify-content: end;
-`;
 
 export const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
@@ -51,16 +45,20 @@ export const ConfirmationModal = ({
             open={isOpen}
             onCancel={handleClose}
             centered
-            footer={
-                <ButtonsContainer>
-                    <Button variant="text" color="gray" onClick={handleClose} data-testid="modal-cancel-button">
-                        {closeButtonText || 'Cancel'}
-                    </Button>
-                    <Button variant="filled" onClick={handleConfirm} data-testid="modal-confirm-button">
-                        {confirmButtonText || 'Yes'}
-                    </Button>
-                </ButtonsContainer>
-            }
+            buttons={[
+                {
+                    variant: 'text',
+                    onClick: handleClose,
+                    buttonDataTestId: 'modal-cancel-button',
+                    text: closeButtonText || 'Cancel',
+                },
+                {
+                    variant: 'filled',
+                    onClick: () => handleConfirm,
+                    buttonDataTestId: 'modal-confirm-button',
+                    text: confirmButtonText || 'Yes',
+                },
+            ]}
             title={modalTitle || 'Confirm'}
         >
             <Text color="gray" size="lg">

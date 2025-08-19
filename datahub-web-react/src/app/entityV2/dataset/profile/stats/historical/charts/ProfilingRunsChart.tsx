@@ -74,7 +74,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle || ''} open={showModal} onCancel={onClose}>
+                <Modal width="100%" buttons={[]} title={profileModalTitle || ''} open={showModal} onCancel={onClose}>
                     <DataProfileView profile={selectedProfile} />
                 </Modal>
             )}
