@@ -78,7 +78,7 @@ plugins: Dict[str, Set[str]] = {
     },
     # Action Plugins
     "executor": {
-        "acryl-executor==0.2.6rc1",
+        "acryl-executor==0.2.6",
     },
     "slack": {
         "slack-bolt>=1.15.5",
