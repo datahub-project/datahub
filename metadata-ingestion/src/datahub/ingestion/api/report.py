@@ -379,9 +379,11 @@ class ExamplesReport(Report, Closeable):
                 subType=sub_type,
                 aspects=aspects_dict,
             )
-        assert mcp is not None
-        assert mcp.aspect is not None
-        if isinstance(mcp.aspect, StatusClass):
+        if (
+            isinstance(mcp.aspect, StatusClass)
+            and mcp is not None
+            and mcp.aspect is not None
+        ):
             self._file_based_dict[urn].is_stale = mcp.aspect.removed
             self._file_based_dict.mark_dirty(urn)
 
