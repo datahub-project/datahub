@@ -662,6 +662,57 @@ describe('Validation Utils', () => {
             expect(isPropertySupportedForEntities('domainProperties.name', [EntityType.Dataset])).toBe(false);
         });
 
+        it('should support ownership type properties for data assets only', () => {
+            // Test base ownership types property (from assetProps)
+            expect(isPropertySupportedForEntities('ownership.owners.typeUrn', [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities('ownership.owners.typeUrn', [EntityType.Chart])).toBe(true);
+            expect(isPropertySupportedForEntities('ownership.owners.typeUrn', [EntityType.DataProduct])).toBe(true);
+
+            // Should not work for logical assets
+            expect(isPropertySupportedForEntities('ownership.owners.typeUrn', [EntityType.GlossaryTerm])).toBe(false);
+            expect(isPropertySupportedForEntities('ownership.owners.typeUrn', [EntityType.Domain])).toBe(false);
+
+            // Test dynamic ownership type properties (created by OwnershipTypePredicateBuilder)
+            const businessOwnerProperty = 'ownership.ownerTypes.urn:li:ownershipType:__system__business_owner';
+            const technicalOwnerProperty = 'ownership.ownerTypes.urn:li:ownershipType:__system__technical_owner';
+
+            // Should work for all data assets
+            expect(isPropertySupportedForEntities(businessOwnerProperty, [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities(businessOwnerProperty, [EntityType.Dashboard])).toBe(true);
+            expect(isPropertySupportedForEntities(technicalOwnerProperty, [EntityType.Container])).toBe(true);
+
+            // Should not work for logical assets
+            expect(isPropertySupportedForEntities(businessOwnerProperty, [EntityType.GlossaryTerm])).toBe(false);
+            expect(isPropertySupportedForEntities(technicalOwnerProperty, [EntityType.GlossaryNode])).toBe(false);
+        });
+
+        it('should support structured properties for data assets only', () => {
+            // Test placeholder structured property
+            const structuredPropertyPlaceholder = '__structuredPropertyRef';
+            expect(isPropertySupportedForEntities(structuredPropertyPlaceholder, [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities(structuredPropertyPlaceholder, [EntityType.Chart])).toBe(true);
+            expect(isPropertySupportedForEntities(structuredPropertyPlaceholder, [EntityType.DataProduct])).toBe(true);
+
+            // Should not work for logical assets
+            expect(isPropertySupportedForEntities(structuredPropertyPlaceholder, [EntityType.GlossaryTerm])).toBe(
+                false,
+            );
+            expect(isPropertySupportedForEntities(structuredPropertyPlaceholder, [EntityType.Domain])).toBe(false);
+
+            // Test dynamic structured properties (created by StructuredPropertyPredicateBuilder)
+            const customStructuredProperty = 'structuredProperties.urn:li:structuredProperty:my_custom_property';
+            const anotherStructuredProperty = 'structuredProperties.urn:li:structuredProperty:business_critical';
+
+            // Should work for all data assets
+            expect(isPropertySupportedForEntities(customStructuredProperty, [EntityType.Dataset])).toBe(true);
+            expect(isPropertySupportedForEntities(customStructuredProperty, [EntityType.Dashboard])).toBe(true);
+            expect(isPropertySupportedForEntities(anotherStructuredProperty, [EntityType.Container])).toBe(true);
+
+            // Should not work for logical assets
+            expect(isPropertySupportedForEntities(customStructuredProperty, [EntityType.GlossaryTerm])).toBe(false);
+            expect(isPropertySupportedForEntities(anotherStructuredProperty, [EntityType.GlossaryNode])).toBe(false);
+        });
+
         it('should handle complex property hierarchies', () => {
             // Test nested property groups we added
             expect(isPropertySupportedForEntities('columnTags', [EntityType.Dataset])).toBe(true);
@@ -879,6 +930,40 @@ describe('Validation Utils', () => {
             expect(structuredPropertyWarnings[1].message).toContain('schemaFieldStructuredProperties');
             expect(structuredPropertyWarnings[1].message).toContain('charts, dashboards');
         });
+
+        it('should generate appropriate warnings for ownership type and structured property conflicts', () => {
+            // Test ownership type warnings
+            const ownershipTypeWarnings = getValidationWarnings(
+                [EntityType.GlossaryTerm, EntityType.Domain],
+                ['ownership.ownerTypes.urn:li:ownershipType:__system__business_owner'],
+                [],
+            );
+            expect(ownershipTypeWarnings).toHaveLength(1);
+            expect(ownershipTypeWarnings[0].message).toContain('Ownership Type');
+            expect(ownershipTypeWarnings[0].message).toContain('glossary terms, domains');
+            expect(ownershipTypeWarnings[0].message).toContain('data assets');
+
+            // Test structured property warnings
+            const structuredPropertyWarnings = getValidationWarnings(
+                [EntityType.GlossaryTerm, EntityType.Domain],
+                ['structuredProperties.urn:li:structuredProperty:my_custom_property'],
+                [],
+            );
+            expect(structuredPropertyWarnings).toHaveLength(1);
+            expect(structuredPropertyWarnings[0].message).toContain('Structured Property');
+            expect(structuredPropertyWarnings[0].message).toContain('glossary terms, domains');
+            expect(structuredPropertyWarnings[0].message).toContain('data assets');
+
+            // Test placeholder warnings
+            const placeholderWarnings = getValidationWarnings(
+                [EntityType.GlossaryTerm],
+                ['__structuredPropertyRef', '__ownershipTypeRef'],
+                [],
+            );
+            expect(placeholderWarnings).toHaveLength(2);
+            expect(placeholderWarnings[0].message).toContain('Structured Property');
+            expect(placeholderWarnings[1].message).toContain('Ownership Type');
+        });
     });
 
     // =============================================================================
@@ -995,6 +1080,80 @@ describe('Validation Utils', () => {
             const warnings2 = validateCompleteTestDefinition([EntityType.Chart, EntityType.Dashboard], testDefinition);
             expect(warnings2.length).toBeGreaterThan(0);
             expect(warnings2.some((w) => w.message.includes('Column Structured Property'))).toBe(true);
+        });
+
+        it('should handle structured properties with different entity type combinations', async () => {
+            // Import enhanced validation functions
+            const { getEnhancedValidationWarnings, isStructuredPropertySupportedForEntities } = await import(
+                '@app/tests/builder/validation/structuredPropertyValidation'
+            );
+
+            const mockCache = {
+                // Scenario 1: Dataset only
+                'urn:li:structuredProperty:dataset_only': {
+                    entityTypes: [EntityType.Dataset],
+                    valueType: 'string',
+                    displayName: 'Dataset Only Property',
+                },
+                // Scenario 2: Multiple entity types (datasets + domains + charts)
+                'urn:li:structuredProperty:multi_entity': {
+                    entityTypes: [EntityType.Dataset, EntityType.Domain, EntityType.Chart],
+                    valueType: 'string',
+                    displayName: 'Multi Entity Property',
+                },
+                // Scenario 3: No restrictions (applies to all data assets)
+                'urn:li:structuredProperty:unrestricted': {
+                    entityTypes: [], // Empty means all data assets
+                    valueType: 'boolean',
+                    displayName: 'Unrestricted Property',
+                },
+            };
+
+            // Test Dataset-only property
+            expect(
+                isStructuredPropertySupportedForEntities(
+                    'structuredProperties.urn:li:structuredProperty:dataset_only',
+                    [EntityType.Dataset],
+                    mockCache,
+                ),
+            ).toBe(true);
+
+            expect(
+                isStructuredPropertySupportedForEntities(
+                    'structuredProperties.urn:li:structuredProperty:dataset_only',
+                    [EntityType.Chart, EntityType.Domain],
+                    mockCache,
+                ),
+            ).toBe(false);
+
+            // Test Multi-entity property
+            expect(
+                isStructuredPropertySupportedForEntities(
+                    'structuredProperties.urn:li:structuredProperty:multi_entity',
+                    [EntityType.Dataset, EntityType.Domain],
+                    mockCache,
+                ),
+            ).toBe(true);
+
+            expect(
+                isStructuredPropertySupportedForEntities(
+                    'structuredProperties.urn:li:structuredProperty:multi_entity',
+                    [EntityType.Dataset, EntityType.GlossaryTerm], // GlossaryTerm not supported
+                    mockCache,
+                ),
+            ).toBe(false);
+
+            // Test validation warnings show helpful messages
+            const warnings = getEnhancedValidationWarnings(
+                [EntityType.Chart, EntityType.GlossaryTerm],
+                ['structuredProperties.urn:li:structuredProperty:dataset_only'],
+                [],
+                mockCache,
+            );
+
+            expect(warnings).toHaveLength(1);
+            expect(warnings[0].message).toContain('Dataset Only Property');
+            expect(warnings[0].message).toContain('only works with: dataset');
         });
     });
 });

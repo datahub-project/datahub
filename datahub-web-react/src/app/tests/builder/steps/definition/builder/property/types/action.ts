@@ -15,15 +15,15 @@ const DATA_ASSETS = [
     EntityType.DataProduct,
 ] as const;
 
-const LOGICAL_ENTITIES = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Domain] as const;
+const LOGICAL_ASSETS = [EntityType.GlossaryTerm, EntityType.GlossaryNode, EntityType.Domain] as const;
 
 export const ENTITY_GROUPS = {
     /** Data assets that support most metadata operations */
     DATA_ASSETS,
-    /** Logical entities (metadata entities) */
-    LOGICAL_ENTITIES,
-    /** All entities including both data assets and logical entities */
-    ALL_ENTITIES: [...DATA_ASSETS, ...LOGICAL_ENTITIES],
+    /** Logical assets (metadata assets) */
+    LOGICAL_ASSETS,
+    /** All assets including both data assets and logical assets */
+    ALL_ASSETS: [...DATA_ASSETS, ...LOGICAL_ASSETS],
 } as const;
 
 /**
@@ -66,7 +66,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't support tag operations
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't support tag operations
     },
     {
         id: ActionId.REMOVE_TAGS,
@@ -77,7 +77,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Tag],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't support tag operations
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't support tag operations
     },
     {
         id: ActionId.ADD_GLOSSARY_TERMS,
@@ -88,7 +88,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't have glossary terms attached to itself
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.REMOVE_GLOSSARY_TERMS,
@@ -99,7 +99,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.GlossaryTerm],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ENTITIES excluded - doesn't have glossary terms attached to itself
+        entityTypes: ENTITY_GROUPS.DATA_ASSETS, // LOGICAL_ASSETS excluded - doesn't have glossary terms attached to itself
     },
     {
         id: ActionId.ADD_OWNERS,
@@ -113,7 +113,7 @@ export const ACTION_TYPES: ActionType[] = [
         additionalParams: {
             ownerType: 'TECHNICAL_OWNER',
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.REMOVE_OWNERS,
@@ -124,7 +124,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.CorpUser, EntityType.CorpGroup],
             mode: SelectInputMode.MULTIPLE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.SET_DOMAIN,
@@ -135,7 +135,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.SINGLE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.UNSET_DOMAIN,
@@ -146,7 +146,7 @@ export const ACTION_TYPES: ActionType[] = [
             entityTypes: [EntityType.Domain],
             mode: SelectInputMode.SINGLE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.DEPRECATE,
@@ -156,7 +156,7 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             mode: SelectInputMode.NONE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
     {
         id: ActionId.UN_DEPRECATE,
@@ -166,6 +166,6 @@ export const ACTION_TYPES: ActionType[] = [
         valueOptions: {
             mode: SelectInputMode.NONE,
         },
-        entityTypes: ENTITY_GROUPS.ALL_ENTITIES,
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS,
     },
 ];
