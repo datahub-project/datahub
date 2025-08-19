@@ -42,7 +42,7 @@ class Panel(_GrafanaBaseModel):
     id: str
     title: str
     description: str = ""
-    type: Optional[str]
+    type: Optional[str] = None
     # Query targets - each contains refId (A,B,C...), query/expr, datasource ref, etc.
     query_targets: List[GrafanaQueryTarget] = Field(
         default_factory=list, alias="targets"
@@ -61,10 +61,10 @@ class Dashboard(_GrafanaBaseModel):
     uid: str
     title: str
     description: str = ""
-    version: Optional[str]
+    version: Optional[str] = None
     panels: List[Panel]
     tags: List[str]
-    timezone: Optional[str]
+    timezone: Optional[str] = None
     refresh: Optional[str] = None
     schema_version: Optional[str] = Field(default=None, alias="schemaVersion")
     folder_id: Optional[str] = Field(default=None, alias="meta.folderId")
