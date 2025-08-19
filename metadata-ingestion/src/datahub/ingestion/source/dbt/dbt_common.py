@@ -378,7 +378,7 @@ class DBTCommonConfig(
 
     dbt_is_primary_sibling: bool = Field(
         default=True,
-        description="Controls sibling relationship primary designation between dbt entities and target platform entities. "
+        description="Experimental: Controls sibling relationship primary designation between dbt entities and target platform entities. "
         "When True (default), dbt entities are primary and target platform entities are secondary. "
         "When False, target platform entities are primary and dbt entities are secondary. "
         "Uses aspect patches for precise control. Requires DataHub server 1.3.0+.",
