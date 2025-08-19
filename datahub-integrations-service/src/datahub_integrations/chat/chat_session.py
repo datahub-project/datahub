@@ -4,6 +4,7 @@ import contextlib
 import re
 import uuid
 from typing import (
+    TYPE_CHECKING,
     Callable,
     Dict,
     Iterator,
@@ -17,6 +18,7 @@ import mlflow
 import mlflow.entities
 import mlflow.tracing
 from datahub.sdk.main_client import DataHubClient
+from datahub.utilities.perf_timer import PerfTimer
 from fastmcp import FastMCP
 from loguru import logger
 from pydantic import BaseModel, field_validator
@@ -39,7 +41,11 @@ from datahub_integrations.gen_ai.bedrock import (
 from datahub_integrations.mcp.mcp_server import mcp, with_datahub_client
 from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
 from datahub_integrations.slack.utils.string import truncate
+from datahub_integrations.telemetry.chat_events import ChatbotToolCallEvent
+from datahub_integrations.telemetry.telemetry import track_saas_event
 
+if TYPE_CHECKING:
+    from mypy_boto3_bedrock_runtime.type_defs import ContentBlockOutputTypeDef
 assert MLFLOW_INITIALIZED
 MAX_TOOL_CALLS = 20
 
@@ -350,43 +356,69 @@ class ChatSession:
             raise ChatSessionError(f"No message in response {response}")
         response_content = message["content"]
         for i, content_block in enumerate(response_content):
+            is_last_block = i == len(response_content) - 1
             if "text" in content_block:
-                is_last_block = i == len(response_content) - 1
-                is_final_response = is_last_block and is_end_turn
-                if is_final_response:
-                    # TODO: Do we want to force another loop to ensure a tool call?
-                    self._add_message(AssistantMessage(text=content_block["text"]))
-                else:
-                    self._add_message(ReasoningMessage(text=content_block["text"]))
+                self._handle_text_content(content_block, is_end_turn, is_last_block)
             elif "toolUse" in content_block:
-                tool_use = content_block["toolUse"]
-                tool_name = tool_use["name"]
-
-                tool = self.tool_map[tool_name]
-                tool_request = ToolCallRequest(
-                    tool_use_id=tool_use["toolUseId"],
-                    tool_name=tool_name,
-                    tool_input=tool_use["input"],
-                )
-                self._add_message(tool_request)
-
-                try:
-                    with with_datahub_client(self.client):
-                        result = tool.run(arguments=tool_request.tool_input)
-                except Exception as e:
-                    self._add_message(
-                        ToolResultError(
-                            tool_request=tool_request,
-                            error=f"{type(e).__name__}: {e}",
-                            # raw_error=e,
-                        )
-                    )
-                else:
-                    self._add_message(
-                        ToolResult(tool_request=tool_request, result=result)
-                    )
+                self._handle_tool_call_request(content_block)
             else:
                 raise ChatSessionError(f"Unknown content block type {content_block}")
+
+    def _handle_text_content(
+        self,
+        content_block: "ContentBlockOutputTypeDef",
+        is_end_turn: bool,
+        is_last_block: bool,
+    ) -> None:
+        is_final_response = is_last_block and is_end_turn
+        if is_final_response:
+            # TODO: Do we want to force another loop to ensure a tool call?
+            self._add_message(AssistantMessage(text=content_block["text"]))
+        else:
+            self._add_message(ReasoningMessage(text=content_block["text"]))
+
+    def _handle_tool_call_request(
+        self, content_block: "ContentBlockOutputTypeDef"
+    ) -> None:
+        tool_use = content_block["toolUse"]
+        tool_name = tool_use["name"]
+
+        tool_request = ToolCallRequest(
+            tool_use_id=tool_use["toolUseId"],
+            tool_name=tool_name,
+            tool_input=tool_use["input"],
+        )
+        self._add_message(tool_request)
+        result = None
+        error = None
+        timer = PerfTimer()
+
+        try:
+            tool = self.tool_map[tool_name]
+            with timer, with_datahub_client(self.client):
+                result = tool.run(arguments=tool_request.tool_input)
+        except Exception as e:
+            error = f"{type(e).__name__}: {e}"
+            self._add_message(
+                ToolResultError(
+                    tool_request=tool_request,
+                    error=error,
+                    # raw_error=e,
+                )
+            )
+        else:
+            self._add_message(ToolResult(tool_request=tool_request, result=result))
+
+        track_saas_event(
+            ChatbotToolCallEvent(
+                chat_session_id=self.session_id,
+                tool_name=tool_name,
+                tool_execution_duration_sec=timer.elapsed_seconds(),
+                tool_result_length=len(str(result)) if result else None,
+                tool_result_is_error=error is not None,
+                tool_error=error,
+            )
+        )
 
     @mlflow.trace
     def generate_next_message(self) -> NextMessage:

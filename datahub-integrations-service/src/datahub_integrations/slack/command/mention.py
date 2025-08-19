@@ -11,7 +11,11 @@ from slack_bolt import App
 from slack_sdk import WebClient
 
 from datahub_integrations.app import graph
-from datahub_integrations.chat.chat_history import AssistantMessage, HumanMessage
+from datahub_integrations.chat.chat_history import (
+    AssistantMessage,
+    HumanMessage,
+    Message,
+)
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
 from datahub_integrations.chat.linkify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
@@ -97,6 +101,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     channel_id = event.channel_id
     response_ts = None
+    chat_session_id = None
 
     timer = PerfTimer()
     timer.start()
@@ -133,8 +138,10 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 logger.warning(f"Failed to update progress message: {str(e)}")
 
         # Process the actual response
-        message, followup_questions = _generation_mention_response(
-            app.client, event, progress_callback, response_ts
+        chat_session = _build_chat_session(app.client, event)
+        chat_session_id = chat_session.session_id
+        message, followup_questions = _generate_mention_response(
+            chat_session, event, progress_callback, response_ts
         )
 
         # Build the response blocks
@@ -168,6 +175,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 message_contents=event.message_text,
                 response_contents=message,
                 response_generation_duration_sec=timer.elapsed_seconds(),
+                chat_session_id=chat_session_id,
             )
         )
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
@@ -194,16 +202,47 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
                 response_contents=None,
                 response_error=f"{type(e).__name__}: {str(e)}",
                 response_generation_duration_sec=timer.elapsed_seconds(),
+                chat_session_id=chat_session_id,
             )
         )
 
 
-def _generation_mention_response(
-    client: WebClient,
+def _generate_mention_response(
+    chat_session: ChatSession,
     event: SlackMentionEvent,
     progress_callback: Callable[[List[str]], None],
     response_ts: str,
 ) -> Tuple[str, List[str]]:
+    original_history_length = len(chat_session.history.messages)
+
+    with chat_session.set_progress_callback(progress_callback):
+        response = chat_session.generate_next_message()
+    assert isinstance(response, NextMessage)
+
+    # Add the intermediate thinking messages to the history store.
+    new_messages = chat_session.history.messages[original_history_length:]
+    _update_slack_history_cache(event, response_ts, response, new_messages)
+
+    return (
+        slackify_markdown(response.text),
+        response.suggestions,
+    )
+
+
+def _update_slack_history_cache(
+    event: SlackMentionEvent,
+    response_ts: str,
+    response: NextMessage,
+    new_messages: List[Message],
+) -> None:
+    thread_history = slack_config.get_slack_history_cache().get_thread(
+        event.channel_id, event.thread_ts
+    )
+    thread_history.add_message(response_ts, AssistantMessage(text=response.text))
+    thread_history.add_thinking(response_ts, new_messages)
+
+
+def _build_chat_session(client: WebClient, event: SlackMentionEvent) -> ChatSession:
     message_text = event.message_text
     thread_ts = event.thread_ts
     logger.info(f"App mention message: {message_text} in thread {thread_ts}")
@@ -228,23 +267,14 @@ def _generation_mention_response(
         )
 
     history = thread_history.get_chat_history()
-    original_history_length = len(history.messages)
 
     chat_session = ChatSession(
         tools=[mcp],
         client=DataHubClient(graph=graph),
         history=history,
     )
-    with chat_session.set_progress_callback(progress_callback):
-        response = chat_session.generate_next_message()
-    assert isinstance(response, NextMessage)
 
-    # Add the intermediate thinking messages to the history store.
-    new_messages = history.messages[original_history_length:]
-    thread_history.add_message(response_ts, AssistantMessage(text=response.text))
-    thread_history.add_thinking(response_ts, new_messages)
-
-    return slackify_markdown(response.text), response.suggestions
+    return chat_session
 
 
 class FeedbackPayload(BaseModel):

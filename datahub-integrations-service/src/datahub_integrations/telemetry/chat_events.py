@@ -50,6 +50,7 @@ class ChatbotInteractionEvent(BaseEvent):
     response_contents: Optional[str] = None
     response_error: Optional[str] = None
     response_generation_duration_sec: float
+    chat_session_id: Optional[str]  # datahub internal
     # TODO: referenced_urns: List[str] = Field(default_factory=list)
 
 
@@ -68,3 +69,17 @@ class ChatbotInteractionFeedbackEvent(BaseEvent):
 
     feedback: str  # "positive" or "negative"
     message_contents: Optional[str] = None
+
+
+class ChatbotToolCallEvent(BaseEvent):
+    """Event representing a tool call within a chatbot interaction."""
+
+    type: Literal["ChatbotToolCall"] = "ChatbotToolCall"
+    chat_session_id: str
+
+    # Tool-specific fields
+    tool_name: str
+    tool_execution_duration_sec: float
+    tool_result_length: Optional[int] = None
+    tool_result_is_error: bool = False
+    tool_error: Optional[str] = None
