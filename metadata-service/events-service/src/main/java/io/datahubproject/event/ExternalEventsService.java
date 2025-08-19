@@ -28,7 +28,16 @@ import org.apache.kafka.common.TopicPartition;
 public class ExternalEventsService {
 
   public static final String PLATFORM_EVENT_TOPIC_NAME = "PlatformEvent_v1";
-  private static final Set<String> ALLOWED_TOPICS = Set.of(PLATFORM_EVENT_TOPIC_NAME);
+  public static final String METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME =
+      "MetadataChangeLog_Versioned_v1";
+  public static final String METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME =
+      "MetadataChangeLog_Timeseries_v1";
+
+  private static final Set<String> ALLOWED_TOPICS =
+      Set.of(
+          PLATFORM_EVENT_TOPIC_NAME,
+          METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME,
+          METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME);
   private final KafkaConsumerPool consumerPool;
   private final ObjectMapper objectMapper;
   private final Map<String, String>
