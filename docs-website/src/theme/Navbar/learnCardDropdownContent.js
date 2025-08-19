@@ -10,9 +10,9 @@ const learCardDropdownContent = [
             href: "https://datahub.com/use-cases",
         },    
         {
-            title: "Adoption Stories",
+            title: "Customer Stories",
             iconImage: "/img/icon-events.png",
-            href: "httpps://datahub.com/adoption-stories",
+            href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
         {
             title: "Blog",
