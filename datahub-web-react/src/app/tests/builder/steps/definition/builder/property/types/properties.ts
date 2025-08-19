@@ -146,7 +146,7 @@ export const assetProps: Property[] = [
     ...commonProps,
     {
         id: 'dataPlatformInstance.platform',
-        displayName: 'Data Platform',
+        displayName: 'Platform',
         description: 'The data platform where the asset lives.',
         valueType: ValueTypeId.URN,
         valueOptions: {
