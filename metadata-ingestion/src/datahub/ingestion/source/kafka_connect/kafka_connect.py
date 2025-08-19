@@ -116,6 +116,13 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 self.report.report_dropped(connector_name)
                 continue
 
+            logger.debug(
+                f"Got connector {connector_name} manifest: {repr(connector_manifest)}"
+            )
+
+            tasks = self._get_connector_tasks(connector_name=connector_name)
+            logger.debug(f"Got connector {connector_name} tasks: {repr(tasks)}")
+
             if self.config.provided_configs:
                 transform_connector_config(
                     connector_manifest.config, self.config.provided_configs
