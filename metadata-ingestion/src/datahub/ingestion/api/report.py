@@ -162,7 +162,7 @@ class SourceReportSubtypes:
     entity_type: str
     subType: str = field(default="unknown")
     aspects: Dict[str, int] = field(default_factory=dict)
-    is_stale: bool = field(default=False)
+    soft_deleted: bool = field(default=False)
 
 
 class ReportAttribute(BaseModel):
@@ -219,7 +219,7 @@ class ExamplesReport(Report, Closeable):
                 "entityType": lambda val: val.entity_type,
                 "subTypes": lambda val: val.subType,
                 "aspects": lambda val: json.dumps(val.aspects),
-                "is_stale": lambda val: val.is_stale,
+                "soft_deleted": lambda val: val.soft_deleted,
             },
         )
 
@@ -384,7 +384,7 @@ class ExamplesReport(Report, Closeable):
             and mcp is not None
             and mcp.aspect is not None
         ):
-            self._file_based_dict[urn].is_stale = mcp.aspect.removed
+            self._file_based_dict[urn].soft_deleted = mcp.aspect.removed
             self._file_based_dict.mark_dirty(urn)
 
     def _store_workunit_data(self, wu: MetadataWorkUnit) -> None:
@@ -411,7 +411,7 @@ class ExamplesReport(Report, Closeable):
         query = """
         SELECT entityType, subTypes, aspects, count(*) as count
         FROM urn_aspects 
-        WHERE is_stale = 0
+        WHERE soft_deleted = 0
         GROUP BY entityType, subTypes, aspects
         """
 
