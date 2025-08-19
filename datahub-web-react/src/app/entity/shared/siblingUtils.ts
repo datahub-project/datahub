@@ -30,7 +30,7 @@ export function stripSiblingsFromEntity(entity: any) {
     };
 }
 
-function cleanHelper(obj, visited) {
+export function cleanHelper(obj, visited) {
     if (visited.has(obj)) return obj;
     visited.add(obj);
 
@@ -39,7 +39,7 @@ function cleanHelper(obj, visited) {
         if (v && typeof v === 'object') {
             cleanHelper(v, visited);
         }
-        if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
+        if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined) {
             if (Array.isArray(object)) {
                 // do nothing
             } else if (Object.getOwnPropertyDescriptor(object, k)?.configurable) {
