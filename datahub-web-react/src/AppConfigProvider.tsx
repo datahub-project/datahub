@@ -43,6 +43,17 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
             }
             changeFavicon(customLogoUrl || appConfigData.appConfig.visualConfig.faviconUrl);
+
+            // Expose feature flags to window object for debugging and external access
+            if (!window.datahub) {
+                window.datahub = {};
+            }
+            window.datahub.features = {
+                ...appConfigData.appConfig.featureFlags,
+                // Add metadata about when flags were loaded
+                _loaded: new Date().toISOString(),
+                _version: appConfigData.appConfig.appVersion || undefined,
+            };
         }
     }, [customLogoUrl, appConfigData]);
 
