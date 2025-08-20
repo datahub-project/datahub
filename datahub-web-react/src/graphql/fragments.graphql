@@ -532,6 +532,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     subTypes {
         typeNames
     }
+    platform {
+        ...platformFields
+    }
 }
 
 fragment dataJobFields on DataJob {
@@ -603,6 +606,9 @@ fragment dataJobFields on DataJob {
     }
     dataTransformLogic {
         ...dataTransformLogicFields
+    }
+    platform {
+        ...platformFields
     }
 }
 

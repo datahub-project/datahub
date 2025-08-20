@@ -797,3 +797,33 @@
     displayName: Grafana
     type: OTHERS
     logoUrl: "/assets/platforms/grafana.png"
+- entityUrn: urn:li:dataPlatform:controlm
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: controlm
+    displayName: Control-M
+    type: OTHERS
+    logoUrl: "/assets/platforms/controlmlogo.png"
+- entityUrn: urn:li:dataPlatform:abinitio
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: abinitio
+    displayName: Ab Initio
+    type: OTHERS
+    logoUrl: "/assets/platforms/abinitiologo.png"
+- entityUrn: urn:li:dataPlatform:informatica
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: informatica
+    displayName: Informatica
+    type: OTHERS
+    logoUrl: "/assets/platforms/informaticalogo.png"

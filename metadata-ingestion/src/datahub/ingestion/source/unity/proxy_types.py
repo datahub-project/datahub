@@ -148,6 +148,7 @@ class TableReference:
     catalog: str
     schema: str
     table: str
+    last_updated: Optional[datetime] = None
 
     @classmethod
     def create(cls, table: "Table") -> "TableReference":
@@ -172,6 +173,7 @@ class TableReference:
                 d["catalog_name"],
                 d["schema_name"],
                 d.get("table_name", d["name"]),  # column vs table query output
+                last_updated=d.get("last_updated"),
             )
         except Exception as e:
             logger.warning(f"Failed to create TableReference from {d}: {e}")
@@ -199,6 +201,7 @@ class ExternalTableReference:
     name: Optional[str]
     type: Optional[SecurableType]
     storage_location: Optional[str]
+    last_updated: Optional[datetime] = None
 
     @classmethod
     def create_from_lineage(cls, d: dict) -> Optional["ExternalTableReference"]:
@@ -215,10 +218,17 @@ class ExternalTableReference:
                 name=d.get("securable_name"),
                 type=securable_type,
                 storage_location=d.get("storage_location"),
+                last_updated=d.get("last_updated"),
             )
         except Exception as e:
             logger.warning(f"Failed to create ExternalTableReference from {d}: {e}")
             return None
+
+
+@dataclass(frozen=True, order=True)
+class NotebookReference:
+    id: int
+    last_updated: Optional[datetime] = None
 
 
 @dataclass
@@ -239,8 +249,8 @@ class Table(CommonProperty):
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
     external_upstreams: Set[ExternalTableReference] = field(default_factory=set)
-    upstream_notebooks: Set[NotebookId] = field(default_factory=set)
-    downstream_notebooks: Set[NotebookId] = field(default_factory=set)
+    upstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
+    downstream_notebooks: Dict[int, NotebookReference] = field(default_factory=dict)
 
     ref: TableReference = field(init=False)
 

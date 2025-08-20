@@ -140,6 +140,7 @@ great_expectations_lib = {
     #    This was derived from work done by @jskrzypek in
     #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
     "acryl-great-expectations==0.15.50.1",
+    "jupyter_server>=2.14.1",  # CVE-2024-35178
 }
 
 sqlalchemy_lib = {
@@ -646,7 +647,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.7",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
 }
 
 base_dev_requirements = {
@@ -990,11 +991,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         },
         "all": list(
             framework_common.union(
+                pydantic_no_v2,
                 *[
                     requirements
                     for plugin, requirements in plugins.items()
                     if plugin not in all_exclude_plugins
-                ]
+                ],
             )
         ),
         "cloud": ["acryl-datahub-cloud"],

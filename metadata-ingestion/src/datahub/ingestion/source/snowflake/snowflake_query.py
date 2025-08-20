@@ -8,7 +8,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 )
 from datahub.utilities.prefix_batch_builder import PrefixGroup
 
-SHOW_VIEWS_MAX_PAGE_SIZE = 10000
+SHOW_COMMAND_MAX_PAGE_SIZE = 10000
 SHOW_STREAM_MAX_PAGE_SIZE = 10000
 
 
@@ -38,10 +38,21 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(
         ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
+    )
+
+    # Domains that can be downstream tables in lineage
+    DOWNSTREAM_TABLE_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+    }
+
+    DOWNSTREAM_TABLE_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in DOWNSTREAM_TABLE_DOMAINS)
     )
 
     @staticmethod
@@ -235,7 +246,7 @@ class SnowflakeQuery:
     @staticmethod
     def show_views_for_database(
         db_name: str,
-        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
         view_pagination_marker: Optional[str] = None,
     ) -> str:
         # While there is an information_schema.views view, that only shows the view definition if the role
@@ -244,7 +255,7 @@ class SnowflakeQuery:
 
         # SHOW VIEWS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-views#usage-notes
-        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
 
         # To work around this, we paginate through the results using the FROM clause.
         from_clause = (
@@ -686,7 +697,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         column_upstream_jobs AS (
@@ -843,7 +854,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         table_upstream_jobs_unique AS (
@@ -940,3 +951,37 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
         return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
+
+    @staticmethod
+    def show_dynamic_tables_for_database(
+        db_name: str,
+        limit: int = SHOW_COMMAND_MAX_PAGE_SIZE,
+        dynamic_table_pagination_marker: Optional[str] = None,
+    ) -> str:
+        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
+        assert limit <= SHOW_COMMAND_MAX_PAGE_SIZE
+
+        from_clause = (
+            f"""FROM '{dynamic_table_pagination_marker}'"""
+            if dynamic_table_pagination_marker
+            else ""
+        )
+        return f"""\
+    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    LIMIT {limit} {from_clause};
+    """
+
+    @staticmethod
+    def get_dynamic_table_graph_history(db_name: str) -> str:
+        """Get dynamic table dependency information from information schema."""
+        return f"""
+            SELECT   
+                name,
+                inputs,
+                target_lag_type,
+                target_lag_sec,
+                scheduling_state,
+                alter_trigger
+            FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            ORDER BY name
+        """

@@ -37,6 +37,10 @@ docker {
         dockerBuildArgs.APACHE_DOWNLOAD_URL = project.getProperty('apacheDownloadUrl')
     }
 
+    if (project.hasProperty('confluentRepositoryUrl')) {
+        dockerBuildArgs.CONFLUENT_REPO_URL = project.getProperty('confluentRepositoryUrl')
+    }
+
     if (dockerBuildArgs.size() > 0) {
         buildArgs(dockerBuildArgs)
     }

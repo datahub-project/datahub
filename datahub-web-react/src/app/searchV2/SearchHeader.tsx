@@ -6,11 +6,13 @@ import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
+import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { V2_SEARCH_BAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { SearchBarV2 } from '@app/searchV2/searchBarV2/SearchBarV2';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
+import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { EntityRegistry } from '@src/entityRegistryContext';
@@ -151,6 +153,9 @@ export const SearchHeader = ({
     const { isCollapsed } = useNavBarContext();
     const searchViewAll = useSearchViewAll();
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const showHomepageRedesign = useShowHomePageRedesign();
+    const isHomePage = useIsHomePage();
+    const hideNavToggler = showHomepageRedesign && isHomePage;
     const styles = getStyles(isShowNavBarRedesign);
 
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
@@ -161,7 +166,7 @@ export const SearchHeader = ({
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
-                    {isShowNavBarRedesign && isCollapsed && (
+                    {isShowNavBarRedesign && isCollapsed && !hideNavToggler && (
                         <NavBarTogglerWrapper>
                             <NavBarToggler />
                         </NavBarTogglerWrapper>

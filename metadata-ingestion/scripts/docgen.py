@@ -24,6 +24,13 @@ from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
 
+DENY_LIST = {
+    "snowflake-summary",
+    "snowflake-queries",
+    "bigquery-queries",
+    "datahub-mock-data",
+}
+
 
 def get_snippet(long_string: str, max_length: int = 100) -> str:
     snippet = ""
@@ -83,7 +90,7 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
         try:
             return SourceCapability(capability_name)
         except ValueError:
-            raise ValueError(f"Unknown capability name: {capability_name}")
+            raise ValueError(f"Unknown capability name: {capability_name}") from None
 
 
 def does_extra_exist(extra_name: str) -> bool:
@@ -279,7 +286,7 @@ class PlatformMetrics:
 )
 @click.option("--extra-docs", type=str, required=False)
 @click.option("--source", type=str, required=False)
-def generate(
+def generate(  # noqa: C901
     out_dir: str,
     capability_summary: str,
     extra_docs: Optional[str] = None,
@@ -302,11 +309,7 @@ def generate(
         if source and source != plugin_name:
             continue
 
-        if plugin_name in {
-            "snowflake-summary",
-            "snowflake-queries",
-            "bigquery-queries",
-        }:
+        if plugin_name in DENY_LIST:
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
