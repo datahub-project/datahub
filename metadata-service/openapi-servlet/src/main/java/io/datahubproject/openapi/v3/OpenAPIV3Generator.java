@@ -1449,7 +1449,7 @@ public class OpenAPIV3Generator {
         newSchema().type(TYPE_ARRAY).items(newSchema().type(TYPE_STRING)._enum(aspectNames));
 
     // Filter example
-    Criterion criterion = Criterion.builder().field("name").value("foo").build();
+    Criterion criterion = Criterion.builder().field("name").values(List.of("foo")).build();
     ConjunctiveCriterion criteria =
         ConjunctiveCriterion.builder().criteria(Collections.singletonList(criterion)).build();
     Filter filter = Filter.builder().and(Collections.singletonList(criteria)).build();
