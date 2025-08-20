@@ -5,12 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
@@ -652,8 +647,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             any(),
             nullable(String.class),
             nullable(String.class),
-            anyInt(),
-            nullable(String.class)))
+            anyInt()))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(
@@ -723,8 +717,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             any(),
             nullable(String.class),
             nullable(String.class),
-            anyInt(),
-            nullable(String.class)))
+            anyInt()))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(
