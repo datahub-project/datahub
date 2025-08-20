@@ -12,7 +12,7 @@ import { convertLogicalPredicateToOrFilters } from '@app/sharedV2/queryBuilder/b
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, Entity } from '@types';
 
-const DEFAULT_PAGE_SIZE = 6;
+const DEFAULT_PAGE_SIZE = 10;
 
 const AssetCollectionModule = (props: ModuleProps) => {
     const assetUrns = useMemo(

@@ -20,6 +20,7 @@ const LeftSection = styled.div`
 
 const RightSection = styled.div`
     flex: 4;
+    width: calc(40% - 20px);
 `;
 
 export const VerticalDivider = styled(Divider)`

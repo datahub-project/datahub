@@ -64,9 +64,9 @@ authorization:
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
 
 ingestion:
-  # The value of cliMajorVersion is substituted in by the processResources Gradle task.
+  # The value of cliVersion is substituted in by the processResources Gradle task.
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
+  defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
   scheduler:
@@ -669,6 +669,7 @@ featureFlags:
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false}  # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false}  # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
+  assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:false} # Enables displaying the asset summary page
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
