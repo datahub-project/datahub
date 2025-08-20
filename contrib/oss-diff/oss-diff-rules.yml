@@ -76,8 +76,7 @@ rules:
       - "metadata-service/**/*.yaml"
       - "metadata-utils/**/*.java"
       - "li-utils/**/*.java"
-      - "smoke-test/**/*.py"
-      - "smoke-test/**/*.js"
+      - "smoke-test/**"
     max_removals: 0
 
   # GitHub Actions.

@@ -33,6 +33,7 @@ _exceptions_file = _script_dir / "oss-diff-exceptions.json"
 
 _repo_root = _script_dir.parent.parent
 assert (_repo_root / ".git").exists(), f"Expected {_repo_root} to be a git repo"
+_script_path = (_script_dir / "oss-diff.py").resolve().relative_to(_repo_root)
 
 app = typer.Typer()
 
@@ -108,6 +109,14 @@ class DiffLimit:
     max_additions: Optional[int] = None
     max_deletions: Optional[int] = None
     max_total: Optional[int] = None
+
+    @property
+    def are_additions_unconstrained(self) -> bool:
+        return self.max_additions is None and self.max_total is None
+
+    @property
+    def are_deletions_unconstrained(self) -> bool:
+        return self.max_deletions is None and self.max_total is None
 
 
 @dataclass
@@ -323,9 +332,8 @@ class DiffValidator:
 
             if isinstance(check, ExceptionLimit):
                 # logger.info(f"Exception found for {change.filepath}: {rule}")
-                if self._allow_exception_removal and (
-                    rule := self._get_applicable_rule(change)
-                ):
+                rule = self._get_applicable_rule(change)
+                if self._allow_exception_removal and rule:
                     rule_errors = self._check_change_against_rule(
                         change, rule, is_simulation=True
                     )
@@ -337,7 +345,7 @@ class DiffValidator:
                         del self._exceptions[change.filepath]
                         continue
 
-                sub_errors = self._check_change_against_exception(change, check)
+                sub_errors = self._check_change_against_exception(change, check, rule)
                 errors.extend(sub_errors)
             elif isinstance(check, Rule):
                 # logger.info(f"Rule found for {change.filepath}: {rule}")
@@ -349,7 +357,7 @@ class DiffValidator:
         return errors
 
     def _check_change_against_exception(
-        self, change: FileChange, exception: ExceptionLimit
+        self, change: FileChange, exception: ExceptionLimit, rule: Rule | None = None
     ) -> List[str]:
         """Check if a change is allowed by an exception."""
 
@@ -378,6 +386,16 @@ class DiffValidator:
                 f"Tightening exception for {change.filepath}: {exception.additions} -> {change.additions}"
             )
             exception.additions = change.additions
+        elif (
+            exception.additions is not None
+            and rule
+            and rule.limits.are_additions_unconstrained
+            and self._allow_exception_removal
+        ):
+            logger.info(
+                f"Removing exception for {change.filepath} because it's unconstrained by the rule"
+            )
+            exception.additions = None
 
         if exception.deletions == _inf:
             # If the exception was explicitly set to inf, leave it alone.
@@ -403,6 +421,16 @@ class DiffValidator:
                 f"Tightening exception for {change.filepath}: {exception.deletions} -> {change.deletions}"
             )
             exception.deletions = change.deletions
+        elif (
+            exception.deletions is not None
+            and rule
+            and rule.limits.are_deletions_unconstrained
+            and self._allow_exception_removal
+        ):
+            logger.info(
+                f"Removing exception for {change.filepath} because it's unconstrained by the rule"
+            )
+            exception.deletions = None
 
         return errors
 
@@ -448,22 +476,13 @@ class DiffValidator:
                 exception = ExceptionLimit(
                     filepath=change.filepath,
                     additions=(
-                        change.additions
-                        if (
-                            limits.max_additions is not None
-                            or limits.max_total is not None
-                        )
-                        else None
+                        None if limits.are_additions_unconstrained else change.additions
                     ),
                     deletions=(
-                        change.deletions
-                        if (
-                            limits.max_deletions is not None
-                            or limits.max_total is not None
-                        )
-                        else None
+                        None if limits.are_deletions_unconstrained else change.deletions
                     ),
                 )
+            logger.info(f"Adding new exception for {change.filepath}: {exception}")
             self._exceptions[change.filepath] = exception
             return []  # No errors, because we just added an exception
 
@@ -475,28 +494,37 @@ class DiffValidator:
         changes = self.get_file_changes()
 
         # Print some summary stats - n added, n deleted, n modified.
-        logger.info(f"Found changes to {len(changes)} files")
+        logger.info(f"Between OSS and Cloud, found diffs in {len(changes)} files")
         counts = collections.Counter(change.type for change in changes)
-        logger.info(f"  {counts[ChangeType.ADDED]} added")
-        logger.info(f"  {counts[ChangeType.DELETED]} deleted")
-        logger.info(f"  {counts[ChangeType.MODIFIED]} modified")
-        logger.info(f"  {counts[ChangeType.RENAMED]} renamed")
+        logger.info(f"- {counts[ChangeType.ADDED]} added")
+        logger.info(f"- {counts[ChangeType.DELETED]} deleted")
+        logger.info(f"- {counts[ChangeType.MODIFIED]} modified")
+        logger.info(f"- {counts[ChangeType.RENAMED]} renamed")
 
         # Validate changes
+        print("### OSS vs Cloud Diff Checker\n")
+        print(f"Powered by `./{_script_path}`\n")
         errors = self.validate_changes(changes)
         if errors:
-            logger.error(f"Found {len(errors)} diff violations:")
+            print(f"🚨 Found {len(errors)} diff violations:")
             for message in errors:
-                logger.error(f"  - {message}")
+                print(f"  - {message}")
+            print()
+            print(f"""\
+To resolve the issues, you can:
+
+1. Send these changes to OSS and have them come into SaaS via an OSS merge.
+2. Run `./{_script_path} check --loosen` to allow these changes through.
+""")
             exit(1)
 
-        if self._allow_exception_tightening:
+        if self._allow_exception_removal:
             self._remove_unused_exceptions()
 
         if self._allow_exception_changes:
             self._print_exception_change_summary()
         else:
-            logger.info("Success: no new diff violations")
+            print("✅ Success: no new diff violations")
 
     def _remove_unused_exceptions(self) -> None:
         # TODO: Tricky - in order to fully implement exception removal, we'd need
@@ -648,6 +676,12 @@ def ui(
     debug: bool = False,
     change_specifier: str = _default_change_specifier,
 ) -> None:
+    diff_validator = DiffValidator(
+        change_specifier=change_specifier,
+        rules=load_rules(_rules_file),
+        exceptions=load_exceptions(_exceptions_file),
+    )
+
     # Create Dash app
     app = dash.Dash(
         __name__,
@@ -693,13 +727,45 @@ def ui(
 
         logger.info(f"Showing diff for {filepath}")
 
+        rule = diff_validator._get_applicable_rule(
+            FileChange(
+                type=ChangeType.MODIFIED,
+                filepath=filepath,
+                additions=1,
+                deletions=1,
+            )
+        )
+        assert rule is not None, f"No rule found for {filepath}"
+
         diff = subprocess.check_output(
             ["git", "diff", change_specifier, "--", filepath],
             text=True,
             cwd=_repo_root,
         )
         # logger.debug(f"Diff for {filepath}: {diff}")
-        return dcc.Markdown(f"## Diff for `{filepath}`:\n\n```diff\n{diff}\n```")
+        return html.Div(
+            [
+                dcc.Markdown(f"## Diff for `{filepath}`\n\n"),
+                html.P(
+                    [
+                        "View in ",
+                        html.A(
+                            "OSS",
+                            href=f"https://github.com/datahub-project/datahub/blob/{_default_oss_branch}/{filepath}",
+                        ),
+                        " or ",
+                        html.A(
+                            "SaaS",
+                            href=f"https://github.com/acryldata/datahub-fork/blob/{_default_saas_branch or 'acryl-main'}/{filepath}",
+                        ),
+                    ]
+                ),
+                html.P(["Rule pattern: ", html.Code(str(rule.pattern), lang="json")]),
+                html.P(["Rule limits: ", html.Code(str(rule.limits), lang="json")]),
+                # Using markdown to get nice syntax highlighting for the diff.
+                dcc.Markdown(f"```diff\n{diff}\n```"),
+            ]
+        )
 
     # Run app
     app.run(debug=debug)

@@ -1,0 +1,83 @@
+name: oss-diff-checker
+on:
+  pull_request:
+    branches:
+      - acryl-main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+
+jobs:
+  build:
+    runs-on: depot-ubuntu-24.04-small
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Detect changes in contrib/oss-diff
+        id: changed-files
+        uses: tj-actions/changed-files@v46
+        with:
+          files: |
+            contrib/oss-diff/**
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Checkout base branch (acryl-main) for loosening
+        if: ${{ steps.changed-files.outputs.any_changed == 'false' }}
+        uses: actions/checkout@v4
+        with:
+          ref: acryl-main
+          fetch-depth: 0
+      - name: Add OSS as a remote
+        if: ${{ steps.changed-files.outputs.any_changed == 'false' }}
+        run: |
+          git remote add oss https://github.com/datahub-project/datahub.git
+          git fetch oss
+      - name: Loosen exceptions when no oss-diff changes
+        if: ${{ steps.changed-files.outputs.any_changed == 'false' }}
+        run: uv run ./contrib/oss-diff/oss-diff.py check --loosen
+        env:
+          OSS_BRANCH: oss/master
+      - name: Stash updated exceptions file
+        if: ${{ steps.changed-files.outputs.any_changed == 'false' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/oss-diff"
+          cp contrib/oss-diff/oss-diff-exceptions.json "$RUNNER_TEMP/oss-diff/oss-diff-exceptions.json"
+      - name: Checkout PR head with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add OSS as a remote
+        run: |
+          git remote add oss https://github.com/datahub-project/datahub.git || true
+          git fetch oss
+      - name: Restore updated exceptions file
+        if: ${{ steps.changed-files.outputs.any_changed == 'false' }}
+        run: |
+          cp "$RUNNER_TEMP/oss-diff/oss-diff-exceptions.json" contrib/oss-diff/oss-diff-exceptions.json
+      - name: Run oss-diff check and capture output
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run ./contrib/oss-diff/oss-diff.py check | tee oss-diff-check.md
+        env:
+          OSS_BRANCH: oss/master
+      - name: Post/update PR comment with oss-diff results
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: oss-diff
+          path: oss-diff-check.md
