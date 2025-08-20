@@ -1,3 +1,4 @@
+import re
 from typing import Dict
 from unittest import mock
 
@@ -103,7 +104,7 @@ def test_ingest_hidden_assets_invalid():
     config["ingest_hidden_assets"] = ["worksheet", "invalid"]
     with pytest.raises(
         ValidationError,
-        match=r".*unexpected value.*given=invalid.*",
+        match=re.compile(r"ingest_hidden_assets.*input_value='invalid'", re.DOTALL),
     ):
         TableauConfig.parse_obj(config)
 

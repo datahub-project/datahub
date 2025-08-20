@@ -133,8 +133,12 @@ class ClickHouseConfig(
     password: pydantic.SecretStr = Field(
         default=pydantic.SecretStr(""), description="password"
     )
-    secure: Optional[bool] = Field(default=None, description="")
-    protocol: Optional[str] = Field(default=None, description="")
+    secure: Optional[bool] = Field(
+        default=None, description="[deprecated] Use uri_opts instead."
+    )
+    protocol: Optional[str] = Field(
+        default=None, description="[deprecated] Use uri_opts instead."
+    )
     _deprecate_secure = pydantic_field_deprecated("secure")
     _deprecate_protocol = pydantic_field_deprecated("protocol")
 
@@ -186,9 +190,9 @@ class ClickHouseConfig(
                 "Initializing uri_opts from deprecated secure or protocol options"
             )
             values["uri_opts"] = {}
-            if secure:
-                values["uri_opts"]["secure"] = secure
-            if protocol:
+            if secure is not None:
+                values["uri_opts"]["secure"] = str(secure)
+            if protocol is not None:
                 values["uri_opts"]["protocol"] = protocol
             logger.debug(f"uri_opts: {uri_opts}")
         elif (secure or protocol) and uri_opts:
