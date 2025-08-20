@@ -65,8 +65,8 @@ export default function DomainsSelectableTreeView() {
                     loading={loading}
                     nodes={tree.nodes}
                     explicitlySelectParent
+                    expandParentNodesOfInitialSelectedValues
                     selectedValues={selectedValues}
-                    expandedValues={initialSelectedValues}
                     updateSelectedValues={updateSelectedValues}
                     loadChildren={startLoadingOfChildren}
                     renderNodeLabel={(nodeProps) => <DomainSelectableTreeNodeRenderer {...nodeProps} />}

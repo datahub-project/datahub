@@ -127,7 +127,7 @@ great_expectations_lib = {
     # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     # 3. Since then, we've ended up forking great-expectations in order to
     #    add pydantic 2.x support. The fork is pretty simple
-    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...hsheth2:great_expectations:0.15.50-pydantic-2-patch?expand=1
+    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...acryldata:great_expectations:0.15.50-pydantic-2-patch?expand=1
     #    This was derived from work done by @jskrzypek in
     #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
     "acryl-great-expectations==0.15.50.1",
