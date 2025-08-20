@@ -1,6 +1,6 @@
 import React from 'react';
 
-import Properties from '@app/entityV2/summary/properties/components/Properties';
+import PropertiesWithDividerWrapper from '@app/entityV2/summary/properties/components/PropertiesWithDividerWrapper';
 import AssetPropertiesProvider from '@app/entityV2/summary/properties/context/AssetPropertiesProvider';
 
 export default function PropertiesHeader() {
@@ -9,7 +9,7 @@ export default function PropertiesHeader() {
 
     return (
         <AssetPropertiesProvider editable={editable}>
-            <Properties />
+            <PropertiesWithDividerWrapper />
         </AssetPropertiesProvider>
     );
 }

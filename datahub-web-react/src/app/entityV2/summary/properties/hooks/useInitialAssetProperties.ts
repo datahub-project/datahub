@@ -23,8 +23,10 @@ export default function useInitialAssetProperties(entityType: EntityType): Respo
                 return [CREATED_PROPERTY, OWNERS_PROPERTY];
             case EntityType.GlossaryTerm:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY];
+            case EntityType.GlossaryNode:
+                return [CREATED_PROPERTY, OWNERS_PROPERTY];
             case EntityType.DataProduct:
-                return [CREATED_PROPERTY, DOMAIN_PROPERTY, OWNERS_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
+                return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
             default:
                 return [];
         }
@@ -34,7 +36,7 @@ export default function useInitialAssetProperties(entityType: EntityType): Respo
     const propertiesFromEntity: AssetProperty[] | undefined = useMemo(() => undefined, []);
 
     const properties = useMemo(
-        () => propertiesFromEntity || defaultProperties,
+        () => propertiesFromEntity ?? defaultProperties,
         [propertiesFromEntity, defaultProperties],
     );
 
