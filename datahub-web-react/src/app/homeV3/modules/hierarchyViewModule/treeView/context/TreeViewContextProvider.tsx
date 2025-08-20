@@ -18,6 +18,7 @@ export default function TreeViewContextProvider({
     expandedValues,
     updateExpandedValues,
     onExpand,
+    shouldExpandSingleRootNode,
     selectable,
     updateSelectedValues,
     expandParentNodesOfInitialSelectedValues,
@@ -147,6 +148,18 @@ export default function TreeViewContextProvider({
         },
         [getAllSiblings, getIsExpandable],
     );
+
+    const [isInitialAutoExpandingDone, setIsInitialAutoExpandingDone] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (!isInitialAutoExpandingDone && preprocessedNodes.length > 0) {
+            if (shouldExpandSingleRootNode && preprocessedNodes.length === 1) {
+                expand(preprocessedNodes[0]);
+            }
+
+            setIsInitialAutoExpandingDone(true);
+        }
+    }, [shouldExpandSingleRootNode, isInitialAutoExpandingDone, preprocessedNodes, expand]);
 
     // Sync internal expanded values
     useEffect(() => {
