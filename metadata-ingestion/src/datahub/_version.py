@@ -1,6 +1,6 @@
 # Published at https://pypi.org/project/acryl-datahub/.
 __package_name__ = "acryl-datahub"
-__version__ = "25.7.18.2"
+__version__ = "25.8.20.1"
 
 
 def is_dev_mode() -> bool:

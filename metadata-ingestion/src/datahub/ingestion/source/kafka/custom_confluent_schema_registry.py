@@ -1,4 +1,5 @@
 import logging
+import re
 from hashlib import md5
 from typing import List, Optional
 
@@ -143,12 +144,13 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
                 # key, value 스키마에서 중복 컬럼에 대해서 삭제 ( key 데이터를 유지하기 위해, key 에 존재하면 value 삭제 )
                 # fieldPath 꼴 ex) '[version=2.0].[key=True].[type=dm_csprf_customer_tel_l_key].[type=string].sale_corp_cd'
                 unique_fields = {
-                    field.fieldPath.split(".")[-1]: field for field in key_fields
+                    self.get_clean_field_path(field.fieldPath): field
+                    for field in key_fields
                 }
                 for field in fields:
-                    column_name = field.fieldPath.split(".")[-1]
-                    if column_name not in unique_fields:
-                        unique_fields[column_name] = field
+                    clean_path = self.get_clean_field_path(field.fieldPath)
+                    if clean_path not in unique_fields:
+                        unique_fields[clean_path] = field
 
                 schema_name = subject if len(subjects) > 1 else topic
                 print(f"topic : {topic},  schema_name : {schema_name}")
@@ -186,3 +188,10 @@ class CustomConfluentSchemaRegistry(ConfluentSchemaRegistry):
                 )
             )
         return dataset_metadata_list
+
+    def get_clean_field_path(self, field_path: str) -> str:
+        # `[version=2.0].[type=ignition_on_time].ignition_on_time.[type=long].unix_timestamp_ts`
+        # ignition_on_time.unix_timestamp_ts
+        tokens = re.findall(r"(\[[^\]]+\]|[^.]+)", field_path)
+        field_names = [token for token in tokens if not token.startswith("[")]
+        return ".".join(field_names)
