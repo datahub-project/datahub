@@ -1,5 +1,5 @@
 import { Button, Tooltip } from '@components';
-import { Empty, Pagination, Typography, message } from 'antd';
+import { Avatar, Empty, Pagination, Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -177,16 +177,29 @@ export const ManageRoles = () => {
             dataIndex: 'users',
             key: 'users',
             render: (_: any, record: any) => {
+                const numberOfUsers = record?.totalUsers || 0;
                 return (
                     <>
-                        {(record?.users?.length && (
-                            <AvatarsGroup
-                                users={record?.users}
-                                groups={record?.resolvedGroups}
-                                entityRegistry={entityRegistry}
-                                maxCount={3}
-                                size={28}
-                            />
+                        {(!!numberOfUsers && (
+                            <>
+                                <AvatarsGroup
+                                    users={record?.users
+                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
+                                        .slice(0, 5)}
+                                    groups={record?.users
+                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
+                                        .slice(0, 5)}
+                                    entityRegistry={entityRegistry}
+                                    maxCount={5}
+                                    size={28}
+                                />
+                                {numberOfUsers > 5 && (
+                                    // Keeping the color same as the avatar component indicator
+                                    <Avatar size={28} style={{ backgroundColor: 'rgb(204,204,204)' }}>
+                                        +{numberOfUsers - 5}
+                                    </Avatar>
+                                )}
+                            </>
                         )) || <Typography.Text type="secondary">No assigned users</Typography.Text>}
                     </>
                 );
@@ -222,6 +235,7 @@ export const ManageRoles = () => {
         description: role?.description,
         name: role?.name,
         users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+        totalUsers: role?.users?.total,
         policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
