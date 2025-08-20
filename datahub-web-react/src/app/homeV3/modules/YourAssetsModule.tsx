@@ -1,3 +1,4 @@
+import { InfiniteScrollList } from '@components';
 import React, { useCallback } from 'react';
 import { useHistory } from 'react-router';
 
@@ -10,11 +11,14 @@ import { ModuleProps } from '@app/homeV3/module/types';
 import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 
-import { DataHubPageModuleType } from '@types';
+import { DataHubPageModuleType, Entity } from '@types';
+
+const DEFAULT_PAGE_SIZE = 10;
 
 export default function YourAssetsModule(props: ModuleProps) {
     const { user } = useUserContext();
-    const { originEntities, loading } = useGetAssetsYouOwn(user);
+    const { loading, fetchEntities, total } = useGetAssetsYouOwn(user, DEFAULT_PAGE_SIZE);
+
     const searchForYourAssets = useSearchYourAssets();
     const history = useHistory();
 
@@ -24,19 +28,23 @@ export default function YourAssetsModule(props: ModuleProps) {
 
     return (
         <LargeModule {...props} loading={loading} onClickViewAll={searchForYourAssets}>
-            {originEntities.length === 0 ? (
-                <EmptyContent
-                    icon="User"
-                    title="No Owned Assets"
-                    description="Select an asset and add yourself as an owner to see the assets in this list"
-                    linkText="Discover the assets you want to own"
-                    onLinkClick={navigateToSearch}
-                />
-            ) : (
-                originEntities.map((entity) => (
+            <InfiniteScrollList<Entity>
+                fetchData={fetchEntities}
+                renderItem={(entity) => (
                     <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
-                ))
-            )}
+                )}
+                pageSize={DEFAULT_PAGE_SIZE}
+                emptyState={
+                    <EmptyContent
+                        icon="User"
+                        title="No Owned Assets"
+                        description="Select an asset and add yourself as an owner to see the assets in this list"
+                        linkText="Discover the assets you want to own"
+                        onLinkClick={navigateToSearch}
+                    />
+                }
+                totalItemCount={total}
+            />
         </LargeModule>
     );
 }
