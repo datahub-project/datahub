@@ -18,6 +18,7 @@ export interface AssetProperty {
 
 export interface AssetPropertiesContextType {
     properties: AssetProperty[];
+    propertiesLoading?: boolean;
 
     // Whether properties are editable
     editable?: boolean;

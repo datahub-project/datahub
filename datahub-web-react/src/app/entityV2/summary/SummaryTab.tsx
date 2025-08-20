@@ -3,7 +3,7 @@ import styled from 'styled-components';
 
 import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
-import { StyledDivider } from './styledComponents';
+import { StyledDivider } from '@app/entityV2/summary/styledComponents';
 
 const SummaryWrapper = styled.div`
     padding: 16px 20px;

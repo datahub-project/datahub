@@ -7,6 +7,7 @@ import {
     TAGS_PROPERTY,
     TERMS_PROPERTY,
 } from '@app/entityV2/summary/properties/constants';
+import useAssetProperties from '@app/entityV2/summary/properties/hooks/usePropertiesFromAsset';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 
 import { EntityType } from '@types';
@@ -16,7 +17,7 @@ interface Response {
     loading: boolean;
 }
 
-export default function useInitialAssetProperties(entityType: EntityType): Response {
+export default function useInitialAssetProperties(entityUrn: string, entityType: EntityType): Response {
     const defaultProperties: AssetProperty[] = useMemo(() => {
         switch (entityType) {
             case EntityType.Domain:
@@ -32,16 +33,15 @@ export default function useInitialAssetProperties(entityType: EntityType): Respo
         }
     }, [entityType]);
 
-    // TODO: implement getting properties from an entity
-    const propertiesFromEntity: AssetProperty[] | undefined = useMemo(() => undefined, []);
+    const { assetProperties: entityAssetProperties, loading } = useAssetProperties(entityUrn);
 
     const properties = useMemo(
-        () => propertiesFromEntity ?? defaultProperties,
-        [propertiesFromEntity, defaultProperties],
+        () => entityAssetProperties ?? defaultProperties,
+        [entityAssetProperties, defaultProperties],
     );
 
     return {
         properties,
-        loading: false,
+        loading,
     };
 }

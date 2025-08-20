@@ -1,9 +1,8 @@
 import React from 'react';
 
+import Properties from '@app/entityV2/summary/properties/components/Properties';
 import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
-
-import { StyledDivider } from '../../styledComponents';
-import Properties from './Properties';
+import { StyledDivider } from '@app/entityV2/summary/styledComponents';
 
 /**
  * The wrapper to show/hide divider with the whole section
