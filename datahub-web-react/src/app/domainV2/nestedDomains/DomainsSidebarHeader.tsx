@@ -1,9 +1,11 @@
 import { Button, Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-
 import CreateNewDomainModal from '@app/domainV2/CreateNewDomainModal/CreateNewDomainModal';
 import { updateListDomainsCache } from '@app/domainV2/utils';
+import { useUserContext } from '@app/context/useUserContext';
+import CreateDomainModal from '@app/domainV2/CreateDomainModal';
+
 
 const Wrapper = styled.div`
     font-size: 20px;
@@ -43,13 +45,7 @@ export default function DomainsSidebarHeader() {
                     onClick={() => setIsCreatingDomain(true)}
                 />
             </Tooltip>
-            <CreateNewDomainModal
-                onClose={() => setIsCreatingDomain(false)}
-                onCreate={(urn, id, name, description, parentDomain) => {
-                    updateListDomainsCache(client, urn, id, name, description, parentDomain);
-                }}
-                open={isCreatingDomain}
-            />
+            {isCreatingDomain && <CreateDomainModal onClose={() => setIsCreatingDomain(false)} />}
         </Wrapper>
     );
 }

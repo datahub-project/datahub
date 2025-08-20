@@ -1,16 +1,17 @@
 import { Text } from '@components';
-import React, { useEffect, useState } from 'react';
+import { Select } from 'antd';
+import { debounce } from 'lodash';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
-import { SimpleSelect } from '@src/alchemy-components/components/Select/SimpleSelect';
-import { SelectOption } from '@src/alchemy-components/components/Select/types';
-import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
-import { CorpUser, Entity, EntityType, Owner, OwnerEntityType } from '@types';
+import { Entity, EntityType, Owner, OwnerEntityType } from '@types';
 
 // Interface for pending owner
 export interface PendingOwner {
@@ -34,26 +35,24 @@ const FormSection = styled.div`
     margin-bottom: 16px;
 `;
 
-const IconAndNameContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    gap: 8px;
-    align-items: center;
-`;
+const SelectInput = styled(Select)`
+    width: 100%;
 
-const IconWrapper = styled.div`
-    display: flex;
-    align-items: center;
-
-    & .ant-image {
+    .ant-select-selection-item {
         display: flex;
         align-items: center;
+        border-radius: 16px;
+        margin: 2px;
+        height: 32px;
+        padding-left: 4px;
+        border: none;
     }
-`;
 
-const TitleContainer = styled.div`
-    display: flex;
-    flex-direction: column;
+    .ant-select-selection-item-remove {
+        margin-left: 8px;
+        margin-right: 8px;
+        color: rgba(0, 0, 0, 0.45);
+    }
 `;
 
 const OwnersContainer = styled.div`
@@ -64,40 +63,30 @@ const OwnersContainer = styled.div`
 `;
 
 // Owners section props
-interface Props {
+interface Props<T> {
     selectedOwnerUrns: string[];
     setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
     existingOwners: Owner[];
-    onChange: (owners: Entity[]) => void;
-    placeholderOwners?: (Entity | CorpUser)[];
+    onChange: (owners: T[]) => void;
     sourceRefetch?: () => Promise<any>;
     isEditForm?: boolean;
     shouldSetOwnerEntities?: boolean;
 }
 
 /**
- * Component for owner selection and management using standard components
+ * Component for owner selection and management
  */
-const OwnersSection = ({
+const OwnersSection = <T,>({
     selectedOwnerUrns,
     setSelectedOwnerUrns,
     existingOwners,
     onChange,
-    placeholderOwners,
     sourceRefetch,
     isEditForm = false,
     shouldSetOwnerEntities = false,
 }: Props<T>) => {
     const entityRegistry = useEntityRegistryV2();
     const [selectedOwnerEntities, setSelectedOwnerEntities] = useState<Entity[]>([]);
-
-    // Auto-select placeholder owners if they're not already selected (only once on mount)
-    useEffect(() => {
-        if (placeholderOwners && placeholderOwners.length > 0 && selectedOwnerUrns.length === 0) {
-            const placeholderUrns = placeholderOwners.map((owner) => owner.urn);
-            setSelectedOwnerUrns(placeholderUrns);
-        }
-    }, [placeholderOwners, selectedOwnerUrns.length, setSelectedOwnerUrns]);
 
     // Autocomplete query for owners across both CorpUser and CorpGroup types
     const [autoCompleteQuery, { data: autocompleteData, loading: searchLoading }] =
@@ -110,82 +99,100 @@ const OwnersSection = ({
         EntityType.CorpUser,
     ]);
 
+    // Lazy load ownership types
+    const { data: ownershipTypesData } = useListOwnershipTypesQuery({
+        variables: {
+            input: {},
+        },
+    });
+
+    const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
+    const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
+
     // Get results from the recommendations or autocomplete
     const searchResults: Array<Entity> =
-        autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
-        recommendedData ||
-        [];
+        !inputValue || inputValue.length === 0
+            ? recommendedData
+            : autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
+              [];
 
-    // Combine search results with placeholder owners
-    const allResults = [...(placeholderOwners || []), ...searchResults];
+    const finalResults = searchResults.filter(
+        (res) => !existingOwners.map((owner) => owner.owner.urn).includes(res.urn),
+    );
 
-    const finalResults = allResults.filter((res) => !existingOwners.map((owner) => owner.owner.urn).includes(res.urn));
+    // Debounced search handler
+    const handleOwnerSearch = debounce((text: string) => {
+        setInputValue(text.trim());
+        setIsSearching(true);
 
-    // Convert entities to SelectOption format
-    const selectOptions: SelectOption[] = finalResults.map((entity) => ({
-        value: entity.urn,
-        label: entityRegistry.getDisplayName(entity.type, entity),
-        description: entity.type === EntityType.CorpUser ? (entity as any)?.properties?.email : undefined,
-    }));
-
-    // Handle search
-    const handleSearch = (query: string) => {
-        if (query.trim()) {
-            autoCompleteQuery({
-                variables: {
-                    input: {
-                        types: [EntityType.CorpUser, EntityType.CorpGroup],
-                        query: query.trim(),
-                        limit: 10,
-                    },
+        autoCompleteQuery({
+            variables: {
+                input: {
+                    types: [EntityType.CorpUser, EntityType.CorpGroup],
+                    query: text.trim(),
+                    limit: 10,
                 },
-            });
-        }
-    };
+            },
+        });
+    }, 300);
 
-    // Render owner entity (similar to OwnerFilter)
-    const renderOwnerEntity = (entity: Entity) => {
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        const subtitle = entity.type === EntityType.CorpUser ? (entity as any)?.properties?.email : undefined;
+    // Renders a search result in the select dropdown
+    const renderSearchResult = (entityItem: any) => {
+        const avatarUrl =
+            entityItem.type === EntityType.CorpUser ? entityItem.editableProperties?.pictureLink : undefined;
+        const displayName = entityRegistry.getDisplayName(entityItem.type, entityItem);
 
         return (
-            <IconAndNameContainer>
-                <IconWrapper>
-                    <EntityIcon entity={entity} />
-                </IconWrapper>
-                <TitleContainer>
-                    <Text type="div">{displayName}</Text>
-                    {subtitle && (
-                        <Text type="div" size="sm" color="gray">
-                            {subtitle}
-                        </Text>
-                    )}
-                </TitleContainer>
-            </IconAndNameContainer>
+            <Select.Option
+                key={entityItem.urn}
+                value={entityItem.urn}
+                label={<OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entityItem.type} />}
+            >
+                <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entityItem.type} />
+            </Select.Option>
         );
     };
 
-    // Handle select change
-    const handleSelectChange = (newValues: string[]) => {
+    // Handle select change - stores owners as pending until save
+    const handleSelectChange = (newValues) => {
         setSelectedOwnerUrns(newValues);
 
-        const newEntities = newValues
-            .map((urn) => {
-                return finalResults.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
-            })
-            .filter(Boolean) as Entity[];
+        const newEntities = newValues.map((urn) => {
+            return finalResults.find((e) => e.urn === urn) || selectedOwnerEntities.find((e) => e.urn === urn);
+        });
 
         setSelectedOwnerEntities(newEntities);
 
-        if (newValues.length > 0) {
-            onChange(newEntities);
-        } else {
-            onChange([]);
+        if (newValues.length > 0 && defaultOwnerType) {
+            const newOwners = newValues.map((urn) => {
+                const foundEntity = newEntities.find((e) => e.urn === urn);
+                const ownerEntityType =
+                    foundEntity && foundEntity.type === EntityType.CorpGroup
+                        ? OwnerEntityType.CorpGroup
+                        : OwnerEntityType.CorpUser;
+
+                return {
+                    ownerUrn: urn,
+                    ownerEntityType,
+                    ownershipTypeUrn: defaultOwnerType,
+                };
+            });
+
+            if (shouldSetOwnerEntities) onChange(newEntities as T[]);
+            else onChange(newOwners);
         }
     };
 
     // Loading state for the select
-    const isSelectLoading = recommendationsLoading || searchLoading;
+    const isSelectLoading = recommendationsLoading || (isSearching && searchLoading);
+
+    // Simplified conditional content for notFoundContent
+    let notFoundContent: React.ReactNode = null;
+    if (isSelectLoading) {
+        notFoundContent = 'Loading...';
+    } else if (inputValue && finalResults.length === 0) {
+        notFoundContent = 'No results found';
+    }
 
     return (
         <SectionContainer>
