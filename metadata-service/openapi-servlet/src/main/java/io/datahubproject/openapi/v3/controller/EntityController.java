@@ -41,6 +41,7 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
@@ -169,6 +170,8 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @Parameter(
               schema = @Schema(nullable = true),
               description =
@@ -222,10 +225,16 @@ public class EntityController
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext
-                .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
-                .withSearchFlags(flags -> flags.setSkipCache(skipCache))
-                .withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDelete)),
+            opContext.withSearchFlags(
+                flags ->
+                    DEFAULT_SEARCH_FLAGS
+                        .setSkipCache(skipCache)
+                        .setIncludeSoftDeleted(includeSoftDelete)
+                        .setSliceOptions(
+                            sliceId != null && sliceMax != null
+                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                : null,
+                            SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
             null,

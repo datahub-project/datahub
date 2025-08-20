@@ -193,6 +193,8 @@ public class SearchLineageFixtureConfiguration {
                 indexConvention, bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
                 searchClient,
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
                 lineageRegistry,
                 indexConvention,
                 TEST_GRAPH_SERVICE_CONFIG,

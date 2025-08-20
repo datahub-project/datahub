@@ -424,6 +424,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
 
@@ -505,6 +506,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Object[] sort,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig) {
     SearchRequest searchRequest = new SearchRequest();
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
 
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -515,8 +517,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
     searchSourceBuilder.fetchSource(fieldFetchConfig.fieldsToFetch().toArray(new String[0]), null);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
-    searchRequest.source(searchSourceBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAliveDuration);
+    ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
+
+    searchRequest.source(searchSourceBuilder);
 
     return searchRequest;
   }
@@ -1087,6 +1091,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSliceOptions(searchSourceBuilder, searchFlags.getSliceOptions());
 
     searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
 

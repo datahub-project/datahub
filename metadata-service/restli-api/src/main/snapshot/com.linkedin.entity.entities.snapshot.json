@@ -6918,8 +6918,23 @@
       "doc" : "Extra fields to fetch from the search documents\nNote: This will be added on top of the default fields that is controlled\n      by the server",
       "default" : [ ],
       "optional" : true
+    }, {
+      "name" : "sliceOptions",
+      "type" : {
+        "type" : "record",
+        "name" : "SliceOptions",
+        "fields" : [ {
+          "name" : "id",
+          "type" : "int"
+        }, {
+          "name" : "max",
+          "type" : "int"
+        } ]
+      },
+      "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
+      "optional" : true
     } ]
-  }, {
+  }, "com.linkedin.metadata.query.SliceOptions", {
     "type" : "enum",
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query.filter",
