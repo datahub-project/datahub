@@ -101,8 +101,7 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
                     {
                         text: 'Add',
                         variant: 'filled',
-                        key: 'submit',
-                        form: 'addLinkForm',
+                        onClick: form.submit,
                         buttonDataTestId: 'add-link-modal-add-button',
                     },
                 ]}

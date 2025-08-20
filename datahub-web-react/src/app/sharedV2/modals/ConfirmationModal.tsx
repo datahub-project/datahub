@@ -23,7 +23,7 @@ export const StyledModal = styled(Modal)`
 
 interface Props {
     isOpen: boolean;
-    handleConfirm: (e: any) => void;
+    handleConfirm: () => void;
     handleClose: () => void;
     modalTitle?: string;
     modalText?: string | React.ReactNode;
@@ -54,7 +54,7 @@ export const ConfirmationModal = ({
                 },
                 {
                     variant: 'filled',
-                    onClick: () => handleConfirm,
+                    onClick: handleConfirm,
                     buttonDataTestId: 'modal-confirm-button',
                     text: confirmButtonText || 'Yes',
                 },

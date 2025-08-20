@@ -33,6 +33,8 @@ const getTitleText = (mode, urn) => {
     return urn !== undefined ? 'Edit View' : 'Create new View';
 };
 
+const modalWidth = 700;
+
 export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -52,6 +54,7 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 title={titleText}
                 onCancel={() => onCancel?.()}
                 data-testid="view-modal"
+                width={modalWidth}
             >
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>

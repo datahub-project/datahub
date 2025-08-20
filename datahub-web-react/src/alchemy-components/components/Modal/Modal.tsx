@@ -58,7 +58,7 @@ const ButtonsContainer = styled.div`
 export interface ModalButton extends ButtonProps {
     text: string;
     key?: string;
-    onClick?: () => void;
+    onClick: () => void;
     buttonDataTestId?: string;
 }
 

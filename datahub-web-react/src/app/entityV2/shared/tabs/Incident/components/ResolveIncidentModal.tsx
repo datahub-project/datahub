@@ -45,9 +45,7 @@ export const ResolveIncidentModal = ({
                     {
                         text: 'Resolve',
                         variant: 'filled',
-                        form: 'resolveIncidentForm',
-                        key: 'submit',
-                        type: 'submit',
+                        onClick: form.submit,
                         buttonDataTestId: 'confirm-resolve',
                     },
                 ]}
