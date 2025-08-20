@@ -529,6 +529,57 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
+  public void testScrollFilterToRecordTemplate() {
+    // Construct expected filter.
+    ConjunctiveCriterionArray criteria = new ConjunctiveCriterionArray();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    Criterion criterion1 = new Criterion().setField("name").setValue("foo");
+    Criterion criterion2 = new Criterion().setField("anotherName").setValue("bar");
+    conjunctiveCriterion.setAnd(new CriterionArray(criterion1, criterion2));
+    criteria.add(conjunctiveCriterion);
+    Filter expectedFilter = new Filter().setOr(criteria);
+
+    // Construct tested filter.
+    io.datahubproject.openapi.v3.models.ConjunctiveCriterion openapiConjunctiveCriterion =
+        io.datahubproject.openapi.v3.models.ConjunctiveCriterion.builder()
+            .criteria(
+                List.of(
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("name")
+                        .value("foo")
+                        .build(),
+                    io.datahubproject.openapi.v3.models.Criterion.builder()
+                        .field("anotherName")
+                        .value("bar")
+                        .build()))
+            .build();
+
+    io.datahubproject.openapi.v3.models.Filter openapiFilter =
+        io.datahubproject.openapi.v3.models.Filter.builder()
+            .and(List.of(openapiConjunctiveCriterion))
+            .build();
+
+    // Assert they are equal.
+    assertEquals(expectedFilter, openapiFilter.toRecordTemplate());
+  }
+
+  @Test
+  public void testScrollSortCriteriaToRecordTemplate() {
+    // Expected sort criteria.
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("name").setOrder(SortOrder.ASCENDING);
+
+    // Tested sort criteria
+    io.datahubproject.openapi.v3.models.SortCriterion openapiSortCriterion =
+        io.datahubproject.openapi.v3.models.SortCriterion.builder()
+            .field("name")
+            .order(io.datahubproject.openapi.v3.models.SortCriterion.SortOrder.ASCENDING)
+            .build();
+
+    assertEquals(sortCriterion, openapiSortCriterion.toRecordTemplate());
+  }
+
+  @Test
   public void testScrollEntitiesWithMultipleSortFields() throws Exception {
     List<Urn> TEST_URNS =
         List.of(
