@@ -41,13 +41,3 @@ export const VERIFICATION_STATUS_PROPERTY: AssetProperty = {
     type: PropertyType.VerificationStatus,
     icon: 'SealCheck',
 };
-
-export const ASSET_PROPERTIES_MAPPING: ReadonlyMap<PropertyType, AssetProperty> = new Map([
-    [PropertyType.Created, CREATED_PROPERTY],
-    [PropertyType.Domain, DOMAIN_PROPERTY],
-    [PropertyType.Owners, OWNERS_PROPERTY],
-    [PropertyType.Tags, TAGS_PROPERTY],
-    [PropertyType.Terms, TERMS_PROPERTY],
-    [PropertyType.LastUpdated, LAST_UPDATED_PROPERTY],
-    [PropertyType.VerificationStatus, VERIFICATION_STATUS_PROPERTY],
-]);
