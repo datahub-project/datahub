@@ -27,7 +27,7 @@ from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.api.entities.structuredproperties.structuredproperties import AllowedTypes
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn,
@@ -387,7 +387,7 @@ class Dataset(StrictModel):
     name: Optional[str] = Field(None, validate_default=True)
     schema_metadata: Optional[SchemaSpecification] = Field(default=None, alias="schema")
     downstreams: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     subtype: Optional[str] = None
     subtypes: Optional[List[str]] = None
     tags: Optional[List[str]] = None
