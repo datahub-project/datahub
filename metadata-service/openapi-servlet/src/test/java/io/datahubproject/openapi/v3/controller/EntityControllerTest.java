@@ -39,6 +39,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.dataset.DatasetProfile;
@@ -533,8 +534,9 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     // Construct expected filter.
     ConjunctiveCriterionArray criteria = new ConjunctiveCriterionArray();
     ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
-    Criterion criterion1 = new Criterion().setField("name").setValue("foo");
-    Criterion criterion2 = new Criterion().setField("anotherName").setValue("bar");
+    Criterion criterion1 = new Criterion().setField("name").setValues(new StringArray("foo"));
+    Criterion criterion2 =
+        new Criterion().setField("anotherName").setValues(new StringArray("bar"));
     conjunctiveCriterion.setAnd(new CriterionArray(criterion1, criterion2));
     criteria.add(conjunctiveCriterion);
     Filter expectedFilter = new Filter().setOr(criteria);
@@ -546,11 +548,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 List.of(
                     io.datahubproject.openapi.v3.models.Criterion.builder()
                         .field("name")
-                        .value("foo")
+                        .values(List.of("foo"))
                         .build(),
                     io.datahubproject.openapi.v3.models.Criterion.builder()
                         .field("anotherName")
-                        .value("bar")
+                        .values(List.of("bar"))
                         .build()))
             .build();
 

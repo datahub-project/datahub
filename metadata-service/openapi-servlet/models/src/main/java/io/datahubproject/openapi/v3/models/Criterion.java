@@ -14,9 +14,6 @@ public class Criterion {
   /** The name of the field that the criterion refers to */
   private String field;
 
-  /** The value of the intended field */
-  private String value;
-
   /**
    * Values. one of which the intended field should match Note, if values is set, the above "value"
    * field will be ignored
@@ -44,7 +41,6 @@ public class Criterion {
         new com.linkedin.metadata.query.filter.Criterion();
 
     criterion.setField(this.field);
-    criterion.setValue(this.value);
 
     if (this.values != null) {
       criterion.setValues(new StringArray(this.values));
