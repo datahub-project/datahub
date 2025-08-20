@@ -51,7 +51,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
         yield docker_services
 
     # The image is pretty large, so we remove it after the test.
-    cleanup_image("vertica/vertica-ce")
+    cleanup_image("opentext/vertica-k8s")
 
 
 @freeze_time(FROZEN_TIME)
