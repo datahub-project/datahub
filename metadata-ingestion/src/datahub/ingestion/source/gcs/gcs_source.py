@@ -60,6 +60,11 @@ class GCSSourceConfig(
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
+    signature_version: str = Field(
+        default="v4",
+        description="Signature version to use for authentication. Options: 'v4' (default) or 'v2'.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("path_specs", always=True)
@@ -116,6 +121,7 @@ class GCSSource(StatefulIngestionSourceBase):
                 aws_access_key_id=self.config.credential.hmac_access_id,
                 aws_secret_access_key=self.config.credential.hmac_access_secret.get_secret_value(),
                 aws_region="auto",
+                aws_signature_version=self.config.signature_version,
             ),
             env=self.config.env,
             max_rows=self.config.max_rows,
