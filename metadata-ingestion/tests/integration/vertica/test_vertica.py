@@ -8,7 +8,13 @@ from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = [
+    pytest.mark.integration_batch_2,
+    pytest.mark.skip(
+        reason="Skipping Vertica tests due to https://github.com/vertica/vertica-containers/issues/64"
+    ),
+]
+
 FROZEN_TIME = "2020-04-14 07:00:00"
 
 
@@ -51,7 +57,7 @@ def vertica_runner(docker_compose_runner, test_resources_dir):
         yield docker_services
 
     # The image is pretty large, so we remove it after the test.
-    cleanup_image("opentext/vertica-k8s")
+    cleanup_image("vertica/vertica-ce")
 
 
 @freeze_time(FROZEN_TIME)
