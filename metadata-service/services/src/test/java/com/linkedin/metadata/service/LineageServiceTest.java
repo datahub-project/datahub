@@ -252,6 +252,20 @@ public class LineageServiceTest {
                 opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
   }
 
+  @Test
+  public void testFailUpdateChartWithInvalidEdge() throws Exception {
+    Mockito.when(_mockClient.exists(opContext, datajobUrn1)).thenReturn(true);
+
+    // charts can't have datajobs upstream of them
+    final List<Urn> upstreamUrnsToAdd = Collections.singletonList(datajobUrn1);
+    final List<Urn> upstreamUrnsToRemove = Collections.emptyList();
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            _lineageService.updateChartLineage(
+                opContext, chartUrn1, upstreamUrnsToAdd, upstreamUrnsToRemove, actorUrn));
+  }
+
   // Adds upstreams for dashboard to dataset2 and chart2 and removes edge to dataset1 and chart1
   @Test
   public void testUpdateDashboardLineage() throws Exception {
