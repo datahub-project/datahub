@@ -107,7 +107,6 @@ function EntityName(props: Props) {
                 onStart: handleStartEditing,
             }}
             $showEntityLink={showEntityLink}
-
         >
             {updatedName}
         </EntityTitle>
