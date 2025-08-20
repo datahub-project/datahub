@@ -25,7 +25,16 @@ Alternatively, you can use the gradle tasks defined in `docker/build.gradle`:
 
 Use Control-c (`^c`) to terminate the running system. This will automatically stop all running containers.
 
-To remove the containers use the following:
+To remove the containers and volumes, you can use the gradle nuke tasks:
+
+```bash
+# Remove containers and volumes for specific projects
+./gradlew quickstartNuke          # For default project (datahub)
+./gradlew quickstartDebugNuke     # For debug project (datahub)
+./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
+```
+
+Alternatively, you can use docker compose directly:
 
 ```bash
 docker compose --profile <profile name> rm

@@ -376,6 +376,15 @@ export default class EntityRegistry {
     getSearchEntityTypesAsCamelCase(): Array<string> {
         return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
     }
+
+    /**
+     * Utility method to safely extract the first subtype from entity data
+     * @param data The entity data that may contain subTypes
+     * @returns The first subtype name or undefined if not available
+     */
+    getFirstSubType(data?: { subTypes?: { typeNames?: string[] | null } | null } | null): string | undefined {
+        return data?.subTypes?.typeNames?.[0];
+    }
 }
 
 function getSchemaFields(

@@ -64,9 +64,9 @@ authorization:
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
 
 ingestion:
-  # The value of cliMajorVersion is substituted in by the processResources Gradle task.
+  # The value of cliVersion is substituted in by the processResources Gradle task.
   enabled: ${UI_INGESTION_ENABLED:true}
-  defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliMajorVersion@}"
+  defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
   scheduler:
