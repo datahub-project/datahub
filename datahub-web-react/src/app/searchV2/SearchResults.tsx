@@ -172,9 +172,8 @@ export const SearchResults = ({
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const pageStart = searchResponse?.start || 0;
-    const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
-    const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+    const lastResultIndex = pageStart + numResultsPerPage > totalResults ? totalResults : pageStart + numResultsPerPage;
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
@@ -253,7 +252,7 @@ export const SearchResults = ({
                                                 <LeftControlsContainer>
                                                     Showing{' '}
                                                     <b>
-                                                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} -{' '}
+                                                        {lastResultIndex > 0 ? (page - 1) * numResultsPerPage + 1 : 0} -{' '}
                                                         {lastResultIndex}
                                                     </b>{' '}
                                                     of{' '}
