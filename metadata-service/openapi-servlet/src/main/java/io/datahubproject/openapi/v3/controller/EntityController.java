@@ -168,7 +168,7 @@ public class EntityController
           Boolean withSystemMetadata,
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
           Boolean skipCache,
-      @RequestParam(value = "fullText", required = false, defaultValue = "true") Boolean fullText,
+      @RequestParam(value = "fullText", required = false, defaultValue = "false") Boolean fullText,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
       @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")

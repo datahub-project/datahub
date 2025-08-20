@@ -49,6 +49,7 @@ public class OpenAPIV3Generator {
   private static final Set<String> TYPE_STRING_NULLABLE = Set.of(TYPE_STRING, TYPE_NULL);
   private static final Set<String> TYPE_INTEGER_NULLABLE = Set.of(TYPE_INTEGER, TYPE_NULL);
   private static final String NAME_QUERY = "query";
+  private static final String NAME_FULLTEXT = "fullText";
   private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
   private static final String NAME_AUDIT_STAMP = "auditStamp";
@@ -661,6 +662,11 @@ public class OpenAPIV3Generator {
                 .in(NAME_QUERY)
                 .name(NAME_SKIP_CACHE)
                 .description("Skip cache when listing entities.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_FULLTEXT)
+                .description("Treat query as fulltext.")
                 .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .in(NAME_QUERY)
