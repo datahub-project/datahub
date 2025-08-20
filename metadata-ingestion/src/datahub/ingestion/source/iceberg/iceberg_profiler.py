@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Iterable, Optional, TypeGuard, cast
+from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 from pyiceberg.conversions import from_bytes
 from pyiceberg.schema import Schema
@@ -23,6 +23,7 @@ from pyiceberg.utils.datetime import (
     to_human_timestamp,
     to_human_timestamptz,
 )
+from typing_extensions import TypeGuard
 
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.source.iceberg.iceberg_common import (

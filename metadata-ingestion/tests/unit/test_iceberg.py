@@ -8,7 +8,6 @@ from typing import (
     Iterable,
     List,
     Mapping,
-    Never,
     Optional,
     Tuple,
 )
@@ -52,6 +51,7 @@ from pyiceberg.types import (
     TimeType,
     UUIDType,
 )
+from typing_extensions import Never
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper

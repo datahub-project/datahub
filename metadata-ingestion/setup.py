@@ -15,7 +15,7 @@ _self_pin = (
 
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
-    "typing_extensions>=4.5.0",
+    "typing_extensions>=4.8.0",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=2.4.0",
