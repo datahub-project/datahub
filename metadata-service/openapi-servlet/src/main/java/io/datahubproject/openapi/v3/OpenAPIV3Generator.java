@@ -15,26 +15,20 @@ import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.openapi.v3.models.ConjunctiveCriterion;
+import io.datahubproject.openapi.v3.models.Criterion;
+import io.datahubproject.openapi.v3.models.Filter;
+import io.datahubproject.openapi.v3.models.SortCriterion;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.*;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.media.Content;
-import io.swagger.v3.oas.models.media.MediaType;
-import io.swagger.v3.oas.models.media.Schema;
+import io.swagger.v3.oas.models.media.*;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -116,6 +110,9 @@ public class OpenAPIV3Generator {
 
     // Cross-entity components
     components.addSchemas(
+        "Scroll" + ENTITIES + ENTITY_REQUEST_SUFFIX,
+        buildScrollEntitiesRequestSchema(filteredEntitySpec, filteredAspectSpec, aspectNames));
+    components.addSchemas(
         ENTITIES + ENTITY_REQUEST_SUFFIX,
         buildEntitiesRequestSchema(filteredEntitySpec, filteredAspectSpec, aspectNames));
     components.addSchemas(
@@ -123,9 +120,6 @@ public class OpenAPIV3Generator {
         buildEntitySchema(filteredAspectSpec, aspectNames, true));
     components.addSchemas(
         "Scroll" + ENTITIES + ENTITY_RESPONSE_SUFFIX, buildEntitiesScrollSchema());
-    components.addSchemas(
-        "ScrollWithFilters" + ENTITIES + ENTITY_RESPONSE_SUFFIX,
-        buildScrollEntitiesWithFilterSchema());
     components.addSchemas(ASPECT_PATCH_PROPERTY, buildAspectPatchPropertySchema());
 
     // --> Aspect components
@@ -689,7 +683,7 @@ public class OpenAPIV3Generator {
                                 newSchema()
                                     .$ref(
                                         String.format(
-                                            "#/components/schemas/ScrollWithFilters%s%s",
+                                            "#/components/schemas/Scroll%s%s",
                                             ENTITIES, ENTITY_RESPONSE_SUFFIX)))));
 
     final RequestBody requestBody =
@@ -707,7 +701,7 @@ public class OpenAPIV3Generator {
                                     .$ref(
                                         String.format(
                                             "#/components/schemas/%s%s",
-                                            ENTITIES, ENTITY_REQUEST_SUFFIX)))));
+                                            "Scroll" + ENTITIES, ENTITY_REQUEST_SUFFIX)))));
 
     result.setPost(
         new Operation()
@@ -1420,6 +1414,197 @@ public class OpenAPIV3Generator {
         .properties(properties);
   }
 
+  private static Schema buildScrollEntitiesRequestSchema(
+      final Map<String, EntitySpec> entitySpecs,
+      final Map<String, AspectSpec> aspectSpecs,
+      final Set<String> definitionNames) {
+    final Set<String> keyAspects = new HashSet<>();
+
+    final List<String> entityNames =
+        entitySpecs.values().stream()
+            .peek(entitySpec -> keyAspects.add(entitySpec.getKeyAspectName()))
+            .map(EntitySpec::getName)
+            .sorted()
+            .toList();
+
+    Schema entitiesSchema =
+        newSchema().type(TYPE_ARRAY).items(newSchema().type(TYPE_STRING)._enum(entityNames));
+
+    final List<String> aspectNames =
+        aspectSpecs.values().stream()
+            .filter(aspectSpec -> !aspectSpec.isTimeseries())
+            .map(AspectSpec::getName)
+            .filter(definitionNames::contains) // Only if aspect is defined
+            .distinct()
+            .sorted()
+            .collect(Collectors.toList());
+
+    Schema aspectsSchema =
+        newSchema().type(TYPE_ARRAY).items(newSchema().type(TYPE_STRING)._enum(aspectNames));
+
+    // Filter example
+    Criterion criterion = Criterion.builder().field("name").value("foo").build();
+    ConjunctiveCriterion criteria =
+        ConjunctiveCriterion.builder().criteria(Collections.singletonList(criterion)).build();
+    Filter filter = Filter.builder().and(Collections.singletonList(criteria)).build();
+
+    // SortCriteria example
+    SortCriterion sortCriterion =
+        SortCriterion.builder().field("name").order(SortCriterion.SortOrder.ASCENDING).build();
+    List<SortCriterion> sortCriteria = List.of(sortCriterion);
+
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description(ENTITIES + " request object.")
+        .example(
+            Map.of(
+                "entities",
+                entityNames.stream().filter(n -> !n.startsWith("dataHub")).toList(),
+                "aspects",
+                aspectNames.stream()
+                    .filter(n -> !n.startsWith("dataHub") && !keyAspects.contains(n))
+                    .toList(),
+                "filter",
+                filter,
+                "sortCriteria",
+                sortCriteria))
+        .properties(
+            Map.of(
+                "entities", newSchema().oneOf(List.of(entitiesSchema, newSchema().type(TYPE_NULL))),
+                "aspects", newSchema().oneOf(List.of(aspectsSchema, newSchema().type(TYPE_NULL))),
+                "filter",
+                    newSchema().oneOf(List.of(buildFilterSchema(), newSchema().type(TYPE_NULL))),
+                "sortCriteria",
+                    newSchema().oneOf(List.of(buildSortSchema(), newSchema().type(TYPE_NULL)))));
+  }
+
+  private static Schema buildSortSchema() {
+    // SortCriterion (inlined)
+    Schema sortCriterion =
+        newSchema()
+            .type(TYPE_OBJECT)
+            .description("Sort criterion: field + direction.")
+            .addProperties(
+                "field", newSchema().type(TYPE_STRING).description("Field name to sort by."))
+            .addProperties(
+                "order",
+                newSchema()
+                    .type(TYPE_STRING)
+                    ._enum(Arrays.asList("ASCENDING", "DESCENDING"))
+                    ._default("ASCENDING")
+                    .description("Sort order (default ASCENDING)."))
+            .addRequiredItem("field")
+            .addRequiredItem("order");
+
+    // Sort (top-level)
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Sort specification made up of one or more SortCriterion in evaluation order.")
+        .addProperties(
+            "sortCriteria",
+            newSchema()
+                .type(TYPE_ARRAY)
+                .description("List of sort criteria; applied in order.")
+                .items(sortCriterion)
+                .minItems(1))
+        .addRequiredItem("sortCriteria");
+  }
+
+  private static Schema buildFilterSchema() {
+    // Criterion schema
+    Schema criterion =
+        new ComposedSchema()
+            .type("object")
+            .description("A single field condition.")
+            .addProperties(
+                "field", newSchema().type(TYPE_STRING).description("The name of the field"))
+            .addProperties(
+                "value",
+                newSchema()
+                    .type(TYPE_STRING)
+                    .description("Single value. Mutually exclusive with `values`."))
+            .addProperties(
+                "values",
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .items(newSchema().type(TYPE_STRING))
+                    .minItems(1)
+                    .description(
+                        "List of values (match any). If set, `value` must not be provided."))
+            .addProperties(
+                "condition",
+                newSchema()
+                    .type(TYPE_STRING)
+                    ._enum(Arrays.asList("EQUAL", "STARTS_WITH", "ENDS_WITH", "EXISTS", "IN"))
+                    ._default("EQUAL")
+                    .description("The condition for the criterion."))
+            .addProperties(
+                "negated",
+                new BooleanSchema()
+                    ._default(false)
+                    .description("Whether the condition should be negated."))
+            .addRequiredItem("field")
+            .addRequiredItem("condition");
+
+    // oneOf branches for Criterion
+    Schema<?> branchValue =
+        newSchema()
+            .type(TYPE_OBJECT)
+            .addRequiredItem("value")
+            .description("Branch: requires `value` only.");
+    branchValue.setNot(newSchema().type(TYPE_OBJECT).addRequiredItem("values"));
+
+    Schema<?> branchValues =
+        newSchema()
+            .type(TYPE_OBJECT)
+            .addRequiredItem("values")
+            .description("Branch: requires `values` only.");
+    branchValues.setNot(newSchema().type(TYPE_OBJECT).addRequiredItem("value"));
+
+    Schema branchExists =
+        newSchema()
+            .type(TYPE_OBJECT)
+            .description("Branch: `EXISTS` condition without `value`/`values`.");
+    branchExists.addProperties(
+        "condition", newSchema().type(TYPE_STRING)._enum(Collections.singletonList("EXISTS")));
+    Schema anyOfValueOrValues =
+        new ComposedSchema()
+            .anyOf(
+                Arrays.asList(
+                    newSchema().type(TYPE_OBJECT).addRequiredItem("value"),
+                    newSchema().type(TYPE_OBJECT).addRequiredItem("values")));
+    branchExists.setNot(anyOfValueOrValues);
+
+    criterion.setOneOf(Arrays.asList(branchValue, branchValues, branchExists));
+
+    // ConjunctiveCriterion schema
+    Schema conjunctive =
+        newSchema()
+            .type(TYPE_OBJECT)
+            .description("A group of criteria ANDed together.")
+            .addProperties(
+                "criteria",
+                newSchema()
+                    .type(TYPE_ARRAY)
+                    .minItems(1)
+                    .items(criterion) // inline, or use $ref in real OpenAPI doc
+                    .description("List of criteria combined with AND."))
+            .addRequiredItem("criteria");
+
+    // Filter schema
+    return newSchema()
+        .type(TYPE_OBJECT)
+        .description("Top-level filter. Combines multiple ConjunctiveCriterion groups with OR.")
+        .addProperties(
+            "and",
+            newSchema()
+                .type(TYPE_ARRAY)
+                .minItems(1)
+                .items(conjunctive) // inline, or use $ref
+                .description("A list of ConjunctiveCriterion groups. Groups are OR'ed together."))
+        .addRequiredItem("and");
+  }
+
   /**
    * Generate cross-entity schema
    *
@@ -1495,25 +1680,6 @@ public class OpenAPIV3Generator {
         .description("Mixed-entity patch request body.")
         .additionalProperties(false)
         .properties(props);
-  }
-
-  private static Schema buildScrollEntitiesWithFilterSchema() {
-    return newSchema()
-        .type(TYPE_OBJECT)
-        .description("Scroll with filters across (list) " + ENTITIES + " objects.")
-        .required(List.of("entities"))
-        .addProperty(
-            NAME_SCROLL_ID, newSchema().type(TYPE_STRING).description("Scroll id for pagination."))
-        .addProperty(
-            "entities",
-            newSchema()
-                .type(TYPE_ARRAY)
-                .description(ENTITIES + " object.")
-                .items(
-                    newSchema()
-                        .$ref(
-                            String.format(
-                                "#/components/schemas/%s%s", ENTITIES, ENTITY_RESPONSE_SUFFIX))));
   }
 
   /**
