@@ -503,13 +503,19 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
-        logger.info(f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']}")
+        view_definition = row.get("VIEW_DEFINITION")
+        fragment_view_definition = (
+            view_definition[:50].strip() if view_definition else None
+        )
+        logger.info(
+            f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']} with view definition: {fragment_view_definition}..."
+        )
 
         return schema_name, SnowflakeView(
             name=row["VIEW_NAME"],
             created=row["CREATED"],
             comment=row["COMMENT"],
-            view_definition=row["VIEW_DEFINITION"],
+            view_definition=view_definition,
             last_altered=row["LAST_ALTERED"],
             is_secure=(row.get("IS_SECURE", "false").lower() == "true"),
             # TODO: This doesn't work for materialized views.
@@ -615,7 +621,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         for row in cur:
             schema_name, view = self._map_view(db_name, row)
-            if view.view_definition == "" or view.view_definition is None:
+            if view.view_definition is None or view.view_definition == "":
                 views_with_empty_definition.setdefault(schema_name, []).append(view)
             else:
                 views.setdefault(schema_name, []).append(view)
@@ -642,7 +648,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         for row in cur:
             schema_name, view = self._map_view(db_name, row)
-            if view.view_definition == "" or view.view_definition is None:
+            if view.view_definition is None or view.view_definition == "":
                 views_with_empty_definition.append(view)
             else:
                 views.append(view)
