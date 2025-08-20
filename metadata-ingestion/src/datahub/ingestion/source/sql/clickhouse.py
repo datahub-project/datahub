@@ -18,7 +18,7 @@ from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import BOOLEAN, DATE, DATETIME, INTEGER
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import HiddenFromDocs
+from datahub.configuration.common import HiddenFromDocs, LaxStr
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -142,7 +142,7 @@ class ClickHouseConfig(
     _deprecate_secure = pydantic_field_deprecated("secure")
     _deprecate_protocol = pydantic_field_deprecated("protocol")
 
-    uri_opts: Dict[str, str] = Field(
+    uri_opts: Dict[str, LaxStr] = Field(
         default={},
         description="The part of the URI and it's used to provide additional configuration options or parameters for the database connection.",
     )
