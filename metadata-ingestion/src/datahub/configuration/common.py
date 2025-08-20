@@ -362,4 +362,4 @@ class KeyValuePattern(ConfigModel):
 
 
 class VersionedConfig(ConfigModel):
-    version: str = "1"
+    version: LaxStr = "1"
