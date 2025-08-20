@@ -4,6 +4,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
 import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import { getFirstSubType } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -87,7 +88,7 @@ export const Preview = ({
             platformInstanceId={platformInstanceId}
             description={description || ''}
             entityType={EntityType.Container}
-            type={subTypes?.typeNames?.[0]}
+            type={getFirstSubType({ subTypes })}
             owners={owners}
             deprecation={deprecation}
             insights={insights}
