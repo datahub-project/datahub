@@ -17,6 +17,7 @@ import styled from 'styled-components';
 import { AddImageButton } from '@components/components/Editor/toolbar/AddImageButton';
 import { AddLinkButton } from '@components/components/Editor/toolbar/AddLinkButton';
 import { CommandButton } from '@components/components/Editor/toolbar/CommandButton';
+import { FontSizeSelect } from '@components/components/Editor/toolbar/FontSizeSelect';
 import { HeadingMenu } from '@components/components/Editor/toolbar/HeadingMenu';
 
 import colors from '@src/alchemy-components/theme/foundations/colors';
@@ -49,6 +50,7 @@ export const Toolbar = () => {
 
     return (
         <Container>
+            <FontSizeSelect />
             <HeadingMenu />
             <CustomDivider type="vertical" />
             <CommandButton
