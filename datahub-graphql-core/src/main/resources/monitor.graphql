@@ -3,6 +3,11 @@ extend type Query {
   Fetches the settings for "system" monitors for an entity with a given URN.
   """
   systemMonitors(urn: String!): SystemMonitorsResult!
+
+  """
+  Fetches the metrics for a monitor.
+  """
+  listMonitorMetrics(input: ListMonitorMetricsInput!): ListMonitorMetricsResult!
 }
 
 extend type EntityPrivileges {
@@ -1101,4 +1106,40 @@ enum AnomalySourceType {
   The anomaly was raised by a user.
   """
   USER_FEEDBACK
+}
+
+input ListMonitorMetricsInput {
+  """
+  The urn of the monitor to list metrics for.
+  """
+  monitorUrn: String!
+
+  """
+  The start time of the metrics to list.
+  """
+  startTimeMillis: Long!
+
+  """
+  The end time of the metrics to list.
+  """
+  endTimeMillis: Long!
+}
+
+type MonitorMetric {
+  """
+  The metric for the assertion.
+  """
+  assertionMetric: AssertionMetric!
+
+  """
+  The anomaly reported for the metric.
+  """
+  anomalyEvent: MonitorAnomalyEvent
+}
+
+type ListMonitorMetricsResult {
+  """
+  The metrics for the monitor, hydrated with the anomaly event if present.
+  """
+  metrics: [MonitorMetric!]!
 }

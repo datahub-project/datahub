@@ -496,6 +496,8 @@ public class Constants {
   public static final String MONITOR_KEY_ASPECT_NAME = "monitorKey";
   public static final String MONITOR_INFO_ASPECT_NAME = "monitorInfo";
   public static final String MONITOR_ANOMALY_EVENT_ASPECT_NAME = "monitorAnomalyEvent";
+  public static final String METRIC_CUBE_ENTITY_NAME = "dataHubMetricCube";
+  public static final String METRIC_CUBE_EVENT_ASPECT_NAME = "dataHubMetricCubeEvent";
 
   // Data Contracts
   public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";

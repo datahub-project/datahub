@@ -69,6 +69,7 @@ import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver
 import com.linkedin.datahub.graphql.resolvers.load.*;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.MonitorMetricsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.ReportAnomalyFeedbackResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAssertionMonitorSettingsResolver;
@@ -800,9 +801,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "Query",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "systemMonitors",
-                new SystemMonitorsResolver(this.monitorService, this.entityClient)));
+            typeWiring
+                .dataFetcher(
+                    "systemMonitors",
+                    new SystemMonitorsResolver(this.monitorService, this.entityClient))
+                .dataFetcher("listMonitorMetrics", new MonitorMetricsResolver(this.entityClient)));
     builder.type(
         "SystemMonitor",
         typeWiring ->

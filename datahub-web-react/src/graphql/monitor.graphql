@@ -230,3 +230,17 @@ query searchAssertions(
         ...assertionSearchResults
     }
 }
+
+query listMonitorMetrics($input: ListMonitorMetricsInput!) {
+    listMonitorMetrics(input: $input) {
+        metrics {
+            assertionMetric {
+                timestampMillis
+                value
+            }
+            anomalyEvent {
+                ...monitorAnomalyEventDetails
+            }
+        }
+    }
+}
