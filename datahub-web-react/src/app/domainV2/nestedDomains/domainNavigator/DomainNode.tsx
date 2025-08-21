@@ -1,13 +1,15 @@
-import { Tooltip, colors } from '@components';
+import { Pill, Tooltip } from '@components';
 import { Typography } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
-import useListDomains from '@app/domainV2/useListDomains';
+import { DomainNavigatorVariant } from '@app/domainV2/nestedDomains/types';
+import useScrollDomains from '@app/domainV2/useScrollDomains';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import useToggle from '@app/shared/useToggle';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
@@ -15,26 +17,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Domain } from '@types';
 
-const Count = styled.div`
-    color: ${colors.gray[1700]};
-    font-size: 12px;
-    padding: 0 8px;
-    margin-left: 8px;
-    border-radius: 20px;
-    background-color: ${colors.gray[100]};
-    height: 22px;
-    min-width: 28px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-`;
-
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
     ${(props) => props.$isSelected && `color: ${props.theme.styles['primary-color']};`}
-    ${(props) => props.$addLeftPadding && 'padding-left: 20px;'}
+    ${(props) => props.$addLeftPadding && 'padding-left: 22px;'}
 
     &:hover {
         cursor: pointer;
@@ -69,12 +56,13 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     }
 `;
 
-const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean }>`
+const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant: DomainNavigatorVariant }>`
     align-items: center;
     display: flex;
     width: 100%;
-    border-bottom: 1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
-    padding: 12px;
+    border-bottom: ${({ $variant }) =>
+        $variant === 'select' ? 'none' : `1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1}`};
+    padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
     ${(props) => props.isOpen && `background-color: ${REDESIGN_COLORS.SECTION_BACKGROUND};`}
     ${(props) => props.$isSelected && `background-color: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};`}
     &:hover {
@@ -109,6 +97,10 @@ const Text = styled.div`
     width: 80%;
 `;
 
+const LoadingWrapper = styled.div`
+    padding: 16px;
+`;
+
 interface Props {
     domain: Domain;
     numDomainChildren: number;
@@ -117,6 +109,7 @@ interface Props {
     selectDomainOverride?: (domain: Domain) => void;
     unhideSidebar?: () => void;
     $paddingLeft?: number;
+    variant?: DomainNavigatorVariant;
 }
 
 export default function DomainNode({
@@ -127,6 +120,7 @@ export default function DomainNode({
     selectDomainOverride,
     unhideSidebar,
     $paddingLeft = 0,
+    variant = 'select',
 }: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
     const history = useHistory();
@@ -136,7 +130,10 @@ export default function DomainNode({
         initialValue: false,
         closeDelay: 250,
     });
-    const { sortedDomains } = useListDomains({ parentDomain: domain.urn, skip: !isOpen || shouldHideDomain });
+    const { domains, loading, scrollRef } = useScrollDomains({
+        parentDomain: domain.urn,
+        skip: !isOpen || shouldHideDomain,
+    });
     const isOnEntityPage = entityData && entityData.urn === domain.urn;
     const displayName = entityRegistry.getDisplayName(domain.type, isOnEntityPage ? entityData : domain);
     const isInSelectMode = !!selectDomainOverride;
@@ -169,8 +166,7 @@ export default function DomainNode({
 
     if (shouldHideDomain) return null;
 
-    const finalNumChildren = sortedDomains?.length ?? numDomainChildren;
-    const hasDomainChildren = !!finalNumChildren;
+    const hasDomainChildren = !!numDomainChildren;
 
     return (
         <>
@@ -178,6 +174,7 @@ export default function DomainNode({
                 data-testid="domain-list-item"
                 $isSelected={isDomainNodeSelected && !isCollapsed}
                 isOpen={isOpen && !isClosing}
+                $variant={variant}
             >
                 {!isCollapsed && hasDomainChildren && (
                     <ButtonWrapper
@@ -210,23 +207,34 @@ export default function DomainNode({
                                 {!isCollapsed && displayName}
                             </DisplayName>
                         </Text>
-                        {!isCollapsed && hasDomainChildren && <Count>{finalNumChildren}</Count>}
+                        {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>
                 </Tooltip>
             </RowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing} paddingLeft={paddingLeft}>
                 <BodyContainer style={{ width: '100%' }}>
-                    {sortedDomains?.map((childDomain) => (
-                        <DomainNode
-                            key={domain.urn}
-                            domain={childDomain as Domain}
-                            numDomainChildren={childDomain.children?.total || 0}
-                            domainUrnToHide={domainUrnToHide}
-                            selectDomainOverride={selectDomainOverride}
-                            unhideSidebar={unhideSidebar}
-                            $paddingLeft={paddingLeft}
-                        />
-                    ))}
+                    {isOpen && (
+                        <>
+                            {domains?.map((childDomain) => (
+                                <DomainNode
+                                    key={domain.urn}
+                                    domain={childDomain as Domain}
+                                    numDomainChildren={childDomain.children?.total || 0}
+                                    domainUrnToHide={domainUrnToHide}
+                                    selectDomainOverride={selectDomainOverride}
+                                    unhideSidebar={unhideSidebar}
+                                    $paddingLeft={paddingLeft}
+                                    variant={variant}
+                                />
+                            ))}
+                            {loading && (
+                                <LoadingWrapper>
+                                    <Loading height={16} marginTop={0} />
+                                </LoadingWrapper>
+                            )}
+                            {domains.length > 0 && <div ref={scrollRef} />}
+                        </>
+                    )}
                 </BodyContainer>
             </StyledExpander>
         </>
