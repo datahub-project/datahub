@@ -1952,7 +1952,15 @@
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Upstream entities in the lineage",
-            "optional" : true
+            "optional" : true,
+            "Searchable" : {
+              "/*" : {
+                "fieldName" : "fineGrainedUpstreams",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFineGrainedUpstreams",
+                "queryByDefault" : false
+              }
+            }
           }, {
             "name" : "downstreamType",
             "type" : {
@@ -2163,6 +2171,7 @@
       "Searchable" : {
         "fieldName" : "upstreams",
         "fieldType" : "URN",
+        "hasValuesFieldName" : "hasUpstreams",
         "queryByDefault" : false
       }
     }, {

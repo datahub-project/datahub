@@ -205,6 +205,8 @@ public class SampleDataFixtureConfiguration {
                 indexConvention, _bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
                 _searchClient,
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
                 opContext.getLineageRegistry(),
                 indexConvention,
                 TEST_GRAPH_SERVICE_CONFIG,
