@@ -14,17 +14,15 @@ export interface AssetProperty {
     type: PropertyType;
     icon?: string;
     key?: string;
+    structuredPropertyUrn?: string;
 }
 
 export interface AssetPropertiesContextType {
-    properties: AssetProperty[];
-    propertiesLoading?: boolean;
-
     // Whether properties are editable
     editable?: boolean;
 
-    availableProperties: AssetProperty[];
-    availableStructuredProperties: AssetProperty[];
+    properties: AssetProperty[];
+    propertiesLoading?: boolean;
 
     replace: (newProperty: AssetProperty, position: number) => void;
     remove: (position: number) => void;

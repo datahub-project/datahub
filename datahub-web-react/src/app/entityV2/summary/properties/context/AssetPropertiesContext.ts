@@ -5,9 +5,6 @@ import { AssetPropertiesContextType } from '@app/entityV2/summary/properties/typ
 const DEFAULT_CONTEXT: AssetPropertiesContextType = {
     properties: [],
 
-    availableProperties: [],
-    availableStructuredProperties: [],
-
     replace: () => {},
     remove: () => {},
     add: () => {},

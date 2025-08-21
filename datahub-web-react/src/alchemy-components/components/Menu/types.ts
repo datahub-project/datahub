@@ -1,3 +1,5 @@
+import React from 'react';
+
 import { DropdownProps } from '@components/components/Dropdown/types';
 import { IconNames } from '@components/components/Icon';
 
@@ -17,12 +19,14 @@ export interface MenuItemType extends BaseItemType {
     children?: ItemType[];
 
     onClick?: () => void;
+    render?: (item: MenuItemType) => React.ReactNode;
 }
 
 export interface GroupItemType extends BaseItemType {
     type: 'group';
     title: string;
     children?: ItemType[];
+    render?: (item: GroupItemType) => React.ReactNode;
 }
 
 export interface DividerType extends BaseItemType {

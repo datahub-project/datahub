@@ -1,117 +1,102 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { act } from 'react-dom/test-utils';
-
+import { render, act } from '@testing-library/react';
+import React, { useContext } from 'react';
+import { describe, it, expect, vi } from 'vitest';
 import { useEntityContext } from '@app/entity/shared/EntityContext';
-import useAvailableAssetProperties from '@app/entityV2/summary/properties/hooks/useAvailableAssetProperties';
+import AssetPropertiesContext from '@app/entityV2/summary/properties/context/AssetPropertiesContext';
 import useInitialAssetProperties from '@app/entityV2/summary/properties/hooks/useInitialAssetProperties';
 import { PropertyType } from '@app/entityV2/summary/properties/types';
 import { EntityType } from '@types';
 import AssetPropertiesProvider from '@app/entityV2/summary/properties/context/AssetPropertiesProvider';
-import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 
 vi.mock('@app/entity/shared/EntityContext');
 vi.mock('@app/entityV2/summary/properties/hooks/useInitialAssetProperties');
-vi.mock('@app/entityV2/summary/properties/hooks/useAvailableAssetProperties');
 
-const useEntityContextMock = vi.mocked(useEntityContext);
-const useInitialAssetPropertiesMock = vi.mocked(useInitialAssetProperties);
-const useAvailableAssetPropertiesMock = vi.mocked(useAvailableAssetProperties);
+const initialProperties = [
+    { name: 'prop1', type: PropertyType.Domain },
+    { name: 'prop2', type: PropertyType.Owners },
+];
 
-const TestConsumer: React.FC = () => {
-    const context = useAssetPropertiesContext();
-    return <div data-testid="context-dump">{JSON.stringify(context)}</div>;
+const TestConsumer = () => {
+    const context = useContext(AssetPropertiesContext);
+    return (
+        <div>
+            <div data-testid="loading">{String(context.propertiesLoading)}</div>
+            <div data-testid="properties">{JSON.stringify(context.properties)}</div>
+            <button type="button" onClick={() => context.add({ name: 'newProp', type: PropertyType.Tags })}>
+                add
+            </button>
+            <button type="button" onClick={() => context.remove(0)}>
+                remove
+            </button>
+            <button type="button" onClick={() => context.replace({ name: 'replaced', type: PropertyType.Terms }, 1)}>
+                replace
+            </button>
+        </div>
+    );
 };
 
 describe('AssetPropertiesProvider', () => {
     beforeEach(() => {
-        useEntityContextMock.mockReturnValue({
+        vi.clearAllMocks();
+        (useEntityContext as any).mockReturnValue({
+            urn: 'test-urn',
             entityType: EntityType.Dataset,
-            urn: 'urn:li:dataset:1',
-        } as any);
-        useInitialAssetPropertiesMock.mockReturnValue({
-            properties: [{ name: 'Owners', type: PropertyType.Owners }],
-            loading: false,
         });
-        useAvailableAssetPropertiesMock.mockReturnValue({
-            availableProperties: [],
-            availableStructuredProperties: [],
+        (useInitialAssetProperties as any).mockReturnValue({
+            properties: initialProperties,
+            loading: false,
         });
     });
 
-    it('should initialize with properties and pass them to the context', () => {
-        render(
+    it('should provide initial properties and loading state', () => {
+        const { getByTestId } = render(
             <AssetPropertiesProvider editable>
                 <TestConsumer />
             </AssetPropertiesProvider>,
         );
-
-        const contextValue = JSON.parse(screen.getByTestId('context-dump').textContent || '{}');
-        expect(contextValue.properties).toEqual([{ name: 'Owners', type: PropertyType.Owners }]);
-        expect(contextValue.propertiesLoading).toBe(false);
-        expect(contextValue.editable).toBe(true);
+        expect(getByTestId('loading').textContent).toBe('false');
+        expect(JSON.parse(getByTestId('properties').textContent || '')).toEqual(initialProperties);
     });
 
-    it('should handle the add action', () => {
-        let contextValue: any;
-        const TestComponent = () => {
-            contextValue = useAssetPropertiesContext();
-            return null;
-        };
-
-        render(
+    it('should handle the add function', () => {
+        const { getByTestId, getByText } = render(
             <AssetPropertiesProvider editable>
-                <TestComponent />
+                <TestConsumer />
             </AssetPropertiesProvider>,
         );
-
         act(() => {
-            contextValue.add({ name: 'Tags', type: PropertyType.Tags });
+            getByText('add').click();
         });
-
-        expect(contextValue.properties).toEqual([
-            { name: 'Owners', type: PropertyType.Owners },
-            { name: 'Tags', type: PropertyType.Tags },
-        ]);
+        const properties = JSON.parse(getByTestId('properties').textContent || '');
+        expect(properties).toHaveLength(3);
+        expect(properties[2].name).toBe('newProp');
     });
 
-    it('should handle the remove action', () => {
-        let contextValue: any;
-        const TestComponent = () => {
-            contextValue = useAssetPropertiesContext();
-            return null;
-        };
-
-        render(
+    it('should handle the remove function', () => {
+        const { getByTestId, getByText } = render(
             <AssetPropertiesProvider editable>
-                <TestComponent />
+                <TestConsumer />
             </AssetPropertiesProvider>,
         );
-
         act(() => {
-            contextValue.remove(0);
+            getByText('remove').click();
         });
-
-        expect(contextValue.properties).toEqual([]);
+        const properties = JSON.parse(getByTestId('properties').textContent || '');
+        expect(properties).toHaveLength(1);
+        expect(properties[0].name).toBe('prop2');
     });
 
-    it('should handle the replace action', () => {
-        let contextValue: any;
-        const TestComponent = () => {
-            contextValue = useAssetPropertiesContext();
-            return null;
-        };
-
-        render(
+    it('should handle the replace function', () => {
+        const { getByTestId, getByText } = render(
             <AssetPropertiesProvider editable>
-                <TestComponent />
+                <TestConsumer />
             </AssetPropertiesProvider>,
         );
-
         act(() => {
-            contextValue.replace({ name: 'Domain', type: PropertyType.Domain }, 0);
+            getByText('replace').click();
         });
-
-        expect(contextValue.properties).toEqual([{ name: 'Domain', type: PropertyType.Domain }]);
+        const properties = JSON.parse(getByTestId('properties').textContent || '');
+        expect(properties).toHaveLength(2);
+        expect(properties[1].name).toBe('replaced');
     });
 });

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import AssetPropertiesContext from '@app/entityV2/summary/properties/context/AssetPropertiesContext';
-import useAvailableAssetProperties from '@app/entityV2/summary/properties/hooks/useAvailableAssetProperties';
 import useInitialAssetProperties from '@app/entityV2/summary/properties/hooks/useInitialAssetProperties';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 
@@ -28,8 +27,6 @@ export default function AssetPropertiesProvider({ children, editable }: React.Pr
             setIsPropertiesInitialized(true);
         }
     }, [initialProperties, propertiesLoading, isPropertiesInitialized]);
-
-    const { availableProperties, availableStructuredProperties } = useAvailableAssetProperties();
 
     const persistChanges = useCallback((updatedProperties: AssetProperty[]) => {
         // TODO: save changes
@@ -72,9 +69,6 @@ export default function AssetPropertiesProvider({ children, editable }: React.Pr
                 propertiesLoading,
 
                 editable,
-
-                availableProperties,
-                availableStructuredProperties,
 
                 add,
                 remove,

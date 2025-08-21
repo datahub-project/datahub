@@ -1,6 +1,6 @@
 import React from 'react';
 
-import PropertiesWithDividerWrapper from '@app/entityV2/summary/properties/components/PropertiesWithDividerWrapper';
+import PropertiesWithDividerWrapper from '@app/entityV2/summary/properties/PropertiesWithDividerWrapper';
 import AssetPropertiesProvider from '@app/entityV2/summary/properties/context/AssetPropertiesProvider';
 
 export default function PropertiesHeader() {

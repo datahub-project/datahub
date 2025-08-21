@@ -1,4 +1,5 @@
 import { AssetProperty, PropertyType } from '@app/entityV2/summary/properties/types';
+import { DATE_TYPE_URN, NUMBER_TYPE_URN, STRING_TYPE_URN, URN_TYPE_URN } from '@app/shared/constants';
 
 export const OWNERS_PROPERTY: AssetProperty = {
     name: 'Owners',
@@ -41,3 +42,10 @@ export const VERIFICATION_STATUS_PROPERTY: AssetProperty = {
     type: PropertyType.VerificationStatus,
     icon: 'SealCheck',
 };
+
+export const SUPPORTED_STRUCTURED_PROPERTY_VALUE_TYPES = [
+    STRING_TYPE_URN,
+    NUMBER_TYPE_URN,
+    URN_TYPE_URN,
+    DATE_TYPE_URN,
+];

@@ -13,8 +13,9 @@ function convertItemsToAntdMenu(items: ItemType[]): MenuProps | undefined {
             case 'item':
                 return {
                     key: item.key,
-                    label: <MenuItemRenderer item={item} />,
+                    label: item.render ? item.render(item) : <MenuItemRenderer item={item} />,
                     onClick: item.onClick,
+                    disabled: item.disabled,
 
                     ...(item?.children
                         ? {
@@ -28,7 +29,7 @@ function convertItemsToAntdMenu(items: ItemType[]): MenuProps | undefined {
                 return {
                     key: item.key,
                     type: 'group',
-                    label: <GroupItemRenderer item={item} />,
+                    label: item.render ? item.render(item) : <GroupItemRenderer item={item} />,
                     ...(item?.children
                         ? {
                               children: item.children.map(traverse),
