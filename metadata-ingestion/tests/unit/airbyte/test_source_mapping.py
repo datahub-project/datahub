@@ -272,13 +272,16 @@ class TestAirbyteSourceMapping(unittest.TestCase):
         expected_dest_urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,dest_db.dest_schema.customers,TEST)"
 
         # Mock all the necessary methods for this test
-        with patch.object(
-            self.source,
-            "_map_dataset_urn_components",
-            side_effect=[source_mapping, dest_mapping],
-        ), patch(
-            "datahub.emitter.mce_builder.make_dataset_urn_with_platform_instance"
-        ) as mock_make_urn:
+        with (
+            patch.object(
+                self.source,
+                "_map_dataset_urn_components",
+                side_effect=[source_mapping, dest_mapping],
+            ),
+            patch(
+                "datahub.emitter.mce_builder.make_dataset_urn_with_platform_instance"
+            ) as mock_make_urn,
+        ):
             # Configure make_dataset_urn_with_platform_instance to return our expected URNs
             mock_make_urn.side_effect = [expected_source_urn, expected_dest_urn]
 

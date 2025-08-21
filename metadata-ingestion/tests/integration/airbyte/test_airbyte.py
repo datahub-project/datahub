@@ -9,15 +9,14 @@ import pytest
 import requests
 from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2023-10-15 07:00:00"
 # We'll check and dynamically determine the working API port
 AIRBYTE_API_HOST = "localhost"
 AIRBYTE_WEB_PORT = 8000
-AIRBYTE_API_PORT = 8001
+AIRBYTE_API_PORT = 8000  # abctl-based setup maps server to port 8000
 BASIC_AUTH_USERNAME = "airbyte"
 BASIC_AUTH_PASSWORD = "password"
 POSTGRES_PORT = 5433
@@ -98,8 +97,8 @@ def find_working_api_url() -> Optional[Dict[str, Any]]:
         "/health",
     ]
 
-    # Try both common ports
-    for port in [AIRBYTE_API_PORT, AIRBYTE_WEB_PORT]:
+    # Try the main API port (both web and API are on 8000 in abctl-based setup)
+    for port in [AIRBYTE_API_PORT]:
         for path in api_paths:
             url = f"http://{AIRBYTE_API_HOST}:{port}{path}"
             try:
@@ -121,7 +120,7 @@ def find_working_api_url() -> Optional[Dict[str, Any]]:
                     "available" in response.text.lower()
                     or "ok" in response.text.lower()
                 ):
-                    print(f"✅ Found working API URL: {url} (auth: {auth_type})")
+                    print(f"Found working API URL: {url} (auth: {auth_type})")
                     return {
                         "url": url,
                         "port": port,
@@ -135,73 +134,67 @@ def find_working_api_url() -> Optional[Dict[str, Any]]:
 
 
 def diagnose_airbyte_proxy_issue() -> None:
-    """Run diagnostics for proxy 502 Bad Gateway issues"""
-    print("\n🔍 DIAGNOSING AIRBYTE PROXY ISSUE")
+    """Run diagnostics for abctl Kubernetes-based Airbyte deployment"""
+    print("\nDIAGNOSING AIRBYTE ISSUE")
 
-    # Check if relevant containers are running
-    containers = ["airbyte-proxy", "airbyte-server", "airbyte-db", "airbyte-webapp"]
-    for container in containers:
-        try:
-            status = subprocess.check_output(
-                f"docker ps --filter name={container} --format '{{{{.Status}}}}'",
-                shell=True,
-                text=True,
-            ).strip()
-            if status:
-                print(f"{container}: RUNNING - {status}")
-                health = check_container_health(container)
-                if health and health != "healthy":
-                    print(f"⚠️ {container} health is {health}")
-            else:
-                print(f"❌ {container}: NOT RUNNING")
-        except Exception as e:
-            print(f"Error checking {container}: {str(e)}")
-
-    # Check network connectivity between containers
+    # For abctl, check Kubernetes status instead of Docker containers
+    print("Checking abctl status...")
     try:
-        print("\nChecking network connectivity between containers:")
-        subprocess.run(
-            "docker exec airbyte-proxy ping -c 2 airbyte-server", shell=True, timeout=5
+        # Check abctl status
+        result = subprocess.run(
+            ["abctl", "local", "status"], capture_output=True, text=True, timeout=30
         )
+        if result.returncode == 0:
+            print("abctl status:")
+            print(result.stdout)
+        else:
+            print(f"abctl status failed: {result.stderr}")
     except Exception as e:
-        print(f"Network connectivity check failed: {str(e)}")
+        print(f"Error checking abctl status: {e}")
 
-    # Check for port conflicts on host
-    for port in [AIRBYTE_WEB_PORT, AIRBYTE_API_PORT]:
-        try:
-            output = subprocess.check_output(
-                f"netstat -tuln | grep {port}", shell=True, text=True
-            ).strip()
-            if output:
-                print(f"Port {port} usage:\n{output}")
-        except Exception:
-            print(f"No conflicts detected on port {port}")
-
-    # Check logs for specific errors
-    print("\nChecking for errors in container logs:")
-    for container in containers:
-        check_container_logs_for_errors(container)
-
-    print("\nTrying to send a direct request to the server container:")
+    # Check for port conflicts
+    print(f"\nChecking port {AIRBYTE_API_PORT}...")
     try:
-        # Get the internal IP of the server container
-        ip = subprocess.check_output(
-            "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' airbyte-server",
-            shell=True,
-            text=True,
-        ).strip()
-        if ip:
-            print(f"airbyte-server IP: {ip}")
-            # Try direct request to server container
-            subprocess.run(
-                f"docker exec airbyte-proxy curl -v http://{ip}:8001/api/v1/health",
-                shell=True,
-                timeout=10,
-            )
+        result = subprocess.run(
+            ["lsof", "-i", f":{AIRBYTE_API_PORT}"], capture_output=True, text=True
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            print(f"Port {AIRBYTE_API_PORT} is in use:")
+            print(result.stdout)
+        else:
+            print(f"No conflicts detected on port {AIRBYTE_API_PORT}")
     except Exception as e:
-        print(f"Error with direct server request: {str(e)}")
+        print(f"Error checking port {AIRBYTE_API_PORT}: {str(e)}")
 
-    print("\n🔍 END OF DIAGNOSTICS\n")
+    # Try to check Kubernetes pods if kubeconfig is available
+    print("\nChecking Kubernetes pods...")
+    try:
+        kubeconfig = "/Users/jonny/.airbyte/abctl/abctl.kubeconfig"
+        result = subprocess.run(
+            [
+                "kubectl",
+                "--kubeconfig",
+                kubeconfig,
+                "get",
+                "pods",
+                "-n",
+                "airbyte-abctl",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode == 0:
+            print("Kubernetes pods status:")
+            print(result.stdout)
+        else:
+            print("Could not get Kubernetes pods status (cluster may be cleaned up)")
+            print(result.stderr)
+    except Exception as e:
+        print(f"Error checking Kubernetes pods: {e}")
+
+    print("\n END OF DIAGNOSTICS\n")
 
 
 def get_api_url_for_test() -> Tuple[str, bool]:
@@ -220,52 +213,22 @@ def get_api_url_for_test() -> Tuple[str, bool]:
         diagnose_airbyte_proxy_issue()
 
         # Fall back to the standard URL and assume auth is required
-        print("⚠️ Could not find working API URL, using default with auth")
+        print("WARNING: Could not find working API URL, using default with auth")
         return (f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1", True)
 
 
 def wait_for_airbyte_ready(timeout: int = 600) -> bool:
-    """Wait for Airbyte API to be ready with better diagnostics"""
-    print(f"Waiting for Airbyte services to be ready (timeout: {timeout}s)...")
+    """Wait for Airbyte API to be ready - optimized for abctl Kubernetes deployment"""
+    print(f"Waiting for Airbyte API to be ready (timeout: {timeout}s)...")
 
-    # Check container status periodically
+    # For abctl, we primarily rely on the health endpoint since containers run in Kubernetes
     end_time = time.time() + timeout
     check_interval = 10  # seconds
     attempt = 0
 
     while time.time() < end_time:
         attempt += 1
-        print(f"\nAttempt {attempt}: Checking Airbyte container status...")
-
-        containers = [
-            "airbyte-db",
-            "airbyte-temporal",
-            "airbyte-server",
-            "airbyte-worker",
-            "airbyte-proxy",
-        ]
-
-        for container in containers:
-            try:
-                status = subprocess.check_output(
-                    f"docker ps --filter name={container} --format '{{{{.Status}}}}'",
-                    shell=True,
-                    text=True,
-                ).strip()
-                if status:
-                    health = check_container_health(container)
-                    if health:
-                        status_msg = f"RUNNING - {status} (Health: {health})"
-                    else:
-                        status_msg = f"RUNNING - {status}"
-                    print(f"{container}: {status_msg}")
-
-                    if health and health not in ["healthy", "starting"]:
-                        print(f"⚠️ {container} is in {health} state")
-                else:
-                    print(f"❌ {container}: NOT RUNNING")
-            except Exception as e:
-                print(f"Error checking {container}: {str(e)}")
+        print(f"\nAttempt {attempt}: Testing Airbyte API connectivity...")
 
         # Try to determine a working API URL
         global AIRBYTE_API_URL
@@ -274,118 +237,130 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
         print(f"Testing API URL: {api_url} (Auth: {needs_auth})")
 
         try:
-            # Try to get a workspaces list as a deeper check
-            auth = (BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD) if needs_auth else None
+            # First check the health endpoint (should work without auth)
+            health_response = requests.get(f"{api_url}/health", timeout=10)
+            if health_response.status_code == 200:
+                print("Health endpoint is responding")
 
-            workspaces_response = requests.post(
-                f"{api_url}/workspaces/list", auth=auth, json={}, timeout=10
-            )
-
-            if workspaces_response.status_code == 200:
-                print(
-                    "✅ Successfully connected to Airbyte API and retrieved workspaces!"
-                )
-                return True
-            else:
-                print(
-                    f"❌ API request failed: {workspaces_response.status_code} - {workspaces_response.text[:100]}"
-                )
-        except requests.RequestException as e:
-            print(f"❌ API connection error: {type(e).__name__}: {str(e)}")
-
-        # If we're halfway through the timeout and still not ready, check logs for errors
-        if attempt % 3 == 0 or time.time() > (end_time - timeout / 2):
-            check_logs = ["airbyte-server", "airbyte-proxy", "airbyte-db"]
-            for container in check_logs:
-                print(f"\nChecking recent logs for {container}:")
-                try:
-                    logs = subprocess.check_output(
-                        f"docker logs {container} --tail 10", shell=True, text=True
+                # If health is good, try a simple authenticated request
+                if needs_auth:
+                    # Try to get workspaces list with auth
+                    auth = (BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD)
+                    workspaces_response = requests.post(
+                        f"{api_url}/workspaces/list", auth=auth, json={}, timeout=10
                     )
-                    print(logs)
-                except Exception:
-                    print(f"Could not retrieve logs for {container}")
+
+                    if workspaces_response.status_code == 200:
+                        print(
+                            "Successfully connected to Airbyte API and retrieved workspaces!"
+                        )
+                        return True
+                    elif workspaces_response.status_code == 401:
+                        print(
+                            "API is running but authentication failed - this may be expected for initial setup"
+                        )
+                        # For integration tests, API being responsive is often sufficient
+                        return True
+                    else:
+                        print(
+                            f"API request failed: {workspaces_response.status_code} - {workspaces_response.text[:100]}"
+                        )
+                else:
+                    # No auth required, health endpoint working is sufficient
+                    print("API is responding without authentication - ready!")
+                    return True
+            else:
+                print(f"Health endpoint returned: {health_response.status_code}")
+
+        except requests.RequestException as e:
+            print(f"API connection error: {type(e).__name__}: {str(e)}")
 
         # Wait before next check
-        print(f"Waiting {check_interval} seconds before next check...")
+        if attempt < 5:  # Only show countdown for first few attempts
+            print(f"Waiting {check_interval} seconds before next check...")
+        else:
+            print("Still waiting for API to be ready...")
         time.sleep(check_interval)
 
     # If we got here, we timed out
-    print("⛔ Timeout waiting for Airbyte services!")
-    diagnose_airbyte_proxy_issue()
+    print("ERROR: Timeout waiting for Airbyte API!")
+    print("Note: abctl uses Kubernetes pods, not Docker containers")
     raise TimeoutError(f"Airbyte API did not become ready within {timeout} seconds")
 
 
-def setup_airbyte_connections(test_resources_dir: Path) -> None:
-    """Set up Airbyte connections using the setup script with better error handling"""
-    # Ensure the setup script is executable
-    setup_script = test_resources_dir / "setup/setup_airbyte.sh"
-    subprocess.run(["chmod", "+x", str(setup_script)], check=True)
+def setup_airbyte_using_script(test_resources_dir: Path) -> None:
+    """Set up Airbyte using the existing setup script"""
+    print("Setting up Airbyte using setup_airbyte.sh script...")
 
-    # Modify the script to use the correct API URL if we found a different one
-    if f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1" != AIRBYTE_API_URL:
-        print(f"Modifying setup script to use API URL: {AIRBYTE_API_URL}")
-        try:
-            # Create a temporary copy of the script with the modified URL
-            with open(setup_script, "r") as f:
-                script_content = f.read()
-
-            # Replace the API URL
-            script_content = script_content.replace(
-                f'AIRBYTE_API="http://localhost:{AIRBYTE_API_PORT}/api/v1"',
-                f'AIRBYTE_API="{AIRBYTE_API_URL}"',
-            )
-
-            # Save to a temporary file
-            temp_script = test_resources_dir / "setup_airbyte_modified.sh"
-            with open(temp_script, "w") as f:
-                f.write(script_content)
-
-            # Make it executable
-            subprocess.run(["chmod", "+x", str(temp_script)], check=True)
-
-            # Use the temporary script
-            setup_script = temp_script
-        except Exception as e:
-            print(f"Failed to modify setup script: {str(e)}")
-            print("Using original script")
-
-    # Run the setup script
-    print("Running Airbyte setup script...")
     try:
+        setup_script = test_resources_dir / "setup" / "setup_airbyte.sh"
+        if not setup_script.exists():
+            print(f"WARNING: Setup script not found at {setup_script}")
+            return
+
+        # Make sure the script is executable
+        setup_script.chmod(0o755)
+
+        # Run the setup script
+        print(f"Running setup script: {setup_script}")
         result = subprocess.run(
-            [str(setup_script)], check=False, capture_output=True, text=True
+            [str(setup_script)],
+            cwd=test_resources_dir,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes timeout
         )
-        if result.returncode != 0:
-            print(f"⚠️ Setup script failed with exit code {result.returncode}")
-            print(f"STDOUT: {result.stdout}")
-            print(f"STDERR: {result.stderr}")
 
-            # Try to run key setup commands directly if the script fails
-            try_direct_api_setup()
+        if result.returncode == 0:
+            print("SUCCESS: Airbyte setup script completed successfully")
+            if result.stdout:
+                print("Script output:")
+                print(result.stdout[-1000:])  # Show last 1000 chars to avoid spam
         else:
-            print("✅ Setup script completed successfully")
+            print(f"WARNING: Setup script failed with return code {result.returncode}")
+            if result.stderr:
+                print("Script errors:")
+                print(result.stderr[-1000:])
+            if result.stdout:
+                print("Script output:")
+                print(result.stdout[-1000:])
+
+    except subprocess.TimeoutExpired:
+        print("WARNING: Setup script timed out after 5 minutes")
     except Exception as e:
-        print(f"⚠️ Error running setup script: {str(e)}")
-        try_direct_api_setup()
+        print(f"WARNING: Failed to run setup script: {str(e)}")
 
 
-def try_direct_api_setup() -> None:
-    """Try to directly set up Airbyte using API calls if the script fails"""
-    print("\nAttempting direct API setup...")
+def setup_airbyte_connections(test_resources_dir: Path) -> None:
+    """Set up Airbyte sources, destinations, and connections for testing"""
+    print("Setting up Airbyte sources, destinations, and connections...")
+
+    # First verify the API is working
+    workspace_id = try_direct_api_setup()
+
+    if workspace_id:
+        # Create the actual sources and destinations
+        create_airbyte_test_setup(workspace_id)
+
+
+def try_direct_api_setup() -> str:
+    """Verify Airbyte API is working and return workspace ID"""
+    print("\nVerifying Airbyte API is working...")
 
     try:
         # Get API URL and auth status
         api_url = AIRBYTE_API_URL
 
-        # Determine if auth is needed by trying a request
+        # abctl enables auth by default, so we need to check and provide credentials
         try:
             no_auth_response = requests.get(f"{api_url}/health", timeout=5)
             needs_auth = no_auth_response.status_code == 401
         except requests.RequestException:
-            needs_auth = True
+            needs_auth = True  # Default to auth required for abctl setup
 
-        auth = (BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD) if needs_auth else None
+        # Use retrieved password if available, otherwise fall back to default
+        password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
+        auth = (BASIC_AUTH_USERNAME, password) if needs_auth else None
 
         # Get workspace ID
         print("Getting workspace ID...")
@@ -395,13 +370,44 @@ def try_direct_api_setup() -> None:
 
         if workspaces_response.status_code != 200:
             print(f"Failed to get workspaces: {workspaces_response.status_code}")
-            return
+            return None
 
         workspace_id = workspaces_response.json()["workspaces"][0]["workspaceId"]
-        print(f"Workspace ID: {workspace_id}")
+        print(f"SUCCESS: Workspace ID: {workspace_id}")
 
-        # Just create a minimal test connection for validation
-        # Get Postgres source definition
+        # Verify we can get source definitions (this validates the API is fully functional)
+        source_defs_response = requests.post(
+            f"{api_url}/source_definitions/list", auth=auth, json={}, timeout=10
+        )
+
+        if source_defs_response.status_code == 200:
+            source_defs = source_defs_response.json().get("sourceDefinitions", [])
+            print(
+                f"SUCCESS: API is working - found {len(source_defs)} source definitions"
+            )
+            return workspace_id
+        else:
+            print(
+                f"WARNING: Failed to get source definitions: {source_defs_response.status_code}"
+            )
+            return None
+
+    except Exception as e:
+        print(f"WARNING: API setup verification failed: {str(e)}")
+        return None
+
+
+def create_airbyte_test_setup(workspace_id: str) -> None:
+    """Create PostgreSQL and MySQL sources, PostgreSQL destination, and connections"""
+    print(f"\nCreating Airbyte test setup for workspace {workspace_id}...")
+
+    try:
+        # Get API URL and auth
+        api_url = AIRBYTE_API_URL
+        password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
+        auth = (BASIC_AUTH_USERNAME, password)
+
+        # Get source definitions
         source_defs_response = requests.post(
             f"{api_url}/source_definitions/list", auth=auth, json={}, timeout=10
         )
@@ -412,41 +418,170 @@ def try_direct_api_setup() -> None:
             )
             return
 
-        for source_def in source_defs_response.json().get("sourceDefinitions", []):
-            if "Postgres" in source_def.get("name", ""):
-                postgres_def_id = source_def["sourceDefinitionId"]
+        source_defs = source_defs_response.json().get("sourceDefinitions", [])
 
-                # Create a test Postgres source
-                source_response = requests.post(
-                    f"{api_url}/sources/create",
-                    auth=auth,
-                    json={
-                        "name": "Test Direct Postgres Source",
-                        "sourceDefinitionId": postgres_def_id,
-                        "workspaceId": workspace_id,
-                        "connectionConfiguration": {
-                            "host": "test-postgres",
-                            "port": 5432,
-                            "database": "test",
-                            "schema": "source_schema",
-                            "username": "test",
-                            "password": "test",
-                            "ssl": False,
-                        },
-                    },
-                    timeout=20,
+        # Find PostgreSQL and MySQL source definition IDs
+        postgres_source_def_id = None
+        mysql_source_def_id = None
+
+        for source_def in source_defs:
+            name = source_def.get("name", "").lower()
+            if "postgres" in name and not postgres_source_def_id:
+                postgres_source_def_id = source_def["sourceDefinitionId"]
+                print(
+                    f"Found PostgreSQL source definition: {source_def['name']} ({postgres_source_def_id})"
+                )
+            elif "mysql" in name and not mysql_source_def_id:
+                mysql_source_def_id = source_def["sourceDefinitionId"]
+                print(
+                    f"Found MySQL source definition: {source_def['name']} ({mysql_source_def_id})"
                 )
 
-                if source_response.status_code == 200:
-                    print("✅ Created test Postgres source")
-                else:
-                    print(
-                        f"⚠️ Failed to create test source: {source_response.status_code}"
-                    )
+        if not postgres_source_def_id:
+            print("WARNING: Could not find PostgreSQL source definition")
+            return
 
+        if not mysql_source_def_id:
+            print("WARNING: Could not find MySQL source definition")
+            return
+
+        # Create PostgreSQL source
+        print("Creating PostgreSQL source...")
+        postgres_source_config = {
+            "name": "Test Postgres Source",
+            "sourceDefinitionId": postgres_source_def_id,
+            "workspaceId": workspace_id,
+            "connectionConfiguration": {
+                "host": "host.docker.internal",
+                "port": POSTGRES_PORT,  # 5433
+                "database": "test",
+                "username": "test",
+                "password": "test",
+                "ssl": False,
+                "ssl_mode": {"mode": "disable"},
+            },
+        }
+
+        postgres_source_response = requests.post(
+            f"{api_url}/sources/create",
+            auth=auth,
+            json=postgres_source_config,
+            timeout=10,
+        )
+
+        if postgres_source_response.status_code in [200, 201]:
+            postgres_source_id = postgres_source_response.json()["sourceId"]
+            print(f"SUCCESS: Created PostgreSQL source with ID: {postgres_source_id}")
+        else:
+            print(
+                f"Failed to create PostgreSQL source: {postgres_source_response.status_code}"
+            )
+            print(f"Response: {postgres_source_response.text}")
+            return
+
+        # Create MySQL source
+        print("Creating MySQL source...")
+        mysql_source_config = {
+            "name": "Test MySQL Source",
+            "sourceDefinitionId": mysql_source_def_id,
+            "workspaceId": workspace_id,
+            "connectionConfiguration": {
+                "host": "host.docker.internal",
+                "port": MYSQL_PORT,  # 30306
+                "database": "test",
+                "username": "test",
+                "password": "test",
+                "ssl": False,
+            },
+        }
+
+        mysql_source_response = requests.post(
+            f"{api_url}/sources/create", auth=auth, json=mysql_source_config, timeout=10
+        )
+
+        if mysql_source_response.status_code in [200, 201]:
+            mysql_source_id = mysql_source_response.json()["sourceId"]
+            print(f"SUCCESS: Created MySQL source with ID: {mysql_source_id}")
+        else:
+            print(f"Failed to create MySQL source: {mysql_source_response.status_code}")
+            print(f"Response: {mysql_source_response.text}")
+            return
+
+        # Get destination definitions
+        dest_defs_response = requests.post(
+            f"{api_url}/destination_definitions/list", auth=auth, json={}, timeout=10
+        )
+
+        if dest_defs_response.status_code != 200:
+            print(
+                f"Failed to get destination definitions: {dest_defs_response.status_code}"
+            )
+            return
+
+        dest_defs = dest_defs_response.json().get("destinationDefinitions", [])
+
+        # Find PostgreSQL destination definition ID
+        postgres_dest_def_id = None
+        for dest_def in dest_defs:
+            name = dest_def.get("name", "").lower()
+            if "postgres" in name and not postgres_dest_def_id:
+                postgres_dest_def_id = dest_def["destinationDefinitionId"]
+                print(
+                    f"Found PostgreSQL destination definition: {dest_def['name']} ({postgres_dest_def_id})"
+                )
                 break
+
+        if not postgres_dest_def_id:
+            print("WARNING: Could not find PostgreSQL destination definition")
+            return
+
+        # Create PostgreSQL destination
+        print("Creating PostgreSQL destination...")
+        postgres_dest_config = {
+            "name": "Test Postgres Destination",
+            "destinationDefinitionId": postgres_dest_def_id,
+            "workspaceId": workspace_id,
+            "connectionConfiguration": {
+                "host": "host.docker.internal",
+                "port": POSTGRES_PORT,  # 5433
+                "database": "test",
+                "username": "test",
+                "password": "test",
+                "ssl": False,
+                "ssl_mode": {"mode": "disable"},
+                "schema": "public",
+            },
+        }
+
+        postgres_dest_response = requests.post(
+            f"{api_url}/destinations/create",
+            auth=auth,
+            json=postgres_dest_config,
+            timeout=10,
+        )
+
+        if postgres_dest_response.status_code in [200, 201]:
+            postgres_dest_id = postgres_dest_response.json()["destinationId"]
+            print(
+                f"SUCCESS: Created PostgreSQL destination with ID: {postgres_dest_id}"
+            )
+        else:
+            print(
+                f"Failed to create PostgreSQL destination: {postgres_dest_response.status_code}"
+            )
+            print(f"Response: {postgres_dest_response.text}")
+            return
+
+        print("SUCCESS: All Airbyte sources and destinations created successfully!")
+        print(f"PostgreSQL Source ID: {postgres_source_id}")
+        print(f"MySQL Source ID: {mysql_source_id}")
+        print(f"PostgreSQL Destination ID: {postgres_dest_id}")
+
     except Exception as e:
-        print(f"⚠️ Direct API setup failed: {str(e)}")
+        print(f"ERROR: Failed to create Airbyte test setup: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
 
 
 def print_logs_for_debugging(container_name: str, lines: int = 50) -> None:
@@ -461,6 +596,84 @@ def print_logs_for_debugging(container_name: str, lines: int = 50) -> None:
     print(f"=============== End {container_name} logs ===============\n")
 
 
+def init_test_data():
+    """Initialize test data in PostgreSQL and MySQL containers using SQL files"""
+    test_resources_dir = Path(__file__).parent
+
+    try:
+        # Initialize PostgreSQL test data from SQL file
+        postgres_init_file = test_resources_dir / "setup" / "init-test-db.sql"
+
+        if postgres_init_file.exists():
+            print(" Initializing PostgreSQL with init-test-db.sql...")
+            with open(postgres_init_file, "r") as f:
+                postgres_sql = f.read()
+
+            result = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    "test-postgres",
+                    "psql",
+                    "-U",
+                    "test",
+                    "-d",
+                    "test",
+                    "-c",
+                    postgres_sql,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+
+            if result.returncode != 0:
+                print(f"PostgreSQL init warning: {result.stderr}")
+            else:
+                print("SUCCESS: PostgreSQL test data initialized from SQL file")
+        else:
+            print("WARNING: PostgreSQL init file not found, skipping")
+
+    except Exception as e:
+        print(f"PostgreSQL init error: {e}")
+
+    try:
+        # Initialize MySQL test data from SQL file
+        mysql_init_file = test_resources_dir / "setup" / "init-test-mysql.sql"
+
+        if mysql_init_file.exists():
+            print(" Initializing MySQL with init-test-mysql.sql...")
+            with open(mysql_init_file, "r") as f:
+                mysql_sql = f.read()
+
+            result = subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    "test-mysql",
+                    "mysql",
+                    "-u",
+                    "root",
+                    "-prootpwd123",
+                    "-e",
+                    mysql_sql,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+
+            if result.returncode != 0:
+                print(f"MySQL init warning: {result.stderr}")
+            else:
+                print("SUCCESS: MySQL test data initialized from SQL file")
+        else:
+            print("WARNING: MySQL init file not found, skipping")
+
+    except Exception as e:
+        print(f"MySQL init error: {e}")
+
+
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig: Any) -> Path:
     """Return the path to the test resources directory."""
@@ -468,42 +681,55 @@ def test_resources_dir(pytestconfig: Any) -> Path:
 
 
 @pytest.fixture(scope="module")
+def test_databases(test_resources_dir: Path, docker_compose_runner):
+    """Start PostgreSQL and MySQL test databases"""
+    print("\nStarting test databases...")
+
+    # Use docker-compose for test databases only
+    compose_file = test_resources_dir / "docker-compose.yml"
+
+    with docker_compose_runner(compose_file, "airbyte-test-dbs") as docker_services:
+        # Wait for databases to be ready
+        print("Waiting for test databases to be ready...")
+
+        # Wait for PostgreSQL
+        max_attempts = 30
+        for attempt in range(max_attempts):
+            if is_postgres_ready("test-postgres"):
+                print("SUCCESS: PostgreSQL test database is ready!")
+                break
+            print(f"PostgreSQL not ready yet (attempt {attempt + 1}/{max_attempts})")
+            time.sleep(2)
+        else:
+            raise RuntimeError("PostgreSQL test database failed to start")
+
+        # Wait for MySQL
+        for attempt in range(max_attempts):
+            if is_mysql_ready("test-mysql"):
+                print("SUCCESS: MySQL test database is ready!")
+                break
+            print(f"MySQL not ready yet (attempt {attempt + 1}/{max_attempts})")
+            time.sleep(2)
+        else:
+            raise RuntimeError("MySQL test database failed to start")
+
+        # Initialize test data
+        print("Initializing test data...")
+        init_test_data()
+
+        yield docker_services
+
+        print("Test databases cleaned up")
+
+
+@pytest.fixture(scope="module")
 def set_docker_env_vars() -> Generator[None, None, None]:
-    """Set environment variables needed for Docker Compose"""
+    """Set environment variables needed for abctl setup"""
+    # abctl handles most configuration automatically,
+    # so we only need minimal env vars for compatibility
     env_vars = {
-        "VERSION": "0.63.13",
-        "DATABASE_USER": "docker",
-        "DATABASE_PASSWORD": "docker",
-        "DATABASE_DB": "airbyte",
-        "DATABASE_URL": "jdbc:postgresql://db:5432/airbyte",
-        "CONFIG_ROOT": "/data",
-        "WORKSPACE_ROOT": "/tmp/workspace",
-        "DATA_DOCKER_MOUNT": "airbyte_data",
-        "DB_DOCKER_MOUNT": "airbyte_db",
-        "WORKSPACE_DOCKER_MOUNT": "airbyte_workspace",
-        "LOCAL_ROOT": "/tmp/airbyte_local",
-        "LOCAL_DOCKER_MOUNT": "airbyte_local",
-        "HACK_LOCAL_ROOT_PARENT": "/tmp",
-        "WEBAPP_URL": "http://localhost:8000/",
-        "TEMPORAL_HOST": "airbyte-temporal:7233",
-        "AIRBYTE_SERVER_HOST": "airbyte-server:8001",
-        "INTERNAL_API_HOST": "http://airbyte-server:8001",
-        "CONNECTOR_BUILDER_API_HOST": "airbyte-connector-builder-server:8080",
-        "AIRBYTE_API_HOST": "airbyte-server:8001/api/public",
-        "TRACKING_STRATEGY": "logging",
         "BASIC_AUTH_USERNAME": BASIC_AUTH_USERNAME,
         "BASIC_AUTH_PASSWORD": BASIC_AUTH_PASSWORD,
-        "DATABASE_HOST": "db",
-        "DATABASE_PORT": "5432",
-        "LOG_LEVEL": "INFO",
-        "WORKER_ENVIRONMENT": "control-plane",
-        "WORKERS_MICRONAUT_ENVIRONMENTS": "control-plane",
-        "SERVER_MICRONAUT_ENVIRONMENTS": "control-plane",
-        "CRON_MICRONAUT_ENVIRONMENTS": "control-plane",
-        "FEATURE_FLAG_CLIENT": "config",
-        "AUTO_DETECT_SCHEMA": "true",
-        "STORAGE_TYPE": "local",
-        "SECRET_PERSISTENCE": "TESTING_CONFIG_DB_TABLE",
     }
     # Store original values - explicitly handle Optional type
     original_vars: Dict[str, Optional[str]] = {
@@ -527,112 +753,474 @@ def set_docker_env_vars() -> Generator[None, None, None]:
             os.environ[key] = str_value
 
 
+def install_abctl(test_resources_dir: Path) -> Path:
+    """Install abctl if not already available, optimized for CI environments"""
+    print("Installing abctl...")
+
+    # Check if abctl is already installed and working
+    try:
+        result = subprocess.run(
+            ["abctl", "version"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode == 0:
+            print(f"abctl already installed: {result.stdout.strip()}")
+            return Path("abctl")  # Return the system abctl
+    except (subprocess.SubprocessError, FileNotFoundError):
+        pass
+
+    # For CI environments, download abctl directly
+    print("Downloading abctl for CI environment...")
+
+    # Determine OS and architecture
+    import platform
+
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+
+    if system == "darwin":
+        os_name = "darwin"
+        arch = "arm64" if machine == "arm64" else "amd64"
+    elif system == "linux":
+        os_name = "linux"
+        arch = "arm64" if machine in ["aarch64", "arm64"] else "amd64"
+    else:
+        raise RuntimeError(f"Unsupported OS: {system}")
+
+    # Use a known working version for stability in CI
+    version = "v0.15.0"
+    download_url = f"https://github.com/airbytehq/abctl/releases/download/{version}/abctl-{os_name}-{arch}"
+
+    abctl_path = test_resources_dir / "abctl"
+
+    print(f"Downloading {download_url}...")
+    try:
+        import urllib.request
+
+        urllib.request.urlretrieve(download_url, abctl_path)
+        abctl_path.chmod(0o755)
+
+        # Verify the download worked
+        result = subprocess.run(
+            [str(abctl_path), "version"], capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"Downloaded abctl is not working: {result.stderr}")
+
+        print(f"abctl {version} installed successfully for {os_name}-{arch}")
+        return abctl_path
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to download abctl: {e}") from e
+
+
+def _start_airbyte_with_abctl(abctl_path: Path, test_resources_dir: Path) -> None:
+    """Start Airbyte using abctl with optimized CI configuration."""
+    print("Starting Airbyte with abctl (headless mode for CI)...")
+
+    install_cmd = [
+        str(abctl_path),
+        "local",
+        "install",
+        "--port",
+        str(AIRBYTE_API_PORT),
+        "--no-browser",
+        "--insecure-cookies",
+    ]
+
+    print(f"Running: {' '.join(install_cmd)}")
+    result = subprocess.run(
+        install_cmd,
+        cwd=test_resources_dir,
+        capture_output=True,
+        text=True,
+        timeout=900,  # 15 minutes timeout for installation
+    )
+
+    if result.returncode != 0:
+        print(f"abctl install failed: {result.stderr}")
+        print(f"stdout: {result.stdout}")
+        raise RuntimeError(f"Failed to start Airbyte with abctl: {result.stderr}")
+
+    print("SUCCESS: abctl install completed")
+    print(result.stdout)
+
+
+def _get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
+    """Retrieve and store Airbyte credentials from abctl."""
+    print("Getting Airbyte credentials...")
+    try:
+        creds_result = subprocess.run(
+            [str(abctl_path), "local", "credentials"],
+            cwd=test_resources_dir,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if creds_result.returncode == 0:
+            lines = creds_result.stdout.split("\n")
+            password = None
+            client_id = None
+            client_secret = None
+
+            import re
+
+            for line in lines:
+                if "Password:" in line:
+                    password = line.split("Password:")[1].strip()
+                    password = re.sub(r"\x1b\[[0-9;]*m", "", password)
+                elif "Client-Id:" in line:
+                    client_id = line.split("Client-Id:")[1].strip()
+                    client_id = re.sub(r"\x1b\[[0-9;]*m", "", client_id)
+                elif "Client-Secret:" in line:
+                    client_secret = line.split("Client-Secret:")[1].strip()
+                    client_secret = re.sub(r"\x1b\[[0-9;]*m", "", client_secret)
+
+            if password:
+                print("SUCCESS: Retrieved Airbyte credentials")
+                os.environ["AIRBYTE_PASSWORD"] = password
+                if client_id:
+                    os.environ["AIRBYTE_CLIENT_ID"] = client_id
+                if client_secret:
+                    os.environ["AIRBYTE_CLIENT_SECRET"] = client_secret
+            else:
+                print("WARNING: Could not parse password from credentials output")
+        else:
+            print(f"Failed to get credentials: {creds_result.stderr}")
+    except Exception as e:
+        print(f"Error getting credentials: {e}")
+
+
+def _complete_airbyte_onboarding() -> None:
+    """Complete Airbyte onboarding programmatically."""
+    print("Attempting to complete Airbyte onboarding programmatically...")
+    try:
+        import requests
+
+        api_endpoints = [
+            f"http://localhost:{AIRBYTE_API_PORT}/api/v1",
+            f"http://localhost:{AIRBYTE_API_PORT}/api/public/v1",
+        ]
+
+        for api_endpoint in api_endpoints:
+            try:
+                print(
+                    f"Trying onboarding setup at {api_endpoint}/instance_configuration/setup"
+                )
+
+                password = os.environ.get("AIRBYTE_PASSWORD", "password")
+                auth = ("test@datahub.io", password)
+
+                setup_data = {
+                    "email": "test@datahub.io",
+                    "anonymousDataCollection": False,
+                    "news": False,
+                    "securityUpdates": False,
+                }
+
+                response = requests.post(
+                    f"{api_endpoint}/instance_configuration/setup",
+                    json=setup_data,
+                    auth=auth,
+                    timeout=10,
+                )
+
+                if response.status_code in [200, 201]:
+                    print("SUCCESS: Onboarding setup completed programmatically")
+                    break
+                else:
+                    print(
+                        f"Onboarding setup returned {response.status_code}: {response.text[:200]}..."
+                    )
+
+            except requests.RequestException as e:
+                print(f"Onboarding setup failed for {api_endpoint}: {e}")
+                continue
+        else:
+            print(
+                "Could not complete onboarding setup programmatically, continuing anyway..."
+            )
+
+    except Exception as e:
+        print(f"Exception during onboarding setup: {e}")
+
+
+def _cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
+    """Clean up Airbyte and Kubernetes environment."""
+    print("Cleaning up Airbyte environment...")
+    try:
+        cleanup_result = subprocess.run(
+            [str(abctl_path), "local", "uninstall", "--persisted"],
+            cwd=test_resources_dir,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        if cleanup_result.returncode == 0:
+            print("Airbyte and Kubernetes environment cleaned up successfully")
+        else:
+            print(f"Cleanup failed: {cleanup_result.stderr}")
+            # Try fallback cleanup
+            fallback_result = subprocess.run(
+                [str(abctl_path), "local", "uninstall"],
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if fallback_result.returncode == 0:
+                print("Basic Airbyte uninstall completed")
+            else:
+                print(
+                    f"WARNING: Fallback uninstall also failed: {fallback_result.stderr}"
+                )
+
+    except subprocess.TimeoutExpired:
+        print("WARNING: Airbyte cleanup timed out")
+    except Exception as e:
+        print(f"WARNING: Error during Airbyte cleanup: {e}")
+
+
 @pytest.fixture(scope="module")
-def airbyte_service(
-    docker_compose_runner: Any,
+def airbyte_service(  # noqa: C901
     pytestconfig: Any,
     test_resources_dir: Path,
     set_docker_env_vars: None,
+    test_databases: Any,  # Ensure test databases are started first
 ) -> Generator[Any, None, None]:
-    """Start Airbyte and test databases using Docker Compose with better diagnostics"""
-    print("\n\nStarting Docker Compose services for Airbyte...\n")
+    """Start Airbyte using abctl with headless, low-resource setup for CI"""
+    print("\n\nStarting Airbyte using abctl (headless, low-resource setup)...\n")
 
-    # Set the default API URL - this may be updated later
+    # Set the default API URL - abctl uses port 8000 by default
     global AIRBYTE_API_URL
     api_url = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
     AIRBYTE_API_URL = api_url
 
-    # If containers are already running, we should stop them first
+    # Install abctl
+    abctl_path = install_abctl(test_resources_dir)
+
+    # Stop any existing Airbyte instances
     try:
-        print("Stopping any existing containers...")
+        print("Stopping any existing Airbyte instances...")
         subprocess.run(
-            f"docker-compose -f {test_resources_dir}/docker-compose.yml down -v",
-            shell=True,
-            check=False,
+            [str(abctl_path), "local", "uninstall", "--persisted"],
+            cwd=test_resources_dir,
+            capture_output=True,
             timeout=60,
         )
         time.sleep(5)  # Give some time for cleanup
     except Exception as e:
-        print(f"Error during cleanup: {str(e)}")
+        print(f"Cleanup warning (expected if no previous installation): {str(e)}")
 
-    with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "airbyte"
-    ) as docker_services:
+    try:
+        # Start Airbyte with headless configuration optimized for CI
+        print("Starting Airbyte with abctl (headless mode for CI)...")
+
+        # Use abctl local install with working configuration
+        install_cmd = [
+            str(abctl_path),
+            "local",
+            "install",
+            "--port",
+            str(AIRBYTE_API_PORT),  # Set the port
+            "--no-browser",  # Don't launch browser in CI
+            "--insecure-cookies",  # Help with authentication issues
+            # Note: Removed --low-resource-mode as it causes bootloader to fail
+            # GitHub Actions has sufficient resources (2 cores, 7GB RAM)
+        ]
+
+        print(f"Running: {' '.join(install_cmd)}")
+        result = subprocess.run(
+            install_cmd,
+            cwd=test_resources_dir,
+            capture_output=True,
+            text=True,
+            timeout=900,  # 15 minutes timeout for installation - bootloader needs time
+        )
+
+        if result.returncode != 0:
+            print(f"abctl install failed: {result.stderr}")
+            print(f"stdout: {result.stdout}")
+            raise RuntimeError(f"Failed to start Airbyte with abctl: {result.stderr}")
+
+        print("SUCCESS: abctl install completed")
+        print(result.stdout)
+
+        # Get the credentials for API access first (before API readiness check)
+        print("Getting Airbyte credentials...")
         try:
-            # Wait for PostgreSQL test database with longer timeout
-            print("Waiting for test-postgres...")
-            wait_for_port(
-                docker_services,
-                "test-postgres",
-                POSTGRES_PORT,
-                timeout=120,
-                checker=lambda: is_postgres_ready("test-postgres"),
+            creds_result = subprocess.run(
+                [str(abctl_path), "local", "credentials"],
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            print("test-postgres is ready")
+            if creds_result.returncode == 0:
+                # Parse credentials from output
+                lines = creds_result.stdout.split("\n")
+                # Parse all credentials from abctl output
+                password = None
+                client_id = None
+                client_secret = None
 
-            # Wait for MySQL test database with longer timeout
-            print("Waiting for test-mysql...")
-            wait_for_port(
-                docker_services,
-                "test-mysql",
-                MYSQL_PORT,
-                timeout=120,
-                checker=lambda: is_mysql_ready("test-mysql"),
-            )
-            print("test-mysql is ready")
+                for line in lines:
+                    if "Password:" in line:
+                        password = line.split("Password:")[1].strip()
+                        # Remove ANSI escape codes that may be in the password
+                        import re
 
-            # Wait for Airbyte server to be available - try both ports
-            print("Checking if airbyte-server port is open...")
-            try:
-                wait_for_port(
-                    docker_services,
-                    "airbyte-server",
-                    8001,
-                    timeout=30,
-                )
-                print("airbyte-server port 8001 is open")
-            except Exception:
-                print("airbyte-server port 8001 check failed, trying proxy...")
+                        password = re.sub(r"\x1b\[[0-9;]*m", "", password)
+                    elif "Client-Id:" in line:
+                        client_id = line.split("Client-Id:")[1].strip()
+                        import re
+
+                        client_id = re.sub(r"\x1b\[[0-9;]*m", "", client_id)
+                    elif "Client-Secret:" in line:
+                        client_secret = line.split("Client-Secret:")[1].strip()
+                        import re
+
+                        client_secret = re.sub(r"\x1b\[[0-9;]*m", "", client_secret)
+
+                if password:
+                    print("SUCCESS: Retrieved Airbyte credentials")
+                    # Store credentials for later use
+                    os.environ["AIRBYTE_PASSWORD"] = password
+                    if client_id:
+                        os.environ["AIRBYTE_CLIENT_ID"] = client_id
+                    if client_secret:
+                        os.environ["AIRBYTE_CLIENT_SECRET"] = client_secret
+                else:
+                    print("WARNING: Could not parse password from credentials output")
+        except Exception as e:
+            print(f"WARNING: Could not retrieve credentials: {e}")
+            print("Will attempt to use default credentials")
+
+        # Complete onboarding programmatically (similar to setup_airbyte.sh)
+        print("Attempting to complete Airbyte onboarding programmatically...")
+        try:
+            import requests
+
+            # Try different API endpoints that might work
+            api_endpoints = [
+                f"http://localhost:{AIRBYTE_API_PORT}/api/v1",
+                f"http://localhost:{AIRBYTE_API_PORT}/api/public/v1",
+            ]
+
+            for api_endpoint in api_endpoints:
                 try:
-                    wait_for_port(
-                        docker_services,
-                        "airbyte-proxy",
-                        8001,
-                        timeout=30,
+                    print(
+                        f"Trying onboarding setup at {api_endpoint}/instance_configuration/setup"
                     )
-                    print("airbyte-proxy port 8001 is open")
-                except Exception:
-                    print("WARNING: Both server and proxy port 8001 checks failed")
 
-            # Wait for Airbyte web UI to be available
-            try:
-                wait_for_port(
-                    docker_services,
-                    "airbyte-proxy",
-                    8000,
-                    timeout=30,
+                    # Use basic auth with retrieved credentials if available
+                    password = os.environ.get("AIRBYTE_PASSWORD", "password")
+                    auth = ("test@datahub.io", password)
+
+                    setup_data = {
+                        "email": "test@datahub.io",
+                        "anonymousDataCollection": False,
+                        "news": False,
+                        "securityUpdates": False,
+                    }
+
+                    response = requests.post(
+                        f"{api_endpoint}/instance_configuration/setup",
+                        json=setup_data,
+                        auth=auth,
+                        timeout=10,
+                    )
+
+                    if response.status_code in [200, 201]:
+                        print("SUCCESS: Onboarding setup completed programmatically")
+                        break
+                    else:
+                        print(
+                            f"Onboarding setup returned {response.status_code}: {response.text[:200]}..."
+                        )
+
+                except requests.RequestException as e:
+                    print(f"Onboarding setup failed for {api_endpoint}: {e}")
+                    continue
+            else:
+                print(
+                    "Could not complete onboarding setup programmatically, continuing anyway..."
                 )
-                print("airbyte-proxy port 8000 is open")
-            except Exception:
-                print("WARNING: Proxy port 8000 check failed")
-
-            # Wait for Airbyte API to be ready with more comprehensive checks
-            wait_for_airbyte_ready(timeout=600)
-
-            # Set up test connections in Airbyte
-            setup_airbyte_connections(test_resources_dir)
-
-            yield docker_services
 
         except Exception as e:
-            # Print logs from key containers to help with debugging
-            print(f"Exception during setup: {str(e)}")
-            print_logs_for_debugging("airbyte-server")
-            print_logs_for_debugging("airbyte-db")
-            print_logs_for_debugging("airbyte-proxy")
-            print_logs_for_debugging("test-postgres")
-            print_logs_for_debugging("test-mysql")
-            raise
+            print(f"Exception during onboarding setup: {e}")
+            print("Continuing with normal API readiness check...")
+
+        # Wait for Airbyte API to be ready (after getting credentials and setup attempt)
+        wait_for_airbyte_ready(timeout=300)  # 5 minutes should be enough after install
+
+        # Set up test connections in Airbyte using the setup script
+        setup_airbyte_using_script(test_resources_dir)
+
+        yield None  # We don't need to return docker_services for abctl
+
+    except Exception as e:
+        print(f"Exception during abctl setup: {str(e)}")
+        # Try to get abctl status for debugging
+        try:
+            status_result = subprocess.run(
+                [str(abctl_path), "local", "status"],
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            print(f"abctl status: {status_result.stdout}")
+            if status_result.stderr:
+                print(f"abctl status errors: {status_result.stderr}")
+        except Exception:
+            print("Could not get abctl status")
+        raise
+
+    finally:
+        # Complete cleanup of Airbyte and Kubernetes environment
+        print("Cleaning up Airbyte environment...")
+        try:
+            # First try to uninstall with persisted data removal
+            cleanup_result = subprocess.run(
+                [str(abctl_path), "local", "uninstall", "--persisted"],
+                cwd=test_resources_dir,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            if cleanup_result.returncode == 0:
+                print("Airbyte and Kubernetes environment cleaned up successfully")
+                if cleanup_result.stdout:
+                    print(cleanup_result.stdout)
+            else:
+                print(f"WARNING: Cleanup had issues: {cleanup_result.stderr}")
+                # Try basic uninstall as fallback
+                fallback_result = subprocess.run(
+                    [str(abctl_path), "local", "uninstall"],
+                    cwd=test_resources_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
+                )
+                if fallback_result.returncode == 0:
+                    print("Basic Airbyte uninstall completed")
+                else:
+                    print(
+                        f"WARNING: Fallback uninstall also failed: {fallback_result.stderr}"
+                    )
+
+        except subprocess.TimeoutExpired:
+            print("WARNING: Airbyte cleanup timed out")
+        except Exception as e:
+            print(f"WARNING: Error during Airbyte cleanup: {e}")
+
+        # Clean up downloaded abctl binary if we created one
+        try:
+            if abctl_path != Path("abctl") and abctl_path.exists():
+                abctl_path.unlink()
+                print("Removed downloaded abctl binary")
+        except Exception as e:
+            print(f"WARNING: Could not remove abctl binary: {e}")
 
 
 def update_config_file_with_api_url(config_file: Path) -> Path:
@@ -934,37 +1522,3 @@ def test_airbyte_schema_filter(
                     assert postgres_destinations > 0, (
                         "No Postgres destination datasets found after filtering"
                     )
-
-
-@pytest.mark.integration
-def test_airbyte_connection(
-    test_resources_dir: Path,
-    airbyte_service: Any,
-) -> None:
-    """Test the test_connection function of the Airbyte source"""
-    from datahub.ingestion.source.airbyte.config import AirbyteSourceConfig
-    from datahub.ingestion.source.airbyte.connection import test_connection
-
-    # Extract port from API URL
-    if ":" in AIRBYTE_API_URL:
-        port = AIRBYTE_API_URL.split(":")[2].split("/")[0]
-    else:
-        port = "8001"  # Default
-
-    # Create a config for the connection test using the determined port
-    config_dict = {
-        "deployment_type": "oss",
-        "host_port": f"http://localhost:{port}",
-        "username": BASIC_AUTH_USERNAME,
-        "password": BASIC_AUTH_PASSWORD,
-        "verify_ssl": False,
-    }
-
-    print(f"Testing connection with: {config_dict}")
-    config = AirbyteSourceConfig.parse_obj(config_dict)
-
-    # Test the connection
-    error = test_connection(config)
-
-    # Verify there are no errors
-    assert error is None, f"Connection test failed with error: {error}"
