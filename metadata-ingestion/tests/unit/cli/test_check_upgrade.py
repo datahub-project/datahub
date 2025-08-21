@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from packaging.version import Version
 
@@ -7,6 +8,7 @@ from datahub.upgrade.upgrade import (
     DataHubVersionStats,
     ServerVersionStats,
     VersionStats,
+    _maybe_print_upgrade_message,
     _safe_version_stats,
     get_days,
     is_client_server_compatible,
@@ -97,3 +99,43 @@ def test_is_server_default_cli_ahead():
     # Invalid versions (prerelease)
     assert not is_server_default_cli_ahead(make_version_stats("0.9.5rc1", "0.9.7"))
     assert not is_server_default_cli_ahead(make_version_stats("0.9.5", "0.9.7rc1"))
+
+
+@patch("datahub.upgrade.upgrade.click.echo")
+def test_cloud_server_skips_version_warnings(mock_echo):
+    """Test that cloud servers (serverEnv=cloud) skip version mismatch warnings."""
+    version_stats = DataHubVersionStats(
+        server=ServerVersionStats(
+            current=VersionStats(version=Version("0.3.13")),
+            current_server_type="prod",  # serverType from config
+            is_cloud_server=True,  # serverEnv="cloud" -> is_datahub_cloud=True
+        ),
+        client=ClientVersionStats(current=VersionStats(version=Version("1.2.0.4"))),
+    )
+
+    # Should not show any version warnings for cloud servers
+    _maybe_print_upgrade_message(version_stats)
+    mock_echo.assert_not_called()
+
+
+@patch("datahub.upgrade.upgrade.click.echo")
+def test_non_cloud_server_shows_version_warnings(mock_echo):
+    """Test that non-cloud servers show version mismatch warnings."""
+    version_stats = DataHubVersionStats(
+        server=ServerVersionStats(
+            current=VersionStats(version=Version("0.9.5")),
+            current_server_type="oss",
+            is_cloud_server=False,
+        ),
+        client=ClientVersionStats(current=VersionStats(version=Version("0.9.7"))),
+    )
+
+    # Should show version warning for non-cloud servers with version mismatch
+    _maybe_print_upgrade_message(version_stats)
+    mock_echo.assert_called_once()
+
+    # Verify the warning message contains the expected text
+    call_args = mock_echo.call_args[0][0]
+    assert "❗Client-Server Incompatible❗" in call_args
+    assert "0.9.7" in call_args  # Client version
+    assert "0.9.5" in call_args  # Server version

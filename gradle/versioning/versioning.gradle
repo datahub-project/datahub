@@ -1,12 +1,13 @@
 import groovy.json.JsonSlurper
 import org.apache.tools.ant.filters.ReplaceTokens
 
+apply from: rootProject.file('gradle/versioning/cliVersion.gradle')
 
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
-def cliMajorVersion = "0.15.0" // base default cli major version
 def inputFile = file("${rootProject.buildDir}/version.json")
 
 ext {
+  cliVersion = project.ext.cliVersion
   versionTag = "v${detailedVersionString}"
 }
 
@@ -16,7 +17,7 @@ task readJsonData {
     def data = jsonSlurper.parse(inputFile)
 
     detailedVersionString = data.fullVersion
-    cliMajorVersion = data.cliMajorVersion
+    cliVersion = data.cliVersion
     version = data.version
     versionTag = data.versionTag
   } else {
@@ -26,12 +27,12 @@ task readJsonData {
 
 task printVersionDetails() {
   println("fullVersion=" + detailedVersionString)
-  println("cliMajorVersion=" + cliMajorVersion)
+  println("cliVersion=" + cliVersion)
   println("version=" +  version)
 }
 
 processResources {
   filter(ReplaceTokens, tokens:[fullVersion: detailedVersionString])
-  filter(ReplaceTokens, tokens:[cliMajorVersion: cliMajorVersion])
+  filter(ReplaceTokens, tokens:[cliVersion: cliVersion])
 }
 
