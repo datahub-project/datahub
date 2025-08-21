@@ -10,7 +10,6 @@ import useMeasureIfTrancated from '@app/shared/useMeasureIfTruncated';
 const EntityTitleContainer = styled.div<{ $color?: FontColorOptions; $colorLevel?: FontColorLevelOptions }>`
     text-overflow: ellipsis;
     overflow: hidden;
-    max-width: 400px;
     color: ${(props) => getColor(props.$color, props.$colorLevel, props.theme)};
 `;
 

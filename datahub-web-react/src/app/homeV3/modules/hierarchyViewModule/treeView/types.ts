@@ -77,6 +77,8 @@ export interface TreeViewContextProviderProps {
     updateExpandedValues?: (values: string[]) => void;
     // Called when node was expanded
     onExpand?: (node: TreeNode) => void;
+    // If enabled, automatically expand a single root node
+    shouldExpandSingleRootNode?: boolean;
 
     // SELECTION
     // If enabled it shows checkboxes next to nodes and enables selecting
@@ -85,8 +87,8 @@ export interface TreeViewContextProviderProps {
     selectedValues?: string[];
     // Called when selection state changed (`values` is the full list of selected values)
     updateSelectedValues?: (values: string[]) => void;
-    // If enabled all
-    expandInitialSelectedNodes?: boolean;
+    // If enabled  it expands all parent nodes of initial selected values
+    expandParentNodesOfInitialSelectedValues?: boolean;
     // If enabled it prevents selecting of all children if parent was selected
     explicitlySelectChildren?: boolean;
     // If enabled it prevents unselecting of children if parent was unselected
