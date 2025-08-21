@@ -44,10 +44,11 @@ type EditorProps = {
     doNotFocus?: boolean;
     placeholder?: string;
     hideHighlightToolbar?: boolean;
+    toolbarStyles?: React.CSSProperties;
 };
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
-    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar } = props;
+    const { content, readOnly, onChange, className, placeholder, hideHighlightToolbar, toolbarStyles } = props;
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
             new BlockquoteExtension(),
@@ -103,7 +104,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                 >
                     {!readOnly && (
                         <>
-                            <Toolbar />
+                            <Toolbar styles={toolbarStyles} />
                             <CodeBlockToolbar />
                             {!hideHighlightToolbar && <FloatingToolbar />}
                             <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />

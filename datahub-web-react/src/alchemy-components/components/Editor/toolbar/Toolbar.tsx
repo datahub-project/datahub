@@ -44,12 +44,16 @@ const CustomDivider = styled(Divider)`
     margin: 0 6px;
 `;
 
-export const Toolbar = () => {
+interface Props {
+    styles?: React.CSSProperties;
+}
+
+export const Toolbar = ({ styles }: Props) => {
     const commands = useCommands();
     const active = useActive(true);
 
     return (
-        <Container>
+        <Container style={styles}>
             <FontSizeSelect />
             <HeadingMenu />
             <CustomDivider type="vertical" />

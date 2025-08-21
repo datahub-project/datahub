@@ -5,14 +5,14 @@ import styled from 'styled-components';
 const MAX_VIEW_HEIGHT = 286;
 
 const Wrapper = styled.div<{ expanded: boolean }>`
-    height: ${({ expanded }) => (expanded ? 'auto' : `${MAX_VIEW_HEIGHT}px`)};
+    max-height: ${({ expanded }) => (expanded ? 'none' : `${MAX_VIEW_HEIGHT}px`)};
     display: flex;
     flex-direction: column;
+    transition: max-height 0.3s ease;
 `;
 
 const ContentContainer = styled.div<{ expanded: boolean }>`
     overflow: ${({ expanded }) => (expanded ? 'visible' : 'hidden')};
-    transition: max-height 0.3s;
     ${({ expanded }) =>
         !expanded &&
         `

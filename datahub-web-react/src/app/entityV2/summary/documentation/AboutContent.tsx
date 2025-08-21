@@ -7,7 +7,7 @@ import DescriptionViewer from '@app/entityV2/summary/documentation/DescriptionVi
 import EmptyDescription from '@app/entityV2/summary/documentation/EmptyDescription';
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 
-const StyledEditor = styled(Editor)`
+const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
     margin-top: 4px;
     &&& {
@@ -15,18 +15,25 @@ const StyledEditor = styled(Editor)`
             padding: 0;
         }
     }
-
-    &&& {
-        .remirror-editor-wrapper {
-            margin-top: 16px;
-        }
-    }
+    ${({ $isEditing }) =>
+        $isEditing &&
+        `
+            &&& {
+                    .remirror-editor-wrapper {
+                        margin-top: 16px;
+                    }
+                }
+    `}
 `;
 
 const DescriptionContainer = styled.div`
     width: max-content;
     max-width: 100%;
 `;
+
+const toolbarStyles = {
+    marginLeft: '-8px',
+};
 
 export default function AboutContent() {
     const {
@@ -51,6 +58,8 @@ export default function AboutContent() {
                 placeholder={emptyDescriptionText}
                 hideHighlightToolbar
                 onChange={(description) => setUpdatedDescription(description)}
+                $isEditing={isEditing}
+                toolbarStyles={toolbarStyles}
             />
         );
     } else {
