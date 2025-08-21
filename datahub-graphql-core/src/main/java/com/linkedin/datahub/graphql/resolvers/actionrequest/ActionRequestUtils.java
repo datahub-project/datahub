@@ -60,13 +60,6 @@ import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.Entity;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
-import com.linkedin.identity.GroupMembership;
-import com.linkedin.identity.NativeGroupMembership;
-import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.ActionRequestAspect;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
@@ -75,10 +68,8 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.utils.CriterionUtils;
-import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -757,45 +748,6 @@ public class ActionRequestUtils {
     return results.stream()
         .sorted(Comparator.comparing(actionRequest -> actionRequest.getLastModified().getTime()))
         .collect(Collectors.toList());
-  }
-
-  /**
-   * @deprecated Use UserService.getUserMemberships() instead. This method will be removed in a
-   *     future version. The new UserService provides better encapsulation and reusability for user
-   *     group/role resolution.
-   */
-  @Deprecated
-  public static AssignedUrns getGroupAndRoleUrns(
-      @Nonnull OperationContext opContext, final Urn actor, EntityClient entityClient)
-      throws Exception {
-    List<Urn> groupUrns = new ArrayList<>();
-    List<Urn> roleUrns = new ArrayList<>();
-    try {
-      final EntityResponse response =
-          entityClient.getV2(opContext, CORP_USER_ENTITY_NAME, actor, null);
-
-      final EnvelopedAspectMap aspects = response.getAspects();
-
-      if (aspects.get(GROUP_MEMBERSHIP_ASPECT_NAME) != null) {
-        EnvelopedAspect aspect = aspects.get(GROUP_MEMBERSHIP_ASPECT_NAME);
-        final GroupMembership groupMembership = new GroupMembership(aspect.getValue().data());
-        groupUrns.addAll(groupMembership.getGroups());
-      }
-      if (aspects.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME) != null) {
-        EnvelopedAspect aspect = aspects.get(NATIVE_GROUP_MEMBERSHIP_ASPECT_NAME);
-        final NativeGroupMembership nativeGroupMembership =
-            new NativeGroupMembership(aspect.getValue().data());
-        groupUrns.addAll(nativeGroupMembership.getNativeGroups());
-      }
-      if (aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME) != null) {
-        EnvelopedAspect aspect = aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME);
-        final RoleMembership roleMembership = new RoleMembership(aspect.getValue().data());
-        roleUrns.addAll(roleMembership.getRoles());
-      }
-      return new AssignedUrns(groupUrns, roleUrns);
-    } catch (RemoteInvocationException e) {
-      throw new RuntimeException(String.format("Failed to fetch corpUser for urn %s", actor), e);
-    }
   }
 
   public static boolean canManageActionWorkflows(@Nonnull QueryContext context) {

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
-import static com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils.getGroupAndRoleUrns;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
@@ -16,6 +15,7 @@ import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.UserService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashSet;
@@ -43,6 +43,7 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
 
   private final Function<DataFetchingEnvironment, String> _urnProvider;
   private final EntityClient _entityClient;
+  private final UserService _userService;
 
   @Override
   public CompletableFuture<List<ActionRequest>> get(DataFetchingEnvironment environment) {
@@ -62,10 +63,10 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
           try {
 
             Urn actorUrn = Urn.createFromString(context.getActorUrn());
-            ActionRequestUtils.AssignedUrns groupAndRoleUrns =
-                getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
-            List<Urn> groupUrns = groupAndRoleUrns.getGroupUrns();
-            List<Urn> roleUrns = groupAndRoleUrns.getRoleUrns();
+            UserService.UserMemberships groupAndRoleUrns =
+                _userService.getUserMemberships(context.getOperationContext(), actorUrn);
+            List<Urn> groupUrns = groupAndRoleUrns.getGroups();
+            List<Urn> roleUrns = groupAndRoleUrns.getRoles();
 
             Filter filter =
                 ProposalUtils.createFilter(

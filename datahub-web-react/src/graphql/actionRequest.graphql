@@ -613,6 +613,7 @@ fragment actionRequestFieldsV2 on ActionRequest {
     assignees @include(if: $includeAssignees) {
         ...assigneeFields
     }
+    assignedRoles
     created {
         time
         actor {

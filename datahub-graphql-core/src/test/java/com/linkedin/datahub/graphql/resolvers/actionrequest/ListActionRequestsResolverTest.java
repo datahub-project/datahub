@@ -38,6 +38,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.r2.RemoteInvocationException;
@@ -64,6 +65,7 @@ public class ListActionRequestsResolverTest {
   private static final String DEFAULT_RESOURCE_2 =
       "urn:li:dataset:(urn:li:dataPlatform:hive,myDataset2,PROD)";
   @Mock private EntityClient mockEntityClient;
+  @Mock private UserService mockUserService;
   @Mock private DataFetchingEnvironment mockEnvironment;
   @Mock private QueryContext mockContext;
 
@@ -119,8 +121,22 @@ public class ListActionRequestsResolverTest {
             eq(null)))
         .thenReturn(userEntityResponse);
 
+    // Mock UserService.getUserMemberships call
+    UserService.UserMemberships mockUserMemberships =
+        new UserService.UserMemberships(
+            ImmutableList.of(
+                UrnUtils.getUrn("urn:li:corpGroup:group1"),
+                UrnUtils.getUrn("urn:li:corpGroup:group2")),
+            ImmutableList.of(UrnUtils.getUrn("urn:li:dataHubRole:role")));
+    try {
+      when(mockUserService.getUserMemberships(any(OperationContext.class), any(Urn.class)))
+          .thenReturn(mockUserMemberships);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to mock getUserMemberships", e);
+    }
+
     initializeTestEntities();
-    resolver = new ListActionRequestsResolver(mockEntityClient);
+    resolver = new ListActionRequestsResolver(mockEntityClient, mockUserService);
   }
 
   /** Initialize a collection of test entities that can be reused across tests */

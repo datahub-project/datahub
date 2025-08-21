@@ -251,6 +251,9 @@ public class ActionRequestService extends BaseService {
       case STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE:
         actors = getStructuredPropertyAssociationAssignees(opContext, resourceUrn, subResourceType);
         break;
+      case UPDATE_DESCRIPTION_ACTION_REQUEST_TYPE:
+        actors = getDescriptionAssignees(opContext, resourceUrn);
+        break;
       default:
         switch (resourceUrn.getEntityType()) {
           case GLOSSARY_NODE_ENTITY_NAME:
@@ -260,6 +263,7 @@ public class ActionRequestService extends BaseService {
                     opContext,
                     PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE.getType(),
                     Optional.of(resourceUrn));
+            break;
           default:
             log.error("Not implemented for actionType={}, entityType={}", actionType, resourceUrn);
             break;
@@ -267,12 +271,12 @@ public class ActionRequestService extends BaseService {
     }
 
     if (actors != null) {
-      List<Urn> tmp = actors.getUsers();
+      List<Urn> tmp = new ArrayList<>(actors.getUsers());
       tmp.addAll(actors.getGroups());
       tmp.addAll(actors.getRoles());
       result = tmp.stream().map(Urn::toString).collect(Collectors.toList());
     } else if (assignedActors != null) {
-      List<Urn> tmp = assignedActors.getUsers();
+      List<Urn> tmp = new ArrayList<>(assignedActors.getUsers());
       tmp.addAll(assignedActors.getGroups());
       tmp.addAll(assignedActors.getRoles());
       result = tmp.stream().map(Urn::toString).collect(Collectors.toList());
@@ -958,6 +962,18 @@ public class ActionRequestService extends BaseService {
     this.entityService.ingestEntity(opContext, entity, auditStamp);
 
     return true;
+  }
+
+  @Nonnull
+  private AuthorizedActors getDescriptionAssignees(
+      @Nonnull final OperationContext opContext, @Nonnull final Urn entityUrn) {
+
+    EntitySpec spec = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+    return opContext
+        .getAuthorizationContext()
+        .getAuthorizer()
+        .authorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(), Optional.of(spec));
   }
 
   /*--------------------------------------------------------------------------

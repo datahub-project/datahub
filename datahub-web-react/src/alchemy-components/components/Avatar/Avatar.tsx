@@ -6,6 +6,8 @@ import getAvatarColor, { getNameInitials } from '@components/components/Avatar/u
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { Icon } from '@components/components/Icon';
 
+import { mapRoleIcon } from '@app/identity/user/UserUtils';
+
 export const avatarDefaults: AvatarProps = {
     name: 'User name',
     size: 'default',
@@ -39,6 +41,11 @@ export const Avatar = ({
             {type === AvatarType.group && !imageUrl && (
                 <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
                     <Icon icon="UsersThree" source="phosphor" variant="filled" size="lg" />
+                </AvatarImageWrapper>
+            )}
+            {type === AvatarType.role && !imageUrl && (
+                <AvatarImageWrapper $color={getAvatarColor(name)} $size={size} $isOutlined={isOutlined}>
+                    {mapRoleIcon(name)}
                 </AvatarImageWrapper>
             )}
             {showInPill && <AvatarText $size={size}>{name}</AvatarText>}

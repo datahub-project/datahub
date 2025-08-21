@@ -158,6 +158,7 @@ import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.MetadataTestClient;
@@ -204,6 +205,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private ActionRequestService actionRequestService;
   private ActionWorkflowService actionWorkflowService;
   private StsClient stsClient;
+  private UserService userService;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -248,6 +250,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.formService = args.getFormService();
     this.metadataTestClient = args.getMetadataTestClient();
     this.actionWorkflowService = args.getActionWorkflowService();
+    this.userService = args.getUserService();
 
     this.glossaryTermType = new GlossaryTermType(args.getEntityClient());
     this.glossaryNodeType = new GlossaryNodeType(args.getEntityClient());
@@ -524,7 +527,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         "Query",
         typeWiring ->
             typeWiring
-                .dataFetcher("listActionRequests", new ListActionRequestsResolver(entityClient))
+                .dataFetcher(
+                    "listActionRequests", new ListActionRequestsResolver(entityClient, userService))
                 .dataFetcher(
                     "getActionRequestAssignee",
                     new GetActionRequestAssigneeResolver(actionRequestService))
@@ -576,7 +580,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 // Proposals not in OSS
                 .dataFetcher(
                 "proposals",
-                new ProposalsResolver((env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
+                new ProposalsResolver(
+                    (env) -> ((Entity) env.getSource()).getUrn(), entityClient, userService)));
   }
 
   private void configureActionRequestResolvers(final RuntimeWiring.Builder builder) {
@@ -879,7 +884,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "proposals",
                     new ProposalsResolver(
-                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
+                        (env) -> ((Entity) env.getSource()).getUrn(), entityClient, userService)));
   }
 
   private void configureProposalResolvers(final RuntimeWiring.Builder builder) {
@@ -907,7 +912,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
               typeWiring.dataFetcher(
                   "proposals",
                   new ProposalsResolver(
-                      (env) -> ((Entity) env.getSource()).getUrn(), entityClient)));
+                      (env) -> ((Entity) env.getSource()).getUrn(), entityClient, userService)));
     }
   }
 

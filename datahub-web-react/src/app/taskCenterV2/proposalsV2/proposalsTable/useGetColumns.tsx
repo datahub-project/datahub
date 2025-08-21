@@ -38,7 +38,12 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView, showAssi
                       title: 'To',
                       key: 'To',
                       render: (record: ActionRequest) => {
-                          return <ProposalsAssignee assignees={record?.assignees || []} />;
+                          return (
+                              <ProposalsAssignee
+                                  assignees={record?.assignees || []}
+                                  assignedRoles={record?.assignedRoles || []}
+                              />
+                          );
                       },
                       width: '10%',
                   },

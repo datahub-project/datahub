@@ -54,6 +54,7 @@ import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -137,4 +138,5 @@ public class GmsGraphQLEngineArgs {
   DataContractService dataContractService;
   MetadataTestClient metadataTestClient;
   AssertionMonitorsConfiguration assertionMonitorsConfiguration;
+  UserService userService;
 }

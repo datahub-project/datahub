@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 
 /** Resolver responsible for resolving the 'listActionRequests' Query. */
 public class ListActionRequestsResolver
@@ -41,9 +43,12 @@ public class ListActionRequestsResolver
   private static final Integer DEFAULT_COUNT = 20;
 
   private final EntityClient _entityClient;
+  private final UserService _userService;
 
-  public ListActionRequestsResolver(final EntityClient entityClient) {
+  public ListActionRequestsResolver(
+      @Nonnull final EntityClient entityClient, @Nonnull final UserService userService) {
     _entityClient = entityClient;
+    _userService = userService;
   }
 
   @Override
@@ -82,10 +87,10 @@ public class ListActionRequestsResolver
               // their groups.
               if (!getAllActionRequests) {
                 actorUrn = Urn.createFromString(context.getActorUrn());
-                AssignedUrns groupAndRoleUrns =
-                    getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
-                groupUrns = groupAndRoleUrns.getGroupUrns();
-                roleUrns = groupAndRoleUrns.getRoleUrns();
+                UserService.UserMemberships groupAndRoleUrns =
+                    _userService.getUserMemberships(context.getOperationContext(), actorUrn);
+                groupUrns = groupAndRoleUrns.getGroups();
+                roleUrns = groupAndRoleUrns.getRoles();
               }
             } else {
               // Case 2: Caller provided a user or group assignee filter.
@@ -96,10 +101,11 @@ public class ListActionRequestsResolver
                 groupUrns = Collections.singletonList(assigneeUrn);
               } else {
                 actorUrn = assigneeUrn;
-                AssignedUrns groupAndRoleUrns =
-                    getGroupAndRoleUrns(context.getOperationContext(), actorUrn, _entityClient);
-                groupUrns = groupAndRoleUrns.getGroupUrns();
-                roleUrns = groupAndRoleUrns.getRoleUrns();
+                // replace here
+                UserService.UserMemberships groupAndRoleUrns =
+                    _userService.getUserMemberships(context.getOperationContext(), actorUrn);
+                groupUrns = groupAndRoleUrns.getGroups();
+                roleUrns = groupAndRoleUrns.getRoles();
               }
             }
 

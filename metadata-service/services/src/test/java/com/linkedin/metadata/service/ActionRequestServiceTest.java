@@ -3901,4 +3901,542 @@ public class ActionRequestServiceTest {
     assertEquals(result.size(), 1);
     assertEquals(result.get(0), TEST_TERM_URN_2);
   }
+
+  /*--------------------------------------------------------------------------
+   *                     GET ASSIGNEE TESTS
+   *--------------------------------------------------------------------------*/
+
+  @Test
+  public void testGetAssigneeDataContractRequest() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext, "DATA_CONTRACT", TEST_ENTITY_URN, null, null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeOwnerAssociationProposal() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_OWNERS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_OWNERS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.OWNER_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            null,
+            null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeDomainAssociationProposal() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOMAINS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.DOMAIN_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            null,
+            null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeTagAssociationProposal() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_TAGS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.TAG_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            null,
+            null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeTagAssociationProposalWithSubResource() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_DATASET_COL_TAGS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.TAG_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            TEST_FIELD_PATH,
+            SubResourceType.DATASET_FIELD);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeTermAssociationProposal() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.TERM_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            null,
+            null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeTermAssociationProposalWithSubResource() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.TERM_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            TEST_FIELD_PATH,
+            SubResourceType.DATASET_FIELD);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeStructuredPropertyAssociationProposal() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_PROPERTIES_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_PROPERTIES_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            null,
+            null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeStructuredPropertyAssociationProposalWithSubResource()
+      throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext,
+            ActionRequestService.STRUCTURED_PROPERTY_ASSOCIATION_PROPOSAL_TYPE,
+            TEST_ENTITY_URN,
+            TEST_FIELD_PATH,
+            SubResourceType.DATASET_FIELD);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeUpdateDescriptionActionRequest() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext, "UPDATE_DESCRIPTION", TEST_ENTITY_URN, null, null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeUnknownActionTypeReturnsEmpty() throws Exception {
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext, "UNKNOWN_ACTION_TYPE", TEST_ENTITY_URN, null, null);
+
+    // Then
+    assertNotNull(result);
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testGetAssigneeWithRoles() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    Urn testRoleUrn = UrnUtils.getUrn("urn:li:dataHubRole:testRole");
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of(testRoleUrn);
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext, "UPDATE_DESCRIPTION", TEST_ENTITY_URN, null, null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 3);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+    assertTrue(result.contains(testRoleUrn.toString()));
+  }
+
+  @Test
+  public void testGetAssigneeEmptyAuthorizedActors() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of();
+    List<Urn> groups = ImmutableList.of();
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext, "UPDATE_DESCRIPTION", TEST_ENTITY_URN, null, null);
+
+    // Then
+    assertNotNull(result);
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testGetDescriptionAssigneesMethodDirectly() throws Exception {
+    // Given
+    when(mockOpContext.getAuthorizationContext()).thenReturn(mockAuthContext);
+    when(mockAuthContext.getAuthorizer()).thenReturn(mockAuthorizer);
+
+    List<Urn> users = ImmutableList.of(ACTOR_URN);
+    List<Urn> groups = ImmutableList.of(GROUP_URN);
+    List<Urn> roles = ImmutableList.of();
+    AuthorizedActors mockActors =
+        new AuthorizedActors(
+            PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType(),
+            users,
+            groups,
+            roles,
+            false,
+            false);
+
+    when(mockAuthorizer.authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString())))))
+        .thenReturn(mockActors);
+
+    // When - Test the specific getDescriptionAssignees flow through getAssignee
+    List<String> result =
+        actionRequestService.getAssignee(
+            mockOpContext, "UPDATE_DESCRIPTION", TEST_ENTITY_URN, null, null);
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.size(), 2);
+    assertTrue(result.contains(ACTOR_URN.toString()));
+    assertTrue(result.contains(GROUP_URN.toString()));
+
+    // Verify that the correct authorization privilege was used
+    verify(mockAuthorizer)
+        .authorizedActors(
+            eq(PoliciesConfig.MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE.getType()),
+            eq(
+                Optional.of(
+                    new EntitySpec(TEST_ENTITY_URN.getEntityType(), TEST_ENTITY_URN.toString()))));
+  }
 }

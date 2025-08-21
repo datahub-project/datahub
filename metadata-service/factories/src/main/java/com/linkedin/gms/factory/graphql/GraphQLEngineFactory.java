@@ -59,6 +59,7 @@ import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
+import com.linkedin.metadata.service.UserService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.timeline.TimelineService;
@@ -288,6 +289,10 @@ public class GraphQLEngineFactory {
   @Qualifier("actionWorkflowService")
   private ActionWorkflowService actionWorkflowService;
 
+  @Autowired
+  @Qualifier("userService")
+  private UserService userService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -369,6 +374,7 @@ public class GraphQLEngineFactory {
     args.setMetadataTestClient(metadataTestClient);
     args.setActionRequestService(actionRequestService);
     args.setActionWorkflowService(actionWorkflowService);
+    args.setUserService(userService);
 
     // Saas Only
     try {

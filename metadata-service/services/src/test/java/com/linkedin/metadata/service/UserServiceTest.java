@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -9,15 +10,23 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.ActorContext;
@@ -26,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -39,8 +49,12 @@ public class UserServiceTest {
   private static final String GROUP2_URN = "urn:li:corpGroup:group2";
   private static final String ROLE1_URN = "urn:li:dataHubRole:role1";
   private static final String ROLE2_URN = "urn:li:dataHubRole:role2";
+  private static final String ROLE3_URN = "urn:li:dataHubRole:role3";
+  private static final String ROLE4_URN = "urn:li:dataHubRole:role4";
   private static final String NATIVE_GROUP_URN = "urn:li:corpGroup:native-group";
   private static final String SYSTEM_ACTOR_URN = "urn:li:corpuser:system";
+
+  private static final String TEST_USER_EMAIL = "user1@example.com";
 
   private UserService _userService;
   private EntityClient _entityClient;
@@ -490,5 +504,363 @@ public class UserServiceTest {
 
     relationships.setRelationships(new EntityRelationshipArray(relationshipList));
     return relationships;
+  }
+
+  /*--------------------------------------------------------------------------
+   *                     GET USER MEMBERSHIPS TESTS
+   *--------------------------------------------------------------------------*/
+
+  @Test
+  public void testGetUserMembershipsBasic() throws Exception {
+    // Given - User with direct groups and roles, but no inherited roles from groups
+    List<Urn> userGroups = Arrays.asList(UrnUtils.getUrn(GROUP1_URN));
+    List<Urn> userRoles = Arrays.asList(UrnUtils.getUrn(ROLE1_URN));
+
+    // Mock getUserInfo to return user with groups and roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // Mock group has no roles
+    EntityResponse groupResponse = createMockGroupResponse(Collections.emptyList());
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP1_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(groupResponse);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getGroups().size(), 1);
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP1_URN)));
+    assertEquals(result.getRoles().size(), 1);
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE1_URN)));
+  }
+
+  @Test
+  public void testGetUserMembershipsWithGroupRoleInheritance() throws Exception {
+    // Given - User belongs to groups that have roles
+    List<Urn> userGroups = Arrays.asList(UrnUtils.getUrn(GROUP1_URN), UrnUtils.getUrn(GROUP2_URN));
+    List<Urn> userRoles = Arrays.asList(UrnUtils.getUrn(ROLE1_URN));
+
+    // Mock getUserInfo to return user with groups and roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // Mock GROUP1 has ROLE2
+    EntityResponse group1Response =
+        createMockGroupResponse(Arrays.asList(UrnUtils.getUrn(ROLE2_URN)));
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP1_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(group1Response);
+
+    // Mock GROUP2 has ROLE3 and ROLE4
+    EntityResponse group2Response =
+        createMockGroupResponse(
+            Arrays.asList(UrnUtils.getUrn(ROLE3_URN), UrnUtils.getUrn(ROLE4_URN)));
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP2_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(group2Response);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getGroups().size(), 2);
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP1_URN)));
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP2_URN)));
+
+    // Should contain user's direct role + roles inherited from groups
+    assertEquals(result.getRoles().size(), 4);
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE1_URN))); // Direct role
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE2_URN))); // From GROUP1
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE3_URN))); // From GROUP2
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE4_URN))); // From GROUP2
+  }
+
+  @Test
+  public void testGetUserMembershipsWithDuplicateRoles() throws Exception {
+    // Given - User has direct role that's also inherited from a group (should deduplicate)
+    List<Urn> userGroups = Arrays.asList(UrnUtils.getUrn(GROUP1_URN));
+    List<Urn> userRoles = Arrays.asList(UrnUtils.getUrn(ROLE1_URN), UrnUtils.getUrn(ROLE2_URN));
+
+    // Mock getUserInfo to return user with groups and roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // Mock GROUP1 has ROLE1 and ROLE3 (ROLE1 is a duplicate)
+    EntityResponse group1Response =
+        createMockGroupResponse(
+            Arrays.asList(UrnUtils.getUrn(ROLE1_URN), UrnUtils.getUrn(ROLE3_URN)));
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP1_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(group1Response);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getGroups().size(), 1);
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP1_URN)));
+
+    // Should deduplicate ROLE1
+    assertEquals(result.getRoles().size(), 3);
+    assertTrue(
+        result
+            .getRoles()
+            .contains(UrnUtils.getUrn(ROLE1_URN))); // Direct + inherited (deduplicated)
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE2_URN))); // Direct role
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE3_URN))); // From GROUP1
+  }
+
+  @Test
+  public void testGetUserMembershipsNoGroups() throws Exception {
+    // Given - User with only direct roles, no groups
+    List<Urn> userGroups = Collections.emptyList();
+    List<Urn> userRoles = Arrays.asList(UrnUtils.getUrn(ROLE1_URN));
+
+    // Mock getUserInfo to return user with only roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertTrue(result.getGroups().isEmpty());
+    assertEquals(result.getRoles().size(), 1);
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE1_URN)));
+  }
+
+  @Test
+  public void testGetUserMembershipsNoRoles() throws Exception {
+    // Given - User with only groups, no direct roles
+    List<Urn> userGroups = Arrays.asList(UrnUtils.getUrn(GROUP1_URN));
+    List<Urn> userRoles = Collections.emptyList();
+
+    // Mock getUserInfo to return user with only groups
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // Mock GROUP1 has ROLE1
+    EntityResponse group1Response =
+        createMockGroupResponse(Arrays.asList(UrnUtils.getUrn(ROLE1_URN)));
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP1_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(group1Response);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getGroups().size(), 1);
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP1_URN)));
+    assertEquals(result.getRoles().size(), 1);
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE1_URN))); // Inherited from group
+  }
+
+  @Test
+  public void testGetUserMembershipsGroupWithoutRoles() throws Exception {
+    // Given - User belongs to groups that have no roles
+    List<Urn> userGroups = Arrays.asList(UrnUtils.getUrn(GROUP1_URN));
+    List<Urn> userRoles = Arrays.asList(UrnUtils.getUrn(ROLE1_URN));
+
+    // Mock getUserInfo to return user with groups and roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // Mock GROUP1 has no roles
+    EntityResponse group1Response = createMockGroupResponse(Collections.emptyList());
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP1_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(group1Response);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertEquals(result.getGroups().size(), 1);
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP1_URN)));
+    assertEquals(result.getRoles().size(), 1);
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE1_URN))); // Only direct role
+  }
+
+  @Test
+  public void testGetUserMembershipsGroupLookupError() throws Exception {
+    // Given - User belongs to groups, but group lookup fails
+    List<Urn> userGroups = Arrays.asList(UrnUtils.getUrn(GROUP1_URN));
+    List<Urn> userRoles = Arrays.asList(UrnUtils.getUrn(ROLE1_URN));
+
+    // Mock getUserInfo to return user with groups and roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // Mock GROUP1 lookup throws exception
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_GROUP_ENTITY_NAME),
+            eq(UrnUtils.getUrn(GROUP1_URN)),
+            eq(Set.of(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenThrow(new RuntimeException("Group lookup failed"));
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then - Should gracefully handle the error and return only direct roles
+    assertNotNull(result);
+    assertEquals(result.getGroups().size(), 1);
+    assertTrue(result.getGroups().contains(UrnUtils.getUrn(GROUP1_URN)));
+    assertEquals(result.getRoles().size(), 1);
+    assertTrue(result.getRoles().contains(UrnUtils.getUrn(ROLE1_URN))); // Only direct role
+  }
+
+  @Test
+  public void testGetUserMembershipsEmptyUser() throws Exception {
+    // Given - User with no groups or roles
+    List<Urn> userGroups = Collections.emptyList();
+    List<Urn> userRoles = Collections.emptyList();
+
+    // Mock getUserInfo to return user with no groups or roles
+    EntityResponse userResponse = createMockUserResponse(userGroups, userRoles, TEST_USER_EMAIL);
+    when(_entityClient.getV2(
+            eq(_operationContext),
+            eq(CORP_USER_ENTITY_NAME),
+            eq(UrnUtils.getUrn(USER1_URN)),
+            eq(null)))
+        .thenReturn(userResponse);
+
+    // When
+    UserService.UserMemberships result =
+        _userService.getUserMemberships(_operationContext, UrnUtils.getUrn(USER1_URN));
+
+    // Then
+    assertNotNull(result);
+    assertTrue(result.getGroups().isEmpty());
+    assertTrue(result.getRoles().isEmpty());
+  }
+
+  /*--------------------------------------------------------------------------
+   *                     HELPER METHODS FOR MOCKING
+   *--------------------------------------------------------------------------*/
+
+  private EntityResponse createMockUserResponse(List<Urn> groups, List<Urn> roles, String email) {
+    EntityResponse response = new EntityResponse();
+    response.setUrn(UrnUtils.getUrn(USER1_URN));
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+
+    // Create CorpUserInfo aspect
+    if (email != null) {
+      CorpUserInfo corpUserInfo = new CorpUserInfo();
+      corpUserInfo.setEmail(email);
+      EnvelopedAspect userInfoAspect = new EnvelopedAspect();
+      userInfoAspect.setValue(new com.linkedin.entity.Aspect(corpUserInfo.data()));
+      aspects.put(CORP_USER_INFO_ASPECT_NAME, userInfoAspect);
+    }
+
+    // Create GroupMembership aspect
+    if (!groups.isEmpty()) {
+      GroupMembership groupMembership = new GroupMembership();
+      groupMembership.setGroups(new UrnArray(groups));
+      EnvelopedAspect groupAspect = new EnvelopedAspect();
+      groupAspect.setValue(new com.linkedin.entity.Aspect(groupMembership.data()));
+      aspects.put(GROUP_MEMBERSHIP_ASPECT_NAME, groupAspect);
+    }
+
+    // Create RoleMembership aspect
+    if (!roles.isEmpty()) {
+      RoleMembership roleMembership = new RoleMembership();
+      roleMembership.setRoles(new UrnArray(roles));
+      EnvelopedAspect roleAspect = new EnvelopedAspect();
+      roleAspect.setValue(new com.linkedin.entity.Aspect(roleMembership.data()));
+      aspects.put(ROLE_MEMBERSHIP_ASPECT_NAME, roleAspect);
+    }
+
+    response.setAspects(aspects);
+    return response;
+  }
+
+  private EntityResponse createMockGroupResponse(List<Urn> roles) {
+    EntityResponse response = new EntityResponse();
+    response.setUrn(UrnUtils.getUrn(GROUP1_URN));
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+
+    // Create RoleMembership aspect if roles exist
+    if (!roles.isEmpty()) {
+      RoleMembership roleMembership = new RoleMembership();
+      roleMembership.setRoles(new UrnArray(roles));
+      EnvelopedAspect roleAspect = new EnvelopedAspect();
+      roleAspect.setValue(new com.linkedin.entity.Aspect(roleMembership.data()));
+      aspects.put(ROLE_MEMBERSHIP_ASPECT_NAME, roleAspect);
+    }
+
+    response.setAspects(aspects);
+    return response;
   }
 }

@@ -2,9 +2,10 @@ import { Avatar, Icon, Pill } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
+import { getRoleNameFromUrn } from '@app/identity/user/UserUtils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -12,14 +13,15 @@ import { CorpGroup, CorpUser, EntityType } from '@types';
 
 type Props = {
     assignees: (CorpUser | CorpGroup)[];
+    assignedRoles: string[];
 };
-const ProposalsAssignee = ({ assignees = [] }: Props) => {
+const ProposalsAssignee = ({ assignees = [], assignedRoles }: Props) => {
     const entityRegistry = useEntityRegistryV2();
-    if (assignees.length === 0) {
+    if (assignees.length === 0 && assignedRoles.length === 0) {
         return <>-</>;
     }
 
-    if (assignees.length === 1) {
+    if (assignees.length === 1 && assignedRoles.length === 0) {
         const entity = assignees[0];
 
         if (entity.type === EntityType.CorpUser) {
@@ -63,7 +65,12 @@ const ProposalsAssignee = ({ assignees = [] }: Props) => {
         };
     });
 
-    return <AvatarStack avatars={avatars} size="md" />;
+    const finalAvatars = [
+        ...avatars,
+        ...assignedRoles.map((role) => ({ name: getRoleNameFromUrn(role) || '', type: AvatarType.role })),
+    ];
+
+    return <AvatarStackWithHover entityRegistry={entityRegistry} avatars={finalAvatars} size="md" title="" />;
 };
 
 export default ProposalsAssignee;

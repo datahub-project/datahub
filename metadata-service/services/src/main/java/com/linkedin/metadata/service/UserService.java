@@ -175,7 +175,12 @@ public class UserService {
   public UserMemberships getUserMemberships(
       @Nonnull OperationContext opContext, @Nonnull Urn userUrn) throws Exception {
     UserInfo userInfo = getUserInfo(opContext, userUrn);
-    return new UserMemberships(userInfo.getGroups(), userInfo.getRoles());
+    // ensure we get all the roles granted to this user through their groups
+    Set<Urn> finalRoles = new HashSet<>(userInfo.getRoles());
+    if (userInfo.getGroups().size() > 0) {
+      finalRoles.addAll(getUserRolesFromUserGroups(opContext, userInfo.getGroups()));
+    }
+    return new UserMemberships(userInfo.getGroups(), new ArrayList<>(finalRoles));
   }
 
   /**
@@ -204,6 +209,69 @@ public class UserService {
   public List<Urn> getUserRoles(@Nonnull OperationContext opContext, @Nonnull Urn userUrn)
       throws Exception {
     return getUserMemberships(opContext, userUrn).getRoles();
+  }
+
+  /**
+   * Resolves all the roles a user inherits from their groups
+   *
+   * @param opContext the operation context
+   * @param groupUrns the URNs of the groups this user is a member of
+   * @return List of roles URNs the user belongs to based on all of their groups
+   */
+  @Nonnull
+  public List<Urn> getUserRolesFromUserGroups(
+      @Nonnull OperationContext opContext, @Nonnull List<Urn> groupUrns) {
+    Set<Urn> roleUrns = new HashSet<>();
+
+    groupUrns.forEach(
+        groupUrn -> {
+          try {
+            roleUrns.addAll(getGroupRoles(opContext, groupUrn));
+          } catch (Exception e) {
+            log.error(String.format("Error resolving roles for group with urn %s", groupUrn));
+          }
+        });
+
+    return new ArrayList<>(roleUrns);
+  }
+
+  /**
+   * Resolves a group's roles
+   *
+   * @param opContext the operation context
+   * @param groupUrn the URN of the group
+   * @return List of role URNs the user belongs to
+   * @throws Exception if there's an error fetching user data
+   */
+  @Nonnull
+  public List<Urn> getGroupRoles(@Nonnull OperationContext opContext, @Nonnull Urn groupUrn)
+      throws Exception {
+    List<Urn> roleUrns = new ArrayList<>();
+
+    try {
+      final EntityResponse response =
+          this.entityClient.getV2(
+              opContext, CORP_GROUP_ENTITY_NAME, groupUrn, Set.of(ROLE_MEMBERSHIP_ASPECT_NAME));
+
+      if (response == null) {
+        log.warn("Group not found: {}", groupUrn);
+        return roleUrns;
+      }
+
+      final EnvelopedAspectMap aspects = response.getAspects();
+
+      // Extract role memberships
+      if (aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME) != null) {
+        EnvelopedAspect aspect = aspects.get(ROLE_MEMBERSHIP_ASPECT_NAME);
+        final RoleMembership roleMembership = new RoleMembership(aspect.getValue().data());
+        roleUrns.addAll(roleMembership.getRoles());
+      }
+
+      return roleUrns;
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(
+          String.format("Failed to fetch user data for urn %s", groupUrn), e);
+    }
   }
 
   /**

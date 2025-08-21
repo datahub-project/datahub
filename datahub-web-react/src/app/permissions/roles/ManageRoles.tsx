@@ -183,8 +183,12 @@ export const ManageRoles = () => {
                         {(!!numberOfUsers && (
                             <>
                                 <AvatarsGroup
-                                    users={record?.users?.slice(0, 5)}
-                                    groups={record?.resolvedGroups}
+                                    users={record?.users
+                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpuser'))
+                                        .slice(0, 5)}
+                                    groups={record?.users
+                                        ?.filter((u) => u.urn?.startsWith('urn:li:corpGroup'))
+                                        .slice(0, 5)}
                                     entityRegistry={entityRegistry}
                                     maxCount={5}
                                     size={28}
