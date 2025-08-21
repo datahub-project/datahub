@@ -1,4 +1,8 @@
-# How DataHub Cloud compares to DataHub
+---
+title: "How DataHub Cloud compares to DataHub OSS"
+---
+
+# How DataHub Cloud compares to DataHub OSS
 
 ## DataHub Cloud: AI & Data Context Platform
 
@@ -75,7 +79,9 @@ Features aimed at making it easy to discover data assets at your organization an
 | Business User friendly experiences (for data analysts, BI analysts, data governance leads, PMs etc.) | ✅      | ✅            |
 | Personalization across the product                                                                   | ✅      | ✅            |
 | Browser extension for BI Tools                                                                       | ✅      | ✅            |
+| Slack AI Discovery Assistant - AI-powered, conversational data discovery                             | ❌      | ✅ **(beta)** |
 | UI-based Automatic Documentation and Classification propagation across lineage                       | ❌      | ✅            |
+| Customizable Home Page for curated onboarding                                                        | ❌      | ✅ **(beta)** |
 | Usage and graph-based search ranking                                                                 | ❌      | ✅            |
 | Generative AI to accelerate documentation and metadata-completeness                                  | ❌      | ✅            |
 | Slack integration                                                                                    | ❌      | ✅            |
@@ -84,7 +90,7 @@ Features aimed at making it easy to discover data assets at your organization an
 ## Data Observability
 
 Features that help you ensure your data pipelines are producing high quality
-assets, and if they’re not, making sure you and impacted users are the first to
+assets, and if they're not, making sure you and impacted users are the first to
 know.
 
 | Feature                                                      | DataHub | DataHub Cloud |
@@ -96,6 +102,7 @@ know.
 | Rich In-Slack Incident management                            | ❌      | ✅            |
 | Run Data Quality checks in-VPC                               | ❌      | ✅            |
 | AI Anomaly Detection for Freshness, Volume, and Column stats | ❌      | ✅            |
+| Bulk-create AI Anomaly monitors                              | ❌      | ✅            |
 | Monitor Freshness SLAs                                       | ❌      | ✅            |
 | Monitor Table Schemas                                        | ❌      | ✅            |
 | Monitor Table Volume                                         | ❌      | ✅            |
@@ -116,6 +123,7 @@ out the datasets that seem to grow like weeds when no one's looking.
 | Shift-Left governance                                                     | ✅      | ✅            |
 | Dataset ownership management                                              | ✅      | ✅            |
 | Business glossary basics                                                  | ✅      | ✅            |
+| Customizable data access request and approval workflows                   | ❌      | ✅ **(beta)** |
 | Shift-Left automations (i.e., source system sync back of metadata)        | ❌      | ✅            |
 | Human-assisted Asset Certification Workflows (data owners, stewards)      | ❌      | ✅            |
 | Dynamic Compliance Forms, with rich analytics                             | ❌      | ✅            |
