@@ -1,7 +1,5 @@
 from typing import List
 
-import pytest
-
 from datahub.ingestion.extractor.protobuf_util import (
     ProtobufSchema,
     protobuf_schema_to_mce_fields,
@@ -301,7 +299,7 @@ message Test11 {
     Test11 recursive = 2;
 }
 """
-    with pytest.raises(Exception) as e_info:
-        protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
-
-    assert str(e_info.value) == "Cyclic schemas are not supported"
+    # Cyclic schemas should return empty fields instead of raising exceptions
+    # This follows DataHub's "log and continue" pattern for graceful degradation
+    fields = protobuf_schema_to_mce_fields(ProtobufSchema("main_9.proto", schema))
+    assert fields == []

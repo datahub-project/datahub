@@ -581,8 +581,8 @@ def test_kafka_ignore_warnings_on_schema_type(
 ):
     # define the key and value schemas for topic1
     topic1_key_schema = RegisteredSchema(
-        guid=None,
         schema_id="schema_id_2",
+        guid=None,
         schema=Schema(
             schema_str="{}",
             schema_type="UNKNOWN_TYPE",
@@ -591,8 +591,8 @@ def test_kafka_ignore_warnings_on_schema_type(
         version=1,
     )
     topic1_value_schema = RegisteredSchema(
-        guid=None,
         schema_id="schema_id_1",
+        guid=None,
         schema=Schema(
             schema_str="{}",
             schema_type="UNKNOWN_TYPE",
@@ -727,8 +727,8 @@ def test_kafka_source_topic_meta_mappings(
                 version=1,
             ),
             RegisteredSchema(
-                guid=None,
                 schema_id="schema_id_1",
+                guid=None,
                 schema=Schema(
                     schema_str=json.dumps(
                         {
