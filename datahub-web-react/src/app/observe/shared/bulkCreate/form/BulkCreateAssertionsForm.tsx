@@ -29,6 +29,15 @@ const ActionButtons = styled.div`
     justify-content: flex-end;
 `;
 
+const Body = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-height: 75vh;
+    overflow-y: auto;
+    padding: 16px 0;
+`;
+
 type Steps = 'asset_selection' | 'assertion_configuration' | 'subscription_configuration';
 const ASSET_SELECTION_STEP: Steps = 'asset_selection';
 const ASSERTION_CONFIGURATION_STEP: Steps = 'assertion_configuration';
@@ -115,15 +124,19 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
     return (
         <Wrapper style={{ display: 'flex', flexDirection: 'column' }}>
             {/* --------------------------------- Asset Selector --------------------------------- */}
-            {step === 'asset_selection' && <AssetsSelection filters={filters} setFilters={setFilters} />}
+            <Body>
+                {step === 'asset_selection' && <AssetsSelection filters={filters} setFilters={setFilters} />}
 
-            {step === 'assertion_configuration' && (
-                <AssertionsConfiguration freshnessForm={freshnessForm} volumeForm={volumeForm} />
-            )}
+                {step === 'assertion_configuration' && (
+                    <AssertionsConfiguration freshnessForm={freshnessForm} volumeForm={volumeForm} />
+                )}
 
-            {step === 'subscription_configuration' && <SubscriptionConfiguration subscriptionForm={subscriptionForm} />}
+                {step === 'subscription_configuration' && (
+                    <SubscriptionConfiguration subscriptionForm={subscriptionForm} />
+                )}
+            </Body>
 
-            <Divider />
+            <Divider style={{ marginTop: 0 }} />
 
             <ActionButtons>
                 <Button onClick={onPrevStep} variant="outline">

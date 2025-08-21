@@ -1,4 +1,4 @@
-import { colors } from '@components';
+import { Button, colors } from '@components';
 import { CaretDown, CaretRight } from '@phosphor-icons/react';
 import { Collapse, Tree } from 'antd';
 import { DataNode } from 'antd/lib/tree';
@@ -85,6 +85,9 @@ const SummaryLabel = styled.div`
     font-size: 14px;
     color: ${colors.gray[600]};
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 `;
 
 const SummaryLabelCheck = styled(Check)`
@@ -119,10 +122,20 @@ export const NotificationTypesSelector: React.FC<NotificationTypesSelectorProps>
             {!notificationTypesExpanded && checkedKeys.length > 0 && (
                 <SummaryLabel>
                     {checkedKeys.length ? <SummaryLabelCheck size={16} /> : null} {generateSummaryText(checkedKeys)}
+                    <Button
+                        variant="text"
+                        onClick={() => {
+                            setNotificationTypesExpanded(true);
+                        }}
+                    >
+                        Edit
+                    </Button>
                 </SummaryLabel>
             )}
             <StyledCollapse
                 ghost
+                style={{ display: notificationTypesExpanded ? 'block' : 'none' }}
+                activeKey={notificationTypesExpanded ? [panelKey] : []}
                 expandIcon={({ isActive }) => <StyledIcon>{isActive ? <CaretDown /> : <CaretRight />}</StyledIcon>}
                 onChange={(activeKey) => {
                     setNotificationTypesExpanded(Array.isArray(activeKey) ? activeKey.length > 0 : !!activeKey);
