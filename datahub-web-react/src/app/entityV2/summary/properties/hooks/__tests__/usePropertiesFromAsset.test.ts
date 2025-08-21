@@ -1,5 +1,6 @@
 import { renderHook } from '@testing-library/react-hooks';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import useAssetProperties from '@app/entityV2/summary/properties/hooks/usePropertiesFromAsset';
 
 describe('useAssetProperties', () => {

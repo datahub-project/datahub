@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { assetPropertyToMenuItem } from '@app/entityV2/summary/properties/utils';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import { AssetProperty, PropertyType } from '@app/entityV2/summary/properties/types';
+import { assetPropertyToMenuItem } from '@app/entityV2/summary/properties/utils';
 
 describe('assetPropertyToMenuItem', () => {
     const mockOnMenuItemClick = vi.fn();

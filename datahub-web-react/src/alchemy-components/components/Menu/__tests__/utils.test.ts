@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+
 import { MenuItemType } from '@components/components/Menu/types';
 import { sortMenuItems } from '@components/components/Menu/utils';
 

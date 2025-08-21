@@ -1,10 +1,12 @@
-import { renderHook, act } from '@testing-library/react-hooks';
-import { describe, it, expect, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react-hooks';
+import { describe, expect, it, vi } from 'vitest';
+
+import { MenuItemType } from '@components/components/Menu/types';
+
 import useAssetPropertiesContext from '@app/entityV2/summary/properties/context/useAssetPropertiesContext';
 import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems';
-import { PropertyType } from '@app/entityV2/summary/properties/types';
-import { MenuItemType } from '@components/components/Menu/types';
 import usePropertyMenuItems from '@app/entityV2/summary/properties/menuProperty/usePropertyMenuItems';
+import { PropertyType } from '@app/entityV2/summary/properties/types';
 
 vi.mock('@app/entityV2/summary/properties/context/useAssetPropertiesContext');
 vi.mock('@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems');

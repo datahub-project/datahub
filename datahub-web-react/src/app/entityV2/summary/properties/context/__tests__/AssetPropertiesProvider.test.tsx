@@ -1,12 +1,14 @@
-import { render, act } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import React, { useContext } from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import AssetPropertiesContext from '@app/entityV2/summary/properties/context/AssetPropertiesContext';
+import AssetPropertiesProvider from '@app/entityV2/summary/properties/context/AssetPropertiesProvider';
 import useInitialAssetProperties from '@app/entityV2/summary/properties/hooks/useInitialAssetProperties';
 import { PropertyType } from '@app/entityV2/summary/properties/types';
+
 import { EntityType } from '@types';
-import AssetPropertiesProvider from '@app/entityV2/summary/properties/context/AssetPropertiesProvider';
 
 vi.mock('@app/entity/shared/EntityContext');
 vi.mock('@app/entityV2/summary/properties/hooks/useInitialAssetProperties');

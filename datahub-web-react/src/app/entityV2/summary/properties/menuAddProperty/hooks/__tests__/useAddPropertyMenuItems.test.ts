@@ -1,11 +1,13 @@
-import { renderHook, act } from '@testing-library/react-hooks';
-import { describe, it, expect, vi } from 'vitest';
+import { act, renderHook } from '@testing-library/react-hooks';
+import { describe, expect, it, vi } from 'vitest';
+
+import { MenuItemType } from '@components/components/Menu/types';
 import { sortMenuItems } from '@components/components/Menu/utils';
+
 import useBasicAssetProperties from '@app/entityV2/summary/properties/hooks/useBasicAssetProperties';
+import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems';
 import useStructuredPropertiesMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useStructuredPropertiesMenuItems';
 import { PropertyType } from '@app/entityV2/summary/properties/types';
-import { MenuItemType } from '@components/components/Menu/types';
-import useAddPropertyMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useAddPropertyMenuItems';
 
 vi.mock('@app/entityV2/summary/properties/hooks/useBasicAssetProperties');
 vi.mock('@app/entityV2/summary/properties/menuAddProperty/hooks/useStructuredPropertiesMenuItems');
@@ -18,9 +20,7 @@ const mockBasicProperties = [
     { name: 'Owners', type: PropertyType.Owners },
 ];
 
-const mockStructuredPropertiesMenuItems = [
-    { type: 'item', key: 'structured1', title: 'Structured Prop 1' },
-];
+const mockStructuredPropertiesMenuItems = [{ type: 'item', key: 'structured1', title: 'Structured Prop 1' }];
 
 describe('useAddPropertyMenuItems', () => {
     beforeEach(() => {

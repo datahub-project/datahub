@@ -1,10 +1,12 @@
-import { renderHook, act } from '@testing-library/react-hooks';
+import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import useStructuredPropertiesV2 from '@app/entityV2/summary/properties/hooks/useStructuredProperties';
-import { PropertyType } from '@app/entityV2/summary/properties/types';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { MenuItemType } from '@components/components/Menu/types';
+
+import useStructuredPropertiesV2 from '@app/entityV2/summary/properties/hooks/useStructuredProperties';
 import useStructuredPropertiesMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useStructuredPropertiesMenuItems';
+import { PropertyType } from '@app/entityV2/summary/properties/types';
 
 vi.mock('@app/entityV2/summary/properties/hooks/useStructuredProperties');
 vi.mock('@components/components/Menu/utils', () => ({
@@ -49,7 +51,7 @@ describe('useStructuredPropertiesMenuItems', () => {
             loading: true,
         });
         const { result, rerender } = renderHook(() => useStructuredPropertiesMenuItems(vi.fn()));
-        
+
         // Manually trigger the effect that sets hasAnyStructuredProperties
         act(() => {
             (useStructuredPropertiesV2 as any).mockReturnValue({
@@ -86,13 +88,13 @@ describe('useStructuredPropertiesMenuItems', () => {
             loading: false,
         });
         const { result, rerender } = renderHook(() => useStructuredPropertiesMenuItems(vi.fn()));
-        
+
         act(() => {
             const searchBar = result.current[0] as MenuItemType;
             const render = searchBar.render as any;
             render().props.onChange('nonexistent');
         });
-        
+
         act(() => {
             vi.runAllTimers();
         });
