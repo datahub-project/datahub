@@ -15,7 +15,12 @@ from snowflake.connector.network import (
     OAUTH_AUTHENTICATOR,
 )
 
-from datahub.configuration.common import ConfigModel, ConfigurationError, MetaError
+from datahub.configuration.common import (
+    ConfigModel,
+    ConfigurationError,
+    HiddenFromDocs,
+    MetaError,
+)
 from datahub.configuration.connection_resolver import auto_connection_resolver
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.closeable import Closeable
@@ -64,7 +69,7 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
 
-    scheme: str = "snowflake"
+    scheme: HiddenFromDocs[str] = "snowflake"
     username: Optional[str] = pydantic.Field(
         default=None, description="Snowflake username."
     )

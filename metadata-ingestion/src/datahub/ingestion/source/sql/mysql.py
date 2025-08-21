@@ -9,7 +9,7 @@ from sqlalchemy.dialects.mysql import BIT, base
 from sqlalchemy.dialects.mysql.enumerated import SET
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -57,7 +57,7 @@ base.ischema_names["decimal128"] = DECIMAL128
 class MySQLConnectionConfig(SQLAlchemyConnectionConfig):
     # defaults
     host_port: str = Field(default="localhost:3306", description="MySQL host URL.")
-    scheme: str = "mysql+pymysql"
+    scheme: HiddenFromDocs[str] = "mysql+pymysql"
 
 
 class MySQLConfig(MySQLConnectionConfig, TwoTierSQLAlchemyConfig):
