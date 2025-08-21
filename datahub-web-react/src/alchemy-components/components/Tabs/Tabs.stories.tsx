@@ -70,6 +70,7 @@ const meta = {
     argTypes: {
         tabs: {
             description: 'The tabs you want to display',
+            control: 'object',
         },
         selectedTab: {
             description: 'A controlled pieces of state for which tab is selected. This is the key of the tab',
@@ -90,6 +91,13 @@ const meta = {
         getCurrentUrl: {
             description: 'A custom function to get the current URL. Defaults to window.location.pathname',
         },
+        secondary: {
+            description: 'Whether to render the tabs in a secondary style',
+        },
+        styleOptions: {
+            description: 'Style options for the tabs component',
+            control: 'object',
+        },
         scrollToTopOnChange: {
             description: 'Whether to scroll to the top of the tabs container when switching tabs',
             control: { type: 'boolean' },
@@ -104,11 +112,13 @@ const meta = {
             control: { type: 'boolean' },
         },
     },
-
-    // Args for the story
-
     args: {
         tabs: exampleTabs,
+        styleOptions: {
+            navMarginBottom: 16,
+            navMarginTop: 0,
+            containerHeight: 'auto',
+        },
     },
 } satisfies Meta<typeof Tabs>;
 

@@ -26,7 +26,7 @@ export function useInfiniteScroll<T>({ fetchData, pageSize = 10, totalItemCount 
                 // Append newly fetched items to current list
                 setItems((prev) => [...prev, ...newItems]);
                 // Advance the start index by the number of new items fetched
-                start.current += newItems.length;
+                start.current += pageSize;
                 // Update hasMore depending on totalItemCount or inferred from batch size
                 if (totalItemCount !== undefined) {
                     setHasMore(start.current < totalItemCount);

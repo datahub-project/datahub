@@ -286,6 +286,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
+            .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

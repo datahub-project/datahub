@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import OwnerContent from '@app/entityV2/shared/components/styled/ExpandedOwner/OwnerContent';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -42,6 +44,8 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
     const [showRemoveOwnerModal, setShowRemoveOwnerModal] = useState(false);
+    const { setReloadHomepageModules } = usePageTemplateContext();
+    const { user } = useUserContext();
 
     let name = '';
     let ownershipTypeName = '';
@@ -79,6 +83,8 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 entityType,
                 entityUrn,
             });
+            const isCurrentUserRemoved = user?.urn === owner.owner.urn;
+            if (isCurrentUserRemoved) setReloadHomepageModules(true);
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
