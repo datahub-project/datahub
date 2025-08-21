@@ -18,6 +18,7 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -26,16 +27,26 @@ import com.linkedin.mxe.PlatformEventHeader;
 import com.linkedin.mxe.Topics;
 import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
+import java.io.InputStream;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import lombok.extern.slf4j.Slf4j;
 import mock.MockEntitySpec;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.kafka.annotation.EnableKafka;
@@ -44,11 +55,13 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.Test;
 
+@Slf4j
 @ActiveProfiles("test")
 @ContextConfiguration
 @SpringBootTest(
@@ -59,6 +72,7 @@ import org.testng.annotations.Test;
       SchemaRegistryControllerTestConfiguration.class
     })
 @EnableKafka
+@TestPropertySource(properties = {"kafka.consumer.stopOnDeserializationError=false"})
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
   private static final String CONFLUENT_PLATFORM_VERSION = "7.2.2";
 
@@ -79,22 +93,25 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
 
   @Autowired EventProducer _producer;
 
-  private final CountDownLatch mcpLatch = new CountDownLatch(1);
+  private final Map<String, CountDownLatch> latches = new ConcurrentHashMap<>();
+  private final Map<String, AtomicReference<Object>> references = new ConcurrentHashMap<>();
 
-  private final AtomicReference<MetadataChangeProposal> mcpRef = new AtomicReference<>();
+  // Helper methods to get latch and reference for a message key
+  private CountDownLatch getLatch(String messageKey) {
+    return latches.computeIfAbsent(messageKey, k -> new CountDownLatch(1));
+  }
 
-  private final CountDownLatch mclLatch = new CountDownLatch(1);
-
-  private final AtomicReference<MetadataChangeLog> mclRef = new AtomicReference<>();
-
-  private final CountDownLatch peLatch = new CountDownLatch(1);
-
-  private final AtomicReference<PlatformEvent> peRef = new AtomicReference<>();
+  @SuppressWarnings("unchecked")
+  private <T> AtomicReference<T> getReference(String messageKey) {
+    return (AtomicReference<T>)
+        references.computeIfAbsent(messageKey, k -> new AtomicReference<>());
+  }
 
   @Test
   public void testMCPConsumption()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    final Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    final Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testMCPConsumption,PROD)");
     final DatasetProperties datasetProperties = new DatasetProperties();
     datasetProperties.setName("Foo Bar");
 
@@ -113,18 +130,20 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     gmce.setAspect(genericAspect);
 
     _producer.produceMetadataChangeProposal(entityUrn, gmce).get(10, TimeUnit.SECONDS);
-    final boolean messageConsumed = mcpLatch.await(10, TimeUnit.SECONDS);
+    // Wait for message to be consumed and deserialized
+    final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
-    assertEquals(mcpLatch.getCount(), 0);
-    assertEquals(mcpRef.get(), gmce);
+    assertEquals(getLatch(entityUrn.toString()).getCount(), 0);
+    assertEquals(getReference(entityUrn.toString()).get(), gmce);
   }
 
   @Test
   public void testMCLConsumption()
       throws IOException, InterruptedException, ExecutionException, TimeoutException {
-    final Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    final Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testMCLConsumption,PROD)");
     final DatasetProperties datasetProperties = new DatasetProperties();
-    datasetProperties.setName("Foo Bar");
+    datasetProperties.setName("Bar Baz");
     final JacksonDataTemplateCodec dataTemplateCodec = new JacksonDataTemplateCodec();
 
     final MetadataChangeLog metadataChangeLog = new MetadataChangeLog();
@@ -160,17 +179,18 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     _producer
         .produceMetadataChangeLog(entityUrn, aspectSpec, metadataChangeLog)
         .get(10, TimeUnit.SECONDS);
-    final boolean messageConsumed = mclLatch.await(10, TimeUnit.SECONDS);
+    final boolean messageConsumed = getLatch(entityUrn.toString()).await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
-    assertEquals(mclLatch.getCount(), 0);
-    assertEquals(mclRef.get(), metadataChangeLog);
+    assertEquals(getLatch(entityUrn.toString()).getCount(), 0);
+    assertEquals(getReference(entityUrn.toString()).get(), metadataChangeLog);
   }
 
   @Test
   public void testPEConsumption()
       throws InterruptedException, ExecutionException, TimeoutException {
 
-    final Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)");
+    final Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,testPEConsumption,PROD)");
     final EntityChangeEvent changeEvent = new EntityChangeEvent();
     final ChangeCategory category = ChangeCategory.OWNER;
     final ChangeOperation operation = ChangeOperation.ADD;
@@ -188,29 +208,246 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
     platformEvent.setPayload(GenericRecordUtils.serializePayload(changeEvent));
 
     _producer
-        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "Some key", platformEvent)
+        .producePlatformEvent(CHANGE_EVENT_PLATFORM_EVENT_NAME, "testPEConsumption", platformEvent)
         .get(10, TimeUnit.SECONDS);
 
-    final boolean messageConsumed = peLatch.await(10, TimeUnit.SECONDS);
+    final boolean messageConsumed = getLatch("testPEConsumption").await(10, TimeUnit.SECONDS);
     assertTrue(messageConsumed);
-    assertEquals(peLatch.getCount(), 0);
-    assertEquals(peRef.get(), platformEvent);
+    assertEquals(getLatch("testPEConsumption").getCount(), 0);
+    assertEquals(getReference("testPEConsumption").get(), platformEvent);
+  }
+
+  @Test
+  public void testFailedMetadataChangeProposalRaw()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
+
+    // Load binary test fixture (raw bytes from local Kafka)
+    byte[] rawMessageBytes =
+        loadBinaryTestFixture("/v1/FailedMetadataChangeProposal_v1_test_fixture.bin");
+    assertNotNull(rawMessageBytes, "Binary test fixture should be loaded");
+    assertTrue(rawMessageBytes.length > 0, "Binary test fixture should not be empty");
+
+    // Create a custom Kafka producer to publish raw bytes
+    Properties producerProps = new Properties();
+    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    producerProps.put(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+
+    try (KafkaProducer<String, byte[]> producer = new KafkaProducer<>(producerProps)) {
+      // Publish raw message bytes to Kafka with unique key for this test
+      ProducerRecord<String, byte[]> record =
+          new ProducerRecord<>(
+              Topics.FAILED_METADATA_CHANGE_PROPOSAL,
+              "testFailedMetadataChangeProposalRaw",
+              rawMessageBytes);
+
+      producer.send(record).get(10, TimeUnit.SECONDS);
+      producer.flush();
+    }
+
+    // Wait for message to be consumed and deserialized
+    final boolean messageConsumed =
+        getLatch("testFailedMetadataChangeProposalRaw").await(10, TimeUnit.SECONDS);
+    assertTrue(
+        messageConsumed,
+        "Raw FailedMetadataChangeProposal message should be consumed and deserialized");
+    assertEquals(getLatch("testFailedMetadataChangeProposalRaw").getCount(), 0);
+
+    // Verify the consumed message was properly deserialized
+    MetadataChangeProposal consumedEvent =
+        (MetadataChangeProposal) getReference("testFailedMetadataChangeProposalRaw").get();
+    assertNotNull(
+        consumedEvent, "Consumed event should not be null after raw message deserialization");
+
+    // Verify the message structure is correct (this proves deserialization worked)
+    assertNotNull(consumedEvent.getEntityUrn(), "EntityUrn should be deserialized correctly");
+    assertEquals(consumedEvent.getEntityUrn().toString(), "urn:li:corpuser:datahub");
+  }
+
+  @Test
+  public void testMetadataChangeLogTimeseriesRaw()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
+
+    // Load binary test fixture (raw bytes from local Kafka)
+    byte[] rawMessageBytes =
+        loadBinaryTestFixture("/v1/MetadataChangeLog_Timeseries_v1_test_fixture.bin");
+    assertNotNull(rawMessageBytes, "Binary test fixture should be loaded");
+    assertTrue(rawMessageBytes.length > 0, "Binary test fixture should not be empty");
+
+    // Create a custom Kafka producer to publish raw bytes
+    Properties producerProps = new Properties();
+    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    producerProps.put(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+
+    try (KafkaProducer<String, byte[]> producer = new KafkaProducer<>(producerProps)) {
+      // Publish raw message bytes to Kafka
+      ProducerRecord<String, byte[]> record =
+          new ProducerRecord<>(
+              Topics.METADATA_CHANGE_LOG_TIMESERIES,
+              "testMetadataChangeLogTimeseriesRaw",
+              rawMessageBytes);
+
+      producer.send(record).get(10, TimeUnit.SECONDS);
+      producer.flush();
+    }
+
+    // Wait for message to be consumed and deserialized
+    final boolean messageConsumed =
+        getLatch("testMetadataChangeLogTimeseriesRaw").await(10, TimeUnit.SECONDS);
+    assertTrue(
+        messageConsumed,
+        "Raw MetadataChangeLog Timeseries message should be consumed and deserialized");
+    assertEquals(getLatch("testMetadataChangeLogTimeseriesRaw").getCount(), 0);
+
+    // Verify the consumed message was properly deserialized
+    MetadataChangeLog consumedEvent =
+        (MetadataChangeLog) getReference("testMetadataChangeLogTimeseriesRaw").get();
+    assertNotNull(
+        consumedEvent, "Consumed event should not be null after raw message deserialization");
+
+    // Verify the message structure is correct (this proves deserialization worked)
+    assertNotNull(consumedEvent.getEntityUrn(), "EntityUrn should be deserialized correctly");
+    assertEquals(
+        consumedEvent.getEntityUrn().toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
+  }
+
+  @Test
+  public void testMetadataChangeLogVersionedRaw()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
+
+    // Load binary test fixture (raw bytes from local Kafka)
+    byte[] rawMessageBytes =
+        loadBinaryTestFixture("/v1/MetadataChangeLog_Versioned_v1_test_fixture.bin");
+    assertNotNull(rawMessageBytes, "Binary test fixture should be loaded");
+    assertTrue(rawMessageBytes.length > 0, "Binary test fixture should not be empty");
+
+    // Create a custom Kafka producer to publish raw bytes
+    Properties producerProps = new Properties();
+    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    producerProps.put(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+
+    try (KafkaProducer<String, byte[]> producer = new KafkaProducer<>(producerProps)) {
+      // Publish raw message bytes to Kafka
+      ProducerRecord<String, byte[]> record =
+          new ProducerRecord<>(
+              Topics.METADATA_CHANGE_LOG_VERSIONED,
+              "testMetadataChangeLogVersionedRaw",
+              rawMessageBytes);
+
+      producer.send(record).get(10, TimeUnit.SECONDS);
+      producer.flush();
+    }
+
+    // Wait for message to be consumed and deserialized
+    final boolean messageConsumed =
+        getLatch("testMetadataChangeLogVersionedRaw").await(10, TimeUnit.SECONDS);
+    assertTrue(
+        messageConsumed,
+        "Raw MetadataChangeLog Versioned message should be consumed and deserialized");
+    assertEquals(getLatch("testMetadataChangeLogVersionedRaw").getCount(), 0);
+
+    // Verify the consumed message was properly deserialized
+    MetadataChangeLog consumedEvent =
+        (MetadataChangeLog) getReference("testMetadataChangeLogVersionedRaw").get();
+    assertNotNull(
+        consumedEvent, "Consumed event should not be null after raw message deserialization");
+
+    // Verify the message structure is correct (this proves deserialization worked)
+    assertNotNull(consumedEvent.getEntityUrn(), "EntityUrn should be deserialized correctly");
+    assertEquals(consumedEvent.getEntityUrn().toString(), "urn:li:corpuser:datahub");
+  }
+
+  @Test
+  public void testMetadataChangeProposalRaw()
+      throws IOException, InterruptedException, ExecutionException, TimeoutException {
+
+    // Load binary test fixture (raw bytes from local Kafka)
+    byte[] rawMessageBytes =
+        loadBinaryTestFixture("/v1/MetadataChangeProposal_v1_test_fixture.bin");
+    assertNotNull(rawMessageBytes, "Binary test fixture should be loaded");
+    assertTrue(rawMessageBytes.length > 0, "Binary test fixture should not be empty");
+
+    // Create a custom Kafka producer to publish raw bytes
+    Properties producerProps = new Properties();
+    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+    producerProps.put(
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class.getName());
+    producerProps.put(ProducerConfig.ACKS_CONFIG, "all");
+
+    try (KafkaProducer<String, byte[]> producer = new KafkaProducer<>(producerProps)) {
+      // Publish raw message bytes to Kafka
+      ProducerRecord<String, byte[]> record =
+          new ProducerRecord<>(
+              Topics.METADATA_CHANGE_PROPOSAL, "testMetadataChangeProposalRaw", rawMessageBytes);
+
+      producer.send(record).get(10, TimeUnit.SECONDS);
+      producer.flush();
+    }
+
+    // Wait for message to be consumed and deserialized
+    final boolean messageConsumed =
+        getLatch("testMetadataChangeProposalRaw").await(10, TimeUnit.SECONDS);
+    assertTrue(
+        messageConsumed, "Raw MetadataChangeProposal message should be consumed and deserialized");
+    assertEquals(getLatch("testMetadataChangeProposalRaw").getCount(), 0);
+
+    // Verify the consumed message was properly deserialized
+    MetadataChangeProposal consumedEvent =
+        (MetadataChangeProposal) getReference("testMetadataChangeProposalRaw").get();
+    assertNotNull(
+        consumedEvent, "Consumed event should not be null after raw message deserialization");
+
+    // Verify the message structure is correct (this proves deserialization worked)
+    assertNotNull(consumedEvent.getEntityUrn(), "EntityUrn should be deserialized correctly");
+    assertEquals(
+        consumedEvent.getEntityUrn().toString(), "urn:li:dataHubIngestionSource:datahub-gc");
+  }
+
+  private byte[] loadBinaryTestFixture(String fixturePath) throws IOException {
+    try (InputStream inputStream = getClass().getResourceAsStream(fixturePath)) {
+      if (inputStream == null) {
+        throw new IOException("Binary test fixture not found: " + fixturePath);
+      }
+      return inputStream.readAllBytes();
+    }
   }
 
   @KafkaListener(
       id = "test-mcp-consumer",
       topics = Topics.METADATA_CHANGE_PROPOSAL,
       containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
-      properties = {"auto.offset.reset:earliest"})
+      properties = {
+        "auto.offset.reset:earliest",
+        "spring.kafka.listener.ack-mode:manual",
+        "spring.kafka.listener.ack-on-error:false",
+        "spring.kafka.listener.retry-after-error:false",
+        "spring.kafka.listener.fail-fast:false"
+      })
   public void receiveMCP(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
     final GenericRecord value = consumerRecord.value();
     try {
-      mcpRef.set(EventUtils.avroToPegasusMCP(value));
-      mcpLatch.countDown();
+      String messageKey = consumerRecord.key();
 
+      getReference(messageKey).set(EventUtils.avroToPegasusMCP(value));
+      getLatch(messageKey).countDown();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      log.error(
+          "Failed to deserialize MCP message with key: {}, error: {}",
+          consumerRecord.key(),
+          e.getMessage(),
+          e);
+      // Continue processing other messages instead of stopping the consumer
     }
   }
 
@@ -218,15 +455,55 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
       id = "test-mcl-consumer",
       topics = Topics.METADATA_CHANGE_LOG_VERSIONED,
       containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
-      properties = {"auto.offset.reset:earliest"})
+      properties = {
+        "auto.offset.reset:earliest",
+        "spring.kafka.listener.ack-mode:manual",
+        "spring.kafka.listener.ack-on-error:false",
+        "spring.kafka.listener.retry-after-error:false",
+        "spring.kafka.listener.fail-fast:false"
+      })
   public void receiveMCL(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
     final GenericRecord value = consumerRecord.value();
     try {
-      mclRef.set(EventUtils.avroToPegasusMCL(value));
-      mclLatch.countDown();
+      String messageKey = consumerRecord.key();
+      getReference(messageKey).set(EventUtils.avroToPegasusMCL(value));
+      getLatch(messageKey).countDown();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      log.error(
+          "Failed to deserialize MCL message with key: {}, error: {}",
+          consumerRecord.key(),
+          e.getMessage(),
+          e);
+      // Continue processing other messages instead of stopping the consumer
+    }
+  }
+
+  @KafkaListener(
+      id = "test-mcl-timeseries-consumer",
+      topics = Topics.METADATA_CHANGE_LOG_TIMESERIES,
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
+      properties = {
+        "auto.offset.reset:earliest",
+        "spring.kafka.listener.ack-mode:manual",
+        "spring.kafka.listener.ack-on-error:false",
+        "spring.kafka.listener.retry-after-error:false",
+        "spring.kafka.listener.fail-fast:false"
+      })
+  public void receiveMCLTimeseries(ConsumerRecord<String, GenericRecord> consumerRecord) {
+
+    final GenericRecord value = consumerRecord.value();
+    try {
+      String messageKey = consumerRecord.key();
+      getReference(messageKey).set(EventUtils.avroToPegasusMCL(value));
+      getLatch(messageKey).countDown();
+    } catch (IOException e) {
+      log.error(
+          "Failed to deserialize MCL timeseries message with key: {}, error: {}",
+          consumerRecord.key(),
+          e.getMessage(),
+          e);
+      // Continue processing other messages instead of stopping the consumer
     }
   }
 
@@ -234,15 +511,84 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
       id = "test-pe-consumer",
       topics = Topics.PLATFORM_EVENT,
       containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
-      properties = {"auto.offset.reset:earliest"})
+      properties = {
+        "auto.offset.reset:earliest",
+        "spring.kafka.listener.ack-mode:manual",
+        "spring.kafka.listener.ack-on-error:false",
+        "spring.kafka.listener.retry-after-error:false",
+        "spring.kafka.listener.fail-fast:false"
+      })
   public void receivePE(ConsumerRecord<String, GenericRecord> consumerRecord) {
 
     final GenericRecord value = consumerRecord.value();
     try {
-      peRef.set(EventUtils.avroToPegasusPE(value));
-      peLatch.countDown();
+      String messageKey = consumerRecord.key();
+      getReference(messageKey).set(EventUtils.avroToPegasusPE(value));
+      getLatch(messageKey).countDown();
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      log.error(
+          "Failed to deserialize PE message with key: {}, error: {}",
+          consumerRecord.key(),
+          e.getMessage(),
+          e);
+      // Continue processing other messages instead of stopping the consumer
+    }
+  }
+
+  @KafkaListener(
+      id = "test-duhe-consumer",
+      topics = Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
+      properties = {
+        "auto.offset.reset:earliest",
+        "spring.kafka.listener.ack-mode:manual",
+        "spring.kafka.listener.ack-on-error:false",
+        "spring.kafka.listener.retry-after-error:false",
+        "spring.kafka.listener.fail-fast:false"
+      })
+  public void receiveDUHE(ConsumerRecord<String, GenericRecord> consumerRecord) {
+
+    final GenericRecord value = consumerRecord.value();
+    try {
+      String messageKey = consumerRecord.key();
+      getReference(messageKey).set(EventUtils.avroToPegasusDUHE(value));
+      getLatch(messageKey).countDown();
+    } catch (IOException e) {
+      log.error(
+          "Failed to deserialize DUHE message with key: {}, error: {}",
+          consumerRecord.key(),
+          e.getMessage(),
+          e);
+      // Continue processing other messages instead of stopping the consumer
+    }
+  }
+
+  @KafkaListener(
+      id = "test-failed-mcp-consumer",
+      topics = Topics.FAILED_METADATA_CHANGE_PROPOSAL,
+      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
+      properties = {
+        "auto.offset.reset:earliest",
+        "spring.kafka.listener.ack-mode:manual",
+        "spring.kafka.listener.ack-on-error:false",
+        "spring.kafka.listener.retry-after-error:false",
+        "spring.kafka.listener.fail-fast:false"
+      })
+  public void receiveFailedMCP(ConsumerRecord<String, GenericRecord> consumerRecord) {
+
+    final GenericRecord value = consumerRecord.value();
+    try {
+      String messageKey = consumerRecord.key();
+      FailedMetadataChangeProposal failedMCP = EventUtils.avroToPegasusFailedMCP(value);
+      getReference(messageKey).set(failedMCP.getMetadataChangeProposal());
+      getLatch(messageKey).countDown();
+    } catch (IOException e) {
+      log.error(
+          "Failed to deserialize Failed MCP message with key: {}, error: {}",
+          consumerRecord.key(),
+          e.getMessage(),
+          e);
+      // Continue processing other messages instead of stopping the consumer
     }
   }
 }
