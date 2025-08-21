@@ -23,6 +23,10 @@ const HealthyIcon = styled(CheckCircle)`
     font-size: 20px;
 `;
 
+const popoverStyles = {
+    zIndex: 1200,
+};
+
 interface Props {
     urn: string;
     health: Health[];
@@ -41,7 +45,12 @@ const HealthIcon = ({ urn, health, baseUrl, className }: Props) => {
     }
 
     return (
-        <Popover content={<HealthPopover health={health} baseUrl={baseUrl} />} placement="bottom" showArrow={false}>
+        <Popover
+            content={<HealthPopover health={health} baseUrl={baseUrl} />}
+            placement="bottom"
+            showArrow={false}
+            overlayStyle={popoverStyles}
+        >
             <IconContainer className={className} data-testid={`${urn}-health-icon`}>
                 {icon}
             </IconContainer>
