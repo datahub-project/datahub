@@ -29,23 +29,23 @@ export default function YourAssetsModule(props: ModuleProps) {
     return (
         <LargeModule {...props} loading={loading} onClickViewAll={searchForYourAssets} dataTestId="your-assets-module">
             <div data-testid="user-owned-entities">
-            <InfiniteScrollList<Entity>
-                fetchData={fetchEntities}
-                renderItem={(entity) => (
-                    <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
-                )}
-                pageSize={DEFAULT_PAGE_SIZE}
-                emptyState={
-                    <EmptyContent
-                        icon="User"
-                        title="No Owned Assets"
-                        description="Select an asset and add yourself as an owner to see the assets in this list"
-                        linkText="Discover the assets you want to own"
-                        onLinkClick={navigateToSearch}
-                    />
-                }
-                totalItemCount={total}
-            />
+                <InfiniteScrollList<Entity>
+                    fetchData={fetchEntities}
+                    renderItem={(entity) => (
+                        <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
+                    )}
+                    pageSize={DEFAULT_PAGE_SIZE}
+                    emptyState={
+                        <EmptyContent
+                            icon="User"
+                            title="No Owned Assets"
+                            description="Select an asset and add yourself as an owner to see the assets in this list"
+                            linkText="Discover the assets you want to own"
+                            onLinkClick={navigateToSearch}
+                        />
+                    }
+                    totalItemCount={total}
+                />
             </div>
         </LargeModule>
     );
