@@ -20,6 +20,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.OwnershipPatchBuilder;
 import com.linkedin.metadata.resource.ResourceReference;
+import com.linkedin.metadata.service.util.OwnerServiceUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -37,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class OwnerService extends BaseService {
 
-  public static final String SYSTEM_ID = "__system__";
   private final boolean _isAsync;
 
   public OwnerService(
@@ -239,7 +239,10 @@ public class OwnerService extends BaseService {
         owners.setOwners(new OwnerArray());
         owners.setLastModified(lastModified);
       }
-      addOwnersIfNotExists(owners, ownerUrns, ownershipType, ownershipTypeUrn);
+      ownerUrns.forEach(
+          ownerUrn -> {
+            OwnerServiceUtils.addOwnerToAspect(owners, ownerUrn, ownershipType, ownershipTypeUrn);
+          });
       proposals.add(
           buildMetadataChangeProposal(resource.getUrn(), Constants.OWNERSHIP_ASPECT_NAME, owners));
     }
@@ -288,56 +291,6 @@ public class OwnerService extends BaseService {
     }
 
     return proposals;
-  }
-
-  private void addOwnersIfNotExists(
-      Ownership owners, List<Urn> ownerUrns, OwnershipType ownershipType, Urn ownershipTypeUrn) {
-    if (!owners.hasOwners()) {
-      owners.setOwners(new OwnerArray());
-    }
-
-    OwnerArray ownerAssociationArray = owners.getOwners();
-
-    List<Urn> ownersToAdd = new ArrayList<>();
-    for (Urn ownerUrn : ownerUrns) {
-      if (ownerAssociationArray.stream()
-          .anyMatch(
-              association ->
-                  isOwnerEqual(association, ownerUrn, ownershipType, ownershipTypeUrn))) {
-        continue;
-      }
-      ownersToAdd.add(ownerUrn);
-    }
-
-    // Check for no owners to add
-    if (ownersToAdd.size() == 0) {
-      return;
-    }
-
-    for (Urn ownerUrn : ownersToAdd) {
-      Owner newOwner = new Owner();
-      newOwner.setOwner(ownerUrn);
-      newOwner.setType(ownershipType);
-      if (ownershipTypeUrn != null) {
-        newOwner.setTypeUrn(ownershipTypeUrn);
-      }
-      ownerAssociationArray.add(newOwner);
-    }
-  }
-
-  private boolean isOwnerEqual(
-      Owner owner, Urn ownerUrn, OwnershipType ownershipType, Urn ownershipTypeUrn) {
-    return owner.getOwner().equals(ownerUrn)
-        && owner.getType().equals(ownershipType)
-        && (owner.hasTypeUrn()
-            ? owner.getTypeUrn().equals(ownershipTypeUrn)
-            : ownershipTypeUrn == null);
-  }
-
-  @VisibleForTesting
-  static Urn mapOwnershipTypeToEntity(String type) {
-    final String typeName = SYSTEM_ID + type.toLowerCase();
-    return Urn.createFromTuple(Constants.OWNERSHIP_TYPE_ENTITY_NAME, typeName);
   }
 
   private static OwnerArray removeOwnersIfExists(Ownership owners, List<Urn> ownerUrns) {
