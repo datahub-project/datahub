@@ -7,6 +7,7 @@ import { Tab, Tabs } from '@components/components/Tabs/Tabs';
 
 import { LogsTab } from '@app/ingestV2/executions/components/LogsTab';
 import { RecipeTab } from '@app/ingestV2/executions/components/RecipeTab';
+import { SamplesTab } from '@app/ingestV2/executions/components/SamplesTab';
 import { SummaryTab } from '@app/ingestV2/executions/components/SummaryTab';
 import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import { TabType } from '@app/ingestV2/executions/types';
@@ -76,6 +77,11 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                 ),
                 key: TabType.Summary,
                 name: TabType.Summary,
+            },
+            {
+                component: <SamplesTab data={data} />,
+                key: TabType.Sample,
+                name: TabType.Sample,
             },
             {
                 component: <LogsTab urn={urn} data={data} />,

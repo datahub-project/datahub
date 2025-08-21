@@ -26,4 +26,5 @@ export const enum TabType {
     Summary = 'Summary',
     Logs = 'Logs',
     Recipe = 'Recipe',
+    Sample = 'Sample Assets',
 }

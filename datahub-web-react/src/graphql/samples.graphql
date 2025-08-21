@@ -1,0 +1,208 @@
+#import "./fragments.graphql"
+
+query getSamplesSearchResults($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    name
+                    properties {
+                        name
+                        qualifiedName
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                    platform {
+                        urn
+                        type
+                        name
+                        properties {
+                            type
+                            displayName
+                            datasetNameDelimiter
+                            logoUrl
+                        }
+                    }
+                    dataPlatformInstance {
+                        urn
+                        type
+                        instanceId
+                        platform {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
+                }
+                ... on Dashboard {
+                    properties {
+                        name
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                    platform {
+                        urn
+                        type
+                        name
+                        properties {
+                            type
+                            displayName
+                            logoUrl
+                        }
+                    }
+                    dataPlatformInstance {
+                        urn
+                        type
+                        instanceId
+                        platform {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
+                }
+                ... on Chart {
+                    properties {
+                        name
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                    platform {
+                        urn
+                        type
+                        name
+                        properties {
+                            type
+                            displayName
+                            logoUrl
+                        }
+                    }
+                    dataPlatformInstance {
+                        urn
+                        type
+                        instanceId
+                        platform {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
+                }
+                ... on Container {
+                    properties {
+                        name
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                    platform {
+                        urn
+                        type
+                        name
+                        properties {
+                            type
+                            displayName
+                            logoUrl
+                        }
+                    }
+                    dataPlatformInstance {
+                        urn
+                        type
+                        instanceId
+                        platform {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
+                }
+                ... on DataFlow {
+                    properties {
+                        name
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                    platform {
+                        urn
+                        type
+                        name
+                        properties {
+                            type
+                            displayName
+                            logoUrl
+                        }
+                    }
+                    dataPlatformInstance {
+                        urn
+                        type
+                        instanceId
+                        platform {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
+                }
+                ... on DataJob {
+                    properties {
+                        name
+                    }
+                    subTypes {
+                        typeNames
+                    }
+                    dataPlatformInstance {
+                        urn
+                        type
+                        instanceId
+                        platform {
+                            urn
+                            name
+                            properties {
+                                displayName
+                            }
+                        }
+                    }
+                    browsePathV2 {
+                        ...browsePathV2Fields
+                    }
+                }
+            }
+            extraProperties {
+                name
+                value
+            }
+        }
+        total
+    }
+}

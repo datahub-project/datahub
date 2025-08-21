@@ -7,28 +7,28 @@ export const useCapabilitySummary = () => {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchCapabilitySummary = async () => {
-            setIsLoading(true);
-            setError(null);
+    const fetchCapabilitySummary = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
 
-            try {
-                const response = await fetch('/assets/ingestion/capability_summary.json');
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch capability summary: ${response.status} ${response.statusText}`);
-                }
-                const data = await response.json();
-                setCapabilitySummary(data);
-            } catch (fetchError) {
-                console.error('Error fetching capability summary:', fetchError);
-                setError(fetchError instanceof Error ? fetchError.message : 'Failed to fetch capability summary');
-            } finally {
-                setIsLoading(false);
+        try {
+            const response = await fetch('/assets/ingestion/capability_summary.json');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch capability summary: ${response.status} ${response.statusText}`);
             }
-        };
-
-        fetchCapabilitySummary();
+            const data = await response.json();
+            setCapabilitySummary(data);
+        } catch (fetchError) {
+            console.error('Error fetching capability summary:', fetchError);
+            setError(fetchError instanceof Error ? fetchError.message : 'Failed to fetch capability summary');
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchCapabilitySummary();
+    }, [fetchCapabilitySummary]);
 
     const getPluginCapabilities = useCallback(
         (platformId: string): PluginDetails | null => {
@@ -49,6 +49,20 @@ export const useCapabilitySummary = () => {
             return capabilities?.some((capability) => capability.capability === capabilityName && capability.supported);
         },
         [getPluginCapabilities],
+    );
+
+    const isLineageSupported = useCallback(
+        (platformId: string): boolean => {
+            return isCapabilitySupported(platformId, 'LINEAGE_COARSE');
+        },
+        [isCapabilitySupported],
+    );
+
+    const isUsageSupported = useCallback(
+        (platformId: string): boolean => {
+            return isCapabilitySupported(platformId, 'USAGE_STATS');
+        },
+        [isCapabilitySupported],
     );
 
     const isProfilingSupported = useCallback(
@@ -87,6 +101,8 @@ export const useCapabilitySummary = () => {
         error,
         isCapabilitySupported,
         isProfilingSupported,
+        isLineageSupported,
+        isUsageSupported,
         isTestConnectionSupported,
         getConnectorsWithTestConnection,
     };
