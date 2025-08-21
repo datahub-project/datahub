@@ -17,7 +17,7 @@
             "state": {
                 "formatVersion": "1.0",
                 "serde": "utf-8",
-                "payload": "{\"urns\":[\"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)\",\"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\",\"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)\",\"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)\"]}"
+                "payload": "{\"urns\": [\"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)\"]}"
             },
             "runId": "test-run"
         }
