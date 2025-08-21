@@ -9,6 +9,7 @@ describe('extendColumnLineage', () => {
         const dataJobWithCLL = {
             ...dataJob1,
             name: '',
+            platform: dataJob1.dataFlow?.platform || undefined,
             fineGrainedLineages: [
                 {
                     upstreams: [{ urn: dataset1.urn, path: 'test1' }],

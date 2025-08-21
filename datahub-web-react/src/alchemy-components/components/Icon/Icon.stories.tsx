@@ -71,6 +71,13 @@ const meta = {
                 type: 'select',
             },
         },
+        colorLevel: {
+            description: 'The level of `color`',
+            type: 'number',
+            table: {
+                defaultValue: { summary: '500' },
+            },
+        },
         rotate: {
             description: 'The rotation of the icon. Applies a CSS transformation.',
             table: {

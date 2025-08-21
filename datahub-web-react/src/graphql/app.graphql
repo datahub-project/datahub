@@ -102,10 +102,13 @@ query appConfig {
             showIntroducePage
             showIngestionPageRedesign
             showLineageExpandMore
+            showStatsTabRedesign
             showHomePageRedesign
             showProductUpdates
             lineageGraphV3
             logicalModelsEnabled
+            showHomepageUserRole
+            assetSummaryPageV1
         }
         chromeExtensionConfig {
             enabled

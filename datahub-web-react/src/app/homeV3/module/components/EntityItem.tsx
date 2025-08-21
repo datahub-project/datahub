@@ -1,22 +1,77 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { Entity } from '@types';
+import { DataHubPageModuleType, Entity } from '@types';
+
+const StyledLink = styled(Link)`
+    width: 100%;
+`;
 
 interface Props {
     entity: Entity;
-    customDetailsRenderer?: (entity: Entity) => void;
+    moduleType: DataHubPageModuleType;
+    customDetailsRenderer?: (entity: Entity) => React.ReactNode;
+    navigateOnlyOnNameClick?: boolean;
+    dragIconRenderer?: () => React.ReactNode;
+    hideSubtitle?: boolean;
+    hideMatches?: boolean;
+    padding?: string;
 }
 
-export default function EntityItem({ entity, customDetailsRenderer }: Props) {
+export default function EntityItem({
+    entity,
+    moduleType,
+    customDetailsRenderer,
+    navigateOnlyOnNameClick = false,
+    dragIconRenderer,
+    hideSubtitle,
+    hideMatches,
+    padding,
+}: Props) {
     const entityRegistry = useEntityRegistryV2();
 
+    const sendAnalytics = useCallback(
+        () =>
+            analytics.event({
+                type: EventType.HomePageTemplateModuleAssetClick,
+                moduleType,
+                assetUrn: entity.urn,
+            }),
+        [entity.urn, moduleType],
+    );
+
     return (
-        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
-            <AutoCompleteEntityItem entity={entity} key={entity.urn} customDetailsRenderer={customDetailsRenderer} />
-        </Link>
+        <>
+            {navigateOnlyOnNameClick ? (
+                <AutoCompleteEntityItem
+                    entity={entity}
+                    key={entity.urn}
+                    customDetailsRenderer={customDetailsRenderer}
+                    hideSubtitle={hideSubtitle}
+                    hideMatches={hideMatches}
+                    padding={padding}
+                    navigateOnlyOnNameClick
+                    dragIconRenderer={dragIconRenderer}
+                    onClick={sendAnalytics}
+                />
+            ) : (
+                <StyledLink to={entityRegistry.getEntityUrl(entity.type, entity.urn)} onClick={sendAnalytics}>
+                    <AutoCompleteEntityItem
+                        entity={entity}
+                        key={entity.urn}
+                        hideSubtitle={hideSubtitle}
+                        hideMatches={hideMatches}
+                        padding={padding}
+                        customDetailsRenderer={customDetailsRenderer}
+                        dragIconRenderer={dragIconRenderer}
+                    />
+                </StyledLink>
+            )}
+        </>
     );
 }

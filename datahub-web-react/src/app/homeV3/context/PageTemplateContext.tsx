@@ -1,23 +1,14 @@
-import React, { ReactNode, createContext, useContext, useMemo } from 'react';
+import React, { ReactNode, createContext, useContext, useMemo, useState } from 'react';
 
+import { useModuleModalState } from '@app/homeV3/context/hooks/useModuleModalState';
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { useTemplateState } from '@app/homeV3/context/hooks/useTemplateState';
 import { PageTemplateContextState } from '@app/homeV3/context/types';
 
-import { PageTemplateFragment } from '@graphql/template.generated';
-
 const PageTemplateContext = createContext<PageTemplateContextState | undefined>(undefined);
 
-export const PageTemplateProvider = ({
-    personalTemplate: initialPersonalTemplate,
-    globalTemplate: initialGlobalTemplate,
-    children,
-}: {
-    personalTemplate: PageTemplateFragment | null | undefined;
-    globalTemplate: PageTemplateFragment | null | undefined;
-    children: ReactNode;
-}) => {
+export const PageTemplateProvider = ({ children }: { children: ReactNode }) => {
     // Template state management
     const {
         personalTemplate,
@@ -28,13 +19,17 @@ export const PageTemplateProvider = ({
         setPersonalTemplate,
         setGlobalTemplate,
         setTemplate,
-    } = useTemplateState(initialPersonalTemplate, initialGlobalTemplate);
+    } = useTemplateState();
 
     // Template operations
-    const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate } = useTemplateOperations();
+    const { updateTemplateWithModule, removeModuleFromTemplate, upsertTemplate, resetTemplateToDefault } =
+        useTemplateOperations(setPersonalTemplate, personalTemplate);
+
+    // Modal state
+    const moduleModalState = useModuleModalState();
 
     // Module operations
-    const { addModule, removeModule, createModule } = useModuleOperations(
+    const { addModule, removeModule, upsertModule, moveModule } = useModuleOperations(
         isEditingGlobalTemplate,
         personalTemplate,
         globalTemplate,
@@ -43,7 +38,12 @@ export const PageTemplateProvider = ({
         updateTemplateWithModule,
         removeModuleFromTemplate,
         upsertTemplate,
+        moduleModalState.isEditing,
+        moduleModalState.initialState,
     );
+
+    // If modules should be reloaded
+    const [reloadHomepageModules, setReloadHomepageModules] = useState(false);
 
     const value = useMemo(
         () => ({
@@ -57,7 +57,12 @@ export const PageTemplateProvider = ({
             setTemplate,
             addModule,
             removeModule,
-            createModule,
+            upsertModule,
+            moduleModalState,
+            moveModule,
+            resetTemplateToDefault,
+            reloadHomepageModules,
+            setReloadHomepageModules,
         }),
         [
             personalTemplate,
@@ -70,7 +75,12 @@ export const PageTemplateProvider = ({
             setTemplate,
             addModule,
             removeModule,
-            createModule,
+            upsertModule,
+            moduleModalState,
+            moveModule,
+            resetTemplateToDefault,
+            reloadHomepageModules,
+            setReloadHomepageModules,
         ],
     );
 
@@ -84,6 +94,3 @@ export function usePageTemplateContext() {
     }
     return context;
 }
-
-// Re-export types for convenience
-export type { CreateModuleInput, AddModuleInput, RemoveModuleInput } from './types';

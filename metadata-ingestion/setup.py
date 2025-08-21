@@ -23,8 +23,8 @@ base_requirements = {
     # pydantic 1.10.3 is incompatible with typing-extensions 4.1.1 - https://github.com/pydantic/pydantic/issues/4885
     "pydantic>=1.10.0,!=1.10.3",
     "mixpanel>=4.9.0",
-    # Airflow depends on fairly old versions of sentry-sdk, so we want to be loose with our constraints.
-    "sentry-sdk",
+    # Airflow depends on fairly old versions of sentry-sdk, which is why we need to be loose with our constraints.
+    "sentry-sdk>=1.33.1",
 }
 
 framework_common = {
@@ -136,10 +136,11 @@ great_expectations_lib = {
     # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
     # 3. Since then, we've ended up forking great-expectations in order to
     #    add pydantic 2.x support. The fork is pretty simple
-    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...hsheth2:great_expectations:0.15.50-pydantic-2-patch?expand=1
+    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...acryldata:great_expectations:0.15.50-pydantic-2-patch?expand=1
     #    This was derived from work done by @jskrzypek in
     #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
     "acryl-great-expectations==0.15.50.1",
+    "jupyter_server>=2.14.1",  # CVE-2024-35178
 }
 
 sqlalchemy_lib = {
@@ -470,7 +471,7 @@ plugins: Dict[str, Set[str]] = {
         # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
         "numpy<2",
     },
-    "grafana": {"requests"},
+    "grafana": {"requests", *sqlglot_lib},
     "glue": aws_common | cachetools_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
@@ -645,7 +646,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.7",
-    "mypy==1.14.1",
+    "mypy==1.17.1",
 }
 
 base_dev_requirements = {
@@ -987,11 +988,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
         },
         "all": list(
             framework_common.union(
+                pydantic_no_v2,
                 *[
                     requirements
                     for plugin, requirements in plugins.items()
                     if plugin not in all_exclude_plugins
-                ]
+                ],
             )
         ),
         "cloud": ["acryl-datahub-cloud"],

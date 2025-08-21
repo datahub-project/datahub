@@ -1,29 +1,25 @@
 import { message } from 'antd';
 import { useCallback, useMemo } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
+import {
+    calculateAdjustedRowIndex,
+    handleModuleAdditionWithSizeMismatch,
+    insertModuleIntoRows,
+    removeModuleFromRows,
+    validateModuleMoveConstraints,
+} from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
+import { AddModuleInput, MoveModuleInput, RemoveModuleInput, UpsertModuleInput } from '@app/homeV3/context/types';
+import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 
-import { PageModuleFragment, PageTemplateFragment, useUpsertPageModuleMutation } from '@graphql/template.generated';
-import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
-
-// Input types for the methods
-export interface CreateModuleInput {
-    name: string;
-    type: DataHubPageModuleType;
-    scope?: PageModuleScope;
-    params?: any; // Module-specific parameters
-    position: ModulePositionInput;
-}
-
-export interface AddModuleInput {
-    module: PageModuleFragment;
-    position: ModulePositionInput;
-}
-
-export interface RemoveModuleInput {
-    moduleUrn: string;
-    position: ModulePositionInput;
-}
+import {
+    PageModuleFragment,
+    PageTemplateFragment,
+    useDeletePageModuleMutation,
+    useUpsertPageModuleMutation,
+} from '@graphql/template.generated';
+import { EntityType, PageModuleScope } from '@types';
 
 // Helper types for shared operations
 interface TemplateUpdateContext {
@@ -99,7 +95,7 @@ const validateAddModuleInput = (input: AddModuleInput): string | null => {
 };
 
 const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
-    if (!input.moduleUrn) {
+    if (!input.module.urn) {
         return 'Module URN is required for removal';
     }
     if (!input.position) {
@@ -111,7 +107,7 @@ const validateRemoveModuleInput = (input: RemoveModuleInput): string | null => {
     return null;
 };
 
-const validateCreateModuleInput = (input: CreateModuleInput): string | null => {
+const validateUpsertModuleInput = (input: UpsertModuleInput): string | null => {
     if (!input.name?.trim()) {
         return 'Module name is required';
     }
@@ -120,6 +116,25 @@ const validateCreateModuleInput = (input: CreateModuleInput): string | null => {
     }
     if (!input.position) {
         return 'Module position is required';
+    }
+    return null;
+};
+
+const validateMoveModuleInput = (input: MoveModuleInput): string | null => {
+    if (!input.module?.urn) {
+        return 'Module URN is required for move operation';
+    }
+    if (!input.fromPosition) {
+        return 'From position is required for move operation';
+    }
+    if (!input.toPosition) {
+        return 'To position is required for move operation';
+    }
+    if (input.fromPosition.rowIndex === undefined || input.fromPosition.moduleIndex === undefined) {
+        return 'Valid from position indices are required for move operation';
+    }
+    if (input.toPosition.rowIndex === undefined) {
+        return 'Valid to position row index is required for move operation';
     }
     return null;
 };
@@ -134,19 +149,24 @@ export function useModuleOperations(
         templateToUpdate: PageTemplateFragment | null,
         module: PageModuleFragment,
         position: ModulePositionInput,
+        isEditing: boolean,
     ) => PageTemplateFragment | null,
     removeModuleFromTemplate: (
         templateToUpdate: PageTemplateFragment | null,
         moduleUrn: string,
         position: ModulePositionInput,
+        shouldRemoveEmptyRow: boolean,
     ) => PageTemplateFragment | null,
     upsertTemplate: (
         templateToUpsert: PageTemplateFragment | null,
         isPersonal: boolean,
         personalTemplate: PageTemplateFragment | null,
     ) => Promise<any>,
+    isEditingModule: boolean,
+    originalModuleData: PageModuleFragment | null,
 ) {
     const [upsertPageModuleMutation] = useUpsertPageModuleMutation();
+    const [deletePageModule] = useDeletePageModuleMutation();
 
     // Create context object to avoid passing many parameters
     const context: TemplateUpdateContext = useMemo(
@@ -166,6 +186,44 @@ export function useModuleOperations(
             setGlobalTemplate,
             upsertTemplate,
         ],
+    );
+
+    // Simplified helper function to move a module within or between rows in a template
+    const moveModuleInTemplate = useCallback(
+        (
+            template: PageTemplateFragment | null,
+            module: PageModuleFragment,
+            fromPosition: ModulePositionInput,
+            toPosition: ModulePositionInput,
+            insertNewRow?: boolean,
+        ): PageTemplateFragment | null => {
+            if (!template) return null;
+
+            const { rowIndex: toRowIndex } = toPosition;
+            if (toRowIndex === undefined) {
+                console.error('Target row index is required for move operation');
+                return null;
+            }
+
+            // Step 1: Remove module from original position
+            const { updatedRows, wasRowRemoved } = removeModuleFromRows(template.properties?.rows, fromPosition);
+
+            // Step 2: Calculate adjusted target row index
+            const adjustedRowIndex = calculateAdjustedRowIndex(fromPosition, toRowIndex, wasRowRemoved);
+
+            // Step 3: Insert module into new position
+            const finalRows = insertModuleIntoRows(updatedRows, module, toPosition, adjustedRowIndex, insertNewRow);
+
+            // Step 4: Return updated template
+            return {
+                ...template,
+                properties: {
+                    ...template.properties,
+                    rows: finalRows,
+                },
+            };
+        },
+        [],
     );
 
     // Updates template state with a new module and updates the appropriate template on the backend
@@ -188,16 +246,29 @@ export function useModuleOperations(
                 return;
             }
 
-            // Update template state
-            const updatedTemplate = updateTemplateWithModule(templateToUpdate, module, position);
+            // Handle module addition with size mismatch detection
+            const updatedTemplate = handleModuleAdditionWithSizeMismatch(
+                templateToUpdate,
+                module,
+                position,
+                updateTemplateWithModule,
+                isEditingModule,
+            );
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'add module');
+
+            analytics.event({
+                type: EventType.HomePageTemplateModuleAdd,
+                templateUrn: templateToUpdate.urn,
+                moduleType: module.properties.type,
+                isPersonal,
+            });
         },
-        [context, updateTemplateWithModule],
+        [context, isEditingModule, updateTemplateWithModule],
     );
 
     // Removes a module from the template state and updates the appropriate template on the backend
@@ -211,7 +282,7 @@ export function useModuleOperations(
                 return;
             }
 
-            const { moduleUrn, position } = input;
+            const { module, position } = input;
             const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
 
             if (!templateToUpdate) {
@@ -221,39 +292,68 @@ export function useModuleOperations(
             }
 
             // Update template state
-            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, moduleUrn, position);
+            const updatedTemplate = removeModuleFromTemplate(templateToUpdate, module.urn, position, true);
 
             // Update local state immediately for optimistic UI
             updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
 
             // Persist changes
             persistTemplateChanges(context, updatedTemplate, isPersonal, 'remove module');
+
+            // Delete module if necessary
+            // Only do not delete a module when removing a global module from personal template OR module is a default
+            const shouldNotDeleteModule =
+                (!context.isEditingGlobalTemplate && module.properties.visibility.scope === PageModuleScope.Global) ||
+                DEFAULT_MODULE_URNS.includes(module.urn);
+            if (!shouldNotDeleteModule) {
+                deletePageModule({ variables: { input: { urn: module.urn } } });
+            }
+            analytics.event({
+                type: EventType.HomePageTemplateModuleDelete,
+                templateUrn: templateToUpdate.urn,
+                moduleType: module.properties.type,
+                isPersonal,
+            });
         },
-        [context, removeModuleFromTemplate],
+        [context, removeModuleFromTemplate, deletePageModule],
     );
 
     // Takes input and makes a call to create a module then add that module to the template
-    const createModule = useCallback(
-        (input: CreateModuleInput) => {
+    const upsertModule = useCallback(
+        (input: UpsertModuleInput) => {
             // Validate input
-            const validationError = validateCreateModuleInput(input);
+            const validationError = validateUpsertModuleInput(input);
             if (validationError) {
-                console.error('Invalid createModule input:', validationError);
+                console.error('Invalid upsertModule input:', validationError);
                 message.error(validationError);
                 return;
             }
 
-            const { name, type, scope = PageModuleScope.Personal, params = {}, position } = input;
+            const defaultScope = isEditingGlobalTemplate ? PageModuleScope.Global : PageModuleScope.Personal;
+            const { name, type, scope = defaultScope, params = {}, position, urn } = input;
+
+            // Check if we need to create a new module instead of editing the original
+            // This happens when:
+            // 1. We're editing an existing module (have urn and originalModuleData)
+            // 2. The original module has Global scope
+            // 3. We're not editing the global template
+            const isEditingGlobalModuleInPersonalTemplate =
+                isEditingModule &&
+                originalModuleData &&
+                originalModuleData.properties.visibility.scope === PageModuleScope.Global &&
+                !isEditingGlobalTemplate;
+
+            // If we're editing a global module in personal template, create new module instead
+            const shouldCreateNewModule = isEditingGlobalModuleInPersonalTemplate;
+            const moduleUrnToUse = shouldCreateNewModule ? undefined : urn;
 
             // Create the module first
             const moduleInput = {
                 name: name.trim(),
                 type,
                 scope,
-                visibility: {
-                    scope,
-                },
                 params,
+                urn: moduleUrnToUse, // Don't pass urn if creating new module
             };
 
             upsertPageModuleMutation({
@@ -262,8 +362,8 @@ export function useModuleOperations(
                 .then((moduleResult) => {
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
-                        console.error('Failed to create module - no URN returned');
-                        message.error('Failed to create module');
+                        console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module - no URN returned`);
+                        message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                         return;
                     }
 
@@ -279,23 +379,136 @@ export function useModuleOperations(
                         },
                     };
 
-                    // Now add the module to the template
-                    addModule({
-                        module: moduleFragment,
-                        position,
+                    const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
+
+                    analytics.event({
+                        type: moduleInput.urn
+                            ? EventType.HomePageTemplateModuleUpdate
+                            : EventType.HomePageTemplateModuleCreate,
+                        templateUrn: templateToUpdate?.urn ?? '',
+                        moduleType: moduleFragment.properties.type,
+                        isPersonal,
                     });
+
+                    // If we created a new module to replace a global one, remove the old module first
+                    if (shouldCreateNewModule && originalModuleData) {
+                        if (!templateToUpdate) {
+                            console.error('No template provided to update');
+                            message.error('No template available to update');
+                            return;
+                        }
+
+                        // Remove the original global module and add the new personal module
+                        let updatedTemplate = removeModuleFromTemplate(
+                            templateToUpdate,
+                            originalModuleData.urn,
+                            position,
+                            false,
+                        );
+
+                        if (updatedTemplate) {
+                            // Handle module addition with size mismatch detection
+                            updatedTemplate = handleModuleAdditionWithSizeMismatch(
+                                updatedTemplate,
+                                moduleFragment,
+                                position,
+                                updateTemplateWithModule,
+                                false,
+                            );
+
+                            // Update local state immediately for optimistic UI
+                            updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
+
+                            // Persist changes
+                            persistTemplateChanges(context, updatedTemplate, isPersonal, 'replace global module');
+                        }
+                    } else {
+                        // Normal flow: add the module to the template
+                        addModule({
+                            module: moduleFragment,
+                            position,
+                        });
+                    }
                 })
                 .catch((error) => {
-                    console.error('Failed to create module:', error);
-                    message.error('Failed to create module');
+                    console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
+                    message.error(`Failed to ${isEditingModule ? 'update' : 'create'} module`);
                 });
         },
-        [upsertPageModuleMutation, addModule],
+        [
+            upsertPageModuleMutation,
+            addModule,
+            isEditingModule,
+            isEditingGlobalTemplate,
+            originalModuleData,
+            context,
+            removeModuleFromTemplate,
+            updateTemplateWithModule,
+        ],
+    );
+
+    // Simplified move module function with extracted validation and orchestration
+    const moveModule = useCallback(
+        (input: MoveModuleInput) => {
+            // Validate input
+            const validationError = validateMoveModuleInput(input);
+            if (validationError) {
+                console.error('Invalid moveModule input:', validationError);
+                message.error(validationError);
+                return;
+            }
+
+            const { module, fromPosition, toPosition, insertNewRow } = input;
+            const { template: templateToUpdate, isPersonal } = getTemplateToUpdate(context);
+
+            if (!templateToUpdate) {
+                console.error('No template provided to update');
+                message.error('No template available to update');
+                return;
+            }
+
+            // Validate move constraints
+            const constraintError = validateModuleMoveConstraints(templateToUpdate, fromPosition, toPosition);
+            if (constraintError) {
+                console.warn(`Move validation failed: ${constraintError}`);
+                message.warning(constraintError);
+                return;
+            }
+
+            // Execute the move operation
+            const updatedTemplate = moveModuleInTemplate(
+                templateToUpdate,
+                module,
+                fromPosition,
+                toPosition,
+                insertNewRow,
+            );
+
+            if (!updatedTemplate) {
+                console.error('Failed to update template during move operation');
+                message.error('Failed to move module');
+                return;
+            }
+
+            // Update local state immediately for optimistic UI
+            updateTemplateStateOptimistically(context, updatedTemplate, isPersonal);
+
+            // Persist changes
+            persistTemplateChanges(context, updatedTemplate, isPersonal, 'move module');
+
+            analytics.event({
+                type: EventType.HomePageTemplateModuleMove,
+                templateUrn: templateToUpdate.urn,
+                isPersonal,
+            });
+        },
+        [context, moveModuleInTemplate],
     );
 
     return {
         addModule,
         removeModule,
-        createModule,
+        upsertModule,
+        moveModule,
     };
 }

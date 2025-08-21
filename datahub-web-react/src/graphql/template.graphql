@@ -23,6 +23,7 @@ fragment PageTemplateRow on DataHubPageTemplateRow {
 fragment PageModule on DataHubPageModule {
     urn
     type
+    exists
     properties {
         name
         type
@@ -33,13 +34,26 @@ fragment PageModule on DataHubPageModule {
             richTextParams {
                 content
             }
+            assetCollectionParams {
+                assetUrns
+            }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+                relatedEntitiesFilterJson
+            }
         }
     }
 }
 
 mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
     upsertPageTemplate(input: $input) {
-        urn
+        ...PageTemplate
     }
 }
 
@@ -47,4 +61,12 @@ mutation upsertPageModule($input: UpsertPageModuleInput!) {
     upsertPageModule(input: $input) {
         urn
     }
+}
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
+}
+
+mutation deletePageTemplate($input: DeletePageTemplateInput!) {
+    deletePageTemplate(input: $input)
 }

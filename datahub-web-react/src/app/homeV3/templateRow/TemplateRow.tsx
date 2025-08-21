@@ -1,52 +1,35 @@
-import React from 'react';
-import styled from 'styled-components';
+import { useDndContext } from '@dnd-kit/core';
+import React, { memo } from 'react';
 
-import Module from '@app/homeV3/module/Module';
-import { ModulesAvailableToAdd } from '@app/homeV3/modules/types';
-import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
-import { ModulePositionInput } from '@app/homeV3/template/types';
-
-import { PageTemplateRowFragment } from '@graphql/template.generated';
-
-const RowWrapper = styled.div`
-    display: flex;
-    gap: 16px;
-    width: 100%;
-    flex: 1;
-`;
+import RowLayout from '@app/homeV3/templateRow/components/RowLayout';
+import { useTemplateRowLogic } from '@app/homeV3/templateRow/hooks/useTemplateRowLogic';
+import { WrappedRow } from '@app/homeV3/templateRow/types';
 
 interface Props {
-    row: PageTemplateRowFragment;
-    modulesAvailableToAdd: ModulesAvailableToAdd;
+    row: WrappedRow;
     rowIndex: number;
 }
 
-export default function TemplateRow({ row, modulesAvailableToAdd, rowIndex }: Props) {
+function TemplateRow({ row, rowIndex }: Props) {
+    const { modulePositions, isSmallRow } = useTemplateRowLogic(row, rowIndex);
+    const { active } = useDndContext();
+    const isActiveModuleSmall = active?.data?.current?.isSmall;
+
+    const isDropAllowed =
+        !active ||
+        isSmallRow == null || // empty row
+        isActiveModuleSmall === isSmallRow;
+
+    const isDropZoneDisabled = !isDropAllowed;
+
     return (
-        <RowWrapper>
-            <AddModuleButton
-                orientation="vertical"
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                rowIndex={rowIndex}
-                rowSide="left"
-            />
-
-            {row.modules.map((module, moduleIndex) => {
-                const position: ModulePositionInput = {
-                    rowIndex,
-                    rowSide: moduleIndex === 0 ? 'left' : 'right',
-                    moduleIndex,
-                };
-                const key = `${module.urn}-${moduleIndex}`;
-                return <Module key={key} module={module} position={position} />;
-            })}
-
-            <AddModuleButton
-                orientation="vertical"
-                modulesAvailableToAdd={modulesAvailableToAdd}
-                rowIndex={rowIndex}
-                rowSide="right"
-            />
-        </RowWrapper>
+        <RowLayout
+            rowIndex={rowIndex}
+            modulePositions={modulePositions}
+            shouldDisableDropZones={isDropZoneDisabled}
+            isSmallRow={isSmallRow}
+        />
     );
 }
+
+export default memo(TemplateRow);

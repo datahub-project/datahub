@@ -356,6 +356,35 @@ export default class EntityRegistry {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.useEntityQuery;
     }
+
+    /**
+     * Converts an EntityType enum value to camelCase string representation.
+     * e.g. EntityType.DataPlatform (DATA_PLATFORM) -> 'dataPlatform'
+     */
+    getEntityTypeAsCamelCase(type: EntityType): string {
+        return type
+            .toLowerCase()
+            .split('_')
+            .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+            .join('');
+    }
+
+    /**
+     * Gets all search entity types converted to camelCase strings.
+     * Useful for comparing with backend data that uses camelCase entity names.
+     */
+    getSearchEntityTypesAsCamelCase(): Array<string> {
+        return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
+    }
+
+    /**
+     * Utility method to safely extract the first subtype from entity data
+     * @param data The entity data that may contain subTypes
+     * @returns The first subtype name or undefined if not available
+     */
+    getFirstSubType(data?: { subTypes?: { typeNames?: string[] | null } | null } | null): string | undefined {
+        return data?.subTypes?.typeNames?.[0];
+    }
 }
 
 function getSchemaFields(

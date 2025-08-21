@@ -366,6 +366,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_FEATURES_PRIVILEGE);
   }
 
+  public static boolean canManageHomePageTemplates(@Nonnull QueryContext context) {
+    return AuthUtil.isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE);
+  }
+
   public static boolean isAuthorized(
       @Nonnull QueryContext context,
       @Nonnull String resourceType,

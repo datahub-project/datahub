@@ -1,5 +1,6 @@
 .datahub-reset-dropdown-menu-styles {
     & .ant-dropdown-menu {
+        border-radius: 12px;
         padding: 8px;
         margin: 16px; // compensation of padding as it computes incorrect position of a submenu
     }
@@ -12,4 +13,9 @@
         padding: 0px;
         margin: 0px;
     }
+}
+
+.ant-dropdown-menu-submenu-popup ul {
+    max-height: 80vh;
+    overflow-y: auto;
 }

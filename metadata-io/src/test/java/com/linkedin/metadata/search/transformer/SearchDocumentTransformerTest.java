@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMapBuilder;
@@ -220,7 +221,7 @@ public class SearchDocumentTransformerTest {
    *
    * <ul>
    *   <li>{@link SearchDocumentTransformer#setSearchableRefValue(OperationContext,
-   *       SearchableRefFieldSpec, List, ObjectNode, Boolean ) }
+   *       SearchableRefFieldSpec, List, ObjectNode, Boolean, AuditStamp)}
    * </ul>
    */
   @Test
@@ -476,5 +477,474 @@ public class SearchDocumentTransformerTest {
     assertTrue(result.has("structuredProperties.prop2"));
     assertTrue(result.get("structuredProperties.prop2").isNull());
     assertEquals(result.get("otherField").asText(), "updatedValue3");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithNullPreviousDoc() {
+    // When previous doc is null, should return new doc unchanged
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", "value1");
+    newDoc.put("field2", "value2");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, null);
+
+    assertEquals(result, newDoc);
+    assertEquals(result.get("field1").asText(), "value1");
+    assertEquals(result.get("field2").asText(), "value2");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithEmptyPreviousDoc() {
+    // When previous doc is empty, should return new doc unchanged
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", "value1");
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result, newDoc);
+    assertEquals(result.get("field1").asText(), "value1");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsBasicFieldRemoval() {
+    // Test basic field removal - fields in previous but not in new should be nulled
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field1", "value1");
+    previousDoc.put("field2", "value2");
+    previousDoc.put("field3", "value3");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", "updatedValue1");
+    newDoc.put("field3", "updatedValue3");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("field1").asText(), "updatedValue1");
+    assertTrue(result.has("field2"));
+    assertTrue(result.get("field2").isNull());
+    assertEquals(result.get("field3").asText(), "updatedValue3");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithArrays() {
+    // Test handling of array fields
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    ArrayNode array1 = JsonNodeFactory.instance.arrayNode();
+    array1.add("item1");
+    array1.add("item2");
+    previousDoc.set("arrayField", array1);
+    previousDoc.put("regularField", "value");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("regularField", "newValue");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("regularField").asText(), "newValue");
+    assertTrue(result.has("arrayField"));
+    assertTrue(result.get("arrayField").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithNestedObjects() {
+    // Test handling of nested object fields
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    ObjectNode nestedObj = JsonNodeFactory.instance.objectNode();
+    nestedObj.put("innerField1", "innerValue1");
+    nestedObj.put("innerField2", "innerValue2");
+    previousDoc.set("nestedObject", nestedObj);
+    previousDoc.put("topLevel", "topValue");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("topLevel", "newTopValue");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("topLevel").asText(), "newTopValue");
+    assertTrue(result.has("nestedObject"));
+    assertTrue(result.get("nestedObject").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithMultipleStructuredProperties() {
+    // Test multiple structured properties with dot notation
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("structuredProperties.prop1", "value1");
+    previousDoc.put("structuredProperties.prop2", "value2");
+    previousDoc.put("structuredProperties.prop3", "value3");
+    previousDoc.put("structuredProperties.prop4", "value4");
+    previousDoc.put("regularField", "regularValue");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("structuredProperties.prop1", "updatedValue1");
+    newDoc.put("structuredProperties.prop3", "updatedValue3");
+    newDoc.put("regularField", "updatedRegularValue");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("structuredProperties.prop1").asText(), "updatedValue1");
+    assertTrue(result.has("structuredProperties.prop2"));
+    assertTrue(result.get("structuredProperties.prop2").isNull());
+    assertEquals(result.get("structuredProperties.prop3").asText(), "updatedValue3");
+    assertTrue(result.has("structuredProperties.prop4"));
+    assertTrue(result.get("structuredProperties.prop4").isNull());
+    assertEquals(result.get("regularField").asText(), "updatedRegularValue");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithMixedTypes() {
+    // Test with mixed field types
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("stringField", "string");
+    previousDoc.put("numberField", 123);
+    previousDoc.put("booleanField", true);
+    previousDoc.put("nullField", (String) null);
+    ArrayNode arrayField = JsonNodeFactory.instance.arrayNode();
+    arrayField.add("item");
+    previousDoc.set("arrayField", arrayField);
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("stringField", "newString");
+    newDoc.put("booleanField", false);
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("stringField").asText(), "newString");
+    assertTrue(result.has("numberField"));
+    assertTrue(result.get("numberField").isNull());
+    assertEquals(result.get("booleanField").asBoolean(), false);
+    assertTrue(result.has("nullField"));
+    assertTrue(result.get("nullField").isNull());
+    assertTrue(result.has("arrayField"));
+    assertTrue(result.get("arrayField").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsNoFieldsRemoved() {
+    // Test when all fields are preserved (no removals needed)
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field1", "value1");
+    previousDoc.put("field2", "value2");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", "updatedValue1");
+    newDoc.put("field2", "updatedValue2");
+    newDoc.put("field3", "newField");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("field1").asText(), "updatedValue1");
+    assertEquals(result.get("field2").asText(), "updatedValue2");
+    assertEquals(result.get("field3").asText(), "newField");
+    assertFalse(result.has("nullField"));
+  }
+
+  @Test
+  public void testHandleRemoveFieldsAllFieldsRemoved() {
+    // Test when all fields from previous doc are removed
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field1", "value1");
+    previousDoc.put("field2", "value2");
+    previousDoc.put("field3", "value3");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("newField1", "newValue1");
+    newDoc.put("newField2", "newValue2");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("newField1").asText(), "newValue1");
+    assertEquals(result.get("newField2").asText(), "newValue2");
+    assertTrue(result.has("field1"));
+    assertTrue(result.get("field1").isNull());
+    assertTrue(result.has("field2"));
+    assertTrue(result.get("field2").isNull());
+    assertTrue(result.has("field3"));
+    assertTrue(result.get("field3").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithSpecialCharacters() {
+    // Test field names with special characters
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field-with-dash", "value1");
+    previousDoc.put("field_with_underscore", "value2");
+    previousDoc.put("field@with@at", "value3");
+    previousDoc.put("field.with.dots", "value4");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field-with-dash", "updated1");
+    newDoc.put("field@with@at", "updated3");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("field-with-dash").asText(), "updated1");
+    assertTrue(result.has("field_with_underscore"));
+    assertTrue(result.get("field_with_underscore").isNull());
+    assertEquals(result.get("field@with@at").asText(), "updated3");
+    assertTrue(result.has("field.with.dots"));
+    assertTrue(result.get("field.with.dots").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithDeepStructuredProperties() {
+    // Test deeply nested structured properties
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("structuredProperties.level1.prop1", "value1");
+    previousDoc.put("structuredProperties.level1.prop2", "value2");
+    previousDoc.put("structuredProperties.level2.prop1", "value3");
+    previousDoc.put("structuredProperties.level2.prop2", "value4");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("structuredProperties.level1.prop1", "updated1");
+    newDoc.put("structuredProperties.level2.prop2", "updated4");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("structuredProperties.level1.prop1").asText(), "updated1");
+    assertTrue(result.has("structuredProperties.level1.prop2"));
+    assertTrue(result.get("structuredProperties.level1.prop2").isNull());
+    assertTrue(result.has("structuredProperties.level2.prop1"));
+    assertTrue(result.get("structuredProperties.level2.prop1").isNull());
+    assertEquals(result.get("structuredProperties.level2.prop2").asText(), "updated4");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsIdempotency() {
+    // Test that applying handleRemoveFields multiple times gives same result
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field1", "value1");
+    previousDoc.put("field2", "value2");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", "updated1");
+
+    ObjectNode result1 = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+    ObjectNode result2 =
+        SearchDocumentTransformer.handleRemoveFields(result1.deepCopy(), previousDoc);
+
+    assertEquals(result1, result2);
+    assertEquals(result2.get("field1").asText(), "updated1");
+    assertTrue(result2.get("field2").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsPreservesNullValues() {
+    // Test that existing null values in new doc are preserved
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field1", "value1");
+    previousDoc.put("field2", "value2");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", (String) null);
+    newDoc.put("field3", (String) null);
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertTrue(result.has("field1"));
+    assertTrue(result.get("field1").isNull());
+    assertTrue(result.has("field2"));
+    assertTrue(result.get("field2").isNull());
+    assertTrue(result.has("field3"));
+    assertTrue(result.get("field3").isNull());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithEmptyStringValues() {
+    // Test handling of empty string values
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("field1", "value1");
+    previousDoc.put("field2", "");
+    previousDoc.put("field3", "value3");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("field1", "");
+    newDoc.put("field3", "updated3");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("field1").asText(), "");
+    assertTrue(result.has("field2"));
+    assertTrue(result.get("field2").isNull());
+    assertEquals(result.get("field3").asText(), "updated3");
+  }
+
+  @Test
+  public void testHandleRemoveFieldsLargeDocument() {
+    // Test with a large number of fields
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+
+    // Add 100 fields to previous doc
+    for (int i = 0; i < 100; i++) {
+      previousDoc.put("field" + i, "value" + i);
+    }
+
+    // Only keep even numbered fields in new doc
+    for (int i = 0; i < 100; i += 2) {
+      newDoc.put("field" + i, "updated" + i);
+    }
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    // Check that even fields are updated
+    for (int i = 0; i < 100; i += 2) {
+      assertEquals(result.get("field" + i).asText(), "updated" + i);
+    }
+
+    // Check that odd fields are nulled
+    for (int i = 1; i < 100; i += 2) {
+      assertTrue(result.has("field" + i));
+      assertTrue(result.get("field" + i).isNull());
+    }
+  }
+
+  @Test
+  public void testImprovedHandleRemoveFieldsWithNestedStructure() {
+    // Test with complex nested structure
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+
+    // Create nested structure in previous
+    ObjectNode level1 = JsonNodeFactory.instance.objectNode();
+    level1.put("field1", "value1");
+    level1.put("field2", "value2");
+
+    ObjectNode level2 = JsonNodeFactory.instance.objectNode();
+    level2.put("nestedField1", "nestedValue1");
+    level2.put("nestedField2", "nestedValue2");
+    level1.set("nested", level2);
+
+    previousDoc.set("topLevel", level1);
+    previousDoc.put("simpleField", "simpleValue");
+
+    // New doc has some fields removed at various levels
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    ObjectNode newLevel1 = JsonNodeFactory.instance.objectNode();
+    newLevel1.put("field1", "updatedValue1");
+    // field2 is removed
+
+    ObjectNode newLevel2 = JsonNodeFactory.instance.objectNode();
+    newLevel2.put("nestedField1", "updatedNestedValue1");
+    // nestedField2 is removed
+    newLevel1.set("nested", newLevel2);
+
+    newDoc.set("topLevel", newLevel1);
+    // simpleField is removed
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    // Verify structure
+    assertEquals(result.get("topLevel").get("field1").asText(), "updatedValue1");
+    assertTrue(result.get("topLevel").has("field2"));
+    assertTrue(result.get("topLevel").get("field2").isNull());
+
+    assertEquals(
+        result.get("topLevel").get("nested").get("nestedField1").asText(), "updatedNestedValue1");
+    assertTrue(result.get("topLevel").get("nested").has("nestedField2"));
+    assertTrue(result.get("topLevel").get("nested").get("nestedField2").isNull());
+
+    assertTrue(result.has("simpleField"));
+    assertTrue(result.get("simpleField").isNull());
+  }
+
+  @Test
+  public void testImprovedHandleRemoveFieldsWithDotNotation() {
+    // Test that dot notation fields are handled correctly
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("structuredProperties.prop1", "value1");
+    previousDoc.put("structuredProperties.prop2", "value2");
+    previousDoc.put("structuredProperties.prop3.nested", "value3");
+
+    // Also add actual nested structure
+    ObjectNode nested = JsonNodeFactory.instance.objectNode();
+    nested.put("actualNested", "actualValue");
+    previousDoc.set("normalNested", nested);
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("structuredProperties.prop1", "updated1");
+    // prop2 and prop3.nested removed
+
+    // normalNested.actualNested is removed
+    newDoc.set("normalNested", JsonNodeFactory.instance.objectNode());
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    // Verify dot notation fields
+    assertEquals(result.get("structuredProperties.prop1").asText(), "updated1");
+    assertTrue(result.has("structuredProperties.prop2"));
+    assertTrue(result.get("structuredProperties.prop2").isNull());
+    assertTrue(result.has("structuredProperties.prop3.nested"));
+    assertTrue(result.get("structuredProperties.prop3.nested").isNull());
+
+    // Verify actual nested structure
+    assertTrue(result.has("normalNested"));
+    assertTrue(result.get("normalNested").has("actualNested"));
+    assertTrue(result.get("normalNested").get("actualNested").isNull());
+  }
+
+  @Test
+  public void testImprovedHandleRemoveFieldsTypeChange() {
+    // Test when a field changes from object to primitive or vice versa
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+
+    ObjectNode wasObject = JsonNodeFactory.instance.objectNode();
+    wasObject.put("inner1", "value1");
+    wasObject.put("inner2", "value2");
+    previousDoc.set("changesToString", wasObject);
+
+    previousDoc.put("changesToObject", "wasString");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("changesToString", "nowString");
+
+    ObjectNode nowObject = JsonNodeFactory.instance.objectNode();
+    nowObject.put("newInner", "newValue");
+    newDoc.set("changesToObject", nowObject);
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    // When type changes from object to string, the nested fields should not be nulled
+    // because the entire structure was replaced
+    assertEquals(result.get("changesToString").asText(), "nowString");
+    assertFalse(result.get("changesToString").isObject());
+
+    // When type changes from string to object, it's a complete replacement
+    assertTrue(result.get("changesToObject").isObject());
+    assertEquals(result.get("changesToObject").get("newInner").asText(), "newValue");
+  }
+
+  @Test
+  public void testImprovedHandleRemoveFieldsDeepNesting() {
+    // Test with very deep nesting
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    ObjectNode current = previousDoc;
+
+    // Create deep structure: a.b.c.d.e = "deep"
+    for (String level : new String[] {"a", "b", "c", "d"}) {
+      ObjectNode next = JsonNodeFactory.instance.objectNode();
+      current.set(level, next);
+      current = next;
+    }
+    current.put("e", "deepValue");
+    current.put("f", "anotherDeepValue");
+
+    // New doc removes 'f' at the deepest level
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    current = newDoc;
+    for (String level : new String[] {"a", "b", "c", "d"}) {
+      ObjectNode next = JsonNodeFactory.instance.objectNode();
+      current.set(level, next);
+      current = next;
+    }
+    current.put("e", "updatedDeepValue");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    // Navigate to deep level and check
+    JsonNode deepNode = result.get("a").get("b").get("c").get("d");
+    assertEquals(deepNode.get("e").asText(), "updatedDeepValue");
+    assertTrue(deepNode.has("f"));
+    assertTrue(deepNode.get("f").isNull());
   }
 }
