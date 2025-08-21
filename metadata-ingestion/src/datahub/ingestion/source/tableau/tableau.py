@@ -662,6 +662,7 @@ class TableauConfig(
             values["project_pattern"] = AllowDenyPattern(
                 allow=[f"^{prj}$" for prj in projects]
             )
+            values.pop("projects")
         elif (project_pattern or project_path_pattern) and projects:
             raise ValueError(
                 "projects is deprecated. Please use project_path_pattern only."
