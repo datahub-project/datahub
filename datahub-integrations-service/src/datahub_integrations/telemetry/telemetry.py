@@ -1,18 +1,16 @@
 import functools
-import logging
 import os
 from datetime import datetime, timezone
 from typing import Optional
 
 from datahub.telemetry.telemetry import TIMEOUT, _default_global_properties
+from loguru import logger
 from mixpanel import Consumer, Mixpanel
 from pydantic import BaseModel, Field
 
 from datahub_integrations import __version__
 from datahub_integrations.app import graph
 from datahub_integrations.slack.utils.datahub_user import graph_as_user
-
-logger = logging.getLogger(__name__)
 
 # Note that this is different from OSS Mixpanel's token. This one
 # corresponds to the SaaS Mixpanel project.

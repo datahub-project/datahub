@@ -427,6 +427,8 @@ protobuf==4.25.5
     #   proto-plus
 psutil==7.0.0
     # via acryl-datahub
+py-spy==0.4.1
+    # via acryl-datahub-integrations
 pyarrow==16.0.0
     # via
     #   acryl-datahub-integrations

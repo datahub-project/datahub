@@ -825,6 +825,11 @@ pure-eval==0.2.3
     # via stack-data
 py==1.11.0 ; implementation_name == 'pypy'
     # via pyzmq
+py-spy==0.4.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 pyarrow==16.0.0
     # via
     #   -r requirements.txt
