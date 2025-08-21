@@ -65,3 +65,26 @@ def update_prompt_guidelines(prompt_id: str, new_guidelines: str) -> None:
                 break
         else:
             raise ValueError(f"Prompt with id {prompt_id} not found")
+
+
+def update_prompt_expected_tool_calls(
+    prompt_id: str, new_expected_tool_calls: list[ExpectedToolCall] | None
+) -> None:
+    with YamlFileUpdater(prompts_file) as doc:
+        for prompt in doc:
+            if prompt["id"] == prompt_id:
+                if new_expected_tool_calls is None:
+                    prompt.pop("expected_tool_calls", None)
+                else:
+                    prompt["expected_tool_calls"] = [
+                        {"tool_name": call.tool_name, "tool_input": call.tool_input}
+                        for call in new_expected_tool_calls
+                    ]
+                break
+        else:
+            raise ValueError(f"Prompt with id {prompt_id} not found")
+
+
+def reload_prompt(prompt_id: str) -> Prompt:
+    prompts = load_prompts_file(prompts_file)
+    return next(p for p in prompts if p.id == prompt_id)

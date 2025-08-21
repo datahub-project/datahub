@@ -10,17 +10,22 @@ import pandas as pd
 import pydantic
 import streamlit as st
 from mlflow import entities as mlflow_entities
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from st_aggrid import AgGrid, GridOptionsBuilder
 
 from datahub_integrations.chat.chat_history import ChatHistory
 from datahub_integrations.experimentation.chatbot.chatbot import (
+    ExpectedToolCall,
     Prompt,
     prompts,
+    reload_prompt,
+    update_prompt_expected_tool_calls,
     update_prompt_guidelines,
 )
 from datahub_integrations.experimentation.chatbot.judge import (
     LLMJudgeResponse,
+    ToolCallValidationResult,
     chatbot_llm_judge_evaluation,
+    validate_expected_tool_calls,
 )
 from datahub_integrations.experimentation.chatbot.st_chat_history import st_chat_history
 from datahub_integrations.experimentation.mlflow_utils import (
@@ -103,6 +108,17 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
                 justification="No response from model",
             )
 
+        # Evaluate expected tool calls if they exist
+        if prompt.expected_tool_calls and history:
+            tool_call_evaluation = validate_expected_tool_calls(
+                history, prompt.expected_tool_calls
+            )
+        else:
+            tool_call_evaluation = ToolCallValidationResult(
+                is_valid=False,
+                justification="No chat history or no expected tool calls to evaluate",
+            )
+
         return {
             "Prompt ID": prompt_id,
             "Prompt": prompt.message,
@@ -114,6 +130,11 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
             }[evaluation.choice],
             "Justification": evaluation.justification,
             "Guidelines": prompt.response_guidelines or "",
+            "Tool Calls Pass": {
+                True: "✅",
+                False: "❌",
+                None: "❓",
+            }[tool_call_evaluation.is_valid],
             "Instance": prompt.instance,
             "Tags": ", ".join(prompt.tags) if prompt.tags else "",
             "Raw Data": {
@@ -121,6 +142,7 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
                 "history": history,
                 "raw_history": raw_history,
                 "evaluation": evaluation,
+                "tool_call_evaluation": tool_call_evaluation,
             },
         }
 
@@ -163,6 +185,7 @@ def main(run_name: Optional[str] = None):
             "Pass",
             "Justification",
             "Guidelines",
+            "Tool Calls Pass",
             "Instance",
             "Tags",
         ]
@@ -174,12 +197,7 @@ def main(run_name: Optional[str] = None):
         maxWidth=300,
     )
 
-    grid_response = AgGrid(
-        display_data,
-        gridOptions=gb.build(),
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        height=400,
-    )
+    grid_response = AgGrid(display_data, gridOptions=gb.build())
 
     # Show selected prompt details
     selected_rows = grid_response["selected_rows"]
@@ -193,7 +211,8 @@ def main(run_name: Optional[str] = None):
         prompt_id = selected_row["Prompt ID"]
         st.text(f"Prompt ID: {prompt_id}")
 
-        prompt: Prompt = selected_row["Raw Data"]["prompt"]
+        # Get prompt from file (updated data) instead of table data
+        prompt: Prompt = reload_prompt(prompt_id)
 
         col1, col2 = st.columns(2)
         with col1:
@@ -219,6 +238,7 @@ def main(run_name: Optional[str] = None):
                 disabled=new_guidelines == prompt.response_guidelines,
             ):
                 update_prompt_guidelines(prompt.id, new_guidelines)
+                st.success("Guidelines updated!")
 
             if new_guidelines != prompt.response_guidelines:
                 st.markdown("### Updated Evaluation")
@@ -234,6 +254,79 @@ def main(run_name: Optional[str] = None):
                     "evaluation"
                 ]
                 st.json(old_evaluation.model_dump())
+
+            # Expected Tool Calls Section
+            st.markdown("### Expected Tool Calls")
+            current_expected_calls = prompt.expected_tool_calls or []
+
+            # Create a text area for editing expected tool calls as JSON
+            current_calls_json = (
+                json.dumps(
+                    [call.model_dump() for call in current_expected_calls],
+                    indent=2,
+                )
+                if current_expected_calls
+                else "[]"
+            )
+
+            new_calls_json = st.text_area(
+                "Edit Expected Tool Calls (JSON)",
+                key=f"expected-calls-{prompt_id}",
+                value=current_calls_json,
+                height=150,
+                help='Enter expected tool calls as JSON array. Example: [{"tool_name": "search", "tool_input": {"query": "*"}}]',
+                label_visibility="visible",
+            )
+
+            try:
+                new_calls_data = json.loads(new_calls_json)
+                new_expected_calls = (
+                    [
+                        ExpectedToolCall(
+                            tool_name=call["tool_name"], tool_input=call["tool_input"]
+                        )
+                        for call in new_calls_data
+                    ]
+                    if new_calls_data
+                    else None
+                )
+
+                if st.button(
+                    "Update Expected Tool Calls",
+                    disabled=new_calls_json == current_calls_json,
+                ):
+                    update_prompt_expected_tool_calls(prompt.id, new_expected_calls)
+                    st.success("Expected tool calls updated!")
+
+                # Show updated evaluation if JSON has changed
+                if new_calls_json != current_calls_json and history:
+                    st.markdown("### Updated Tool Call Evaluation")
+                    updated_tool_eval = validate_expected_tool_calls(
+                        history, new_expected_calls or []
+                    )
+                    st.json(
+                        {
+                            "is_valid": updated_tool_eval.is_valid,
+                            "justification": updated_tool_eval.justification,
+                        }
+                    )
+                else:
+                    st.markdown("### Current Tool Call Evaluation")
+                    old_tool_eval = selected_row["Raw Data"]["tool_call_evaluation"]
+                    st.json(
+                        {
+                            "is_valid": old_tool_eval.is_valid,
+                            "justification": old_tool_eval.justification,
+                        }
+                    )
+
+            except json.JSONDecodeError as e:
+                st.error(f"Invalid JSON: {e}")
+            except (KeyError, TypeError) as e:
+                st.error(f"Invalid expected tool calls format: {e}")
+                st.info(
+                    'Expected format: [{"tool_name": "tool_name", "tool_input": {"param": "value"}}]'
+                )
 
 
 if __name__ == "__main__":
