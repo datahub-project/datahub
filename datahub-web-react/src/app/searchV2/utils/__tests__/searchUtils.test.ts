@@ -1,5 +1,5 @@
-import { MAX_COUNT_VAL } from '../constants';
-import { getSearchCount } from '../searchUtils';
+import { MAX_COUNT_VAL } from '@app/searchV2/utils/constants';
+import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 
 describe('getSearchCount', () => {
     it('should return numResultsPerPage when start + numResultsPerPage is less than MAX_COUNT_VAL', () => {
