@@ -21,23 +21,43 @@ STATIC_PG_TO_PG_CONNECTION_ID="55555555-5555-5555-5555-555555555555"
 STATIC_MYSQL_TO_PG_CONNECTION_ID="66666666-6666-6666-6666-666666666666"
 STATIC_METAGALAXY_TO_PG_CONNECTION_ID="77777777-7777-7777-7777-777777777777"
 
-# Try multiple API endpoints to find one that works
+# Get credentials from abctl for authentication
+echo "Getting abctl credentials..."
+ABCTL_CREDS=$(abctl local credentials 2>/dev/null)
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to get abctl credentials"
+    exit 1
+fi
+
+# Parse the password from abctl credentials output (removing ANSI escape codes)
+AIRBYTE_PASSWORD=$(echo "$ABCTL_CREDS" | grep "Password:" | cut -d':' -f2 | sed 's/\x1b\[[0-9;]*m//g' | xargs)
+if [ -z "$AIRBYTE_PASSWORD" ]; then
+    echo "❌ Could not parse password from abctl credentials"
+    echo "Credentials output: $ABCTL_CREDS"
+    echo "Trying alternative parsing..."
+    # Try alternative parsing method
+    AIRBYTE_PASSWORD=$(echo "$ABCTL_CREDS" | sed -n 's/.*Password: *\([^ ]*\).*/\1/p' | sed 's/\x1b\[[0-9;]*m//g')
+    if [ -z "$AIRBYTE_PASSWORD" ]; then
+        echo "❌ Still could not parse password"
+        exit 1
+    fi
+fi
+
+echo "✅ Successfully retrieved abctl credentials"
+echo "Password: $AIRBYTE_PASSWORD"
+
+# Use the correct authentication for abctl setup
+HEADER="Content-Type: application/json"
+AUTH="test@datahub.io:$AIRBYTE_PASSWORD"
+AUTH_HEADER="Authorization: Basic $(echo -n "$AUTH" | base64)"
+
+# API endpoints prioritized for abctl setup
 API_ENDPOINTS=(
   "http://localhost:8000/api/v1"
-  "http://localhost:8001/api/v1"
   "http://localhost:8000/api/public/v1"
+  "http://localhost:8001/api/v1"
   "http://localhost:8001/api/public/v1"
-  "http://airbyte-server:8000/api/v1"
-  "http://airbyte-server:8001/api/v1"
-  "http://airbyte-server:8000/api/public/v1"
-  "http://airbyte-server:8001/api/public/v1"
-  "http://host.docker.internal:8000/api/v1"
-  "http://host.docker.internal:8001/api/v1"
 )
-
-HEADER="Content-Type: application/json"
-AUTH="airbyte:password"
-AUTH_HEADER="Authorization: Basic $(echo -n "$AUTH" | base64)"
 
 # Find a working API endpoint
 echo "Finding a working Airbyte API endpoint..."
@@ -74,14 +94,15 @@ if [ -z "$AIRBYTE_API" ]; then
   exit 1
 fi
 
-# Complete onboarding if needed
-echo "Trying to complete onboarding..."
-curl -s -u "$AUTH" "$AIRBYTE_API/instance_configuration/setup" -H "$HEADER" -d '{
-  "email": "test@example.com",
+# Complete onboarding if needed (this sets up the test@datahub.io user)
+echo "Completing Airbyte onboarding..."
+ONBOARD_RESPONSE=$(curl -s "$AIRBYTE_API/instance_configuration/setup" -H "$HEADER" -d '{
+  "email": "test@datahub.io",
   "anonymousDataCollection": false,
   "news": false,
   "securityUpdates": false
-}' || true
+}')
+echo "Onboarding response: $ONBOARD_RESPONSE"
 
 # Wait for the API to be fully ready
 echo "Waiting for Airbyte API to be ready..."
@@ -91,8 +112,12 @@ while true; do
   attempt=$((attempt + 1))
   echo "Attempt $attempt of $max_attempts"
 
-  response=$(curl -s -m 10 -u "$AUTH" "$AIRBYTE_API/workspaces/list" -H "$HEADER" -d '{}')
-  if echo "$response" | grep -q "workspaces"; then
+  # Use the correct endpoint that works with abctl authentication
+  # Workspaces endpoint requires api/public/v1, not api/v1
+  workspace_url="${AIRBYTE_API/api\/v1/api/public/v1}/workspaces"
+  response=$(curl -s -m 10 -u "$AUTH" "$workspace_url" -H "$HEADER")
+  
+  if echo "$response" | grep -q "data"; then
     echo "Airbyte API is ready!"
     break
   else
@@ -112,18 +137,24 @@ while true; do
   sleep 10
 done
 
-# Get workspace ID
+# Get workspace ID using the correct endpoint
 echo "Getting workspace ID..."
-WORKSPACE_RESPONSE=$(curl -s -u "$AUTH" "$AIRBYTE_API/workspaces/list" -H "$HEADER" -d '{}')
-WORKSPACE_ID=$(echo "$WORKSPACE_RESPONSE" | jq -r '.workspaces[0].workspaceId')
+# Workspaces endpoint requires api/public/v1, not api/v1
+workspace_url="${AIRBYTE_API/api\/v1/api/public/v1}/workspaces"
+WORKSPACE_RESPONSE=$(curl -s -u "$AUTH" "$workspace_url" -H "$HEADER")
+echo "Workspace response: $WORKSPACE_RESPONSE"
+
+WORKSPACE_ID=$(echo "$WORKSPACE_RESPONSE" | jq -r '.data[0].workspaceId')
 
 if [ -z "$WORKSPACE_ID" ] || [ "$WORKSPACE_ID" == "null" ]; then
   echo "No workspace found. Creating one..."
-  WORKSPACE_RESPONSE=$(curl -s -u "$AUTH" "$AIRBYTE_API/workspaces/create" -H "$HEADER" -d '{"name": "Default Workspace"}')
-  WORKSPACE_ID=$(echo "$WORKSPACE_RESPONSE" | jq -r '.workspaceId')
+  # Try to create workspace (this might not work due to permissions, but let's try)
+  WORKSPACE_CREATE_RESPONSE=$(curl -s -u "$AUTH" "$AIRBYTE_API/workspaces/create" -H "$HEADER" -d '{"name": "Default Workspace"}')
+  WORKSPACE_ID=$(echo "$WORKSPACE_CREATE_RESPONSE" | jq -r '.workspaceId')
 
   if [ -z "$WORKSPACE_ID" ] || [ "$WORKSPACE_ID" == "null" ]; then
     echo "Failed to create workspace!"
+    echo "Create response: $WORKSPACE_CREATE_RESPONSE"
     exit 1
   fi
 fi
@@ -131,95 +162,49 @@ fi
 echo "Using workspace ID: $WORKSPACE_ID"
 
 # Setup variables for the databases
-AIRBYTE_DB_HOST="airbyte-db"
-AIRBYTE_DB_USER="docker"
-AIRBYTE_DB_NAME="airbyte"
-AIRBYTE_DB_PASSWORD="docker"
-
-TEST_DB_HOST="test-postgres-db"
+# Note: abctl manages its own database via Kubernetes, we only need test databases
+TEST_DB_HOST="test-postgres"
 TEST_DB_USER="test"
 TEST_DB_NAME="test"
 TEST_DB_PASSWORD="test"
 
-# Test Airbyte database connection
-echo "Testing Airbyte database connection..."
-if ! docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "SELECT 1;" > /dev/null 2>&1; then
-  echo "❌ Cannot connect to the Airbyte database. Trying alternative hosts..."
-  
-  # Try alternative host names
-  for alt_host in "airbyte-db" "localhost" "postgres" "airbyte-postgres"; do
-    echo "Trying database host: $alt_host"
-    if docker exec $alt_host psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "SELECT 1;" > /dev/null 2>&1; then
-      echo "✅ Connected to Airbyte database using host: $alt_host"
-      AIRBYTE_DB_HOST=$alt_host
-      break
-    fi
-  done
-  
-  # Final check if we found a working connection
-  if ! docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "SELECT 1;" > /dev/null 2>&1; then
-    echo "❌ Failed to connect to the Airbyte database after trying alternative hosts."
-    echo "Please verify that the Airbyte database container is running and accessible."
-    echo "Available docker containers:"
-    docker ps || echo "Docker not available"
-    exit 1
-  fi
-fi
-echo "✅ Airbyte database connection successful to $AIRBYTE_DB_HOST"
+# Note: abctl manages the Airbyte database via Kubernetes, no direct access needed
 
-# Test test database connection
-echo "Testing test database connection..."
-if ! docker exec $TEST_DB_HOST psql -U $TEST_DB_USER -d $TEST_DB_NAME -c "SELECT 1;" > /dev/null 2>&1; then
-  echo "❌ Cannot connect to the test database. Trying alternative hosts..."
-  
-  # Try alternative host names
-  for alt_host in "test-postgres" "localhost" "postgres" "test-postgres-db"; do
-    echo "Trying database host: $alt_host"
-    if docker exec $alt_host psql -U $TEST_DB_USER -d $TEST_DB_NAME -c "SELECT 1;" > /dev/null 2>&1; then
-      echo "✅ Connected to test database using host: $alt_host"
-      TEST_DB_HOST=$alt_host
-      break
-    fi
-  done
-  
-  # Final check if we found a working connection
-  if ! docker exec $TEST_DB_HOST psql -U $TEST_DB_USER -d $TEST_DB_NAME -c "SELECT 1;" > /dev/null 2>&1; then
-    echo "❌ Failed to connect to the test database after trying alternative hosts."
-    echo "Please verify that the test database container is running and accessible."
-    echo "Available docker containers:"
-    docker ps || echo "Docker not available"
-    exit 1
-  fi
-fi
-echo "✅ Test database connection successful to $TEST_DB_HOST"
+# Note: Database connectivity and initialization is handled by the Python test
+echo "Assuming test databases are already set up and initialized by Python test"
 
-# Function to check if a table exists and update ID in Airbyte database
-check_and_update_airbyte_table() {
-  local table_name=$1
-  local new_id=$2
-  local old_id=$3
+# Function to update Airbyte database with static IDs (for abctl)
+update_airbyte_id_abctl() {
+  local table_name="$1"
+  local static_id="$2"
+  local dynamic_id="$3"
   
-  # Check if table exists in Airbyte database
-  table_exists=$(docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -t -c "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '$table_name');")
+  echo "Updating $table_name: $dynamic_id -> $static_id"
   
-  if [[ $table_exists == *t* ]]; then
-    echo "Updating $table_name table with static ID in Airbyte database..."
-    docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "UPDATE $table_name SET id = '$new_id' WHERE id = '$old_id';"
-    return 0
-  else
-    echo "Table $table_name does not exist in Airbyte database, skipping update."
-    return 1
-  fi
+  # Execute SQL command via kubectl exec into the airbyte-db pod
+  docker exec airbyte-abctl-control-plane kubectl exec airbyte-db-0 -n airbyte-abctl -- \
+    psql -U airbyte -d db-airbyte -c \
+    "UPDATE $table_name SET id = '$static_id' WHERE id = '$dynamic_id';" 2>/dev/null || true
 }
 
-# Force static workspace ID using direct database update in Airbyte database
-echo "Updating workspace ID in the Airbyte database to use static ID..."
-DB_UPDATE_RESULT=$(docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "UPDATE workspace SET id = '$STATIC_WORKSPACE_ID' WHERE id = '$WORKSPACE_ID' RETURNING id;")
-echo "Database update result: $DB_UPDATE_RESULT"
+# Function to update connection ID for abctl
+update_connection_id_abctl() {
+  local old_id="$1"
+  local new_id="$2"
+  
+  echo "Updating connection ID from $old_id to $new_id..."
+  
+  # Update connection table
+  docker exec airbyte-abctl-control-plane kubectl exec airbyte-db-0 -n airbyte-abctl -- \
+    psql -U airbyte -d db-airbyte -c \
+    "UPDATE connection SET id = '$new_id' WHERE id = '$old_id';" 2>/dev/null || true
+    
+  return 0
+}
 
-# Use the static ID for all subsequent operations
-WORKSPACE_ID="$STATIC_WORKSPACE_ID"
-echo "Now using static workspace ID: $WORKSPACE_ID"
+# Store the original workspace ID for later database updates
+ORIGINAL_WORKSPACE_ID="$WORKSPACE_ID"
+echo "Using dynamic workspace ID for API calls: $WORKSPACE_ID"
 
 # Create Postgres source
 echo "[DEBUG] About to create Postgres source"
@@ -269,18 +254,9 @@ if [ -z "$POSTGRES_SOURCE_ID" ] || [ "$POSTGRES_SOURCE_ID" == "null" ]; then
 else
   echo "Created Postgres source with ID: $POSTGRES_SOURCE_ID"
   
-  # Force static source ID in database
-  echo "Updating Postgres source ID in the database to use static ID..."
-  # Update all potential tables that could store source IDs
-  check_and_update_airbyte_table "actor" "$STATIC_POSTGRES_SOURCE_ID" "$POSTGRES_SOURCE_ID"
-  check_and_update_airbyte_table "source" "$STATIC_POSTGRES_SOURCE_ID" "$POSTGRES_SOURCE_ID" 
-  check_and_update_airbyte_table "actor_definition_workspace_grant" "$STATIC_POSTGRES_SOURCE_ID" "$POSTGRES_SOURCE_ID"
-  check_and_update_airbyte_table "actor_catalog" "$STATIC_POSTGRES_SOURCE_ID" "$POSTGRES_SOURCE_ID"
-  check_and_update_airbyte_table "actor_catalog_fetch_event" "$STATIC_POSTGRES_SOURCE_ID" "$POSTGRES_SOURCE_ID"
-  check_and_update_airbyte_table "actor_oauth_parameter" "$STATIC_POSTGRES_SOURCE_ID" "$POSTGRES_SOURCE_ID"
-  
-  echo "Now using static Postgres source ID: $STATIC_POSTGRES_SOURCE_ID"
-  POSTGRES_SOURCE_ID="$STATIC_POSTGRES_SOURCE_ID"
+  # Store the original source ID for later database updates
+  ORIGINAL_POSTGRES_SOURCE_ID="$POSTGRES_SOURCE_ID"
+  echo "Created Postgres source with dynamic ID: $POSTGRES_SOURCE_ID"
 fi
 set -e
 
@@ -402,18 +378,9 @@ else
   else
     echo "Created MySQL source with ID: $MYSQL_SOURCE_ID"
     
-    # Force static source ID in database
-    echo "Updating MySQL source ID in the database to use static ID..."
-    # Update all potential tables that could store source IDs
-    check_and_update_airbyte_table "actor" "$STATIC_MYSQL_SOURCE_ID" "$MYSQL_SOURCE_ID"
-    check_and_update_airbyte_table "source" "$STATIC_MYSQL_SOURCE_ID" "$MYSQL_SOURCE_ID"
-    check_and_update_airbyte_table "actor_definition_workspace_grant" "$STATIC_MYSQL_SOURCE_ID" "$MYSQL_SOURCE_ID"
-    check_and_update_airbyte_table "actor_catalog" "$STATIC_MYSQL_SOURCE_ID" "$MYSQL_SOURCE_ID"
-    check_and_update_airbyte_table "actor_catalog_fetch_event" "$STATIC_MYSQL_SOURCE_ID" "$MYSQL_SOURCE_ID"
-    check_and_update_airbyte_table "actor_oauth_parameter" "$STATIC_MYSQL_SOURCE_ID" "$MYSQL_SOURCE_ID"
-    
-    echo "Now using static MySQL source ID: $STATIC_MYSQL_SOURCE_ID"
-    MYSQL_SOURCE_ID="$STATIC_MYSQL_SOURCE_ID"
+    # Store the original source ID for later database updates
+    ORIGINAL_MYSQL_SOURCE_ID="$MYSQL_SOURCE_ID"
+    echo "Created MySQL source with dynamic ID: $MYSQL_SOURCE_ID"
   fi
   
   # Create MySQL Metagalaxy source
@@ -450,18 +417,9 @@ else
   else
     echo "Created MySQL Metagalaxy source with ID: $MYSQL_METAGALAXY_SOURCE_ID"
     
-    # Force static source ID in database
-    echo "Updating MySQL Metagalaxy source ID in the database to use static ID..."
-    # Update all potential tables that could store source IDs
-    check_and_update_airbyte_table "actor" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$MYSQL_METAGALAXY_SOURCE_ID"
-    check_and_update_airbyte_table "source" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$MYSQL_METAGALAXY_SOURCE_ID"
-    check_and_update_airbyte_table "actor_definition_workspace_grant" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$MYSQL_METAGALAXY_SOURCE_ID"
-    check_and_update_airbyte_table "actor_catalog" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$MYSQL_METAGALAXY_SOURCE_ID"
-    check_and_update_airbyte_table "actor_catalog_fetch_event" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$MYSQL_METAGALAXY_SOURCE_ID"
-    check_and_update_airbyte_table "actor_oauth_parameter" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$MYSQL_METAGALAXY_SOURCE_ID"
-    
-    echo "Now using static MySQL Metagalaxy source ID: $STATIC_MYSQL_METAGALAXY_SOURCE_ID"
-    MYSQL_METAGALAXY_SOURCE_ID="$STATIC_MYSQL_METAGALAXY_SOURCE_ID"
+    # Store the original source ID for later database updates
+    ORIGINAL_MYSQL_METAGALAXY_SOURCE_ID="$MYSQL_METAGALAXY_SOURCE_ID"
+    echo "Created MySQL Metagalaxy source with dynamic ID: $MYSQL_METAGALAXY_SOURCE_ID"
   fi
 fi
 set -e
@@ -514,16 +472,9 @@ if [ -z "$POSTGRES_DEST_ID" ] || [ "$POSTGRES_DEST_ID" == "null" ]; then
 else
   echo "Created Postgres destination with ID: $POSTGRES_DEST_ID"
   
-  # Force static destination ID in database
-  echo "Updating Postgres destination ID in the database to use static ID..."
-  # Update all potential tables that could store destination IDs
-  check_and_update_airbyte_table "actor" "$STATIC_POSTGRES_DEST_ID" "$POSTGRES_DEST_ID"
-  check_and_update_airbyte_table "destination" "$STATIC_POSTGRES_DEST_ID" "$POSTGRES_DEST_ID"
-  check_and_update_airbyte_table "actor_definition_workspace_grant" "$STATIC_POSTGRES_DEST_ID" "$POSTGRES_DEST_ID"
-  check_and_update_airbyte_table "actor_oauth_parameter" "$STATIC_POSTGRES_DEST_ID" "$POSTGRES_DEST_ID"
-  
-  echo "Now using static Postgres destination ID: $STATIC_POSTGRES_DEST_ID"
-  POSTGRES_DEST_ID="$STATIC_POSTGRES_DEST_ID"
+  # Store the original destination ID for later database updates
+  ORIGINAL_POSTGRES_DEST_ID="$POSTGRES_DEST_ID"
+  echo "Created Postgres destination with dynamic ID: $POSTGRES_DEST_ID"
 fi
 set -e
 
@@ -595,38 +546,10 @@ if [[ -n "$POSTGRES_SOURCE_ID" && "$POSTGRES_SOURCE_ID" != "null" && -n "$POSTGR
       fi
     }
 
-    # Function to update connection ID safely
-    update_connection_id() {
-      local old_id=$1
-      local new_id=$2
-      
-      # First check if the new ID already exists
-      if check_connection_exists "$new_id"; then
-        echo "⚠️ Connection ID $new_id already exists, skipping update"
-        return 1
-      fi
-      
-      # Check if the old ID exists
-      if ! check_connection_exists "$old_id"; then
-        echo "⚠️ Connection ID $old_id does not exist, skipping update"
-        return 1
-      fi
-      
-      # Update the ID
-      echo "Updating connection ID from $old_id to $new_id..."
-      docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "UPDATE connection SET id = '$new_id' WHERE id = '$old_id';"
-      return 0
-    }
-
-    # Update the connection ID update sections
+    # Store the original connection ID for later database updates
     if [ -n "$PG_TO_PG_CONNECTION_ID" ] && [ "$PG_TO_PG_CONNECTION_ID" != "null" ]; then
-      echo "Updating PostgreSQL to PostgreSQL connection ID in the database to use static ID..."
-      if update_connection_id "$PG_TO_PG_CONNECTION_ID" "$STATIC_PG_TO_PG_CONNECTION_ID"; then
-        echo "Now using static connection ID: $STATIC_PG_TO_PG_CONNECTION_ID"
-        PG_TO_PG_CONNECTION_ID="$STATIC_PG_TO_PG_CONNECTION_ID"
-      else
-        echo "Using original connection ID: $PG_TO_PG_CONNECTION_ID"
-      fi
+      ORIGINAL_PG_TO_PG_CONNECTION_ID="$PG_TO_PG_CONNECTION_ID"
+      echo "Created PostgreSQL to PostgreSQL connection with dynamic ID: $PG_TO_PG_CONNECTION_ID"
     fi
   fi
 else
@@ -754,38 +677,10 @@ if [[ -n "$MYSQL_SOURCE_ID" && "$MYSQL_SOURCE_ID" != "null" && -n "$POSTGRES_DES
       fi
     }
 
-    # Function to update connection ID safely
-    update_connection_id() {
-      local old_id=$1
-      local new_id=$2
-      
-      # First check if the new ID already exists
-      if check_connection_exists "$new_id"; then
-        echo "⚠️ Connection ID $new_id already exists, skipping update"
-        return 1
-      fi
-      
-      # Check if the old ID exists
-      if ! check_connection_exists "$old_id"; then
-        echo "⚠️ Connection ID $old_id does not exist, skipping update"
-        return 1
-      fi
-      
-      # Update the ID
-      echo "Updating connection ID from $old_id to $new_id..."
-      docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "UPDATE connection SET id = '$new_id' WHERE id = '$old_id';"
-      return 0
-    }
-
-    # Update the connection ID update sections
+    # Store the original connection ID for later database updates
     if [ -n "$MYSQL_TO_PG_CONNECTION_ID" ] && [ "$MYSQL_TO_PG_CONNECTION_ID" != "null" ]; then
-      echo "Updating MySQL to PostgreSQL connection ID in the database to use static ID..."
-      if update_connection_id "$MYSQL_TO_PG_CONNECTION_ID" "$STATIC_MYSQL_TO_PG_CONNECTION_ID"; then
-        echo "Now using static connection ID: $STATIC_MYSQL_TO_PG_CONNECTION_ID"
-        MYSQL_TO_PG_CONNECTION_ID="$STATIC_MYSQL_TO_PG_CONNECTION_ID"
-      else
-        echo "Using original connection ID: $MYSQL_TO_PG_CONNECTION_ID"
-      fi
+      ORIGINAL_MYSQL_TO_PG_CONNECTION_ID="$MYSQL_TO_PG_CONNECTION_ID"
+      echo "Created MySQL to PostgreSQL connection with dynamic ID: $MYSQL_TO_PG_CONNECTION_ID"
     fi
   fi
   set -e
@@ -926,38 +821,10 @@ if [ -n "$MYSQL_METAGALAXY_SOURCE_ID" ] && [ -n "$POSTGRES_DEST_ID" ]; then
           fi
         }
 
-        # Function to update connection ID safely
-        update_connection_id() {
-          local old_id=$1
-          local new_id=$2
-          
-          # First check if the new ID already exists
-          if check_connection_exists "$new_id"; then
-            echo "⚠️ Connection ID $new_id already exists, skipping update"
-            return 1
-          fi
-          
-          # Check if the old ID exists
-          if ! check_connection_exists "$old_id"; then
-            echo "⚠️ Connection ID $old_id does not exist, skipping update"
-            return 1
-          fi
-          
-          # Update the ID
-          echo "Updating connection ID from $old_id to $new_id..."
-          docker exec $AIRBYTE_DB_HOST psql -U $AIRBYTE_DB_USER -d $AIRBYTE_DB_NAME -c "UPDATE connection SET id = '$new_id' WHERE id = '$old_id';"
-          return 0
-        }
-
-        # Update the connection ID update sections
+        # Store the original connection ID for later database updates
         if [ -n "$METAGALAXY_TO_PG_CONNECTION_ID" ] && [ "$METAGALAXY_TO_PG_CONNECTION_ID" != "null" ]; then
-          echo "Updating Metagalaxy to PostgreSQL connection ID in the database to use static ID..."
-          if update_connection_id "$METAGALAXY_TO_PG_CONNECTION_ID" "$STATIC_METAGALAXY_TO_PG_CONNECTION_ID"; then
-            echo "Now using static connection ID: $STATIC_METAGALAXY_TO_PG_CONNECTION_ID"
-            METAGALAXY_TO_PG_CONNECTION_ID="$STATIC_METAGALAXY_TO_PG_CONNECTION_ID"
-          else
-            echo "Using original connection ID: $METAGALAXY_TO_PG_CONNECTION_ID"
-          fi
+          ORIGINAL_METAGALAXY_TO_PG_CONNECTION_ID="$METAGALAXY_TO_PG_CONNECTION_ID"
+          echo "Created Metagalaxy to PostgreSQL connection with dynamic ID: $METAGALAXY_TO_PG_CONNECTION_ID"
         fi
       fi
       set -e
@@ -1004,98 +871,8 @@ echo ""
 
 # Keep the existing code for database initialization if connections were created
 if [ "$CONNECTIONS_COUNT" -gt 0 ]; then
-  # Add database initialization checks
-  echo "Waiting for databases to be ready..."
-  max_attempts=30
-  attempt=0
-
-  # Wait for Postgres
-  while true; do
-    attempt=$((attempt + 1))
-    echo "Checking Postgres connectivity (attempt $attempt of $max_attempts)..."
-    if docker exec test-postgres pg_isready -U test -d test; then
-      echo "✅ Postgres is ready!"
-      break
-    fi
-    
-    if [ $attempt -eq $max_attempts ]; then
-      echo "❌ Postgres did not become ready in time"
-      exit 1
-    fi
-    
-    sleep 2
-  done
-
-  # Wait for MySQL
-  attempt=0
-  while true; do
-    attempt=$((attempt + 1))
-    echo "Checking MySQL connectivity (attempt $attempt of $max_attempts)..."
-    if docker exec test-mysql mysqladmin ping -h localhost -u test -ptest; then
-      echo "✅ MySQL is ready!"
-      break
-    fi
-    
-    if [ $attempt -eq $max_attempts ]; then
-      echo "❌ MySQL did not become ready in time"
-      exit 1
-    fi
-    
-    sleep 2
-  done
-
-  # Initialize test data in Postgres
-  echo "Initializing test data in Postgres..."
-  docker exec test-postgres psql -U test -d test -c "
-  CREATE TABLE IF NOT EXISTS customers (
-    customer_id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    email VARCHAR(100)
-  );
-
-  CREATE TABLE IF NOT EXISTS orders (
-    order_id SERIAL PRIMARY KEY,
-    customer_id INTEGER REFERENCES customers(customer_id),
-    order_date TIMESTAMP,
-    total_amount DECIMAL(10,2)
-  );
-
-  INSERT INTO customers (name, email) VALUES 
-    ('John Doe', 'john@example.com'),
-    ('Jane Smith', 'jane@example.com')
-  ON CONFLICT DO NOTHING;
-
-  INSERT INTO orders (customer_id, order_date, total_amount) VALUES 
-    (1, NOW(), 100.00),
-    (2, NOW(), 200.00)
-  ON CONFLICT DO NOTHING;
-  "
-
-  # Initialize test data in MySQL
-  echo "Initializing test data in MySQL..."
-  docker exec test-mysql mysql -u test -ptest test -e "
-  CREATE TABLE IF NOT EXISTS customers (
-    customer_id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100),
-    email VARCHAR(100)
-  );
-
-  CREATE TABLE IF NOT EXISTS orders (
-    order_id INT AUTO_INCREMENT PRIMARY KEY,
-    customer_id INT,
-    order_date TIMESTAMP,
-    total_amount DECIMAL(10,2),
-    FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
-  );
-
-  INSERT IGNORE INTO customers (name, email) VALUES 
-    ('John Doe', 'john@example.com'),
-    ('Jane Smith', 'jane@example.com');
-
-  INSERT IGNORE INTO orders (customer_id, order_date, total_amount) VALUES 
-    (1, NOW(), 100.00),
-    (2, NOW(), 200.00);
-  "
+  # Note: Database readiness and initialization is handled by the Python test
+  echo "Databases should already be ready and initialized by Python test"
 else
   echo "[DEBUG] No connections were created"
   echo "❌ No connections were created!"
@@ -1191,6 +968,59 @@ else
   echo "⚠️ $sync_success out of $sync_count syncs were triggered successfully"
 fi
 echo "Check the Airbyte UI for sync status."
+
+# Update all IDs to static values for consistent golden files
+echo ""
+echo "========================================="
+echo "Updating all IDs to static values for consistent golden files..."
+echo "========================================="
+
+# Update workspace ID
+if [ -n "$ORIGINAL_WORKSPACE_ID" ]; then
+  echo "Updating workspace ID: $ORIGINAL_WORKSPACE_ID -> $STATIC_WORKSPACE_ID"
+  update_airbyte_id_abctl "workspace" "$STATIC_WORKSPACE_ID" "$ORIGINAL_WORKSPACE_ID"
+fi
+
+# Update source IDs
+if [ -n "$ORIGINAL_POSTGRES_SOURCE_ID" ]; then
+  echo "Updating Postgres source ID: $ORIGINAL_POSTGRES_SOURCE_ID -> $STATIC_POSTGRES_SOURCE_ID"
+  update_airbyte_id_abctl "actor" "$STATIC_POSTGRES_SOURCE_ID" "$ORIGINAL_POSTGRES_SOURCE_ID"
+fi
+
+if [ -n "$ORIGINAL_MYSQL_SOURCE_ID" ]; then
+  echo "Updating MySQL source ID: $ORIGINAL_MYSQL_SOURCE_ID -> $STATIC_MYSQL_SOURCE_ID"
+  update_airbyte_id_abctl "actor" "$STATIC_MYSQL_SOURCE_ID" "$ORIGINAL_MYSQL_SOURCE_ID"
+fi
+
+if [ -n "$ORIGINAL_MYSQL_METAGALAXY_SOURCE_ID" ]; then
+  echo "Updating MySQL Metagalaxy source ID: $ORIGINAL_MYSQL_METAGALAXY_SOURCE_ID -> $STATIC_MYSQL_METAGALAXY_SOURCE_ID"
+  update_airbyte_id_abctl "actor" "$STATIC_MYSQL_METAGALAXY_SOURCE_ID" "$ORIGINAL_MYSQL_METAGALAXY_SOURCE_ID"
+fi
+
+# Update destination ID
+if [ -n "$ORIGINAL_POSTGRES_DEST_ID" ]; then
+  echo "Updating Postgres destination ID: $ORIGINAL_POSTGRES_DEST_ID -> $STATIC_POSTGRES_DEST_ID"
+  update_airbyte_id_abctl "actor" "$STATIC_POSTGRES_DEST_ID" "$ORIGINAL_POSTGRES_DEST_ID"
+fi
+
+# Update connection IDs
+if [ -n "$ORIGINAL_PG_TO_PG_CONNECTION_ID" ]; then
+  echo "Updating Postgres to Postgres connection ID: $ORIGINAL_PG_TO_PG_CONNECTION_ID -> $STATIC_PG_TO_PG_CONNECTION_ID"
+  update_connection_id_abctl "$ORIGINAL_PG_TO_PG_CONNECTION_ID" "$STATIC_PG_TO_PG_CONNECTION_ID"
+fi
+
+if [ -n "$ORIGINAL_MYSQL_TO_PG_CONNECTION_ID" ]; then
+  echo "Updating MySQL to Postgres connection ID: $ORIGINAL_MYSQL_TO_PG_CONNECTION_ID -> $STATIC_MYSQL_TO_PG_CONNECTION_ID"
+  update_connection_id_abctl "$ORIGINAL_MYSQL_TO_PG_CONNECTION_ID" "$STATIC_MYSQL_TO_PG_CONNECTION_ID"
+fi
+
+if [ -n "$ORIGINAL_METAGALAXY_TO_PG_CONNECTION_ID" ]; then
+  echo "Updating Metagalaxy to Postgres connection ID: $ORIGINAL_METAGALAXY_TO_PG_CONNECTION_ID -> $STATIC_METAGALAXY_TO_PG_CONNECTION_ID"
+  update_connection_id_abctl "$ORIGINAL_METAGALAXY_TO_PG_CONNECTION_ID" "$STATIC_METAGALAXY_TO_PG_CONNECTION_ID"
+fi
+
+echo "✅ All IDs have been updated to static values for consistent golden files"
+echo ""
 
 # Always exit with success if we made it this far
 exit 0

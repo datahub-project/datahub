@@ -225,28 +225,39 @@ class TestAirbyteSourceLineage(unittest.TestCase):
     def test_create_lineage_workunits(self):
         """Test the _create_lineage_workunits method."""
         # Setup mocks for platform detection and input/output datasets
-        with patch.object(
-            self.source, "_get_source_platform", return_value="postgres"
-        ), patch.object(
-            self.source, "_get_destination_platform", return_value="postgres"
-        ), patch.object(
-            self.source,
-            "_get_input_output_datasets",
-            return_value=(
-                ["urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"],
-                ["urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"],
+        with (
+            patch.object(self.source, "_get_source_platform", return_value="postgres"),
+            patch.object(
+                self.source, "_get_destination_platform", return_value="postgres"
             ),
-        ), patch.object(
-            self.source, "_fetch_streams_for_source", return_value=[self.stream]
-        ), patch.object(
-            self.source, "_extract_connection_tags", return_value=["airbyte", "etl"]
-        ), patch.object(
-            self.source, "_create_dataset_lineage"
-        ) as mock_create_dataset_lineage, patch.object(
-            self.source, "_create_connection_dataflow"
-        ) as mock_create_connection_dataflow, patch.object(
-            self.source, "_create_stream_datajob"
-        ) as mock_create_stream_datajob:
+            patch.object(
+                self.source,
+                "_get_input_output_datasets",
+                return_value=(
+                    [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"
+                    ],
+                    [
+                        "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,TEST)"
+                    ],
+                ),
+            ),
+            patch.object(
+                self.source, "_fetch_streams_for_source", return_value=[self.stream]
+            ),
+            patch.object(
+                self.source, "_extract_connection_tags", return_value=["airbyte", "etl"]
+            ),
+            patch.object(
+                self.source, "_create_dataset_lineage"
+            ) as mock_create_dataset_lineage,
+            patch.object(
+                self.source, "_create_connection_dataflow"
+            ) as mock_create_connection_dataflow,
+            patch.object(
+                self.source, "_create_stream_datajob"
+            ) as mock_create_stream_datajob,
+        ):
             # Mock return values for the patched methods
             mock_dataflow_urn = DataFlowUrn.create_from_ids(
                 "airbyte", "workspace-1", self.source.source_config.env
@@ -286,16 +297,16 @@ class TestAirbyteSourceLineage(unittest.TestCase):
         self.connection.status = "inactive"
 
         # Mock dependencies to ensure we don't process disabled pipelines
-        with patch.object(
-            self.source, "_get_source_platform", return_value="postgres"
-        ), patch.object(
-            self.source, "_get_destination_platform", return_value="postgres"
-        ), patch.object(
-            self.source, "_extract_connection_tags", return_value=[]
-        ), patch.object(
-            self.source, "_fetch_streams_for_source", return_value=[]
-        ), patch.object(
-            self.source, "_create_connection_dataflow", return_value=(None, [])
+        with (
+            patch.object(self.source, "_get_source_platform", return_value="postgres"),
+            patch.object(
+                self.source, "_get_destination_platform", return_value="postgres"
+            ),
+            patch.object(self.source, "_extract_connection_tags", return_value=[]),
+            patch.object(self.source, "_fetch_streams_for_source", return_value=[]),
+            patch.object(
+                self.source, "_create_connection_dataflow", return_value=(None, [])
+            ),
         ):
             # Execute the method
             workunits = list(self.source._create_lineage_workunits(self.pipeline_info))
