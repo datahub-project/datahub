@@ -2,13 +2,13 @@ import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 
 import {
-    IconContainer,
     Label,
     Required,
     Slider,
     StyledIcon,
     StyledInput,
     SwitchContainer,
+    ToggleButton,
 } from '@components/components/Switch/components';
 import { SwitchProps } from '@components/components/Switch/types';
 
@@ -66,16 +66,9 @@ export const Switch = ({
             />
             <Tooltip title={isDisabled && disabledHoverText ? disabledHoverText : undefined} showArrow={false}>
                 <Slider size={size} isSquare={isSquare} isDisabled={isDisabled}>
-                    <IconContainer>
-                        {icon && (
-                            <StyledIcon
-                                icon={icon}
-                                color={checked ? colorScheme || 'violet' : 'inherit'}
-                                size={size || 'md'}
-                                checked={checked}
-                            />
-                        )}
-                    </IconContainer>
+                    <ToggleButton checked={checked} isDisabled={isDisabled}>
+                        {icon && <StyledIcon icon={icon} size={size || 'md'} checked={checked} />}
+                    </ToggleButton>
                 </Slider>
             </Tooltip>
         </SwitchContainer>

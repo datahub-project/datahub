@@ -26,40 +26,39 @@ export const SwitchContainer = styled.label<{ labelPosition: SwitchLabelPosition
 
 export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDisabled?: boolean }>(
     ({ isSquare, isDisabled }) => ({
-        '&:before': {
-            transition: `${transition.duration.normal} all`,
-            content: '""',
-            position: 'absolute',
-            width: '18px',
-            height: '18px',
-            borderRadius: isSquare ? '0px' : '200px',
-            top: '50%',
-            left: '1px',
-            transform: 'translate(0, -50%)',
-            backgroundColor: !isDisabled ? colors.white : colors.gray[200],
-            boxShadow: `
-				0px 1px 2px 0px rgba(16, 24, 40, 0.06),
-				0px 1px 3px 0px rgba(16, 24, 40, 0.12)
-			`,
-        },
         borderRadius: isSquare ? '0px' : '200px',
         width: '34px',
         height: '20px',
         minWidth: '34px',
         minHeight: '20px',
-    }),
-    {
+        position: 'relative',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        position: 'relative',
-
-        backgroundColor: colors.gray[100],
+        backgroundColor: isDisabled ? colors.gray[100] : colors.gray[100],
         padding: '0px',
         transition: `${transition.duration.normal} all`,
         boxSizing: 'content-box',
-    },
+    }),
 );
+
+export const ToggleButton = styled.div<{ checked?: boolean; isDisabled?: boolean }>`
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-radius: 200px;
+    background-color: ${({ isDisabled }) => (!isDisabled ? colors.white : colors.gray[1500])};
+    box-shadow:
+        0px 1px 2px 0px rgba(16, 24, 40, 0.06),
+        0px 1px 3px 0px rgba(16, 24, 40, 0.12);
+    transition: ${transition.duration.normal} all;
+    left: ${({ checked }) => (checked ? '15px' : '1px')};
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
 export const Required = styled.span({
     color: colors.red[500],
@@ -83,12 +82,6 @@ export const StyledInput = styled.input<{
             }
             return getColor(props.colorScheme, 500, props.theme);
         }};
-
-        &:before {
-            left: 15px;
-            background: white;
-            box-shadow: 0px 0px 2px rgba(14.17, 5.47, 67.64, 0.12);
-        }
     }
 
     &:focus-within + ${Slider} {
@@ -101,20 +94,14 @@ export const StyledInput = styled.input<{
 
 export const StyledIcon = styled(Icon)<{ checked?: boolean; size: SizeOptions }>(
     ({ checked }) => ({
-        left: checked ? '15px' : '1px',
-        top: '50%',
-        transform: 'translate(-50%, -50%)',
+        color: checked ? colors.violet[500] : colors.gray[500],
+        width: '14px',
+        height: '14px',
     }),
     {
         transition: `${transition.duration.normal} all`,
-        position: 'absolute',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: colors.gray[500],
     },
 );
-
-export const IconContainer = styled.div({
-    position: 'relative',
-});
