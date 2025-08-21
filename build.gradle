@@ -35,7 +35,7 @@ buildscript {
 
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.74.1'
+  ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.14.3'
   ext.springVersion = '6.2.10'
@@ -398,7 +398,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'com.typesafe.play', module: 'shaded-oauth'
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
-    exclude group: 'org.iq80.snappy', module: 'snappy'
+    exclude group: 'commons-lang', module: 'commons-lang'
     
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
