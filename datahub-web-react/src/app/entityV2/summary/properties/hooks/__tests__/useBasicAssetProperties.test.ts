@@ -34,6 +34,12 @@ describe('useBasicAssetProperties', () => {
         expect(result.current).toEqual([CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY]);
     });
 
+    it('should return correct properties for GlossaryNode entity type', () => {
+        (useEntityContext as any).mockReturnValue({ entityType: EntityType.GlossaryNode });
+        const { result } = renderHook(() => useBasicAssetProperties());
+        expect(result.current).toEqual([CREATED_PROPERTY, OWNERS_PROPERTY]);
+    });
+
     it('should return correct properties for DataProduct entity type', () => {
         (useEntityContext as any).mockReturnValue({ entityType: EntityType.DataProduct });
         const { result } = renderHook(() => useBasicAssetProperties());

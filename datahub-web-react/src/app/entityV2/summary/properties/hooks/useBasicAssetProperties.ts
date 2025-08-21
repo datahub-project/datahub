@@ -20,6 +20,8 @@ export default function useBasicAssetProperties() {
                 return [CREATED_PROPERTY, OWNERS_PROPERTY];
             case EntityType.GlossaryTerm:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY];
+            case EntityType.GlossaryNode:
+                return [CREATED_PROPERTY, OWNERS_PROPERTY];
             case EntityType.DataProduct:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
             default:
