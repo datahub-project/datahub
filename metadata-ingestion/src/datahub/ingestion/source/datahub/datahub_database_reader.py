@@ -119,7 +119,7 @@ class DataHubDatabaseReader:
         else:
             # For other databases (e.g., MySQL), use JSON_EXTRACT.
             return "JSON_EXTRACT(metadata, '$.removed')"
-        
+
     def query(self, set_structured_properties_filter: bool) -> str:
         """
         Main query that gets data for specified date range with appropriate filters.
@@ -258,7 +258,7 @@ class DataHubDatabaseReader:
                     "limit": limit,
                     "offset": offset,
                     # Always pass exclude_aspects as a tuple, postgres doesn't support lists
-                    "exclude_aspects": tuple(self.config.exclude_aspects)
+                    "exclude_aspects": tuple(self.config.exclude_aspects),
                 }
 
                 logger.info(
