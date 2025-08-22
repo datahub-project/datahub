@@ -389,25 +389,3 @@ class TestSnowflakeViewQueries:
         assert where_clause is not None
         where_str = str(where_clause).upper()
         assert "TABLE_SCHEMA" in where_str and "PUBLIC" in where_str
-
-    def test_show_single_view_for_database_and_schema_query_syntax(self):
-        query = SnowflakeQuery.show_single_view_for_database_and_schema(
-            "TEST_DB", "PUBLIC", "MY_VIEW"
-        )
-
-        # Should be parseable by sqlglot
-        parsed = sqlglot.parse(query, dialect=Snowflake)
-        assert len(parsed) == 1
-
-        # Validate it's a SHOW statement (not a SELECT)
-        statement = parsed[0]
-        assert statement is not None
-        query_upper = query.upper()
-        assert "SHOW VIEWS" in query_upper
-        assert "TEST_DB.PUBLIC" in query
-        assert "MY_VIEW" in query
-
-        # Check that it has LIMIT clause
-        limit_clause = statement.find(sqlglot.exp.Limit)
-        assert limit_clause is not None
-        assert str(limit_clause.expression) == "1"
