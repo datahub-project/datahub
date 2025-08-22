@@ -36,6 +36,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import (
     get_s3_tags,
+    list_buckets,
     list_folders,
     list_folders_path,
 )
@@ -1305,32 +1306,44 @@ class S3Source(StatefulIngestionSourceBase):
         s3 = self.source_config.aws_config.get_s3_resource(
             self.source_config.verify_ssl
         )
-        bucket_name = get_bucket_name(path_spec.include)
-        bucket = s3.Bucket(bucket_name)
-        logger.debug(f"Scanning bucket: {bucket_name}")
 
         path_spec.sample_files = False  # Disable sampling for simple paths
 
         # Extract the prefix from the path spec (stops at first wildcard)
-        prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
+        prefix = self.get_prefix(path_spec.include)
 
-        # Iterate through all objects in the bucket matching the prefix
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
-            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
-
-            # Get content type if configured
-            content_type = None
-            if self.source_config.use_s3_content_type:
-                content_type = s3.Object(obj.bucket_name, obj.key).content_type
-
-            # Create one BrowsePath per file
-            yield BrowsePath(
-                file=s3_path,
-                timestamp=obj.last_modified,
-                size=obj.size,
-                partitions=[],  # No partitions in simple mode
-                content_type=content_type,
+        if prefix.count("/") < 3:
+            # If the count of / is less than 3 it means we only have the s3[an]:// protocol,
+            # not a full bucket and prefix.
+            bucket_names = list_buckets(
+                get_bucket_name(prefix), self.source_config.aws_config
             )
+        else:
+            bucket_names = [get_bucket_name(prefix)]
+
+        # Iterate through all objects in the buckets matching the prefix
+        for bucket_name in bucket_names:
+            logger.debug(f"Scanning bucket: {bucket_name}")
+            bucket = s3.Bucket(bucket_name)
+
+            for obj in bucket.objects.filter(
+                Prefix=get_bucket_relative_path(prefix)
+            ).page_size(PAGE_SIZE):
+                s3_path = self.create_s3_path(obj.bucket_name, obj.key)
+
+                # Get content type if configured
+                content_type = None
+                if self.source_config.use_s3_content_type:
+                    content_type = s3.Object(obj.bucket_name, obj.key).content_type
+
+                # Create one BrowsePath per file
+                yield BrowsePath(
+                    file=s3_path,
+                    timestamp=obj.last_modified,
+                    size=obj.size,
+                    partitions=[],  # No partitions in simple mode
+                    content_type=content_type,
+                )
 
     def local_browser(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         prefix = self.get_prefix(path_spec.include)
