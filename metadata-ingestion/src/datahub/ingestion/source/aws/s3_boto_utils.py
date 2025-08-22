@@ -112,6 +112,13 @@ def list_folders_path(
         s3_uri += "/"
 
     bucket_name = get_bucket_name(s3_uri)
+    if not bucket_name:
+        # No bucket name means we only have the s3[an]:// protocol, not a full bucket and
+        # prefix.
+        for folder in list_buckets(startswith, aws_config):
+            yield DirEntry(name=folder, path=f"{s3_uri}{folder}")
+        return
+
     prefix = get_bucket_relative_path(s3_uri) + startswith
     for folder in list_folders(bucket_name, prefix, aws_config):
         folder = folder.removesuffix("/").split("/")[-1]
