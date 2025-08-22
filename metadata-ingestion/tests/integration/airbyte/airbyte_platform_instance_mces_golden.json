@@ -1,0 +1,365 @@
+[
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workspace_id": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "externalUrl": "http://localhost:8000/workspaces/d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+            "name": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+            "description": "Airbyte workspace: Default Workspace"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),55555555-5555-5555-5555-555555555555)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connection_id": "55555555-5555-5555-5555-555555555555",
+                "source_id": "cfc97ab5-d29d-4770-801d-4b2acae166d6",
+                "destination_id": "f7c3c81d-5114-45b6-bb27-b5d769a08141",
+                "source_name": "Test Postgres Source",
+                "destination_name": "Test Postgres Destination",
+                "status": "active",
+                "schedule_type": "",
+                "schedule_data": "{}",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "name": "Postgres to Postgres Connection",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),55555555-5555-5555-5555-555555555555)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),55555555-5555-5555-5555-555555555555)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),55555555-5555-5555-5555-555555555555)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),55555555-5555-5555-5555-555555555555)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,55555555-5555-5555-5555-555555555555,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connection_id": "55555555-5555-5555-5555-555555555555",
+                "source_id": "cfc97ab5-d29d-4770-801d-4b2acae166d6",
+                "destination_id": "f7c3c81d-5114-45b6-bb27-b5d769a08141",
+                "source_name": "Test Postgres Source",
+                "destination_name": "Test Postgres Destination",
+                "workspace_id": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+                "workspace_name": "Default Workspace",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "externalUrl": "http://localhost:8000/workspaces/d9d1a82d-4a51-4e0c-a1a1-6faff11ce552/connections/55555555-5555-5555-5555-555555555555",
+            "name": "Postgres to Postgres Connection",
+            "description": "Airbyte connection from Test Postgres Source to Test Postgres Destination"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workspace_id": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "externalUrl": "http://localhost:8000/workspaces/d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+            "name": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+            "description": "Airbyte workspace: Default Workspace"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),66666666-6666-6666-6666-666666666666)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connection_id": "66666666-6666-6666-6666-666666666666",
+                "source_id": "02047594-0043-4695-9a16-1aaad350df90",
+                "destination_id": "f7c3c81d-5114-45b6-bb27-b5d769a08141",
+                "source_name": "Test MySQL Source",
+                "destination_name": "Test Postgres Destination",
+                "status": "active",
+                "schedule_type": "",
+                "schedule_data": "{}",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "name": "MySQL to Postgres Connection",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),66666666-6666-6666-6666-666666666666)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),66666666-6666-6666-6666-666666666666)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),66666666-6666-6666-6666-666666666666)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),66666666-6666-6666-6666-666666666666)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,66666666-6666-6666-6666-666666666666,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connection_id": "66666666-6666-6666-6666-666666666666",
+                "source_id": "02047594-0043-4695-9a16-1aaad350df90",
+                "destination_id": "f7c3c81d-5114-45b6-bb27-b5d769a08141",
+                "source_name": "Test MySQL Source",
+                "destination_name": "Test Postgres Destination",
+                "workspace_id": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+                "workspace_name": "Default Workspace",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "externalUrl": "http://localhost:8000/workspaces/d9d1a82d-4a51-4e0c-a1a1-6faff11ce552/connections/66666666-6666-6666-6666-666666666666",
+            "name": "MySQL to Postgres Connection",
+            "description": "Airbyte connection from Test MySQL Source to Test Postgres Destination"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "workspace_id": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "externalUrl": "http://localhost:8000/workspaces/d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+            "name": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+            "description": "Airbyte workspace: Default Workspace"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),77777777-7777-7777-7777-777777777777)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connection_id": "77777777-7777-7777-7777-777777777777",
+                "source_id": "9c23606e-effa-4a56-9fa2-673d22d0fbc2",
+                "destination_id": "f7c3c81d-5114-45b6-bb27-b5d769a08141",
+                "source_name": "MySQL Metagalaxy Source",
+                "destination_name": "Test Postgres Destination",
+                "status": "active",
+                "schedule_type": "",
+                "schedule_data": "{}",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "name": "MySQL Metagalaxy to PostgreSQL",
+            "type": {
+                "string": "COMMAND"
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),77777777-7777-7777-7777-777777777777)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),77777777-7777-7777-7777-777777777777)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [],
+            "fineGrainedLineages": []
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),77777777-7777-7777-7777-777777777777)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:airbyte"
+            }
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,d9d1a82d-4a51-4e0c-a1a1-6faff11ce552,PROD),77777777-7777-7777-7777-777777777777)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,77777777-7777-7777-7777-777777777777,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "connection_id": "77777777-7777-7777-7777-777777777777",
+                "source_id": "9c23606e-effa-4a56-9fa2-673d22d0fbc2",
+                "destination_id": "f7c3c81d-5114-45b6-bb27-b5d769a08141",
+                "source_name": "MySQL Metagalaxy Source",
+                "destination_name": "Test Postgres Destination",
+                "workspace_id": "d9d1a82d-4a51-4e0c-a1a1-6faff11ce552",
+                "workspace_name": "Default Workspace",
+                "platform": "airbyte",
+                "deployment_type": "oss"
+            },
+            "externalUrl": "http://localhost:8000/workspaces/d9d1a82d-4a51-4e0c-a1a1-6faff11ce552/connections/77777777-7777-7777-7777-777777777777",
+            "name": "MySQL Metagalaxy to PostgreSQL",
+            "description": "Airbyte connection from MySQL Metagalaxy Source to Test Postgres Destination"
+        }
+    }
+}
+]

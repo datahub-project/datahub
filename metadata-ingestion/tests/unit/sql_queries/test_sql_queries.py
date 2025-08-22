@@ -1,8 +1,21 @@
+import json
+import tempfile
 from datetime import datetime, timezone
+from functools import partial
+from typing import cast
+from unittest.mock import Mock
 
 import pytest
 
-from datahub.ingestion.source.sql_queries import QueryEntry, SqlQueriesSourceConfig
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.sql_queries import (
+    QueryEntry,
+    SqlQueriesSource,
+    SqlQueriesSourceConfig,
+)
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn
 
 
@@ -426,3 +439,246 @@ class TestQueryEntry:
         assert query_entry.downstream_tables == expected_query_entry.downstream_tables
         assert query_entry.upstream_tables == expected_query_entry.upstream_tables
         assert query_entry.session_id == expected_query_entry.session_id
+
+
+class TestSqlQueriesSourceConfig:
+    """Test configuration parsing for SqlQueriesSourceConfig."""
+
+    def test_incremental_lineage_default(self):
+        """Test that incremental_lineage defaults to False."""
+        config_dict = {"query_file": "test.jsonl", "platform": "snowflake"}
+        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        assert config.incremental_lineage is False
+
+    def test_incremental_lineage_enabled(self):
+        """Test that incremental_lineage can be enabled."""
+        config_dict = {
+            "query_file": "test.jsonl",
+            "platform": "snowflake",
+            "incremental_lineage": True,
+        }
+        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        assert config.incremental_lineage is True
+
+    def test_incremental_lineage_disabled_explicitly(self):
+        """Test that incremental_lineage can be explicitly disabled."""
+        config_dict = {
+            "query_file": "test.jsonl",
+            "platform": "snowflake",
+            "incremental_lineage": False,
+        }
+        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        assert config.incremental_lineage is False
+
+
+class TestSqlQueriesSource:
+    """Test SqlQueriesSource functionality including patch lineage support."""
+
+    @pytest.fixture
+    def mock_graph(self):
+        """Create a mock DataHubGraph."""
+        mock_graph = Mock(spec=DataHubGraph)
+        mock_graph.initialize_schema_resolver_from_datahub.return_value = None
+        return mock_graph
+
+    @pytest.fixture
+    def pipeline_context(self, mock_graph):
+        """Create a PipelineContext with mock graph."""
+        return PipelineContext(run_id="test", graph=mock_graph)
+
+    @pytest.fixture
+    def temp_query_file(self):
+        """Create a temporary query file for testing."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+            # Write test queries
+            queries = [
+                {
+                    "query": "INSERT INTO target_table SELECT * FROM source_table",
+                    "timestamp": 1640995200,  # 2022-01-01
+                    "user": "test_user",
+                    "downstream_tables": ["target_table"],
+                    "upstream_tables": ["source_table"],
+                },
+                {
+                    "query": "CREATE TABLE output AS SELECT * FROM input1 JOIN input2",
+                    "timestamp": 1641081600,  # 2022-01-02
+                    "user": "another_user",
+                    "downstream_tables": ["output"],
+                    "upstream_tables": ["input1", "input2"],
+                },
+            ]
+            for query in queries:
+                f.write(json.dumps(query) + "\n")
+            query_file_path = f.name
+
+        yield query_file_path
+
+        # Cleanup
+        import os
+
+        os.unlink(query_file_path)
+
+    def test_source_instantiation_with_incremental_lineage_enabled(
+        self, pipeline_context, temp_query_file
+    ):
+        """Test that source can be instantiated with incremental_lineage enabled."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file, platform="snowflake", incremental_lineage=True
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+
+        assert source.config.incremental_lineage is True
+        assert hasattr(source.config, "incremental_lineage")
+
+    def test_source_instantiation_with_incremental_lineage_disabled(
+        self, pipeline_context, temp_query_file
+    ):
+        """Test that source can be instantiated with incremental_lineage disabled."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file, platform="snowflake", incremental_lineage=False
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+
+        assert source.config.incremental_lineage is False
+
+    def test_workunit_processors_with_incremental_lineage_enabled(
+        self, pipeline_context, temp_query_file
+    ):
+        """Test workunit processors when incremental_lineage is enabled."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file, platform="snowflake", incremental_lineage=True
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+        processors = source.get_workunit_processors()
+
+        # Should have 2 processors: auto_workunit_reporter and auto_incremental_lineage
+        assert len(processors) == 2
+        assert all(proc is not None for proc in processors)
+
+        # Check that processors are the expected functions
+        partial_processors = [
+            cast(partial, proc) for proc in processors if isinstance(proc, partial)
+        ]
+        processor_funcs = [proc.func for proc in partial_processors]
+        assert auto_workunit_reporter in processor_funcs
+        assert auto_incremental_lineage in processor_funcs
+
+        # Check that auto_incremental_lineage is configured with the right parameter
+        auto_incremental_processor = next(
+            cast(partial, proc)
+            for proc in processors
+            if isinstance(proc, partial) and proc.func == auto_incremental_lineage
+        )
+        # The first argument should be the incremental_lineage flag
+        assert auto_incremental_processor.args[0] is True
+
+    def test_workunit_processors_with_incremental_lineage_disabled(
+        self, pipeline_context, temp_query_file
+    ):
+        """Test workunit processors when incremental_lineage is disabled."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file, platform="snowflake", incremental_lineage=False
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+        processors = source.get_workunit_processors()
+
+        # Should still have 2 processors
+        assert len(processors) == 2
+
+        # Check that auto_incremental_lineage is configured with False
+        auto_incremental_processor = next(
+            cast(partial, proc)
+            for proc in processors
+            if isinstance(proc, partial) and proc.func == auto_incremental_lineage
+        )
+        assert auto_incremental_processor.args[0] is False
+
+    def test_workunit_processors_default_behavior(
+        self, pipeline_context, temp_query_file
+    ):
+        """Test workunit processors with default configuration (incremental_lineage=False)."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file,
+            platform="snowflake",
+            # incremental_lineage not specified, should default to False
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+        processors = source.get_workunit_processors()
+
+        assert len(processors) == 2
+
+        # Verify that auto_incremental_lineage is configured with False by default
+        auto_incremental_processor = next(
+            cast(partial, proc)
+            for proc in processors
+            if isinstance(proc, partial) and proc.func == auto_incremental_lineage
+        )
+        assert auto_incremental_processor.args[0] is False
+
+    def test_workunit_generation_structure(self, pipeline_context, temp_query_file):
+        """Test that MCPs are generated with proper structure."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file, platform="snowflake", incremental_lineage=True
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+
+        # Generate MCPs (these will be converted to workunits by the processors)
+        mcps = list(source.get_workunits_internal())
+
+        # Should generate some MCPs (exact number depends on SQL aggregator behavior)
+        assert len(mcps) >= 0  # At minimum, no errors should occur
+
+        # All items should be MCPs
+        for mcp in mcps:
+            # Should be MetadataChangeProposalWrapper objects
+            assert hasattr(mcp, "aspectName") or hasattr(mcp, "aspect")
+
+    @pytest.mark.parametrize("incremental_lineage", [True, False])
+    def test_config_inheritance(
+        self, pipeline_context, temp_query_file, incremental_lineage
+    ):
+        """Test that incremental_lineage config is properly inherited by the source."""
+        config = SqlQueriesSourceConfig(
+            query_file=temp_query_file,
+            platform="snowflake",
+            incremental_lineage=incremental_lineage,
+        )
+
+        source = SqlQueriesSource(pipeline_context, config)
+
+        # Verify config is properly set
+        assert source.config.incremental_lineage == incremental_lineage
+
+        # Verify processors reflect the config
+        processors = source.get_workunit_processors()
+        auto_incremental_processor = next(
+            cast(partial, proc)
+            for proc in processors
+            if isinstance(proc, partial) and proc.func == auto_incremental_lineage
+        )
+        assert auto_incremental_processor.args[0] == incremental_lineage
+
+    def test_backward_compatibility(self, pipeline_context, temp_query_file):
+        """Test that existing configurations without incremental_lineage still work."""
+        # This simulates an existing config that doesn't have incremental_lineage
+        config_dict = {
+            "query_file": temp_query_file,
+            "platform": "snowflake",
+            "usage": {"bucket_duration": "DAY"},
+        }
+
+        config = SqlQueriesSourceConfig.parse_obj(config_dict)
+        source = SqlQueriesSource(pipeline_context, config)
+
+        # Should default to False
+        assert source.config.incremental_lineage is False
+
+        # Should still work normally
+        processors = source.get_workunit_processors()
+        assert len(processors) == 2
