@@ -22,6 +22,7 @@ from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.siblings import HasSiblingsPatch
 from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
@@ -104,6 +105,7 @@ class DatasetPatchBuilder(
     HasTagsPatch,
     HasTermsPatch,
     HasFineGrainedLineagePatch,
+    HasSiblingsPatch,
     MetadataPatchProposal,
 ):
     def __init__(

@@ -62,8 +62,8 @@ export interface ModalButton extends ButtonProps {
 }
 
 export interface ModalProps {
-    buttons: ModalButton[];
-    title: string;
+    buttons?: ModalButton[];
+    title: React.ReactNode;
     subtitle?: string;
     titlePill?: React.ReactNode;
     children?: React.ReactNode;
@@ -105,7 +105,7 @@ export function Modal({
                 </HeaderContainer>
             }
             footer={
-                !!buttons.length && (
+                !!buttons?.length && (
                     <ButtonsContainer>
                         {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
                             <Button

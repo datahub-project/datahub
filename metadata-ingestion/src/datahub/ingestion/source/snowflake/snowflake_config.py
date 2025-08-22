@@ -135,12 +135,10 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             and match_fully_qualified_names is not None
             and not match_fully_qualified_names
         ):
-            raise ValueError(
-                "`match_fully_qualified_names: False` is no longer supported. "
-                "Please set `match_fully_qualified_names: True` and update your `schema_pattern` "
-                "to match against fully qualified schema names `<catalog_name>.<schema_name>`. "
-                "The config option `match_fully_qualified_names` will be removed in future and the default behavior will assume `match_fully_qualified_names: True`."
-                "match_fully_qualified_names False was there to maintain backward compatibility."
+            logger.warning(
+                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
