@@ -749,6 +749,11 @@ type FeatureFlagsConfig {
   showLineageExpandMore: Boolean!
 
   """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
+
+  """
   If turned on, show the re-designed home page
   """
   showHomePageRedesign: Boolean!
@@ -772,6 +777,11 @@ type FeatureFlagsConfig {
   Enables displaying the homepage user role underneath the name. Only available for custom home page.
   """
   showHomepageUserRole: Boolean!
+
+  """
+  Enables displaying the asset summary page
+  """
+  assetSummaryPageV1: Boolean!
 }
 
 """

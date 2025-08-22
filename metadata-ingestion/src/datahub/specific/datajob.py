@@ -1,15 +1,19 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Set, Tuple, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     DataJobInfoClass as DataJobInfo,
     DataJobInputOutputClass as DataJobInputOutput,
     EdgeClass as Edge,
+    FineGrainedLineageClass as FineGrainedLineage,
     KafkaAuditHeaderClass,
     SystemMetadataClass,
 )
 from datahub.metadata.urns import SchemaFieldUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.fine_grained_lineage import (
+    HasFineGrainedLineagePatch,
+)
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.aspect_helpers.terms import HasTermsPatch
@@ -20,6 +24,7 @@ class DataJobPatchBuilder(
     HasCustomPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasFineGrainedLineagePatch,
     MetadataPatchProposal,
 ):
     def __init__(
@@ -40,9 +45,18 @@ class DataJobPatchBuilder(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
 
+        # Track fine-grained lineages for DataJob-specific handling
+        self._fine_grained_lineages_to_add: List[FineGrainedLineage] = []
+        self._fine_grained_lineage_keys_to_remove: Set[Tuple[str, str, str]] = set()
+        self._fine_grained_lineages_set: Optional[List[FineGrainedLineage]] = None
+
     @classmethod
     def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
         return DataJobInfo.ASPECT_NAME, ("customProperties",)
+
+    @classmethod
+    def _fine_grained_lineage_location(cls) -> Tuple[str, PatchPath]:
+        return DataJobInputOutput.ASPECT_NAME, ("fineGrainedLineages",)
 
     def add_input_datajob(self, input: Union[Edge, Urn, str]) -> "DataJobPatchBuilder":
         """

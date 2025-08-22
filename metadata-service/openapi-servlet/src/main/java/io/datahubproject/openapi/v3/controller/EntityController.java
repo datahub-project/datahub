@@ -3,6 +3,7 @@ package io.datahubproject.openapi.v3.controller;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.PATCH_FIELD;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
+import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
@@ -41,6 +42,7 @@ import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
@@ -77,6 +79,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -169,6 +172,8 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
+      @RequestParam(value = "sliceId", required = false) Integer sliceId,
+      @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @Parameter(
               schema = @Schema(nullable = true),
               description =
@@ -222,10 +227,16 @@ public class EntityController
 
     ScrollResult result =
         searchService.scrollAcrossEntities(
-            opContext
-                .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
-                .withSearchFlags(flags -> flags.setSkipCache(skipCache))
-                .withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDelete)),
+            opContext.withSearchFlags(
+                flags ->
+                    DEFAULT_SEARCH_FLAGS
+                        .setSkipCache(skipCache)
+                        .setIncludeSoftDeleted(includeSoftDelete)
+                        .setSliceOptions(
+                            sliceId != null && sliceMax != null
+                                ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                : null,
+                            SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
             null,
@@ -412,9 +423,12 @@ public class EntityController
       @RequestBody String jsonBody)
       throws Exception {
 
+    Authentication authentication = AuthenticationContext.getAuthentication();
     ObjectNode root = (ObjectNode) objectMapper.readTree(jsonBody);
     Map<String, List<GenericEntityV3>> response = new LinkedHashMap<>();
 
+    // Collect all entity types from the request for authorization
+    Set<String> entityTypes = new LinkedHashSet<>();
     for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
       String entityName = it.next();
       JsonNode array = root.get(entityName);
@@ -423,16 +437,58 @@ public class EntityController
         throw new IllegalArgumentException(
             "Value of property '" + entityName + "' must be an array");
       }
+      entityTypes.add(entityName);
+    }
 
-      ResponseEntity<List<GenericEntityV3>> part =
-          super.createEntity(
-              request,
-              entityName,
-              async,
-              withSystemMetadata,
-              objectMapper.writeValueAsString(array));
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "createGenericEntities",
+                    entityTypes),
+            authorizationChain,
+            authentication,
+            true);
 
-      response.put(entityName, part.getBody() == null ? List.of() : part.getBody());
+    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, CREATE, entityTypes)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
+    }
+
+    // Build a single batch containing all entities from all types by combining individual batches
+    List<BatchItem> allBatchItems = new ArrayList<>();
+
+    for (Iterator<String> it = root.fieldNames(); it.hasNext(); ) {
+      String entityName = it.next();
+      JsonNode array = root.get(entityName);
+
+      // Create a batch for this entity type and extract its items
+      AspectsBatch entityTypeBatch =
+          toMCPBatch(opContext, objectMapper.writeValueAsString(array), authentication.getActor());
+      allBatchItems.addAll(entityTypeBatch.getItems());
+    }
+
+    // Create a combined batch with all items
+    AspectsBatch batch =
+        AspectsBatchImpl.builder()
+            .items(allBatchItems)
+            .retrieverContext(opContext.getRetrieverContext())
+            .build(opContext);
+    List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
+
+    // Group results by entity type for response structure
+    Map<String, List<IngestResult>> resultsByEntityType = new HashMap<>();
+    for (IngestResult result : results) {
+      String entityType = result.getUrn().getEntityType();
+      resultsByEntityType.computeIfAbsent(entityType, k -> new ArrayList<>()).add(result);
+    }
+
+    for (String entityName : entityTypes) {
+      List<IngestResult> entityResults = resultsByEntityType.getOrDefault(entityName, List.of());
+      response.put(entityName, buildEntityList(opContext, entityResults, withSystemMetadata));
     }
 
     return async ? ResponseEntity.accepted().body(response) : ResponseEntity.ok(response);

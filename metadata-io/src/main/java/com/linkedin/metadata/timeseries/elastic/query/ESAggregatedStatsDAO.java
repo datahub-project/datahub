@@ -21,6 +21,8 @@ import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -480,12 +482,10 @@ public class ESAggregatedStatsDAO {
         AggregationBuilder curAggregationBuilder = null;
         if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
           // Process the date grouping bucket using 'date-histogram' aggregation.
-          if (!curGroupingBucket.getKey().equals(ES_FIELD_TIMESTAMP)) {
-            throw new IllegalArgumentException("Date Grouping bucket is not:" + ES_FIELD_TIMESTAMP);
-          }
           curAggregationBuilder =
-              AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
-                  .field(ES_FIELD_TIMESTAMP)
+              AggregationBuilders.dateHistogram(ES_AGGREGATION_PREFIX + curGroupingBucket.getKey())
+                  .field(curGroupingBucket.getKey())
+                  .timeZone(getZoneId(curGroupingBucket))
                   .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
           // Process the string grouping bucket using the 'terms' aggregation.
@@ -510,6 +510,20 @@ public class ESAggregatedStatsDAO {
     }
 
     return Pair.of(firstAggregationBuilder, lastAggregationBuilder);
+  }
+
+  @Nonnull
+  private ZoneId getZoneId(GroupingBucket groupingBucket) {
+    // default to GMT time
+    ZoneId zoneId = ZoneId.of("GMT");
+    if (groupingBucket.getTimeZone() != null) {
+      try {
+        zoneId = ZoneId.of(groupingBucket.getTimeZone());
+      } catch (DateTimeException exception) {
+        log.error("Error converting time zone into ZoneId", exception);
+      }
+    }
+    return zoneId;
   }
 
   private GenericTable generateResponseFromElastic(

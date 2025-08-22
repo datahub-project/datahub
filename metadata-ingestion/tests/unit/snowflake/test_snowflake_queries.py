@@ -8,6 +8,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.ingestion.source.snowflake.snowflake_config import QueryDedupStrategyType
 from datahub.ingestion.source.snowflake.snowflake_queries import QueryLogQueryBuilder
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 
 
 class TestBuildAccessHistoryDatabaseFilterCondition:
@@ -145,7 +146,6 @@ class TestBuildAccessHistoryDatabaseFilterCondition:
             start_time=datetime.datetime(year=2021, month=1, day=1),
             end_time=datetime.datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
-            deny_usernames=None,
             dedup_strategy=QueryDedupStrategyType.STANDARD,
             database_pattern=database_pattern,
             additional_database_names=additional_database_names,
@@ -174,7 +174,6 @@ class TestQueryLogQueryBuilder:
                 start_time=datetime.datetime(year=2021, month=1, day=1),
                 end_time=datetime.datetime(year=2021, month=1, day=1),
                 bucket_duration=BucketDuration.HOUR,
-                deny_usernames=None,
                 dedup_strategy=strategy,
             ).build_enriched_query_log_query()
             # SQL parsing should succeed
@@ -204,7 +203,6 @@ class TestQueryLogQueryBuilder:
             start_time=datetime.datetime(year=2021, month=1, day=1),
             end_time=datetime.datetime(year=2021, month=1, day=2),
             bucket_duration=BucketDuration.HOUR,
-            deny_usernames=None,
             dedup_strategy=QueryDedupStrategyType.NONE,
             additional_database_names=additional_database_names,
         ).build_enriched_query_log_query()
@@ -229,3 +227,165 @@ class TestQueryLogQueryBuilder:
 
         # SQL parsing should succeed
         sqlglot.parse(query, dialect=Snowflake)
+
+
+class TestBuildUserFilter:
+    @pytest.mark.parametrize(
+        "deny_usernames,allow_usernames,expected",
+        [
+            pytest.param(
+                None,
+                None,
+                "TRUE",
+                id="no_filters",
+            ),
+            pytest.param(
+                [],
+                [],
+                "TRUE",
+                id="empty_lists",
+            ),
+            pytest.param(
+                None,
+                [],
+                "TRUE",
+                id="none_deny_empty_allow",
+            ),
+            pytest.param(
+                [],
+                None,
+                "TRUE",
+                id="empty_deny_none_allow",
+            ),
+            pytest.param(
+                ["SERVICE_USER"],
+                None,
+                "(user_name NOT ILIKE 'SERVICE_USER')",
+                id="single_deny_exact",
+            ),
+            pytest.param(
+                ["SERVICE_%"],
+                None,
+                "(user_name NOT ILIKE 'SERVICE_%')",
+                id="single_deny_pattern",
+            ),
+            pytest.param(
+                ["SERVICE_%", "ADMIN_%"],
+                None,
+                "(user_name NOT ILIKE 'SERVICE_%' AND user_name NOT ILIKE 'ADMIN_%')",
+                id="multiple_deny_patterns",
+            ),
+            pytest.param(
+                None,
+                ["ANALYST_USER"],
+                "(user_name ILIKE 'ANALYST_USER')",
+                id="single_allow_exact",
+            ),
+            pytest.param(
+                None,
+                ["ANALYST_%"],
+                "(user_name ILIKE 'ANALYST_%')",
+                id="single_allow_pattern",
+            ),
+            pytest.param(
+                None,
+                ["ANALYST_%", "%_USER"],
+                "(user_name ILIKE 'ANALYST_%' OR user_name ILIKE '%_USER')",
+                id="multiple_allow_patterns",
+            ),
+            pytest.param(
+                ["SERVICE_%"],
+                ["ANALYST_%"],
+                "(user_name NOT ILIKE 'SERVICE_%') AND (user_name ILIKE 'ANALYST_%')",
+                id="single_deny_and_single_allow",
+            ),
+            pytest.param(
+                ["SERVICE_%", "ADMIN_%"],
+                ["ANALYST_%", "%_USER"],
+                "(user_name NOT ILIKE 'SERVICE_%' AND user_name NOT ILIKE 'ADMIN_%') AND (user_name ILIKE 'ANALYST_%' OR user_name ILIKE '%_USER')",
+                id="multiple_deny_and_multiple_allow",
+            ),
+            pytest.param(
+                ["TEST_ANALYST_%"],
+                ["TEST_%"],
+                "(user_name NOT ILIKE 'TEST_ANALYST_%') AND (user_name ILIKE 'TEST_%')",
+                id="overlapping_deny_and_allow_patterns",
+            ),
+            pytest.param(
+                ["'SPECIAL_USER'"],
+                None,
+                "(user_name NOT ILIKE '''SPECIAL_USER''')",
+                id="sql_injection_protection_deny",
+            ),
+            pytest.param(
+                None,
+                ["'SPECIAL_USER'"],
+                "(user_name ILIKE '''SPECIAL_USER''')",
+                id="sql_injection_protection_allow",
+            ),
+            pytest.param(
+                ["USER_O'CONNOR"],
+                ["ANALYST_O'BRIEN"],
+                "(user_name NOT ILIKE 'USER_O''CONNOR') AND (user_name ILIKE 'ANALYST_O''BRIEN')",
+                id="sql_injection_protection_both",
+            ),
+        ],
+    )
+    def test_build_user_filter(self, deny_usernames, allow_usernames, expected):
+        """Test the _build_user_filter method with various combinations of deny and allow patterns."""
+        # Create a QueryLogQueryBuilder instance to test the method
+        builder = QueryLogQueryBuilder(
+            start_time=datetime.datetime(year=2021, month=1, day=1),
+            end_time=datetime.datetime(year=2021, month=1, day=2),
+            bucket_duration=BucketDuration.HOUR,
+            deny_usernames=deny_usernames,
+            allow_usernames=allow_usernames,
+            dedup_strategy=QueryDedupStrategyType.STANDARD,
+        )
+
+        result = builder._build_user_filter(deny_usernames, allow_usernames)
+        assert result == expected
+
+
+class TestSnowflakeViewQueries:
+    def test_get_views_for_database_query_syntax(self):
+        query = SnowflakeQuery.get_views_for_database("TEST_DB")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Validate SQL structure
+        statement = parsed[0]
+        assert statement is not None
+        assert statement.find(sqlglot.exp.Select) is not None
+
+        # Check that it's selecting from information_schema.views in the correct database
+        from_clause = statement.find(sqlglot.exp.From)
+        assert from_clause is not None
+        table_name = str(from_clause.this).replace('"', "")
+        assert table_name == "TEST_DB.information_schema.views"
+
+    def test_get_views_for_schema_query_syntax(self):
+        query = SnowflakeQuery.get_views_for_schema("TEST_DB", "PUBLIC")
+
+        # Should be parseable by sqlglot
+        parsed = sqlglot.parse(query, dialect=Snowflake)
+        assert len(parsed) == 1
+
+        # Validate SQL structure
+        statement = parsed[0]
+        assert statement is not None
+        assert statement.find(sqlglot.exp.Select) is not None
+
+        # Check that it's selecting from information_schema.views in the correct database
+        from_clause = statement.find(sqlglot.exp.From)
+        assert from_clause is not None
+        table_name = str(from_clause.this).replace('"', "")
+        assert table_name == "TEST_DB.information_schema.views"
+
+        # Check that it has a WHERE clause filtering by schema
+        where_clause = statement.find(sqlglot.exp.Where)
+        assert where_clause is not None
+        where_str = str(where_clause).upper()
+        assert "TABLE_SCHEMA" in where_str and "PUBLIC" in where_str

@@ -2,6 +2,7 @@ import { Form } from 'antd';
 import React, { useCallback } from 'react';
 
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
+import FormItem from '@app/homeV3/modules/hierarchyViewModule/components/form/components/FormItem';
 import {
     FORM_FIELD_RELATED_ENTITIES_FILTER,
     FORM_FIELD_SHOW_RELATED_ENTITIES,
@@ -46,11 +47,11 @@ export default function RelatedEntitiesSection() {
 
     return (
         <>
-            <Form.Item name={FORM_FIELD_SHOW_RELATED_ENTITIES}>
+            <FormItem name={FORM_FIELD_SHOW_RELATED_ENTITIES}>
                 <ShowRelatedEntitiesSwitch isChecked={isChecked} onChange={toggleShowRelatedEntitiesSwitch} />
-            </Form.Item>
+            </FormItem>
 
-            <Form.Item name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
+            <FormItem name={FORM_FIELD_RELATED_ENTITIES_FILTER}>
                 {isChecked && (
                     <LogicalFiltersBuilder
                         filters={relatedEntitiesFilter ?? defaultRelatedEntitiesFilter ?? EMPTY_FILTER}
@@ -58,7 +59,7 @@ export default function RelatedEntitiesSection() {
                         properties={properties}
                     />
                 )}
-            </Form.Item>
+            </FormItem>
         </>
     );
 }

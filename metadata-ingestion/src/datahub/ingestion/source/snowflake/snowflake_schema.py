@@ -3,16 +3,17 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import (
-    SHOW_VIEWS_MAX_PAGE_SIZE,
+    SHOW_COMMAND_MAX_PAGE_SIZE,
     SnowflakeQuery,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
 from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -101,6 +102,17 @@ class SnowflakeTable(BaseTable):
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.TABLE
+
+
+@dataclass
+class SnowflakeDynamicTable(SnowflakeTable):
+    definition: Optional[str] = (
+        None  # SQL query that defines the dynamic table's content
+    )
+    target_lag: Optional[str] = None  # Refresh frequency (e.g., "1 HOUR", "30 MINUTES")
+
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.DYNAMIC_TABLE
 
 
 @dataclass
@@ -264,10 +276,17 @@ class _SnowflakeTagCache:
 
 
 class SnowflakeDataDictionary(SupportsAsObj):
-    def __init__(self, connection: SnowflakeConnection) -> None:
+    def __init__(
+        self,
+        connection: SnowflakeConnection,
+        report: SnowflakeV2Report,
+        fetch_views_from_information_schema: bool = False,
+    ) -> None:
         self.connection = connection
+        self.report = report
+        self._fetch_views_from_information_schema = fetch_views_from_information_schema
 
-    def as_obj(self) -> Dict[str, Dict[str, int]]:
+    def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
 
         # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
@@ -283,7 +302,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_fk_constraints_for_schema,
         ]
 
-        report = {}
+        report: Dict[str, Any] = {
+            "fetch_views_from_information_schema": self._fetch_views_from_information_schema,
+        }
         for func in lru_cache_functions:
             report[func.__name__] = func.cache_info()._asdict()  # type: ignore
         return report
@@ -393,8 +414,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if table["TABLE_SCHEMA"] not in tables:
                 tables[table["TABLE_SCHEMA"]] = []
 
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables[table["TABLE_SCHEMA"]].append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -403,11 +427,15 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
-                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
+
+        # Populate dynamic table definitions
+        self.populate_dynamic_table_definitions(tables, db_name)
+
         return tables
 
     def get_tables_for_schema(
@@ -420,8 +448,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
 
         for table in cur:
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables.append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -430,16 +461,31 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
-                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
+
+        # Populate dynamic table definitions for just this schema
+        schema_tables = {schema_name: tables}
+        self.populate_dynamic_table_definitions(schema_tables, db_name)
+
         return tables
 
     @serialized_lru_cache(maxsize=1)
-    def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+    def get_views_for_database(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        if self._fetch_views_from_information_schema:
+            return self._get_views_for_database_using_information_schema(db_name)
+        else:
+            return self._get_views_for_database_using_show(db_name)
+
+    def _get_views_for_database_using_show(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeView]]:
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
 
@@ -469,10 +515,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     SnowflakeView(
                         name=view_name,
                         created=view["created_on"],
-                        # last_altered=table["last_altered"],
                         comment=view["comment"],
                         view_definition=view["text"],
-                        last_altered=view["created_on"],
+                        last_altered=view["created_on"],  # TODO: This is not correct.
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
@@ -486,6 +531,163 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"Fetching next page of views for {db_name} - after {view_name}"
                 )
                 view_pagination_marker = view_name
+
+        # Because this is in a cached function, this will only log once per database.
+        view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
+        logger.info(
+            f"Finished fetching views in {db_name}; counts by schema {view_counts}"
+        )
+        return views
+
+    def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
+        schema_name = row["VIEW_SCHEMA"]
+        view_definition = row.get("VIEW_DEFINITION")
+        fragment_view_definition = (
+            view_definition[:50].strip() if view_definition else None
+        )
+        logger.info(
+            f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']} with view definition: {fragment_view_definition}..."
+        )
+
+        return schema_name, SnowflakeView(
+            name=row["VIEW_NAME"],
+            created=row["CREATED"],
+            comment=row["COMMENT"],
+            view_definition=view_definition,
+            last_altered=row["LAST_ALTERED"],
+            is_secure=(row.get("IS_SECURE", "false").lower() == "true"),
+            # TODO: This doesn't work for materialized views.
+            materialized=False,
+        )
+
+    def _maybe_populate_empty_view_definitions(
+        self,
+        db_name: str,
+        schema_name: str,
+        views_with_empty_definition: List[SnowflakeView],
+    ) -> List[SnowflakeView]:
+        if not views_with_empty_definition:
+            return []
+
+        view_names = [view.name for view in views_with_empty_definition]
+        batches = [
+            batch[0]
+            for batch in build_prefix_batches(
+                view_names, max_batch_size=1000, max_groups_in_batch=1
+            )
+            if batch
+            # Skip empty batch if so, also max_groups_in_batch=1 makes it safe to access batch[0]
+        ]
+
+        view_map: Dict[str, SnowflakeView] = {
+            view.name: view for view in views_with_empty_definition
+        }
+        views_found_count = 0
+
+        logger.info(
+            f"Fetching definitions for {len(view_map)} views in {db_name}.{schema_name} "
+            f"using batched 'SHOW VIEWS ... LIKE ...' queries. Found {len(batches)} batch(es)."
+        )
+
+        for batch_index, prefix_group in enumerate(batches):
+            query = f'SHOW VIEWS LIKE \'{prefix_group.prefix}%\' IN SCHEMA "{db_name}"."{schema_name}"'
+            logger.info(f"Processing batch {batch_index + 1}/{len(batches)}: {query}")
+
+            try:
+                cur = self.connection.query(query)
+                for row in cur:
+                    view_name = row["name"]
+                    if view_name in view_map:
+                        view_definition = row.get("text")
+                        if view_definition:  # Ensure definition is not None or empty
+                            view_map[view_name].view_definition = view_definition
+                            views_found_count += 1
+                            logger.debug(
+                                f"Fetched view definition for {db_name}.{schema_name}.{view_name}"
+                            )
+                            # If all targeted views are found, we could theoretically break early,
+                            # but SHOW VIEWS doesn't guarantee order, so we must process all results.
+                        else:
+                            logger.warning(
+                                f"'text' field missing or empty in SHOW VIEWS result for {db_name}.{schema_name}.{view_name}"
+                            )
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to execute query for batch {batch_index + 1} ('{query}') for {db_name}.{schema_name} or process its results.",
+                    exc_info=e,
+                )
+                # Returning the original list; some views might still be missing definitions.
+                # This also means subsequent batches for this schema (in this call) are skipped.
+                return views_with_empty_definition
+
+        logger.info(
+            f"Finished processing 'SHOW VIEWS' batches for {db_name}.{schema_name}. "
+            f"Fetched definitions for {views_found_count} out of {len(view_map)} targeted views."
+        )
+
+        if views_found_count < len(view_map):
+            missing_count = len(view_map) - views_found_count
+            logger.warning(
+                f"Could not fetch definitions for {missing_count} views in {db_name}.{schema_name} after processing all batches."
+            )
+        # The SnowflakeView objects in the original list were modified in place via view_map
+        return views_with_empty_definition
+
+    def _get_views_for_database_using_information_schema(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_views_for_database(db_name),
+            )
+        except Exception as e:
+            logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
+            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
+            return None
+
+        views: Dict[str, List[SnowflakeView]] = {}
+        views_with_empty_definition: Dict[str, List[SnowflakeView]] = {}
+
+        for row in cur:
+            schema_name, view = self._map_view(db_name, row)
+            if view.view_definition is None or view.view_definition == "":
+                views_with_empty_definition.setdefault(schema_name, []).append(view)
+            else:
+                views.setdefault(schema_name, []).append(view)
+
+        for schema_name, empty_views in views_with_empty_definition.items():
+            updated_views = self._maybe_populate_empty_view_definitions(
+                db_name, schema_name, empty_views
+            )
+            views.setdefault(schema_name, []).extend(updated_views)
+
+        return views
+
+    def get_views_for_schema_using_information_schema(
+        self, *, schema_name: str, db_name: str
+    ) -> List[SnowflakeView]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_views_for_schema(
+                db_name=db_name, schema_name=schema_name
+            ),
+        )
+
+        views: List[SnowflakeView] = []
+        views_with_empty_definition: List[SnowflakeView] = []
+
+        for row in cur:
+            schema_name, view = self._map_view(db_name, row)
+            if view.view_definition is None or view.view_definition == "":
+                views_with_empty_definition.append(view)
+            else:
+                views.append(view)
+
+        if views_with_empty_definition:
+            updated_empty_views = self._maybe_populate_empty_view_definitions(
+                db_name, schema_name, views_with_empty_definition
+            )
+            views.extend(updated_empty_views)
 
         return views
 
@@ -698,7 +900,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_streams_for_database(
         self, db_name: str
     ) -> Dict[str, List[SnowflakeStream]]:
-        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
 
         streams: Dict[str, List[SnowflakeStream]] = {}
 
@@ -781,3 +983,137 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
         return procedures
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_table_graph_info(self, db_name: str) -> Dict[str, Dict[str, Any]]:
+        """Get dynamic table dependency information from information schema."""
+        dt_graph_info: Dict[str, Dict[str, Any]] = {}
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_dynamic_table_graph_history(db_name)
+            )
+            for row in cur:
+                dt_name = row["NAME"]
+                dt_graph_info[dt_name] = {
+                    "inputs": row.get("INPUTS"),
+                    "target_lag_type": row.get("TARGET_LAG_TYPE"),
+                    "target_lag_sec": row.get("TARGET_LAG_SEC"),
+                    "scheduling_state": row.get("SCHEDULING_STATE"),
+                    "alter_trigger": row.get("ALTER_TRIGGER"),
+                }
+            logger.debug(
+                f"Successfully retrieved graph info for {len(dt_graph_info)} dynamic tables in {db_name}"
+            )
+        except Exception as e:
+            self.report.warning(
+                "Failed to get dynamic table graph history",
+                db_name,
+                exc=e,
+            )
+
+        return dt_graph_info
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_tables_with_definitions(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeDynamicTable]]:
+        """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
+        page_limit = SHOW_COMMAND_MAX_PAGE_SIZE
+        dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
+
+        # Get graph/dependency information (pass db_name)
+        dt_graph_info = self.get_dynamic_table_graph_info(db_name)
+
+        first_iteration = True
+        dt_pagination_marker: Optional[str] = None
+
+        while first_iteration or dt_pagination_marker is not None:
+            try:
+                cur = self.connection.query(
+                    SnowflakeQuery.show_dynamic_tables_for_database(
+                        db_name,
+                        limit=page_limit,
+                        dynamic_table_pagination_marker=dt_pagination_marker,
+                    )
+                )
+
+                first_iteration = False
+                dt_pagination_marker = None
+                result_set_size = 0
+
+                for dt in cur:
+                    result_set_size += 1
+
+                    dt_name = dt["name"]
+                    schema_name = dt["schema_name"]
+
+                    if schema_name not in dynamic_tables:
+                        dynamic_tables[schema_name] = []
+
+                    # Get definition from SHOW result
+                    definition = dt.get("text")
+
+                    # Get target lag from SHOW result or graph info
+                    target_lag = dt.get("target_lag")
+                    if not target_lag and dt_graph_info:
+                        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+                        graph_info = dt_graph_info.get(qualified_name, {})
+                        if graph_info.get("target_lag_type") and graph_info.get(
+                            "target_lag_sec"
+                        ):
+                            target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+
+                    dynamic_tables[schema_name].append(
+                        SnowflakeDynamicTable(
+                            name=dt_name,
+                            created=dt["created_on"],
+                            last_altered=dt.get("created_on"),
+                            size_in_bytes=dt.get("bytes", 0),
+                            rows_count=dt.get("rows", 0),
+                            comment=dt.get("comment"),
+                            definition=definition,
+                            target_lag=target_lag,
+                            is_dynamic=True,
+                            type="DYNAMIC TABLE",
+                        )
+                    )
+
+                if result_set_size >= page_limit:
+                    logger.info(
+                        f"Fetching next page of dynamic tables for {db_name} - after {dt_name}"
+                    )
+                    dt_pagination_marker = dt_name
+
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get dynamic tables for database {db_name}: {e}"
+                )
+                break
+
+        return dynamic_tables
+
+    def populate_dynamic_table_definitions(
+        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
+    ) -> None:
+        """Populate dynamic table definitions for tables that are marked as dynamic."""
+        try:
+            # Get dynamic tables with definitions from SHOW command
+            dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
+
+            for schema_name, table_list in tables.items():
+                for table in table_list:
+                    if (
+                        isinstance(table, SnowflakeDynamicTable)
+                        and table.definition is None
+                    ):
+                        # Find matching dynamic table from SHOW results
+                        show_dt_list = dt_with_definitions.get(schema_name, [])
+                        for show_dt in show_dt_list:
+                            if show_dt.name == table.name:
+                                table.definition = show_dt.definition
+                                table.target_lag = show_dt.target_lag
+                                break
+        except Exception as e:
+            logger.debug(
+                f"Failed to populate dynamic table definitions for {db_name}: {e}"
+            )
