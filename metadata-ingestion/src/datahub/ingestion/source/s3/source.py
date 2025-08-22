@@ -1113,28 +1113,25 @@ class S3Source(StatefulIngestionSourceBase):
             for resolved_prefix in resolved_prefixes:
                 logger.info(f"Processing resolved prefix: {resolved_prefix}")
 
-                bucket_name = get_bucket_name(resolved_prefix)
-                bucket = s3.Bucket(bucket_name)
-
                 # Get all folders that could be tables under this resolved prefix
                 # These are the actual table names (e.g., "users", "events", "logs")
                 table_folders = list(
-                    list_folders(
-                        bucket_name,
-                        get_bucket_relative_path(resolved_prefix),
-                        self.source_config.aws_config,
+                    list_folders_path(
+                        resolved_prefix, aws_config=self.source_config.aws_config
                     )
                 )
                 logger.debug(
-                    f"Found table folders under {resolved_prefix}: {table_folders}"
+                    f"Found table folders under {resolved_prefix}: {[folder.name for folder in table_folders]}"
                 )
 
                 # STEP 4: Process each table folder to create a table-level dataset
-                for table_folder in table_folders:
+                for folder in table_folders:
+                    bucket_name = get_bucket_name(folder.path)
+                    table_folder = get_bucket_relative_path(folder.path)
+                    bucket = s3.Bucket(bucket_name)
+
                     # Create the full S3 path for this table
-                    table_s3_path = self.create_s3_path(
-                        bucket_name, table_folder.rstrip("/")
-                    )
+                    table_s3_path = self.create_s3_path(bucket_name, table_folder)
                     logger.info(
                         f"Processing table folder: {table_folder} -> {table_s3_path}"
                     )
