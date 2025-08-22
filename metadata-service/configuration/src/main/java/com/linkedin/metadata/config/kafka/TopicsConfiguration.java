@@ -46,8 +46,8 @@ public class TopicsConfiguration {
           }
 
           // Initialize create if null
-          if (topicConfig.getCreate() == null) {
-            topicConfig.setCreate(topicDefaults.getCreate());
+          if (topicConfig.getEnabled() == null) {
+            topicConfig.setEnabled(topicDefaults.getEnabled());
           }
 
           // Initialize configProperties if null
@@ -71,6 +71,6 @@ public class TopicsConfiguration {
     private Integer partitions;
     private Integer replicationFactor = 1;
     private Map<String, String> configProperties;
-    private Boolean create = true; // Default to true if not specified
+    private Boolean enabled = true; // Default to true if not specified
   }
 }

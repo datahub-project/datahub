@@ -96,7 +96,7 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
           TopicsConfiguration.TopicConfiguration topicConfig = entry.getValue();
 
           // Skip if topic should not be created
-          if (!topicConfig.getCreate()) {
+          if (!topicConfig.getEnabled()) {
             log.debug("Skipping topic {} - create flag is false", topicKey);
             continue;
           }
