@@ -414,7 +414,18 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <StatsLabel>Owners</StatsLabel>
                     <div>
                         {data?.tag?.ownership?.owners?.map((owner) => (
-                            <ExpandedOwner entityUrn={urn} owner={owner as any} refetch={refetch} hidePopOver />
+                            // Adapt GraphQL Owner fragment to the minimal owner shape expected by ExpandedOwner
+                            <ExpandedOwner
+                                entityUrn={urn}
+                                owner={{
+                                    associatedUrn: owner.associatedUrn,
+                                    type: owner.type,
+                                    ownershipType: owner.ownershipType as any,
+                                    owner: owner.owner as any,
+                                }}
+                                refetch={refetch}
+                                hidePopOver
+                            />
                         ))}
                         {ownersEmpty && (
                             <Typography.Paragraph type="secondary">
