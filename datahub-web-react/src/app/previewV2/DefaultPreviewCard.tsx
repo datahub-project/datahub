@@ -127,7 +127,6 @@ const ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW = new Set([
     EntityType.DataProduct,
     EntityType.Domain,
     EntityType.Tag,
-    EntityType.Dataset,
 ]);
 
 interface Props {
