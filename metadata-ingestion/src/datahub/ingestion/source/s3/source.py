@@ -1016,13 +1016,6 @@ class S3Source(StatefulIngestionSourceBase):
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
 
-        s3 = self.source_config.aws_config.get_s3_resource(
-            self.source_config.verify_ssl
-        )
-        bucket_name = get_bucket_name(path_spec.include)
-        bucket = s3.Bucket(bucket_name)
-
-        logger.debug(f"Scanning bucket: {bucket_name}")
         logger.info(f"Processing path spec: {path_spec.include}")
 
         # Check if we have {table} template in the path
@@ -1034,16 +1027,14 @@ class S3Source(StatefulIngestionSourceBase):
             logger.info("Using templated path processing")
             # Always use templated processing when {table} is present
             # This groups files under table-level datasets
-            yield from self._process_templated_path(path_spec, bucket, bucket_name)
+            yield from self._process_templated_path(path_spec)
         else:
             logger.info("Using simple path processing")
             # Only use simple processing for non-templated paths
             # This creates individual file-level datasets
-            yield from self._process_simple_path(path_spec, bucket, bucket_name)
+            yield from self._process_simple_path(path_spec)
 
-    def _process_templated_path(
-        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
-    ) -> Iterable[BrowsePath]:
+    def _process_templated_path(self, path_spec: PathSpec) -> Iterable[BrowsePath]:  # noqa: C901
         """
         Process S3 paths containing {table} templates to create table-level datasets.
 
@@ -1057,12 +1048,20 @@ class S3Source(StatefulIngestionSourceBase):
 
         Args:
             path_spec: Path specification with {table} template
-            bucket: S3 bucket resource
-            bucket_name: Name of the S3 bucket
 
         Yields:
             BrowsePath: One per table (not per file), containing aggregated metadata
         """
+
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set. Cannot browse s3")
+        s3 = self.source_config.aws_config.get_s3_resource(
+            self.source_config.verify_ssl
+        )
+        bucket_name = get_bucket_name(path_spec.include)
+        bucket = s3.Bucket(bucket_name)
+        logger.debug(f"Scanning bucket: {bucket_name}")
+
         # Find the part before {table}
         table_marker = "{table}"
         if table_marker not in path_spec.include:
@@ -1269,17 +1268,16 @@ class S3Source(StatefulIngestionSourceBase):
                         )
 
         except Exception as e:
-            if "NoSuchBucket" in repr(e):
+            if isinstance(e, s3.meta.client.exceptions.NoSuchBucket):
                 self.get_report().report_warning(
-                    "Missing bucket", f"No bucket found {bucket_name}"
+                    "Missing bucket",
+                    f"No bucket found {e.response['Error'].get('BucketName')}",
                 )
                 return
             logger.error(f"Error in _process_templated_path: {e}")
             raise e
 
-    def _process_simple_path(
-        self, path_spec: PathSpec, bucket: "Bucket", bucket_name: str
-    ) -> Iterable[BrowsePath]:
+    def _process_simple_path(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         """
         Process simple S3 paths without {table} templates to create file-level datasets.
 
@@ -1295,8 +1293,6 @@ class S3Source(StatefulIngestionSourceBase):
 
         Args:
             path_spec: Path specification without {table} template
-            bucket: S3 bucket resource
-            bucket_name: Name of the S3 bucket
 
         Yields:
             BrowsePath: One per file, containing individual file metadata
@@ -1305,17 +1301,20 @@ class S3Source(StatefulIngestionSourceBase):
             - BrowsePath(file="data/file1.csv", size=1000, partitions=[])
             - BrowsePath(file="data/file2.csv", size=2000, partitions=[])
         """
-        assert self.source_config.aws_config is not None, "aws_config not set"
+
+        if self.source_config.aws_config is None:
+            raise ValueError("aws_config not set")
+        s3 = self.source_config.aws_config.get_s3_resource(
+            self.source_config.verify_ssl
+        )
+        bucket_name = get_bucket_name(path_spec.include)
+        bucket = s3.Bucket(bucket_name)
+        logger.debug(f"Scanning bucket: {bucket_name}")
 
         path_spec.sample_files = False  # Disable sampling for simple paths
 
         # Extract the prefix from the path spec (stops at first wildcard)
         prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
-
-        # Get s3 resource for content type checking
-        s3 = self.source_config.aws_config.get_s3_resource(
-            self.source_config.verify_ssl
-        )
 
         # Iterate through all objects in the bucket matching the prefix
         for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
