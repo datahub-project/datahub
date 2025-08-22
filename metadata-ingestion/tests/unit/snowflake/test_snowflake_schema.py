@@ -161,7 +161,7 @@ class TestSnowflakeDataDictionary:
         result = data_dict.get_views_for_database("TEST_DB")
         assert result is None
 
-    def test_populate_empty_view_definitions(
+    def test_maybe_populate_empty_view_definitions(
         self, mock_snowflake_data_dictionary_information_schema
     ):
         """Test the view definition hydration functionality"""
@@ -198,7 +198,7 @@ class TestSnowflakeDataDictionary:
         mock_snowflake_data_dictionary_information_schema.connection.query.return_value = mock_cursor
 
         # Test populating empty view definitions
-        result = mock_snowflake_data_dictionary_information_schema._populate_empty_view_definitions(
+        result = mock_snowflake_data_dictionary_information_schema._maybe_populate_empty_view_definitions(
             "TEST_DB", "PUBLIC", empty_views
         )
 
