@@ -1,6 +1,7 @@
 import { PictureOutlined } from '@ant-design/icons';
+import { Modal } from '@components';
 import { useCommands } from '@remirror/react';
-import { Form, Input, Modal, Typography } from 'antd';
+import { Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
 
 import { CommandButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
@@ -38,7 +39,19 @@ export const AddImageButton = () => {
                 commandName="insertImage"
                 onClick={handleButtonClick}
             />
-            <Modal title="Add Image" visible={isModalVisible} okText="Save" onOk={handleOk} onCancel={handleCancel}>
+            <Modal
+                title="Add Image"
+                open={isModalVisible}
+                okText="Save"
+                buttons={[
+                    {
+                        text: 'Add',
+                        variant: 'filled',
+                        onClick: handleOk,
+                    },
+                ]}
+                onCancel={handleCancel}
+            >
                 <Form form={form} layout="vertical" colon={false} requiredMark={false}>
                     <Form.Item
                         name="src"
