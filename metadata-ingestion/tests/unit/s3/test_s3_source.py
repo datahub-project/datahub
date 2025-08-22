@@ -627,3 +627,35 @@ class TestResolveTemplatedFolders:
         # assert
         expected = ["s3://my-bucket/data/folder1/", "s3://my-bucket/data/folder2/"]
         assert result == expected
+
+    def test_resolve_templated_buckets_single_wildcard(self, s3_client):
+        """Test resolution of a single wildcard in the bucket path."""
+        # arrange
+        path_spec = PathSpec(include="s3://*/data/")
+        s3_source = _get_s3_source(path_spec)
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.create_bucket(Bucket="my-bucket-1")
+
+        # act
+        result = list(s3_source.resolve_templated_folders("s3://*/data/"))
+
+        # assert
+        expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
+        assert result == expected
+
+    def test_resolve_templated_buckets_wildcard_at_end(self, s3_client):
+        """Test wildcard at the end of the bucket path."""
+        # arrange
+        path_spec = PathSpec(include="s3://my-*/data/")
+        s3_source = _get_s3_source(path_spec)
+
+        s3_client.create_bucket(Bucket="my-bucket")
+        s3_client.create_bucket(Bucket="my-bucket-1")
+
+        # act
+        result = list(s3_source.resolve_templated_folders("s3://my-*/data/"))
+
+        # assert
+        expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
+        assert result == expected
