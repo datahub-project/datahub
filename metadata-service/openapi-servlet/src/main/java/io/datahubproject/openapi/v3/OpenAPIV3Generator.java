@@ -1,6 +1,5 @@
 package io.datahubproject.openapi.v3;
 
-import static com.github.fge.processing.ProcessingUtil.*;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.ARRAY_PRIMARY_KEYS_FIELD;
@@ -638,78 +637,6 @@ public class OpenAPIV3Generator {
                     .required(true)
                     .content(requestBatch))
             .responses(new ApiResponses().addApiResponse("200", apiBatchGetResponse)));
-
-    return result;
-  }
-
-  private static PathItem buildGenericScrollEntitiesPath() {
-    final PathItem result = new PathItem();
-    final List<Parameter> parameters =
-        List.of(
-            new Parameter()
-                .in(NAME_QUERY)
-                .name(NAME_SYSTEM_METADATA)
-                .description("Include systemMetadata with response.")
-                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
-            new Parameter()
-                .in(NAME_QUERY)
-                .name(NAME_INCLUDE_SOFT_DELETE)
-                .description("Include soft-deleted aspects with response.")
-                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
-            new Parameter()
-                .in(NAME_QUERY)
-                .name(NAME_SKIP_CACHE)
-                .description("Skip cache when listing entities.")
-                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
-            new Parameter()
-                .in(NAME_QUERY)
-                .name(NAME_PIT_KEEP_ALIVE)
-                .description(
-                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
-                .schema(newSchema().types(TYPE_STRING_NULLABLE)._default("5m")),
-            new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION));
-    final ApiResponse successApiResponse =
-        new ApiResponse()
-            .description("Success")
-            .content(
-                new Content()
-                    .addMediaType(
-                        "application/json",
-                        new MediaType()
-                            .schema(
-                                newSchema()
-                                    .$ref(
-                                        String.format(
-                                            "#/components/schemas/Scroll%s%s",
-                                            ENTITIES, ENTITY_RESPONSE_SUFFIX)))));
-
-    final RequestBody requestBody =
-        new RequestBody()
-            .description(
-                "Scroll entities and aspects. If the `aspects` list is not specified then NO aspects will be returned. If the `aspects` list is empty, all aspects will be returned.")
-            .required(false)
-            .content(
-                new Content()
-                    .addMediaType(
-                        "application/json",
-                        new MediaType()
-                            .schema(
-                                newSchema()
-                                    .$ref(
-                                        String.format(
-                                            "#/components/schemas/%s%s",
-                                            "Scroll" + ENTITIES, ENTITY_REQUEST_SUFFIX)))));
-
-    result.setPost(
-        new Operation()
-            .summary(String.format("Scroll/List %s.", ENTITIES))
-            .parameters(parameters)
-            .tags(List.of("Generic Entities"))
-            .description("Scroll indexed entities. Will not include soft deleted entities.")
-            .requestBody(requestBody)
-            .responses(new ApiResponses().addApiResponse("200", successApiResponse)));
 
     return result;
   }
@@ -1416,70 +1343,6 @@ public class OpenAPIV3Generator {
         .description(ENTITIES + " object.")
         .required(List.of(PROPERTY_URN))
         .properties(properties);
-  }
-
-  private static Schema buildScrollEntitiesRequestSchema(
-      final Map<String, EntitySpec> entitySpecs,
-      final Map<String, AspectSpec> aspectSpecs,
-      final Set<String> definitionNames) {
-    final Set<String> keyAspects = new HashSet<>();
-
-    final List<String> entityNames =
-        entitySpecs.values().stream()
-            .peek(entitySpec -> keyAspects.add(entitySpec.getKeyAspectName()))
-            .map(EntitySpec::getName)
-            .sorted()
-            .toList();
-
-    Schema entitiesSchema =
-        newSchema().type(TYPE_ARRAY).items(newSchema().type(TYPE_STRING)._enum(entityNames));
-
-    final List<String> aspectNames =
-        aspectSpecs.values().stream()
-            .filter(aspectSpec -> !aspectSpec.isTimeseries())
-            .map(AspectSpec::getName)
-            .filter(definitionNames::contains) // Only if aspect is defined
-            .distinct()
-            .sorted()
-            .collect(Collectors.toList());
-
-    Schema aspectsSchema =
-        newSchema().type(TYPE_ARRAY).items(newSchema().type(TYPE_STRING)._enum(aspectNames));
-
-    // Filter example
-    Criterion criterion = Criterion.builder().field("name").values(List.of("foo")).build();
-    ConjunctiveCriterion criteria =
-        ConjunctiveCriterion.builder().criteria(Collections.singletonList(criterion)).build();
-    Filter filter = Filter.builder().and(Collections.singletonList(criteria)).build();
-
-    // SortCriteria example
-    SortCriterion sortCriterion =
-        SortCriterion.builder().field("name").order(SortCriterion.SortOrder.ASCENDING).build();
-    List<SortCriterion> sortCriteria = List.of(sortCriterion);
-
-    return newSchema()
-        .type(TYPE_OBJECT)
-        .description(ENTITIES + " request object.")
-        .example(
-            Map.of(
-                "entities",
-                entityNames.stream().filter(n -> !n.startsWith("dataHub")).toList(),
-                "aspects",
-                aspectNames.stream()
-                    .filter(n -> !n.startsWith("dataHub") && !keyAspects.contains(n))
-                    .toList(),
-                "filter",
-                filter,
-                "sortCriteria",
-                sortCriteria))
-        .properties(
-            Map.of(
-                "entities", newSchema().oneOf(List.of(entitiesSchema, newSchema().type(TYPE_NULL))),
-                "aspects", newSchema().oneOf(List.of(aspectsSchema, newSchema().type(TYPE_NULL))),
-                "filter",
-                    newSchema().oneOf(List.of(buildFilterSchema(), newSchema().type(TYPE_NULL))),
-                "sortCriteria",
-                    newSchema().oneOf(List.of(buildSortSchema(), newSchema().type(TYPE_NULL)))));
   }
 
   private static Schema buildSortSchema() {
