@@ -51,6 +51,8 @@ public class OpenAPIV3Generator {
   private static final Set<String> TYPE_INTEGER_NULLABLE = Set.of(TYPE_INTEGER, TYPE_NULL);
   private static final String NAME_QUERY = "query";
   private static final String NAME_FULLTEXT = "fullText";
+  private static final String NAME_SORT_ORDER = "sortOrder";
+  private static final String NAME_SORT_CRITERIA = "sortCriteria";
   private static final String NAME_PATH = "path";
   private static final String NAME_SYSTEM_METADATA = "systemMetadata";
   private static final String NAME_AUDIT_STAMP = "auditStamp";
@@ -671,10 +673,26 @@ public class OpenAPIV3Generator {
                 .name(NAME_FULLTEXT)
                 .description("Treat query as fulltext.")
                 .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SORT_ORDER)
+                .description(
+                    "Sort direction field for pagination. Deprecated, please use the SortCriteria in request body instead.")
+                .example("ASCENDING")
+                .schema(newSchema().type(TYPE_STRING)._default("ASCENDING")),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_SORT_CRITERIA)
+                .description(
+                    "Sort fields for pagination. Deprecated, please use the SortCriteria in request body instead.")
+                .example(List.of(PROPERTY_URN))
+                .schema(
+                    newSchema()
+                        .type(TYPE_ARRAY)
+                        ._default(List.of(PROPERTY_URN))
+                        .items(newSchema().type(TYPE_STRING)._default(PROPERTY_URN))),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/SortOrder" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SliceMax" + MODEL_VERSION));
@@ -1025,7 +1043,7 @@ public class OpenAPIV3Generator {
         "SortBy" + MODEL_VERSION,
         new Parameter()
             .in(NAME_QUERY)
-            .name("sortCriteria")
+            .name(NAME_SORT_CRITERIA)
             .explode(true)
             .description("Sort fields for pagination.")
             .example(List.of(PROPERTY_URN))
@@ -1038,7 +1056,7 @@ public class OpenAPIV3Generator {
         "SortOrder" + MODEL_VERSION,
         new Parameter()
             .in(NAME_QUERY)
-            .name("sortOrder")
+            .name(NAME_SORT_ORDER)
             .explode(true)
             .description("Sort direction field for pagination.")
             .example("ASCENDING")
