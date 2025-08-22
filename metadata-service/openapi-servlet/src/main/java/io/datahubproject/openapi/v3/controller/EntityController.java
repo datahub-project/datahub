@@ -165,13 +165,15 @@ public class EntityController
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
       @Parameter(
-              description = "Deprecated. Please use the SortCriteria is request body.",
+              schema = @Schema(nullable = true),
+              description = "Deprecated. Please use the SortCriteria in request body.",
               deprecated = true)
           @Deprecated
           @RequestParam(value = "sortCriteria", required = false)
           List<String> sortFields,
       @Parameter(
-              description = "Deprecated. Please use the SortCriteria is request body.",
+              schema = @Schema(nullable = true),
+              description = "Deprecated. Please use the SortCriteria in request body.",
               deprecated = true)
           @Deprecated
           @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
