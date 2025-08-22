@@ -107,6 +107,9 @@ fragment glossaryNode on GlossaryNode {
     properties {
         name
         description
+        createdOn {
+            time
+        }
     }
     displayProperties {
         ...displayPropertiesFields
