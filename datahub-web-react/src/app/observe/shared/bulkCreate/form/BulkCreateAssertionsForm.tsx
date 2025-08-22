@@ -99,6 +99,7 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
 
     // --------------------------------- Subscription state --------------------------------- //
     const { component: subscriptionForm, state: subscriptionFormState } = useSubscriptionsForm();
+    const { personalSubscriptionEnabled, groupSubscriptionEnabled } = subscriptionFormState;
 
     // --------------------------------- Event Handlers --------------------------------- //
     const onCreateAssertions = () => {
@@ -108,6 +109,15 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
         }
         if (volumeAssertionEnabled && !volumeSourceType) {
             message.warn('Please select a volume source to enable volume assertions.');
+            return;
+        }
+        if (
+            !freshnessAssertionEnabled &&
+            !volumeAssertionEnabled &&
+            !personalSubscriptionEnabled &&
+            !groupSubscriptionEnabled
+        ) {
+            message.warn('Please enable at least one assertion type or subscription to continue.');
             return;
         }
         onSubmit(
@@ -139,9 +149,11 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
             <Divider style={{ marginTop: 0 }} />
 
             <ActionButtons>
-                <Button onClick={onPrevStep} variant="outline">
-                    Back
-                </Button>
+                {step !== 'asset_selection' && (
+                    <Button onClick={onPrevStep} variant="text">
+                        Back
+                    </Button>
+                )}
                 {step === 'asset_selection' && (
                     <Button
                         onClick={() => {
@@ -158,18 +170,15 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
                 {step === 'assertion_configuration' && (
                     <Button
                         onClick={() => {
-                            if (freshnessAssertionEnabled || volumeAssertionEnabled) {
-                                onNextStep();
-                            } else {
-                                message.warn('Please enable at least one assertion type to continue.');
-                            }
+                            onNextStep();
                         }}
+                        variant={freshnessAssertionEnabled || volumeAssertionEnabled ? 'filled' : 'secondary'}
                     >
-                        Next
+                        {freshnessAssertionEnabled || volumeAssertionEnabled ? 'Next' : 'Skip'}
                     </Button>
                 )}
                 {step === 'subscription_configuration' && (
-                    <CreateButton onClick={onCreateAssertions}>Create Assertions</CreateButton>
+                    <CreateButton onClick={onCreateAssertions}>Bulk Create</CreateButton>
                 )}
             </ActionButtons>
         </Wrapper>

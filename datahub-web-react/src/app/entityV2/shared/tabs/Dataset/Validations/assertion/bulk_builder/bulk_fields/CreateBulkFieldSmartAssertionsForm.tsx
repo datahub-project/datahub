@@ -1,5 +1,5 @@
-import { Button, Select, SimpleSelect, Tooltip } from '@components';
-import { Divider, message } from 'antd';
+import { Button, Select, SimpleSelect, Tooltip, colors } from '@components';
+import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -28,6 +28,17 @@ import { AssertionActionsInput, CronSchedule, DatasetFieldAssertionSourceType, F
 const Wrapper = styled.div`
     display: flex;
     flex-direction: column;
+`;
+
+const Body = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px 0;
+    border-bottom: 1px solid ${colors.gray[100]};
+    margin-bottom: 16px;
+    max-height: 75vh;
+    overflow-y: auto;
 `;
 
 type Props = {
@@ -105,176 +116,176 @@ export const CreateBulkFieldSmartAssertionsForm = ({ entityUrn, columns, onSubmi
 
     return (
         <Wrapper>
-            {/* ----- Selected Columns ----- */}
-            <Select
-                showSearch
-                showSelectAll
-                options={columns.map((column) => ({
-                    value: column.path,
-                    label: column.path,
-                    description: column.type,
-                }))}
-                values={selectedColumnsAndMetrics.map((column) => column.column.path)}
-                onUpdate={(values) => {
-                    setSelectedColumnsAndMetrics((state) =>
-                        buildSelectedColumnsAndMetricsOnColumnsUpdate(values, columns, state),
-                    );
-                }}
-                onClear={() => setSelectedColumnsAndMetrics([])}
-                showClear
-                isMultiSelect
-                placeholder="Create smart assertions for..."
-                label="Select columns"
-                width="full"
-                isRequired
-            />
-            <br />
+            <Body>
+                {/* ----- Selected Columns ----- */}
+                <Select
+                    showSearch
+                    showSelectAll
+                    options={columns.map((column) => ({
+                        value: column.path,
+                        label: column.path,
+                        description: column.type,
+                    }))}
+                    values={selectedColumnsAndMetrics.map((column) => column.column.path)}
+                    onUpdate={(values) => {
+                        setSelectedColumnsAndMetrics((state) =>
+                            buildSelectedColumnsAndMetricsOnColumnsUpdate(values, columns, state),
+                        );
+                    }}
+                    onClear={() => setSelectedColumnsAndMetrics([])}
+                    showClear
+                    isMultiSelect
+                    placeholder="Create smart assertions for..."
+                    label="Select columns"
+                    width="full"
+                    isRequired
+                />
+                <br />
 
-            {/* ----- Metrics ----- */}
-            <Select
-                options={metricOptions.map((option) => ({
-                    value: option.value,
-                    label: option.label,
-                    description: `Applies to ${validColumnsForEachMetric.find((m) => m.metric.value === option.value)?.columns.length ?? 0}/${selectedColumnsAndMetrics.length} column${selectedColumnsAndMetrics.length > 1 ? 's' : ''}`,
-                }))}
-                showDescriptions
-                values={selectedColumnsAndMetrics.map((column) => column.metrics).flat()}
-                onUpdate={(values) => {
-                    setSelectedColumnsAndMetrics((state) =>
-                        buildSelectedColumnsAndMetricsOnMetricsUpdate(values, availableMetricsForColumns, state),
-                    );
-                }}
-                isMultiSelect
-                showSelectAll
-                onClear={() =>
-                    setSelectedColumnsAndMetrics(
-                        selectedColumnsAndMetrics.map((column) => ({
-                            ...column,
-                            metrics: [],
-                        })),
-                    )
-                }
-                width="full"
-                position="start"
-                showClear
-                isRequired
-                placeholder="Select metrics..."
-                label="Select metrics"
-            />
-
-            <br />
-
-            {/* ----- Source Type ----- */}
-            <SimpleSelect
-                options={sourceTypeOptions.map((option) => ({
-                    value: option.value,
-                    label: option.label,
-                    description: option.description,
-                }))}
-                values={[
-                    sourceType === DatasetFieldAssertionSourceType.ChangedRowsQuery
-                        ? DatasetFieldAssertionSourceType.AllRowsQuery
-                        : sourceType,
-                ]}
-                onUpdate={(values) => setSourceType(values[0] as DatasetFieldAssertionSourceType)}
-                label="Metrics collection mechanism"
-                width="fit-content"
-                descriptionMaxWidth={640}
-                position="start"
-                showClear={false}
-                isRequired
-            />
-
-            {/* ----- Rows to query ----- */}
-            {sourceType !== DatasetFieldAssertionSourceType.DatahubDatasetProfile
-                ? [
-                      <br />,
-                      <SimpleSelect
-                          options={[
-                              {
-                                  value: DatasetFieldAssertionSourceType.AllRowsQuery,
-                                  label: 'All Rows Query',
-                                  description:
-                                      'Each time we run the check, we’ll evaluate the condition using all rows in the table. This may not be desirable for large tables.',
-                              },
-                              {
-                                  value: DatasetFieldAssertionSourceType.ChangedRowsQuery,
-                                  label: 'Changed Rows Query',
-                                  description:
-                                      'Each time we run the check, we’ll evaluate the condition using only the rows that have changed since the previous check.',
-                              },
-                          ]}
-                          values={[sourceType]}
-                          onUpdate={(values) => {
-                              if (
-                                  values[0] === DatasetFieldAssertionSourceType.ChangedRowsQuery &&
-                                  !changedRowColumnOptions.length
-                              ) {
-                                  message.error(
-                                      'No valid changed rows field found. Please add a changed rows field to the dataset.',
-                                  );
-                                  return;
-                              }
-                              setSourceType(values[0] as DatasetFieldAssertionSourceType);
-                          }}
-                          label="Query selection"
-                          width="fit-content"
-                          descriptionMaxWidth={640}
-                          position="start"
-                          showClear={false}
-                          isRequired
-                      />,
-                  ]
-                : null}
-
-            {/* ----- Changed Rows Field ----- */}
-            {sourceType === DatasetFieldAssertionSourceType.ChangedRowsQuery && changedRowsField
-                ? [
-                      <br />,
-                      <SimpleSelect
-                          options={changedRowColumnOptions.map((column) => ({
-                              value: column.path,
-                              label: column.path,
-                          }))}
-                          values={[changedRowsField?.path]}
-                          onUpdate={(values) =>
-                              setChangedRowsField(
-                                  changedRowColumnOptions.filter((column) => values.includes(column.path))[0],
-                              )
-                          }
-                          label="Changed Rows Field"
-                          showClear={false}
-                          isRequired
-                          width="fit-content"
-                          position="start"
-                      />,
-                  ]
-                : null}
-
-            {/* ----- Inference Settings ----- */}
-            <FieldMetricInferenceAdjuster
-                state={{ inferenceSettings, schedule }}
-                updateState={(newState) => {
-                    setInferenceSettings(newState.inferenceSettings);
-                    if (newState.schedule) {
-                        setSchedule(newState.schedule);
+                {/* ----- Metrics ----- */}
+                <Select
+                    options={metricOptions.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                        description: `Applies to ${validColumnsForEachMetric.find((m) => m.metric.value === option.value)?.columns.length ?? 0}/${selectedColumnsAndMetrics.length} column${selectedColumnsAndMetrics.length > 1 ? 's' : ''}`,
+                    }))}
+                    showDescriptions
+                    values={selectedColumnsAndMetrics.map((column) => column.metrics).flat()}
+                    onUpdate={(values) => {
+                        setSelectedColumnsAndMetrics((state) =>
+                            buildSelectedColumnsAndMetricsOnMetricsUpdate(values, availableMetricsForColumns, state),
+                        );
+                    }}
+                    isMultiSelect
+                    showSelectAll
+                    onClear={() =>
+                        setSelectedColumnsAndMetrics(
+                            selectedColumnsAndMetrics.map((column) => ({
+                                ...column,
+                                metrics: [],
+                            })),
+                        )
                     }
-                }}
-                collapsable
-            />
+                    width="full"
+                    position="start"
+                    showClear
+                    isRequired
+                    placeholder="Select metrics..."
+                    label="Select metrics"
+                />
 
-            {/* ----- Actions ----- */}
-            <AssertionActionsForm
-                state={actions}
-                updateState={(newState) =>
-                    setActions({
-                        onFailure: newState.onFailure?.map((action) => ({ type: action.type })) || [],
-                        onSuccess: newState.onSuccess?.map((action) => ({ type: action.type })) || [],
-                    })
-                }
-            />
+                <br />
 
-            <Divider />
+                {/* ----- Source Type ----- */}
+                <SimpleSelect
+                    options={sourceTypeOptions.map((option) => ({
+                        value: option.value,
+                        label: option.label,
+                        description: option.description,
+                    }))}
+                    values={[
+                        sourceType === DatasetFieldAssertionSourceType.ChangedRowsQuery
+                            ? DatasetFieldAssertionSourceType.AllRowsQuery
+                            : sourceType,
+                    ]}
+                    onUpdate={(values) => setSourceType(values[0] as DatasetFieldAssertionSourceType)}
+                    label="Metrics collection mechanism"
+                    width="fit-content"
+                    descriptionMaxWidth={640}
+                    position="start"
+                    showClear={false}
+                    isRequired
+                />
+
+                {/* ----- Rows to query ----- */}
+                {sourceType !== DatasetFieldAssertionSourceType.DatahubDatasetProfile
+                    ? [
+                          <br />,
+                          <SimpleSelect
+                              options={[
+                                  {
+                                      value: DatasetFieldAssertionSourceType.AllRowsQuery,
+                                      label: 'All Rows Query',
+                                      description:
+                                          'Each time we run the check, we’ll evaluate the condition using all rows in the table. This may not be desirable for large tables.',
+                                  },
+                                  {
+                                      value: DatasetFieldAssertionSourceType.ChangedRowsQuery,
+                                      label: 'Changed Rows Query',
+                                      description:
+                                          'Each time we run the check, we’ll evaluate the condition using only the rows that have changed since the previous check.',
+                                  },
+                              ]}
+                              values={[sourceType]}
+                              onUpdate={(values) => {
+                                  if (
+                                      values[0] === DatasetFieldAssertionSourceType.ChangedRowsQuery &&
+                                      !changedRowColumnOptions.length
+                                  ) {
+                                      message.error(
+                                          'No valid changed rows field found. Please add a changed rows field to the dataset.',
+                                      );
+                                      return;
+                                  }
+                                  setSourceType(values[0] as DatasetFieldAssertionSourceType);
+                              }}
+                              label="Query selection"
+                              width="fit-content"
+                              descriptionMaxWidth={640}
+                              position="start"
+                              showClear={false}
+                              isRequired
+                          />,
+                      ]
+                    : null}
+
+                {/* ----- Changed Rows Field ----- */}
+                {sourceType === DatasetFieldAssertionSourceType.ChangedRowsQuery && changedRowsField
+                    ? [
+                          <br />,
+                          <SimpleSelect
+                              options={changedRowColumnOptions.map((column) => ({
+                                  value: column.path,
+                                  label: column.path,
+                              }))}
+                              values={[changedRowsField?.path]}
+                              onUpdate={(values) =>
+                                  setChangedRowsField(
+                                      changedRowColumnOptions.filter((column) => values.includes(column.path))[0],
+                                  )
+                              }
+                              label="Changed Rows Field"
+                              showClear={false}
+                              isRequired
+                              width="fit-content"
+                              position="start"
+                          />,
+                      ]
+                    : null}
+
+                {/* ----- Inference Settings ----- */}
+                <FieldMetricInferenceAdjuster
+                    state={{ inferenceSettings, schedule }}
+                    updateState={(newState) => {
+                        setInferenceSettings(newState.inferenceSettings);
+                        if (newState.schedule) {
+                            setSchedule(newState.schedule);
+                        }
+                    }}
+                    collapsable
+                />
+
+                {/* ----- Actions ----- */}
+                <AssertionActionsForm
+                    state={actions}
+                    updateState={(newState) =>
+                        setActions({
+                            onFailure: newState.onFailure?.map((action) => ({ type: action.type })) || [],
+                            onSuccess: newState.onSuccess?.map((action) => ({ type: action.type })) || [],
+                        })
+                    }
+                />
+            </Body>
 
             {/* ----- Create Assertions ----- */}
             <Tooltip
