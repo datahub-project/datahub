@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
@@ -74,16 +75,42 @@ def get_s3_tags(
     return new_tags
 
 
+@dataclass
+class DirEntry:
+    """
+    Intended to be similar to os.DirEntry, which contains a name, full path, and possibly
+    other attributes of a directory entry. Currently only used to represent S3 folder-like
+    paths.
+    """
+
+    name: str
+    path: str
+
+
 def list_folders_path(
-    s3_uri: str, aws_config: Optional[AwsConnectionConfig]
-) -> Iterable[str]:
+    s3_uri: str,
+    *,
+    startswith: str = "",
+    aws_config: Optional[AwsConnectionConfig] = None,
+) -> Iterable[DirEntry]:
+    """
+    Given an S3 URI to a folder or bucket, return all sub-folders underneath that URI,
+    optionally filtering by startswith. Returned entries never contain a trailing slash.
+    """
+
     if not is_s3_uri(s3_uri):
         raise ValueError("Not a s3 URI: " + s3_uri)
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
+
+    if not s3_uri.endswith("/"):
+        s3_uri += "/"
+
     bucket_name = get_bucket_name(s3_uri)
-    prefix = get_bucket_relative_path(s3_uri)
-    yield from list_folders(bucket_name, prefix, aws_config)
+    prefix = get_bucket_relative_path(s3_uri) + startswith
+    for folder in list_folders(bucket_name, prefix, aws_config):
+        folder = folder.removesuffix("/").split("/")[-1]
+        yield DirEntry(name=folder, path=f"{s3_uri}{folder}")
 
 
 def list_folders(
