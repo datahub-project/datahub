@@ -228,13 +228,27 @@ export default class EntityRegistry {
                   ?.map((p) => (p.entity ? this.getGenericEntityProperties(p.entity.type, p.entity) : { name: p.name }))
                   .filter((p): p is GenericEntityProperties => !!p);
 
+        // Downgrade field paths in fine-grained lineages for v1/v2 compatibility
+        const rawFineGrainedLineages =
+            genericEntityProperties?.fineGrainedLineages ||
+            genericEntityProperties?.inputOutput?.fineGrainedLineages ||
+            [];
+        const fineGrainedLineages = rawFineGrainedLineages.map((lineage) => ({
+            ...lineage,
+            upstreams: lineage.upstreams?.map((upstream) => ({
+                ...upstream,
+                path: downgradeV2FieldPath(upstream.path),
+            })),
+            downstreams: lineage.downstreams?.map((downstream) => ({
+                ...downstream,
+                path: downgradeV2FieldPath(downstream.path),
+            })),
+        }));
+
         return {
             ...entity.getLineageVizConfig(data),
             containers,
-            fineGrainedLineages:
-                genericEntityProperties?.fineGrainedLineages ||
-                genericEntityProperties?.inputOutput?.fineGrainedLineages ||
-                [],
+            fineGrainedLineages,
             numDownstreamChildren:
                 (genericEntityProperties.downstream?.total || 0) - (genericEntityProperties.downstream?.filtered || 0),
             numUpstreamChildren:
