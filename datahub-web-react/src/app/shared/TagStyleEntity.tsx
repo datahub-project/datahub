@@ -414,7 +414,7 @@ export default function TagStyleEntity({ urn, useGetSearchResults = useWrappedSe
                     <StatsLabel>Owners</StatsLabel>
                     <div>
                         {data?.tag?.ownership?.owners?.map((owner) => (
-                            <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
+                            <ExpandedOwner entityUrn={urn} owner={owner as any} refetch={refetch} hidePopOver />
                         ))}
                         {ownersEmpty && (
                             <Typography.Paragraph type="secondary">

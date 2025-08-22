@@ -16,7 +16,6 @@ const ASSERTION_TYPE_TO_EDITING_SCOPE: { [type in AssertionType]: AssertionEdita
     [AssertionType.Volume]: AssertionEditabilityScopeType.FULL,
     [AssertionType.DataSchema]: AssertionEditabilityScopeType.FULL,
     [AssertionType.Dataset]: AssertionEditabilityScopeType.ACTIONS_AND_DESCRIPTION,
-    [AssertionType.Custom]: AssertionEditabilityScopeType.ACTIONS_AND_DESCRIPTION,
 };
 const SOURCE_TYPE_TO_EDITING_SCOPE: { [type in AssertionSourceType]: AssertionEditabilityScopeType } = {
     [AssertionSourceType.Native]: AssertionEditabilityScopeType.FULL,

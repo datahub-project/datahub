@@ -4,6 +4,7 @@ import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -28,9 +29,7 @@ const injectMeticulous = () => {
 };
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
-    const { viteStaticCopy } = await import('vite-plugin-static-copy');
-
+export default defineConfig(({ mode }) => {
     // Via https://stackoverflow.com/a/66389044.
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };

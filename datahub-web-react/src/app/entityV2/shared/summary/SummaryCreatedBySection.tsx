@@ -6,7 +6,7 @@ import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { EntityType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
@@ -30,7 +30,7 @@ const SectionContainer = styled.div`
 `;
 
 interface Props {
-    owner: CorpUser | CorpGroup;
+    owner: any;
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
