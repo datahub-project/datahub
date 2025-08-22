@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.monitor.AssertionMonitorSettings;
+import com.linkedin.monitor.EmbeddedAssertionArray;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
@@ -82,12 +84,32 @@ public class UpdateAssertionMonitorSettingsResolver
                   AssertionMapper.mapGraphQLAssertionAdjustmentSettings(
                       input.getAdjustmentSettings()));
 
+              // Clear predictions to force retraining
+              if (!monitorInfo.getAssertionMonitor().getAssertions().isEmpty()) {
+                monitorInfo
+                    .getAssertionMonitor()
+                    .getAssertions()
+                    .forEach(
+                        assertion -> {
+                          if (assertion.hasContext()) {
+
+                            assertion
+                                .getContext()
+                                .setEmbeddedAssertions(new EmbeddedAssertionArray())
+                                .setInferenceDetails(null, SetMode.REMOVE_IF_NULL);
+                          }
+                        });
+              }
+
               // Update the monitor
               this._entityClient.ingestProposal(
                   context.getOperationContext(),
                   AspectUtils.buildMetadataChangeProposal(
                       monitorUrn, Constants.MONITOR_INFO_ASPECT_NAME, monitorInfo),
                   false);
+
+              // Retrigger training
+              _monitorService.retrainAssertionMonitor(monitorUrn);
 
               // Return updated monitor
               return MonitorMapper.map(

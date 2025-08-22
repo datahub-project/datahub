@@ -1,5 +1,7 @@
-import { Typography } from 'antd';
-import React from 'react';
+import { Button, Text } from '@components';
+import { Typography, message } from 'antd';
+import { Sparkle } from 'phosphor-react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -14,8 +16,9 @@ import {
 import { getBestChartTypeForAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getAssertionResultChartData } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/transformers';
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+import { TuneSmartAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/tuning/TuneSmartAssertionModal';
 
-import { Assertion, AssertionRunEventsResult, AssertionRunStatus, Monitor } from '@types';
+import { Assertion, AssertionRunEventsResult, AssertionRunStatus, AssertionSourceType, Monitor } from '@types';
 
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
@@ -32,12 +35,14 @@ const VizHeader = styled.div`
     height: ${VIZ_CONTAINER_TITLE_HEIGHT}px;
     display: flex;
     align-items: center;
-    justify-content: left;
+    justify-content: space-between;
+    width: 100%;
+    gap: 12px;
+    margin-bottom: 20px;
+    margin-top: 4px;
 `;
 
 const VizHeaderTitle = styled(Typography.Text)`
-    margin-bottom: 20px;
-    margin-top: 4px;
     color: ${ANTD_GRAY[9]};
     font-size: 16px;
     font-weight: 600;
@@ -64,6 +69,8 @@ export const AssertionResultsTimelineViz = ({
     refreshData,
     openAssertionNote,
 }: Props) => {
+    const [isTunePredictionsModalOpen, setIsTunePredictionsModalOpen] = useState(false);
+
     // Run event data
     const completedRuns =
         results?.runEvents?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
@@ -76,20 +83,40 @@ export const AssertionResultsTimelineViz = ({
 
     const exclusionWindows = monitor?.info?.assertionMonitor?.settings?.inferenceSettings?.exclusionWindows ?? [];
 
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+
     // render
     const chartDimensions = {
         height: parentDimensions.height - VIZ_CONTAINER_TITLE_HEIGHT - 8, // margin below (flex-start)
         width: parentDimensions.width - 8, // margin on the sides (we have align-items=center)
     };
 
+    const bestChartType = getBestChartTypeForAssertion(assertion.info);
+
     const renderChartTitle = (title?: string) => (
         <VizHeader>
             <VizHeaderTitle strong>{title || getTimeRangeDisplay(timeRange)}</VizHeaderTitle>
+            {isSmartAssertion && bestChartType === AssertionChartType.ValuesOverTime && (
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => {
+                        if (!monitor) {
+                            message.error('Could not find the monitor for this assertion.');
+                        } else {
+                            setIsTunePredictionsModalOpen(true);
+                        }
+                    }}
+                >
+                    <Sparkle weight="fill" size={12} />
+                    <Text>Tune Predictions</Text>
+                </Button>
+            )}
         </VizHeader>
     );
 
     const renderChart = (): JSX.Element | undefined => {
-        switch (getBestChartTypeForAssertion(assertion.info)) {
+        switch (bestChartType) {
             case AssertionChartType.ValuesOverTime:
                 return (
                     <ValuesOverTimeAssertionResultChart
@@ -127,5 +154,16 @@ export const AssertionResultsTimelineViz = ({
     };
 
     const VisualizationContainer = getVisualizationContainer(parentDimensions.height);
-    return <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>{renderChart()}</VisualizationContainer>;
+    return (
+        <VisualizationContainer style={{ opacity: isInitializing ? 0 : 1 }}>
+            {renderChart()}
+            {isTunePredictionsModalOpen && monitor && (
+                <TuneSmartAssertionModal
+                    onClose={() => setIsTunePredictionsModalOpen(false)}
+                    monitor={monitor}
+                    assertion={assertion}
+                />
+            )}
+        </VisualizationContainer>
+    );
 };

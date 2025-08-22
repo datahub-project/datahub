@@ -10,9 +10,10 @@ type Props = {
     assertion: Maybe<Assertion>;
     monitor?: Monitor;
     openAssertionNote: () => void;
+    refreshData?: () => Promise<unknown>;
 };
 
-export const AssertionSummaryTab = ({ loading, assertion, monitor, openAssertionNote }: Props) => {
+export const AssertionSummaryTab = ({ loading, assertion, monitor, openAssertionNote, refreshData }: Props) => {
     return (
         <>
             {loading || !assertion ? (
@@ -22,6 +23,7 @@ export const AssertionSummaryTab = ({ loading, assertion, monitor, openAssertion
                     assertion={assertion as Assertion}
                     monitor={monitor}
                     openAssertionNote={openAssertionNote}
+                    refreshData={refreshData}
                 />
             )}
         </>

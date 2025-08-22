@@ -19,7 +19,7 @@ const colors = {
         1100: '#F1FBFE', // blue 0
         1200: '#FBF3EF', // red 0
         1300: '#F7FBF4', // green 0
-        1400: '#E9EAEE', // border
+        1400: '#E9EAEE', // @deprecated border, use 100 instead
         1500: '#F9FAFC', // bg surface
         1600: '#F5F6FA', // bg of new nav
         1700: '#5F6685', // secondary text

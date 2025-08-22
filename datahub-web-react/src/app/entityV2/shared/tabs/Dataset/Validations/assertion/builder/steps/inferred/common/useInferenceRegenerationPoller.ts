@@ -3,22 +3,64 @@ import { useEffect, useRef } from 'react';
 import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 
 import { GetAssertionWithMonitorsQuery } from '@graphql/monitor.generated';
-import { Assertion, EmbeddedAssertion, Monitor } from '@types';
+import { AssertionType, EmbeddedAssertion, Monitor } from '@types';
 
 const REGENERATION_TIMEOUT_MS = 1 * 60 * 1000; // 1 minutes
 const POLLING_INTERVAL_MS = 3000; // Poll every 3 seconds
 
+export type AssertionPrediction = {
+    index: number;
+    lowerBound?: number;
+    upperBound?: number;
+    timeWindow?: { startTimeMillis?: number; endTimeMillis?: number };
+};
+
 /**
- * Extracts predictions from embedded volume assertions
+ * Extracts the upper and lower bounds from an embedded assertion
+ * @param embeddedAssertion - The embedded assertion to extract the upper and lower bounds from
+ * @returns An object containing the lower and upper bounds
+ */
+const extractUpperAndLowerBoundsFromEmbeddedAssertion = (
+    embeddedAssertion: EmbeddedAssertion,
+): { lowerBound?: string; upperBound?: string } => {
+    switch (embeddedAssertion.assertion.type) {
+        case AssertionType.Volume:
+            return {
+                lowerBound: embeddedAssertion.assertion?.volumeAssertion?.rowCountTotal?.parameters?.minValue?.value,
+                upperBound: embeddedAssertion.assertion?.volumeAssertion?.rowCountTotal?.parameters?.maxValue?.value,
+            };
+        case AssertionType.Field:
+            return {
+                lowerBound:
+                    embeddedAssertion.assertion?.fieldAssertion?.fieldMetricAssertion?.parameters?.minValue?.value,
+                upperBound:
+                    embeddedAssertion.assertion?.fieldAssertion?.fieldMetricAssertion?.parameters?.maxValue?.value,
+            };
+        case AssertionType.Sql:
+            return {
+                lowerBound: embeddedAssertion.assertion?.sqlAssertion?.parameters?.minValue?.value,
+                upperBound: embeddedAssertion.assertion?.sqlAssertion?.parameters?.maxValue?.value,
+            };
+        default:
+            return {
+                lowerBound: undefined,
+                upperBound: undefined,
+            };
+    }
+};
+
+/**
+ * Extracts predictions from embedded metric assertions (volume, field metric, etc.)
  * @param embeddedAssertions - The new embedded assertions to extract predictions from
  * @returns An array of predictions with index, lowerBound, upperBound, and timeWindow
  */
-export const extractPredictionsFromEmbeddedVolumeAssertions = (embeddedAssertions: EmbeddedAssertion[]) => {
+export const extractPredictionsFromEmbeddedAssertions = (
+    embeddedAssertions: EmbeddedAssertion[],
+): AssertionPrediction[] => {
     if (!embeddedAssertions || embeddedAssertions.length === 0) return [];
     return embeddedAssertions.map((embeddedAssertion, index) => {
-        const lowerBound = embeddedAssertion.assertion?.volumeAssertion?.rowCountTotal?.parameters?.minValue?.value;
-        const upperBound = embeddedAssertion.assertion?.volumeAssertion?.rowCountTotal?.parameters?.maxValue?.value;
         const timeWindow = embeddedAssertion.evaluationTimeWindow;
+        const { lowerBound, upperBound } = extractUpperAndLowerBoundsFromEmbeddedAssertion(embeddedAssertion);
         return {
             index,
             lowerBound: lowerBound ? Number(lowerBound) : undefined,
@@ -39,8 +81,8 @@ export const extractPredictionsFromEmbeddedVolumeAssertions = (embeddedAssertion
  * @returns An object containing the embedded assertions and the generated at timestamp
  */
 export const extractAssertionData = (data: GetAssertionWithMonitorsQuery) => {
-    const assertion = data?.assertion as Assertion;
-    const monitor = assertion?.monitor?.relationships?.[0]?.entity as Monitor;
+    const assertion = data?.assertion;
+    const monitor = assertion?.monitor?.relationships?.[0]?.entity as Monitor | undefined;
     const assertions = monitor?.info?.assertionMonitor?.assertions || [];
     const firstAssertion = assertions[0];
     const embeddedAssertions = firstAssertion?.context?.embeddedAssertions || [];
@@ -66,20 +108,11 @@ interface UseInferenceRegenerationPollerProps {
     generatedAt: number | undefined;
     refetch: () => Promise<any>;
     previousGeneratedAt: React.MutableRefObject<number | undefined>;
-    setPreviousPredictions: React.Dispatch<
-        React.SetStateAction<
-            Array<{
-                index: number;
-                lowerBound?: number;
-                upperBound?: number;
-                timeWindow?: { startTimeMillis?: number; endTimeMillis?: number };
-            }>
-        >
-    >;
+    setPreviousPredictions: React.Dispatch<React.SetStateAction<Array<AssertionPrediction>>>;
     setIsRegenerating: React.Dispatch<React.SetStateAction<boolean>>;
     setHasTimedOut: React.Dispatch<React.SetStateAction<boolean>>;
     setInitialSettings: React.Dispatch<React.SetStateAction<any>>;
-    state: AssertionMonitorBuilderState;
+    inferenceSettings: AssertionMonitorBuilderState['inferenceSettings'];
 }
 
 export const useInferenceRegenerationPoller = ({
@@ -91,7 +124,7 @@ export const useInferenceRegenerationPoller = ({
     setIsRegenerating,
     setHasTimedOut,
     setInitialSettings,
-    state,
+    inferenceSettings,
 }: UseInferenceRegenerationPollerProps) => {
     const regenerationTimeout = useRef<NodeJS.Timeout>();
     const pollingInterval = useRef<NodeJS.Timeout>();
@@ -128,12 +161,18 @@ export const useInferenceRegenerationPoller = ({
 
                     if (isDataNew) {
                         if (mounted.value) {
-                            const newPredictions =
-                                extractPredictionsFromEmbeddedVolumeAssertions(newEmbeddedAssertions);
+                            // Extract the new predictions from the generated assertions
+                            const newPredictions = extractPredictionsFromEmbeddedAssertions(newEmbeddedAssertions);
+
+                            // Update the UI state with the new predictions
                             setPreviousPredictions(newPredictions);
+
+                            // Mark regeneration as complete
                             setIsRegenerating(false);
                             setHasTimedOut(false);
-                            setInitialSettings(state.inferenceSettings);
+
+                            // Save the current settings as the baseline
+                            setInitialSettings(inferenceSettings);
                         }
                         cleanup();
                     }
@@ -164,7 +203,7 @@ export const useInferenceRegenerationPoller = ({
         isRegenerating,
         generatedAt,
         refetch,
-        state.inferenceSettings,
+        inferenceSettings,
         previousGeneratedAt,
         setHasTimedOut,
         setInitialSettings,

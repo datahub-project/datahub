@@ -3,8 +3,8 @@ import { colors, typography } from '@components/theme';
 export const INPUT_MAX_HEIGHT = '40px';
 
 export const formLabelTextStyles = {
-    fontWeight: typography.fontWeights.normal,
-    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.bold,
+    fontSize: typography.fontSizes.sm,
     color: colors.gray[600],
 };
 

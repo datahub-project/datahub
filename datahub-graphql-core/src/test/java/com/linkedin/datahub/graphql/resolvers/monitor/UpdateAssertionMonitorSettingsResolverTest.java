@@ -6,14 +6,15 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.assertion.AssertionAdjustmentSettings;
+import com.linkedin.assertion.AssertionInferenceDetails;
 import com.linkedin.assertion.AssertionMonitorSensitivity;
 import com.linkedin.common.CronSchedule;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionAdjustmentSettingsInput;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorSensitivityInput;
-import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.generated.UpdateAssertionMonitorSettingsInput;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -24,10 +25,12 @@ import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.service.MonitorService;
+import com.linkedin.monitor.AssertionEvaluationContext;
 import com.linkedin.monitor.AssertionEvaluationSpec;
 import com.linkedin.monitor.AssertionEvaluationSpecArray;
 import com.linkedin.monitor.AssertionMonitor;
 import com.linkedin.monitor.AssertionMonitorSettings;
+import com.linkedin.monitor.EmbeddedAssertion;
 import com.linkedin.monitor.MonitorInfo;
 import com.linkedin.monitor.MonitorMode;
 import com.linkedin.monitor.MonitorType;
@@ -67,6 +70,13 @@ public class UpdateAssertionMonitorSettingsResolverTest {
 
   // Helper to build a test MonitorInfo
   private static MonitorInfo buildTestMonitorInfo() throws URISyntaxException {
+    // Create context with embedded assertions and inference details that should be cleared
+    AssertionEvaluationContext context =
+        new AssertionEvaluationContext()
+            .setEmbeddedAssertions(
+                new com.linkedin.monitor.EmbeddedAssertionArray(List.of(new EmbeddedAssertion())))
+            .setInferenceDetails(new AssertionInferenceDetails().setGeneratedAt(1234567890L));
+
     return new MonitorInfo()
         .setType(MonitorType.ASSERTION)
         .setStatus(new com.linkedin.monitor.MonitorStatus().setMode(MonitorMode.ACTIVE))
@@ -79,7 +89,8 @@ public class UpdateAssertionMonitorSettingsResolverTest {
                                 .setSchedule(
                                     new CronSchedule().setCron("* * * * *").setTimezone("UTC"))
                                 .setAssertion(
-                                    Urn.createFromString("urn:li:assertion:test-assertion")))))
+                                    Urn.createFromString("urn:li:assertion:test-assertion"))
+                                .setContext(context))))
                 .setSettings(
                     new AssertionMonitorSettings()
                         .setAdjustmentSettings(
@@ -101,7 +112,11 @@ public class UpdateAssertionMonitorSettingsResolverTest {
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Monitor result = resolver.get(mockEnv).get();
+    resolver.get(mockEnv).get();
+
+    // Verify that retrainAssertionMonitor was called
+    Mockito.verify(mockService, Mockito.times(1))
+        .retrainAssertionMonitor(Mockito.eq(TEST_MONITOR_URN));
 
     // Capture the proposal passed to ingestProposal
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
@@ -115,7 +130,7 @@ public class UpdateAssertionMonitorSettingsResolverTest {
     assertEquals(proposal.getEntityUrn(), TEST_MONITOR_URN);
     assertEquals(proposal.getAspectName(), "monitorInfo");
 
-    // Build the expected MonitorInfo with the updated settings
+    // Build the expected MonitorInfo with the updated settings and cleared predictions
     MonitorInfo expectedInfo = buildTestMonitorInfo();
     expectedInfo
         .getAssertionMonitor()
@@ -127,6 +142,16 @@ public class UpdateAssertionMonitorSettingsResolverTest {
                         .setLevel(TEST_INPUT.getAdjustmentSettings().getSensitivity().getLevel()))
                 .setTrainingDataLookbackWindowDays(
                     TEST_INPUT.getAdjustmentSettings().getTrainingDataLookbackWindowDays()));
+
+    // The predictions should be cleared - set empty embedded assertions and remove inference
+    // details
+    expectedInfo
+        .getAssertionMonitor()
+        .getAssertions()
+        .get(0)
+        .getContext()
+        .setEmbeddedAssertions(new com.linkedin.monitor.EmbeddedAssertionArray())
+        .setInferenceDetails(null, SetMode.REMOVE_IF_NULL);
 
     // Build the expected MetadataChangeProposal
     MetadataChangeProposal expectedMcp =

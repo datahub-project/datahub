@@ -24,17 +24,22 @@ type Props = {
     assertion: Assertion;
     monitor?: Monitor;
     openAssertionNote?: () => void;
+    refreshData?: () => Promise<unknown>;
 };
 
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
-export const AssertionResultsTimeline = ({ assertion, monitor, openAssertionNote }: Props) => {
+export const AssertionResultsTimeline = ({ assertion, monitor, openAssertionNote, refreshData }: Props) => {
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
-    const [getAssertionRuns, { data, loading, error, refetch }] = useGetAssertionRunsLazyQuery({
+    const [getAssertionRuns, { data, loading, error, refetch: refetchRuns }] = useGetAssertionRunsLazyQuery({
         fetchPolicy: 'cache-first',
     });
+
+    const refetch = () => {
+        return Promise.allSettled([refetchRuns(), refreshData?.()]);
+    };
 
     /**
      * Set default window for fetching assertion history.

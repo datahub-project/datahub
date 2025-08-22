@@ -12,8 +12,10 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.anomaly.AnomalySource;
+import com.linkedin.anomaly.AnomalySourceProperties;
 import com.linkedin.anomaly.AnomalySourceType;
 import com.linkedin.anomaly.MonitorAnomalyEvent;
+import com.linkedin.assertion.AssertionMetric;
 import com.linkedin.common.TimeStamp;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListMonitorMetricsInput;
@@ -40,6 +42,7 @@ public class MonitorMetricsResolverTest {
   private static final Long TEST_START_TIME = 1000L;
   private static final Long TEST_END_TIME = 2000L;
   private static final Long TEST_TIMESTAMP = 1500L;
+  private static final Long TEST_RUN_TIMESTAMP = 1501L;
   private static final Double TEST_METRIC_VALUE = 42.5;
 
   @Test
@@ -61,8 +64,14 @@ public class MonitorMetricsResolverTest {
             .setCreated(new TimeStamp().setTime(0L))
             .setSource(
                 new AnomalySource()
-                    .setSourceEventTimestampMillis(TEST_TIMESTAMP)
-                    .setType(AnomalySourceType.USER_FEEDBACK));
+                    .setSourceEventTimestampMillis(TEST_RUN_TIMESTAMP)
+                    .setType(AnomalySourceType.USER_FEEDBACK)
+                    .setProperties(
+                        new AnomalySourceProperties()
+                            .setAssertionMetric(
+                                new AssertionMetric()
+                                    .setTimestampMs(TEST_TIMESTAMP)
+                                    .setValue(TEST_METRIC_VALUE.floatValue()))));
 
     // Create EnvelopedAspects (following pattern from AssertionRunEventResolverTest)
     final EnvelopedAspect mockMetricAspect =

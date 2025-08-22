@@ -7,7 +7,7 @@ import { colors } from '@components/theme';
 
 import {
     extractAssertionData,
-    extractPredictionsFromEmbeddedVolumeAssertions,
+    extractPredictionsFromEmbeddedAssertions,
     useInferenceRegenerationPoller,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/useInferenceRegenerationPoller';
 import { AssertionMonitorBuilderState } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
@@ -123,12 +123,12 @@ export const FuturePredictionsList = forwardRef<VolumeInferenceAdjusterHandle, P
         setIsRegenerating,
         setHasTimedOut,
         setInitialSettings,
-        state,
+        inferenceSettings: state.inferenceSettings,
     });
 
     // Get all predictions from embeddedAssertions
     const predictions = React.useMemo(() => {
-        return extractPredictionsFromEmbeddedVolumeAssertions(embeddedAssertions);
+        return extractPredictionsFromEmbeddedAssertions(embeddedAssertions);
     }, [embeddedAssertions]);
 
     // Update previous predictions when we have new ones

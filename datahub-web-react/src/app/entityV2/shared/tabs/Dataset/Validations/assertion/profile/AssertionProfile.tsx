@@ -107,6 +107,7 @@ export const AssertionProfile = ({
                     assertion={assertion}
                     monitor={monitor}
                     openAssertionNote={openAssertionNote}
+                    refreshData={fullRefetch}
                 />
             ),
         },

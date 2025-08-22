@@ -14,9 +14,10 @@ type Props = {
     assertion: Assertion;
     monitor?: Monitor;
     openAssertionNote: () => void;
+    refreshData?: () => Promise<unknown>;
 };
 
-export const AssertionSummaryContent = ({ assertion, monitor, openAssertionNote }: Props) => {
+export const AssertionSummaryContent = ({ assertion, monitor, openAssertionNote, refreshData }: Props) => {
     const isStopped = monitor?.info?.status?.mode === MonitorMode.Inactive;
     const schedule = tryGetScheduleFromMonitor(monitor);
     const lastEvaluatedAtMillis = assertion.runEvents?.runEvents?.[0]?.timestampMillis;
@@ -29,6 +30,7 @@ export const AssertionSummaryContent = ({ assertion, monitor, openAssertionNote 
                     assertion={assertion}
                     monitor={monitor}
                     openAssertionNote={openAssertionNote}
+                    refreshData={refreshData}
                 />
             </AssertionSummarySection>
             <Divider />

@@ -220,19 +220,30 @@ public class MonitorMetricsResolver
     final Map<Long, MonitorAnomalyEvent> anomalyEventMap = new HashMap<>();
 
     for (MonitorAnomalyEvent anomalyEvent : anomalyEvents) {
-      if (anomalyEvent.getSource().getSourceEventTimestampMillis() == null) {
+      if (anomalyEvent.getSource().hasProperties()
+          && anomalyEvent.getSource().getProperties().hasAssertionMetric()
+          && anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs()
+              == null) {
         continue;
       }
       final MonitorAnomalyEvent maybeExistingEvent =
-          anomalyEventMap.get(anomalyEvent.getSource().getSourceEventTimestampMillis());
+          anomalyEventMap.get(
+              anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs());
       // If an anomaly event already exists for this timestamp, skip if the new one is NOT more
       // recent
       if (maybeExistingEvent != null
-          && anomalyEvent.getTimestampMillis() <= maybeExistingEvent.getTimestampMillis()) {
+          && anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs()
+              <= maybeExistingEvent
+                  .getSource()
+                  .getProperties()
+                  .getAssertionMetric()
+                  .getTimestampMs()) {
         continue;
       }
       // Use the timestamp as the key to map anomaly events to metrics
-      anomalyEventMap.put(anomalyEvent.getSource().getSourceEventTimestampMillis(), anomalyEvent);
+      anomalyEventMap.put(
+          anomalyEvent.getSource().getProperties().getAssertionMetric().getTimestampMs(),
+          anomalyEvent);
     }
 
     return anomalyEventMap;
