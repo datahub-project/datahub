@@ -532,9 +532,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return []
 
         view_names = [view.name for view in views_with_empty_definition]
-        batches = build_prefix_batches(
-            view_names, max_batch_size=1000, max_groups_in_batch=1
-        )
+        batches = [
+            batch[0]
+            for batch in build_prefix_batches(
+                view_names, max_batch_size=1000, max_groups_in_batch=1
+            )
+            if batch
+            # Skip empty batch if so, also max_groups_in_batch=1 makes it safe to access batch[0]
+        ]
 
         view_map: Dict[str, SnowflakeView] = {
             view.name: view for view in views_with_empty_definition
@@ -546,22 +551,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             f"using batched 'SHOW VIEWS ... LIKE ...' queries. Found {len(batches)} batch(es)."
         )
 
-        for batch_index, prefix_groups_list_for_current_batch in enumerate(batches):
-            if not prefix_groups_list_for_current_batch:  # Defensive check
-                logger.warning(
-                    f"Skipping empty list of prefix groups in batch {batch_index + 1}/{len(batches)} for {db_name}.{schema_name}."
-                )
-                continue
-
-            # Due to max_groups_in_batch=1, this list is expected to contain a single PrefixGroup.
-            prefix_group = prefix_groups_list_for_current_batch[0]
-
+        for batch_index, prefix_group in enumerate(batches):
             query = f'SHOW VIEWS LIKE \'{prefix_group.prefix}%\' IN SCHEMA "{db_name}"."{schema_name}"'
-
-            logger.info(
-                f"Processing batch {batch_index + 1}/{len(batches)} for {db_name}.{schema_name} "
-                f"with LIKE pattern: '{prefix_group.prefix}%'"
-            )
+            logger.info(f"Processing batch {batch_index + 1}/{len(batches)}: {query}")
 
             try:
                 cur = self.connection.query(query)
