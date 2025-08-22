@@ -395,7 +395,7 @@ kafka:
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
-      create: ${DATAHUB_ANALYTICS_ENABLED:true}
+      enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
 
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:

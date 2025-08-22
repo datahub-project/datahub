@@ -145,7 +145,7 @@ public class CreateKafkaTopicsStepTest {
     topicConfig.setName("test-topic");
     topicConfig.setPartitions(3);
     topicConfig.setReplicationFactor(1);
-    topicConfig.setCreate(true);
+    topicConfig.setEnabled(true);
     topics.put("testTopic", topicConfig);
     kafkaConfiguration.setTopics(topics);
 
@@ -186,7 +186,7 @@ public class CreateKafkaTopicsStepTest {
     topicConfig.setName("test-topic");
     topicConfig.setPartitions(3);
     topicConfig.setReplicationFactor(1);
-    topicConfig.setCreate(true);
+    topicConfig.setEnabled(true);
     topics.put("testTopic", topicConfig);
     kafkaConfiguration.setTopics(topics);
 
@@ -225,7 +225,7 @@ public class CreateKafkaTopicsStepTest {
     topicConfig.setName("test-topic");
     topicConfig.setPartitions(3);
     topicConfig.setReplicationFactor(1);
-    topicConfig.setCreate(false); // Don't create this topic
+    topicConfig.setEnabled(false); // Don't create this topic
     topics.put("testTopic", topicConfig);
     kafkaConfiguration.setTopics(topics);
 
@@ -271,7 +271,7 @@ public class CreateKafkaTopicsStepTest {
     topicConfig.setName("test-topic");
     topicConfig.setPartitions(3);
     topicConfig.setReplicationFactor(1);
-    topicConfig.setCreate(true);
+    topicConfig.setEnabled(true);
 
     // Add config properties
     Map<String, String> configProperties = new HashMap<>();
@@ -321,7 +321,7 @@ public class CreateKafkaTopicsStepTest {
     topicConfig.setName("test-topic");
     topicConfig.setPartitions(3);
     topicConfig.setReplicationFactor(1);
-    topicConfig.setCreate(true);
+    topicConfig.setEnabled(true);
     topics.put("testTopic", topicConfig);
     kafkaConfiguration.setTopics(topics);
 
@@ -351,7 +351,7 @@ public class CreateKafkaTopicsStepTest {
     topicConfig.setName("test-topic");
     topicConfig.setPartitions(3);
     topicConfig.setReplicationFactor(1);
-    topicConfig.setCreate(true);
+    topicConfig.setEnabled(true);
     topics.put("testTopic", topicConfig);
     kafkaConfiguration.setTopics(topics);
 
