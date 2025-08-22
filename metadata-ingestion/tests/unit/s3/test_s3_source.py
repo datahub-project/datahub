@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import List, Tuple
 from unittest.mock import Mock, call
@@ -17,6 +18,10 @@ from datahub.ingestion.source.s3.source import (
     S3Source,
     partitioned_folder_comparator,
 )
+
+logging.getLogger("boto3").setLevel(logging.INFO)
+logging.getLogger("botocore").setLevel(logging.INFO)
+logging.getLogger("s3transfer").setLevel(logging.INFO)
 
 
 @pytest.fixture(autouse=True)
