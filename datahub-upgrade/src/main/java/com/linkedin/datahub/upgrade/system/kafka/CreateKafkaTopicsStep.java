@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.kafka;
 
 import static com.linkedin.gms.factory.kafka.common.AdminClientFactory.buildKafkaAdminClient;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -29,6 +30,8 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
   private final OperationContext _opContext;
   private final KafkaConfiguration _kafkaConfiguration;
   private final KafkaProperties _kafkaProperties;
+
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public CreateKafkaTopicsStep(
       OperationContext opContext,
@@ -59,12 +62,24 @@ public class CreateKafkaTopicsStep implements UpgradeStep {
 
       log.info("Creating Kafka topics...");
 
-      // Debug logging to understand configuration state
-      log.info("KafkaConfiguration setup: {}", _kafkaConfiguration.getSetup());
-      log.info("KafkaConfiguration topics: {}", _kafkaConfiguration.getTopics());
-      log.info("KafkaConfiguration topicDefaults: {}", _kafkaConfiguration.getTopicDefaults());
-
       try {
+        // Debug logging to understand configuration state
+        log.info(
+            "KafkaConfiguration setup: {}",
+            OBJECT_MAPPER
+                .writerWithDefaultPrettyPrinter()
+                .writeValueAsString(_kafkaConfiguration.getSetup()));
+        log.info(
+            "KafkaConfiguration topics: {}",
+            OBJECT_MAPPER
+                .writerWithDefaultPrettyPrinter()
+                .writeValueAsString(_kafkaConfiguration.getTopics()));
+        log.info(
+            "KafkaConfiguration topicDefaults: {}",
+            OBJECT_MAPPER
+                .writerWithDefaultPrettyPrinter()
+                .writeValueAsString(_kafkaConfiguration.getTopicDefaults()));
+
         // Create AdminClient using AdminClientFactory
         AdminClient adminClient = createAdminClient();
 
