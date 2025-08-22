@@ -34,7 +34,11 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
+from datahub.ingestion.source.aws.s3_boto_utils import (
+    get_s3_tags,
+    list_folders,
+    list_folders_path,
+)
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
@@ -836,29 +840,31 @@ class S3Source(StatefulIngestionSourceBase):
             content_type=browse_path.content_type,
         )
 
-    def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
+    def resolve_templated_folders(self, prefix: str) -> Iterable[str]:
         folder_split: List[str] = prefix.split("*", 1)
         # If the len of split is 1 it means we don't have * in the prefix
         if len(folder_split) == 1:
             yield prefix
             return
 
-        folders: Iterable[str] = list_folders(
-            bucket_name, folder_split[0], self.source_config.aws_config
+        basename_startswith = folder_split[0].split("/")[-1]
+        dirname = folder_split[0].removesuffix(basename_startswith)
+
+        folders = list_folders_path(
+            dirname,
+            startswith=basename_startswith,
+            aws_config=self.source_config.aws_config,
         )
         for folder in folders:
-            # Ensure proper path joining - folder already includes trailing slash from list_folders
-            # but we need to handle the case where folder_split[1] might start with a slash
+            # Ensure proper path joining - folders from list_folders path never include a
+            # trailing slash, but we need to handle the case where folder_split[1] might
+            # start with a slash
             remaining_pattern = folder_split[1]
             if remaining_pattern.startswith("/"):
                 remaining_pattern = remaining_pattern[1:]
 
-            # Ensure folder ends with slash for proper path construction
-            if not folder.endswith("/"):
-                folder = folder + "/"
-
             yield from self.resolve_templated_folders(
-                bucket_name, f"{folder}{remaining_pattern}"
+                f"{folder.path}/{remaining_pattern}"
             )
 
     def get_dir_to_process(
@@ -1058,9 +1064,6 @@ class S3Source(StatefulIngestionSourceBase):
         s3 = self.source_config.aws_config.get_s3_resource(
             self.source_config.verify_ssl
         )
-        bucket_name = get_bucket_name(path_spec.include)
-        bucket = s3.Bucket(bucket_name)
-        logger.debug(f"Scanning bucket: {bucket_name}")
 
         # Find the part before {table}
         table_marker = "{table}"
@@ -1096,20 +1099,13 @@ class S3Source(StatefulIngestionSourceBase):
 
         # Split the path at {table} to get the prefix that needs wildcard resolution
         prefix_before_table = include.split(table_marker)[0]
-        # Remove the s3:// and bucket name to get the relative path
-        relative_path = get_bucket_relative_path(prefix_before_table)
-
         logger.info(f"Prefix before table: {prefix_before_table}")
-        logger.info(f"Relative path for resolution: {relative_path}")
 
         try:
             # STEP 2: Resolve ALL wildcards in the path up to {table}
-            # This converts patterns like "data/*/logs/" to actual paths like ["data/2023/logs/", "data/2024/logs/"]
-            table_index = include.find(table_marker)
-            folder_prefix = get_bucket_relative_path(include[:table_index])
-
+            # This converts patterns like "s3://data/*/logs/" to actual paths like ["s3://data/2023/logs/", "s3://data/2024/logs/"]
             resolved_prefixes = list(
-                self.resolve_templated_folders(bucket_name, folder_prefix)
+                self.resolve_templated_folders(prefix_before_table)
             )
             logger.info(f"Resolved prefixes: {resolved_prefixes}")
 
@@ -1117,11 +1113,16 @@ class S3Source(StatefulIngestionSourceBase):
             for resolved_prefix in resolved_prefixes:
                 logger.info(f"Processing resolved prefix: {resolved_prefix}")
 
+                bucket_name = get_bucket_name(resolved_prefix)
+                bucket = s3.Bucket(bucket_name)
+
                 # Get all folders that could be tables under this resolved prefix
                 # These are the actual table names (e.g., "users", "events", "logs")
                 table_folders = list(
                     list_folders(
-                        bucket_name, resolved_prefix, self.source_config.aws_config
+                        bucket_name,
+                        get_bucket_relative_path(resolved_prefix),
+                        self.source_config.aws_config,
                     )
                 )
                 logger.debug(
