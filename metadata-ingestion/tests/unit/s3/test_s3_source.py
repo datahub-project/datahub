@@ -437,10 +437,12 @@ class TestResolveTemplatedFolders:
         prefix = "data/files/"
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
-        assert result == ["data/files/"]
+        assert result == ["s3://my-bucket/data/files/"]
 
     def test_resolve_templated_folders_single_wildcard(self, s3_client):
         """Test resolution of a single wildcard in the path."""
@@ -455,10 +457,15 @@ class TestResolveTemplatedFolders:
         s3_client.put_object(Bucket="my-bucket", Key="data/2024/files/test.csv")
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
-        expected = ["data/2023/files/", "data/2024/files/"]
+        expected = [
+            "s3://my-bucket/data/2023/files/",
+            "s3://my-bucket/data/2024/files/",
+        ]
         assert result == expected
 
     def test_resolve_templated_folders_nested_wildcards(self, s3_client):
@@ -484,14 +491,16 @@ class TestResolveTemplatedFolders:
         )
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
         expected = [
-            "data/logs/year=2023/files/",
-            "data/logs/year=2024/files/",
-            "data/metrics/year=2023/files/",
-            "data/metrics/year=2024/files/",
+            "s3://my-bucket/data/logs/year=2023/files/",
+            "s3://my-bucket/data/logs/year=2024/files/",
+            "s3://my-bucket/data/metrics/year=2023/files/",
+            "s3://my-bucket/data/metrics/year=2024/files/",
         ]
         assert result == expected
 
@@ -506,7 +515,9 @@ class TestResolveTemplatedFolders:
         s3_client.create_bucket(Bucket="my-bucket")
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
         assert result == []
@@ -524,10 +535,15 @@ class TestResolveTemplatedFolders:
         s3_client.put_object(Bucket="my-bucket", Key="data/folder2/files/test.csv")
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
-        expected = ["data/folder1/files/", "data/folder2/files/"]
+        expected = [
+            "s3://my-bucket/data/folder1/files/",
+            "s3://my-bucket/data/folder2/files/",
+        ]
         assert result == expected
 
     def test_resolve_templated_folders_remaining_pattern_with_leading_slash(
@@ -545,10 +561,15 @@ class TestResolveTemplatedFolders:
         s3_client.put_object(Bucket="my-bucket", Key="data/2024/subdir/test.csv")
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
-        expected = ["data/2023/subdir/", "data/2024/subdir/"]
+        expected = [
+            "s3://my-bucket/data/2023/subdir/",
+            "s3://my-bucket/data/2024/subdir/",
+        ]
         assert result == expected
 
     def test_resolve_templated_folders_complex_nested_pattern(self, s3_client):
@@ -574,13 +595,15 @@ class TestResolveTemplatedFolders:
         )
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
         expected = [
-            "logs/app1/region=eu-west-1/day=2024-01-01/",
-            "logs/app1/region=us-east-1/day=2024-01-01/",
-            "logs/app2/region=us-east-1/day=2024-01-01/",
+            "s3://my-bucket/logs/app1/region=eu-west-1/day=2024-01-01/",
+            "s3://my-bucket/logs/app1/region=us-east-1/day=2024-01-01/",
+            "s3://my-bucket/logs/app2/region=us-east-1/day=2024-01-01/",
         ]
         assert result == expected
 
@@ -597,8 +620,10 @@ class TestResolveTemplatedFolders:
         s3_client.put_object(Bucket="my-bucket", Key="data/folder2/test.csv")
 
         # act
-        result = list(s3_source.resolve_templated_folders(bucket_name, prefix))
+        result = list(
+            s3_source.resolve_templated_folders(f"s3://{bucket_name}/{prefix}")
+        )
 
         # assert
-        expected = ["data/folder1/", "data/folder2/"]
+        expected = ["s3://my-bucket/data/folder1/", "s3://my-bucket/data/folder2/"]
         assert result == expected
