@@ -36,13 +36,17 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 - That's it! Thank you for your contribution!
 
 ### PR Title Format
+
 ```
 <type>[optional scope]: <description>
 ```
+
 Example:
+
 ```
 feat(parser): add ability to parse arrays
 ```
+
 #### Type
 
 Must be one of the following:
