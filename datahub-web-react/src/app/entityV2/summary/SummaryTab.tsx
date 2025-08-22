@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
+import Links from '@app/entityV2/summary/links/Links';
 import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader';
 
 const SummaryWrapper = styled.div`
@@ -18,12 +19,19 @@ const StyledDivider = styled(Divider)`
     color: ${colors.gray[100]};
 `;
 
-export default function SummaryTab() {
+interface Props {
+    hideLinksButton?: boolean;
+}
+
+export default function SummaryTab({ properties }: { properties?: Props }) {
+    const hideLinksButton = properties?.hideLinksButton;
+
     return (
         <SummaryWrapper>
             <PropertiesHeader />
             <StyledDivider />
             <AboutSection />
+            {!hideLinksButton && <Links />}
             <StyledDivider />
         </SummaryWrapper>
     );
