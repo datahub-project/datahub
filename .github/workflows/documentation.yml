@@ -31,6 +31,8 @@ concurrency:
 jobs:
   gh-pages:
     runs-on: depot-ubuntu-22.04
+    env:
+      NODE_OPTIONS: --max_old_space_size=4096
     permissions:
       contents: write
     steps:

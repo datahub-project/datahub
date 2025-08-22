@@ -1,0 +1,50 @@
+namespace com.linkedin.identity
+
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+import com.linkedin.metadata.annotations.Searchable
+
+@Aspect = {
+  "name": "corpUserInvitationStatus"
+}
+record CorpUserInvitationStatus {
+  /**
+   * Role will only work in non-sso environments today.
+   */
+  @Searchable = {
+    "fieldType": "URN",
+    "hasValuesFieldName": "hasRole",
+    "queryByDefault": false
+  }
+  role: optional Urn
+
+  /**
+   * Created Audit
+   */
+  created: AuditStamp 
+
+  /**
+   * The status of the invitation
+   */
+  @Searchable = {
+    "fieldName": "invitationStatus",
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  status: enum InvitationStatus { 
+    SENT, 
+    ACCEPTED, 
+    REVOKED, 
+    SUGGESTION_DISMISSED 
+  }
+  
+  /**
+   * Last Status Change Audit
+   */
+  lastUpdated: AuditStamp 
+  
+  /**
+   * Unique token for the invitation URL - hashed via SecretService 
+   */
+  invitationToken: string
+}

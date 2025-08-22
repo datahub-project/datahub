@@ -934,8 +934,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
                 Map.Entry::getKey,
                 Map.Entry::getValue,
                 (set1, set2) -> {
-                  set1.addAll(set2);
-                  return set1;
+                  Set<SearchableAnnotation.FieldType> merged = new HashSet<>(set1);
+                  merged.addAll(set2);
+                  return merged;
                 }));
   }
 

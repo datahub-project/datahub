@@ -273,6 +273,8 @@ entities:
       - subTypes
       - slackUserInfo
       # SaaS Only
+      - corpUserUsageFeatures
+      - corpUserInvitationStatus
       - share
       - formNotifications
   - name: corpGroup

@@ -1,0 +1,64 @@
+namespace com.linkedin.metadata.search.features
+
+import com.linkedin.common.Urn
+
+@Aspect = {
+  "name": "corpUserUsageFeatures"
+}
+record CorpUserUsageFeatures {
+  /**
+   * Total number of queries in the last 30 days
+   */
+  @Searchable = {
+    "fieldName": "userUsageTotalPast30DaysFeature",
+    "fieldType": "COUNT"
+  }
+  userUsageTotalPast30Days: optional long
+
+  /**
+   * Query Count broken down by platform so we can differentiate between top users of snowflake vs redshift
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "platformUsageTotal",
+      "fieldType": "OBJECT",
+      "queryByDefault": false
+    }
+  }
+  userPlatformUsageTotalsPast30Days: optional map[string, double]
+
+  /**
+   * Query Count broken down by platform so we can differentiate between top users of snowflake vs redshift
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "platformUsagePercentage",
+      "fieldType": "OBJECT",
+      "queryByDefault": false
+    }
+  }
+  userPlatformUsagePercentilePast30Days: optional map[string, double]
+
+  /**
+   * Platform usage total percentile for ranking users across all platforms
+   */
+  @Searchable = {
+    "fieldName": "userUsagePercentilePast30DaysFeature",
+    "fieldType": "DOUBLE"
+  }
+  userUsagePercentilePast30Days: optional double
+
+  /**
+   * Gather what are the top datasets per user so we can create a welcome module
+   * With links to the users top datasets with lineage (top 25)
+   * Map keys are dataset URN strings
+   */
+  @Searchable = {
+    "/*": {
+      "fieldName": "topDatasetsByUsage",
+      "fieldType": "OBJECT",
+      "queryByDefault": false
+    }
+  }
+  userTopDatasetsByUsage: optional map[string, double]
+}
