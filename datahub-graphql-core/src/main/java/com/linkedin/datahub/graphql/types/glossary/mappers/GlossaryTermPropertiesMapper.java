@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProperties;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import javax.annotation.Nonnull;
 
@@ -15,12 +16,16 @@ public class GlossaryTermPropertiesMapper {
   public static final GlossaryTermPropertiesMapper INSTANCE = new GlossaryTermPropertiesMapper();
 
   public static GlossaryTermProperties map(
-      @Nonnull final com.linkedin.glossary.GlossaryTermInfo glossaryTermInfo, Urn entityUrn) {
-    return INSTANCE.apply(glossaryTermInfo, entityUrn);
+      @Nonnull final com.linkedin.glossary.GlossaryTermInfo glossaryTermInfo,
+      Urn entityUrn,
+      final ResolvedAuditStamp createdAuditStamp) {
+    return INSTANCE.apply(glossaryTermInfo, entityUrn, createdAuditStamp);
   }
 
   public GlossaryTermProperties apply(
-      @Nonnull final com.linkedin.glossary.GlossaryTermInfo glossaryTermInfo, Urn entityUrn) {
+      @Nonnull final com.linkedin.glossary.GlossaryTermInfo glossaryTermInfo,
+      Urn entityUrn,
+      final ResolvedAuditStamp createdAuditStamp) {
     com.linkedin.datahub.graphql.generated.GlossaryTermProperties result =
         new com.linkedin.datahub.graphql.generated.GlossaryTermProperties();
     result.setDefinition(glossaryTermInfo.getDefinition());
@@ -39,6 +44,7 @@ public class GlossaryTermPropertiesMapper {
       result.setCustomProperties(
           CustomPropertiesMapper.map(glossaryTermInfo.getCustomProperties(), entityUrn));
     }
+    result.setCreatedOn(createdAuditStamp);
     return result;
   }
 }
