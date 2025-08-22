@@ -343,7 +343,7 @@ def setup_airbyte_connections(test_resources_dir: Path) -> None:
         create_airbyte_test_setup(workspace_id)
 
 
-def try_direct_api_setup() -> str:
+def try_direct_api_setup() -> Optional[str]:
     """Verify Airbyte API is working and return workspace ID"""
     print("\nVerifying Airbyte API is working...")
 
@@ -681,7 +681,9 @@ def test_resources_dir(pytestconfig: Any) -> Path:
 
 
 @pytest.fixture(scope="module")
-def test_databases(test_resources_dir: Path, docker_compose_runner):
+def test_databases(
+    test_resources_dir: Path, docker_compose_runner: Any
+) -> Generator[Any, None, None]:
     """Start PostgreSQL and MySQL test databases"""
     print("\nStarting test databases...")
 
@@ -786,17 +788,51 @@ def install_abctl(test_resources_dir: Path) -> Path:
     else:
         raise RuntimeError(f"Unsupported OS: {system}")
 
-    # Use a known working version for stability in CI
-    version = "v0.15.0"
-    download_url = f"https://github.com/airbytehq/abctl/releases/download/{version}/abctl-{os_name}-{arch}"
+    # Use the latest stable version
+    version = "v0.30.1"
+    # Correct URL format: the files are compressed archives
+    download_url = f"https://github.com/airbytehq/abctl/releases/download/{version}/abctl-{version}-{os_name}-{arch}.tar.gz"
 
     abctl_path = test_resources_dir / "abctl"
+    archive_path = test_resources_dir / f"abctl-{version}-{os_name}-{arch}.tar.gz"
 
     print(f"Downloading {download_url}...")
     try:
+        import tarfile
         import urllib.request
 
-        urllib.request.urlretrieve(download_url, abctl_path)
+        # Download the compressed archive
+        urllib.request.urlretrieve(download_url, archive_path)
+
+        # Extract the binary from the archive
+        with tarfile.open(archive_path, "r:gz") as tar:
+            # The binary is in a subdirectory like abctl-v0.30.1-linux-amd64/abctl
+            members = tar.getnames()
+            binary_member = None
+            for member in members:
+                if member.endswith("/abctl") or member == "abctl":
+                    binary_member = member
+                    break
+
+            if not binary_member:
+                raise RuntimeError("Could not find abctl binary in archive")
+
+            # Extract just the binary
+            tar.extract(binary_member, test_resources_dir)
+
+            # Move to expected location if it's in a subdirectory
+            if "/" in binary_member:
+                extracted_path = test_resources_dir / binary_member
+                extracted_path.rename(abctl_path)
+                # Clean up the directory
+                import shutil
+
+                shutil.rmtree(test_resources_dir / binary_member.split("/")[0])
+
+        # Clean up the archive
+        archive_path.unlink()
+
+        # Make it executable
         abctl_path.chmod(0o755)
 
         # Verify the download worked
@@ -810,6 +846,11 @@ def install_abctl(test_resources_dir: Path) -> Path:
         return abctl_path
 
     except Exception as e:
+        # Clean up on failure
+        if archive_path.exists():
+            archive_path.unlink()
+        if abctl_path.exists():
+            abctl_path.unlink()
         raise RuntimeError(f"Failed to download abctl: {e}") from e
 
 
