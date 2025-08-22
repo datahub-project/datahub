@@ -1,5 +1,5 @@
 import merge from 'deepmerge';
-import { keyBy, unionBy, values } from 'lodash';
+import { keyBy, unionBy, uniqWith, values } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router-dom';
 
@@ -125,8 +125,13 @@ const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
     return unionBy(sourceArray, destinationArray, 'structuredProperty.urn');
 };
 
-const mergeOwners = (destinationArray, sourceArray, _options) => {
-    return unionBy(destinationArray, sourceArray, 'owner.urn');
+export const mergeOwners = (destinationArray, sourceArray, _options) => {
+    console.log("HERE", { destinationArray, sourceArray})
+    return uniqWith(
+        [...destinationArray, ...sourceArray],
+        (ownerA, ownerB) =>
+            ownerA.owner.urn === ownerB.owner.urn && ownerA.ownershipType?.urn === ownerB.ownershipType?.urn,
+    );
 };
 
 const mergeFields = (destinationArray, sourceArray, _options) => {

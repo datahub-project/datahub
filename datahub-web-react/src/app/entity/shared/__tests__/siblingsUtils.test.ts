@@ -1,6 +1,7 @@
 import {
     cleanHelper,
     combineEntityDataWithSiblings,
+    mergeOwners,
     shouldEntityBeTreatedAsPrimary,
 } from '@app/entity/shared/siblingUtils';
 import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '@src/Mocks';
@@ -480,6 +481,227 @@ describe('siblingUtils', () => {
             };
             const result = cleanHelper(obj, visited);
             expect(result).toEqual({});
+        });
+    });
+
+    describe('mergeOwners', () => {
+        const createOwner = (ownerUrn: string, ownershipTypeUrn?: string, associatedUrn?: string) => ({
+            associatedUrn:
+                associatedUrn ||
+                'urn:li:dataset(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)',
+            owner: { urn: ownerUrn },
+            ownershipType: ownershipTypeUrn ? { urn: ownershipTypeUrn } : undefined,
+        });
+
+        it('should merge two arrays with no duplicates', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+            ];
+            const sourceArray = [createOwner('urn:li:corpGroup:bar', 'urn:li:ownershipType:__system__business_owner')];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(2);
+            expect(result).toEqual([
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+                createOwner('urn:li:corpGroup:bar', 'urn:li:ownershipType:__system__business_owner'),
+            ]);
+        });
+
+        it('should deduplicate owners with same owner.urn and ownershipType.urn', () => {
+            const duplicateOwner = createOwner(
+                'urn:li:corpGroup:bfoo',
+                'urn:li:ownershipType:__system__technical_owner',
+            );
+            const destinationArray = [duplicateOwner];
+            const sourceArray = [duplicateOwner];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual(duplicateOwner);
+        });
+
+        it('should keep owners with same owner.urn but different ownershipType.urn as separate entries', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+            ];
+            const sourceArray = [createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__business_owner')];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(2);
+            expect(result[0].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[0].ownershipType?.urn).toBe('urn:li:ownershipType:__system__technical_owner');
+            expect(result[1].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[1].ownershipType?.urn).toBe('urn:li:ownershipType:__system__business_owner');
+        });
+
+        it('should keep owners with different owner.urn but same ownershipType.urn as separate entries', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+            ];
+            const sourceArray = [createOwner('urn:li:corpGroup:bar', 'urn:li:ownershipType:__system__technical_owner')];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(2);
+            expect(result[0].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[1].owner.urn).toBe('urn:li:corpGroup:bar');
+            expect(result[0].ownershipType?.urn).toBe('urn:li:ownershipType:__system__technical_owner');
+            expect(result[1].ownershipType?.urn).toBe('urn:li:ownershipType:__system__technical_owner');
+        });
+
+        it('should handle empty destination array', () => {
+            const destinationArray: any[] = [];
+            const sourceArray = [
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+            ];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual(sourceArray[0]);
+        });
+
+        it('should handle empty source array', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+            ];
+            const sourceArray: any[] = [];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual(destinationArray[0]);
+        });
+
+        it('should handle both arrays being empty', () => {
+            const destinationArray: any[] = [];
+            const sourceArray: any[] = [];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(0);
+            expect(result).toEqual([]);
+        });
+
+        it('should handle owners with missing ownershipType', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:bfoo'), // no ownershipType
+            ];
+            const sourceArray = [
+                createOwner('urn:li:corpGroup:bfoo', 'urn:li:ownershipType:__system__technical_owner'),
+            ];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(2);
+            expect(result[0].ownershipType).toBeUndefined();
+            expect(result[1].ownershipType?.urn).toBe('urn:li:ownershipType:__system__technical_owner');
+        });
+
+        it('should deduplicate owners that both have undefined ownershipType', () => {
+            const ownerWithoutType = createOwner('urn:li:corpGroup:bfoo');
+            const destinationArray = [ownerWithoutType];
+            const sourceArray = [createOwner('urn:li:corpGroup:bfoo')]; // same owner, no ownershipType
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(1);
+            expect(result[0].owner.urn).toBe('urn:li:corpGroup:bfoo');
+            expect(result[0].ownershipType).toBeUndefined();
+        });
+
+        it('should preserve order with destination array items first', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:dest1', 'urn:li:ownershipType:__system__technical_owner'),
+                createOwner('urn:li:corpGroup:dest2', 'urn:li:ownershipType:__system__business_owner'),
+            ];
+            const sourceArray = [
+                createOwner('urn:li:corpGroup:src1', 'urn:li:ownershipType:__system__data_owner'),
+                createOwner('urn:li:corpGroup:src2', 'urn:li:ownershipType:__system__steward'),
+            ];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(4);
+            expect(result[0].owner.urn).toBe('urn:li:corpGroup:dest1');
+            expect(result[1].owner.urn).toBe('urn:li:corpGroup:dest2');
+            expect(result[2].owner.urn).toBe('urn:li:corpGroup:src1');
+            expect(result[3].owner.urn).toBe('urn:li:corpGroup:src2');
+        });
+
+        it('should handle complex scenario with multiple duplicates and unique entries', () => {
+            const destinationArray = [
+                createOwner('urn:li:corpGroup:common', 'urn:li:ownershipType:__system__technical_owner'),
+                createOwner('urn:li:corpGroup:dest_only', 'urn:li:ownershipType:__system__business_owner'),
+                createOwner('urn:li:corpGroup:common', 'urn:li:ownershipType:__system__data_owner'),
+            ];
+            const sourceArray = [
+                createOwner('urn:li:corpGroup:common', 'urn:li:ownershipType:__system__technical_owner'), // duplicate
+                createOwner('urn:li:corpGroup:src_only', 'urn:li:ownershipType:__system__steward'),
+                createOwner('urn:li:corpGroup:common', 'urn:li:ownershipType:__system__business_owner'), // different type
+            ];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(5);
+
+            // Should contain all unique combinations
+            const ownerCombinations = result.map((owner) => ({
+                ownerUrn: owner.owner.urn,
+                ownershipTypeUrn: owner.ownershipType?.urn,
+            }));
+
+            expect(ownerCombinations).toContainEqual({
+                ownerUrn: 'urn:li:corpGroup:common',
+                ownershipTypeUrn: 'urn:li:ownershipType:__system__technical_owner',
+            });
+            expect(ownerCombinations).toContainEqual({
+                ownerUrn: 'urn:li:corpGroup:dest_only',
+                ownershipTypeUrn: 'urn:li:ownershipType:__system__business_owner',
+            });
+            expect(ownerCombinations).toContainEqual({
+                ownerUrn: 'urn:li:corpGroup:common',
+                ownershipTypeUrn: 'urn:li:ownershipType:__system__data_owner',
+            });
+            expect(ownerCombinations).toContainEqual({
+                ownerUrn: 'urn:li:corpGroup:src_only',
+                ownershipTypeUrn: 'urn:li:ownershipType:__system__steward',
+            });
+            expect(ownerCombinations).toContainEqual({
+                ownerUrn: 'urn:li:corpGroup:common',
+                ownershipTypeUrn: 'urn:li:ownershipType:__system__business_owner',
+            });
+        });
+
+        it('should maintain all properties of owner objects beyond just owner.urn and ownershipType.urn', () => {
+            const destinationArray = [
+                {
+                    associatedUrn: 'urn:li:dataset:123',
+                    owner: { urn: 'urn:li:corpGroup:bfoo', name: 'Test Group' },
+                    ownershipType: { urn: 'urn:li:ownershipType:__system__technical_owner', name: 'Technical Owner' },
+                    extraProperty: 'destination_value',
+                },
+            ];
+            const sourceArray = [
+                {
+                    associatedUrn: 'urn:li:dataset:456',
+                    owner: { urn: 'urn:li:corpGroup:bar', displayName: 'Another Group' },
+                    ownershipType: {
+                        urn: 'urn:li:ownershipType:__system__business_owner',
+                        description: 'Business Owner',
+                    },
+                    extraProperty: 'source_value',
+                },
+            ];
+
+            const result = mergeOwners(destinationArray, sourceArray, {});
+
+            expect(result).toHaveLength(2);
+            expect(result[0]).toEqual(destinationArray[0]);
+            expect(result[1]).toEqual(sourceArray[0]);
         });
     });
 });
