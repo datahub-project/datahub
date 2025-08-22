@@ -55,3 +55,4 @@ def test_track_saas_event() -> None:
         assert payload["actorUrn"] == "urn:li:corpuser:testuser"
         assert payload["origin"] == "http://test-frontend"
         assert payload["test_field"] == "test_value"
+        assert payload["datahub_integrations_version"] is not None

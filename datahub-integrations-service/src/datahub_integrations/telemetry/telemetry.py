@@ -45,13 +45,6 @@ def _get_origin() -> str:
     return graph.frontend_base_url
 
 
-def _default_properties() -> dict:
-    return {
-        **_default_global_properties(),
-        "datahub_integrations_version": __version__,
-    }
-
-
 class BaseEvent(BaseModel):
     """Base class for all telemetry events."""
 
@@ -62,6 +55,8 @@ class BaseEvent(BaseModel):
     type: str
 
     user_urn: Optional[str] = None
+
+    datahub_integrations_version: str = __version__
 
 
 def _send_to_api(event: BaseEvent) -> None:
@@ -108,10 +103,10 @@ def track_saas_event(
     # The TrackingService will handle the conversion to the appropriate format
     # for each destination (Mixpanel and Kafka)
     properties = {
-        **_default_properties(),
+        **_default_global_properties(),
         **event.model_dump(
-            exclude={"timestamp", "origin", "user_urn"}
-        ),  # Exclude timestamp, origin, user_urn from event.dict()
+            exclude={"timestamp", "user_urn"}
+        ),  # Exclude timestamp and user_urn from event.dict()
         "distinct_id": event.user_urn or _get_server_id(),
         "origin": _get_origin(),
         "timestamp": event.timestamp.isoformat(),  # Include ISO formatted timestamp

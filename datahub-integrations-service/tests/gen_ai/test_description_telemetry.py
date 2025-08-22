@@ -5,6 +5,7 @@ import pytest
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 
+from datahub_integrations import __version__
 from datahub_integrations.gen_ai.description_context import ExtractedTableInfo
 from datahub_integrations.gen_ai.description_v3 import EntityDescriptionResult
 from datahub_integrations.gen_ai.router import suggest_description
@@ -253,6 +254,7 @@ def test_suggest_description_tracks_failed_generation(
         assert request_call.entity_urn == dataset_urn
         assert request_call.entity_type == DatasetUrn.ENTITY_TYPE
         assert request_call.user_urn == custom_user_urn
+        assert request_call.datahub_integrations_version == __version__
 
         # Verify response event was also tracked with correct data
         response_call = mock_track.call_args_list[1][0][0]
@@ -263,3 +265,4 @@ def test_suggest_description_tracks_failed_generation(
         assert response_call.has_entity_description is False
         assert response_call.has_column_descriptions is False
         assert response_call.error_msg == "Failed to generate description"
+        assert response_call.datahub_integrations_version == __version__

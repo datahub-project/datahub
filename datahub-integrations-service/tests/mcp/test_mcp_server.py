@@ -5,6 +5,7 @@ import httpx
 import pytest
 from asgi_lifespan import LifespanManager
 
+from datahub_integrations import __version__
 from datahub_integrations.server import app
 from datahub_integrations.telemetry.mcp_events import MCPServerRequestEvent
 
@@ -104,3 +105,4 @@ async def test_telemetry_middleware_tracks_calls(
         )
         assert call_args.duration_seconds >= 0
         assert call_args.tool_name is None
+        assert call_args.datahub_integrations_version == __version__
