@@ -424,6 +424,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
+          "featureFlags.assetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.editableDatasetNameEnabled",
