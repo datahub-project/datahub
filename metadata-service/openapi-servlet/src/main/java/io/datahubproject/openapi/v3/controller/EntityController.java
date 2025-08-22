@@ -61,6 +61,7 @@ import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v3.models.AspectItem;
+import io.datahubproject.openapi.v3.models.Filter;
 import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityAspectsBodyV3;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
@@ -236,7 +237,9 @@ public class EntityController
                             SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
-            entityAspectsBody.getFilter().toRecordTemplate(),
+            Optional.ofNullable(entityAspectsBody.getFilter())
+                .map(Filter::toRecordTemplate)
+                .orElse(null),
             sortCriteria,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
