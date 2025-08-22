@@ -17,17 +17,15 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
     font-size: 12px;
 `;
 
-
 export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
-    [AssertionType.Freshness]: "Verifies when this dataset should be updated.",
-    [AssertionType.Volume]: "Verifies the row count of this dataset.",
-    [AssertionType.Field]: "Verifies the validity of a column.",
-    [AssertionType.DataSchema]: "Verifies the schema of this dataset.",
-    [AssertionType.Custom]: "A custom externally reported assertion.",
-    [AssertionType.Sql]: "Verifies using custom SQL rules.",
-    [AssertionType.Dataset]: "An external assertion.",
+    [AssertionType.Freshness]: 'Verifies when this dataset should be updated.',
+    [AssertionType.Volume]: 'Verifies the row count of this dataset.',
+    [AssertionType.Field]: 'Verifies the validity of a column.',
+    [AssertionType.DataSchema]: 'Verifies the schema of this dataset.',
+    [AssertionType.Custom]: 'A custom externally reported assertion.',
+    [AssertionType.Sql]: 'Verifies using custom SQL rules.',
+    [AssertionType.Dataset]: 'An external assertion.',
 };
-
 
 export const ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS = {
     passing: {

@@ -2,7 +2,10 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ASSERTION_TYPE_TO_HEADER_SUBTITLE, ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
+import {
+    ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS,
+    ASSERTION_TYPE_TO_HEADER_SUBTITLE,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import {
     AcrylAssertionProgressBar,
     AssertionProgressSummary,
