@@ -126,3 +126,15 @@ def list_folders(
             if folder.endswith("/"):
                 folder = folder[:-1]
             yield f"{folder}"
+
+
+def list_buckets(
+    prefix: str, aws_config: Optional[AwsConnectionConfig]
+) -> Iterable[str]:
+    if aws_config is None:
+        raise ValueError("aws_config not set. Cannot browse s3")
+    s3_client = aws_config.get_s3_client()
+    paginator = s3_client.get_paginator("list_buckets")
+    for page in paginator.paginate(Prefix=prefix):
+        for o in page.get("Buckets", []):
+            yield str(o.get("Name"))
