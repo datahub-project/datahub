@@ -41,8 +41,6 @@ import com.linkedin.metadata.entity.ebean.batch.ProposedItem;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.SliceOptions;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -61,10 +59,10 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.openapi.controller.GenericEntitiesController;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.datahubproject.openapi.v3.models.AspectItem;
 import io.datahubproject.openapi.v3.models.GenericAspectV3;
 import io.datahubproject.openapi.v3.models.GenericEntityAspectsBodyV3;
-import io.datahubproject.openapi.v3.models.GenericEntityScrollRequestBodyV3;
 import io.datahubproject.openapi.v3.models.GenericEntityScrollResultV3;
 import io.datahubproject.openapi.v3.models.GenericEntityV3;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -157,82 +155,6 @@ public class EntityController
   }
 
   @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
-  @PostMapping(value = "/scrollWithFilters", produces = MediaType.APPLICATION_JSON_VALUE)
-  @Operation(summary = "Scroll entities with filters")
-  public ResponseEntity<GenericEntityScrollResultV3> scrollEntities(
-      HttpServletRequest request,
-      @RequestParam(value = "query", defaultValue = "*") String query,
-      @RequestParam(value = "count", defaultValue = "10") Integer count,
-      @RequestParam(value = "scrollId", required = false) String cursor,
-      @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
-          Boolean withSystemMetadata,
-      @RequestParam(value = "skipCache", required = false, defaultValue = "false")
-          Boolean skipCache,
-      @RequestParam(value = "fullText", required = false, defaultValue = "false") Boolean fullText,
-      @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
-          Boolean includeSoftDelete,
-      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepAlive,
-      @RequestBody @Nonnull GenericEntityScrollRequestBodyV3 scrollRequestBody)
-      throws URISyntaxException {
-
-    Collection<String> resolvedEntityNames = resolveEntityNames(scrollRequestBody.getEntities());
-    Authentication authentication = AuthenticationContext.getAuthentication();
-    RequestContext.RequestContextBuilder requestContext =
-        RequestContext.builder()
-            .buildOpenapi(
-                authentication.getActor().toUrnStr(),
-                request,
-                "scrollEntities",
-                resolvedEntityNames);
-
-    OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext, requestContext, authorizationChain, authentication, true);
-
-    if (!AuthUtil.isAPIAuthorizedEntityType(opContext, READ, resolvedEntityNames)) {
-      throw new UnauthorizedException(
-          authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
-    }
-
-    // By default, the result is sorted by "urn" field.
-    List<SortCriterion> sortCriteria =
-        Collections.singletonList(SearchUtil.sortBy("urn", SortOrder.valueOf("ASCENDING")));
-    if (!CollectionUtils.isEmpty(scrollRequestBody.getSortCriteria())) {
-      sortCriteria =
-          scrollRequestBody.getSortCriteria().stream()
-              .map(io.datahubproject.openapi.v3.models.SortCriterion::toRecordTemplate)
-              .collect(Collectors.toList());
-    }
-
-    SearchFlags searchFlags = new SearchFlags(DEFAULT_SEARCH_FLAGS.data());
-    searchFlags.setFulltext(fullText);
-
-    ScrollResult result =
-        searchService.scrollAcrossEntities(
-            opContext
-                .withSearchFlags(flags -> searchFlags)
-                .withSearchFlags(flags -> flags.setSkipCache(skipCache))
-                .withSearchFlags(flags -> flags.setIncludeSoftDeleted(includeSoftDelete)),
-            resolvedEntityNames,
-            query,
-            scrollRequestBody.getFilter().toRecordTemplate(),
-            sortCriteria,
-            cursor,
-            pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
-            count);
-
-    return ResponseEntity.ok(
-        buildScrollResult(
-            opContext,
-            result.getEntities(),
-            scrollRequestBody.getAspects(),
-            withSystemMetadata,
-            result.getScrollId(),
-            scrollRequestBody.getAspects() != null));
-  }
-
-  @Tag(name = "Generic Entities", description = "API for interacting with generic entities.")
   @PostMapping(value = "/scroll", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(summary = "Scroll entities")
   public ResponseEntity<GenericEntityScrollResultV3> scrollEntities(
@@ -250,6 +172,7 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
+      @RequestParam(value = "fullText", required = false, defaultValue = "false") Boolean fullText,
       @RequestParam(value = "sliceId", required = false) Integer sliceId,
       @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @Parameter(
@@ -262,7 +185,7 @@ public class EntityController
       throws URISyntaxException {
 
     final Collection<String> resolvedEntityNames =
-        resolveEntityNames(entityAspectsBody.getEntities());
+        RequestInputUtil.resolveEntityNames(entityRegistry, entityAspectsBody.getEntities());
     Authentication authentication = AuthenticationContext.getAuthentication();
 
     OperationContext opContext =
@@ -288,6 +211,11 @@ public class EntityController
       sortCriteria = new ArrayList<>();
       sortFields.forEach(
           field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+    } else if (entityAspectsBody.getSortCriteria() != null) {
+      sortCriteria =
+          entityAspectsBody.getSortCriteria().stream()
+              .map(io.datahubproject.openapi.v3.models.SortCriterion::toRecordTemplate)
+              .toList();
     } else {
       sortCriteria =
           Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
@@ -298,6 +226,7 @@ public class EntityController
             opContext.withSearchFlags(
                 flags ->
                     DEFAULT_SEARCH_FLAGS
+                        .setFulltext(fullText)
                         .setSkipCache(skipCache)
                         .setIncludeSoftDeleted(includeSoftDelete)
                         .setSliceOptions(
@@ -307,7 +236,7 @@ public class EntityController
                             SetMode.IGNORE_NULL)),
             resolvedEntityNames,
             query,
-            null,
+            entityAspectsBody.getFilter().toRecordTemplate(),
             sortCriteria,
             scrollId,
             pitKeepAlive != null && pitKeepAlive.isEmpty() ? null : pitKeepAlive,
@@ -663,23 +592,6 @@ public class EntityController
                 opContext, searchEntities, aspectNames, withSystemMetadata, expandEmpty))
         .scrollId(scrollId)
         .build();
-  }
-
-  /** Resolve entity names from entity registry. */
-  private Collection<String> resolveEntityNames(@Nullable Set<String> entityNames) {
-    final Collection<String> resolvedEntityNames;
-    if (entityNames != null) {
-      resolvedEntityNames =
-          entityNames.stream()
-              .map(entityName -> entityRegistry.getEntitySpec(entityName))
-              .map(EntitySpec::getName)
-              .toList();
-    } else {
-      resolvedEntityNames =
-          entityRegistry.getEntitySpecs().values().stream().map(EntitySpec::getName).toList();
-    }
-
-    return resolvedEntityNames;
   }
 
   @Override

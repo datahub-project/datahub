@@ -22,7 +22,9 @@ import io.datahubproject.openapi.v3.models.SortCriterion;
 import io.swagger.v3.core.util.Json;
 import io.swagger.v3.oas.models.*;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.media.*;
+import io.swagger.v3.oas.models.media.Content;
+import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.parameters.Parameter;
 import io.swagger.v3.oas.models.parameters.RequestBody;
 import io.swagger.v3.oas.models.responses.ApiResponse;
@@ -110,9 +112,6 @@ public class OpenAPIV3Generator {
     final Components components = new Components();
 
     // Cross-entity components
-    components.addSchemas(
-        "Scroll" + ENTITIES + ENTITY_REQUEST_SUFFIX,
-        buildScrollEntitiesRequestSchema(filteredEntitySpec, filteredAspectSpec, aspectNames));
     components.addSchemas(
         ENTITIES + ENTITY_REQUEST_SUFFIX,
         buildEntitiesRequestSchema(filteredEntitySpec, filteredAspectSpec, aspectNames));
@@ -217,7 +216,6 @@ public class OpenAPIV3Generator {
 
     // --> Cross-entity Paths
     paths.addPathItem(PATH_PREFIX + "/entity/scroll", buildGenericListEntitiesPath());
-    paths.addPathItem(PATH_PREFIX + "/entity/scrollWithFilters", buildGenericScrollEntitiesPath());
 
     // --> Entity Paths
     definedEntitySpecs.forEach(
@@ -665,11 +663,6 @@ public class OpenAPIV3Generator {
                 .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .in(NAME_QUERY)
-                .name(NAME_FULLTEXT)
-                .description("Treat query as fulltext.")
-                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
-            new Parameter()
-                .in(NAME_QUERY)
                 .name(NAME_PIT_KEEP_ALIVE)
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
@@ -746,6 +739,11 @@ public class OpenAPIV3Generator {
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
                 .schema(newSchema().types(TYPE_STRING_NULLABLE)._default("5m")),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_FULLTEXT)
+                .description("Treat query as fulltext.")
+                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -1519,7 +1517,7 @@ public class OpenAPIV3Generator {
   private static Schema buildFilterSchema() {
     // Criterion schema
     Schema criterion =
-        new ComposedSchema()
+        newSchema()
             .type("object")
             .description("A single field condition.")
             .addProperties(
@@ -1546,9 +1544,7 @@ public class OpenAPIV3Generator {
                     .description("The condition for the criterion."))
             .addProperties(
                 "negated",
-                new BooleanSchema()
-                    ._default(false)
-                    .description("Whether the condition should be negated."))
+                newSchema()._default(false).description("Whether the condition should be negated."))
             .addRequiredItem("field")
             .addRequiredItem("condition");
 
@@ -1574,7 +1570,7 @@ public class OpenAPIV3Generator {
     branchExists.addProperties(
         "condition", newSchema().type(TYPE_STRING)._enum(Collections.singletonList("EXISTS")));
     Schema anyOfValueOrValues =
-        new ComposedSchema()
+        newSchema()
             .anyOf(
                 Arrays.asList(
                     newSchema().type(TYPE_OBJECT).addRequiredItem("value"),
@@ -1648,20 +1644,42 @@ public class OpenAPIV3Generator {
     Schema aspectsSchema =
         newSchema().type(TYPE_ARRAY).items(newSchema().type(TYPE_STRING)._enum(aspectNames));
 
+    // Filter example
+    Criterion criterion = Criterion.builder().field("name").values(List.of("foo")).build();
+    ConjunctiveCriterion criteria =
+        ConjunctiveCriterion.builder().criteria(Collections.singletonList(criterion)).build();
+    Filter filter = Filter.builder().and(Collections.singletonList(criteria)).build();
+
+    // SortCriteria example
+    SortCriterion sortCriterion =
+        SortCriterion.builder().field("name").order(SortCriterion.SortOrder.ASCENDING).build();
+    List<SortCriterion> sortCriteria = List.of(sortCriterion);
+
     return newSchema()
         .type(TYPE_OBJECT)
         .description(ENTITIES + " request object.")
         .example(
             Map.of(
-                "entities", entityNames.stream().filter(n -> !n.startsWith("dataHub")).toList(),
+                "entities",
+                entityNames.stream().filter(n -> !n.startsWith("dataHub")).toList(),
                 "aspects",
-                    aspectNames.stream()
-                        .filter(n -> !n.startsWith("dataHub") && !keyAspects.contains(n))
-                        .toList()))
+                aspectNames.stream()
+                    .filter(n -> !n.startsWith("dataHub") && !keyAspects.contains(n))
+                    .toList(),
+                "filter",
+                filter,
+                "sortCriteria",
+                sortCriteria))
         .properties(
             Map.of(
-                "entities", newSchema().oneOf(List.of(entitiesSchema, newSchema().type(TYPE_NULL))),
-                "aspects", newSchema().oneOf(List.of(aspectsSchema, newSchema().type(TYPE_NULL)))));
+                "entities",
+                newSchema().oneOf(List.of(entitiesSchema, newSchema().type(TYPE_NULL))),
+                "aspects",
+                newSchema().oneOf(List.of(aspectsSchema, newSchema().type(TYPE_NULL))),
+                "filter",
+                newSchema().oneOf(List.of(buildFilterSchema(), newSchema().type(TYPE_NULL))),
+                "sortCriteria",
+                newSchema().oneOf(List.of(buildSortSchema(), newSchema().type(TYPE_NULL)))));
   }
 
   private static Schema buildEntitiesPatchRequestSchema(List<EntitySpec> entitySpecs) {
