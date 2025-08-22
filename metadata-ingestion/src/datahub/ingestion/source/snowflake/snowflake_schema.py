@@ -522,14 +522,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
             materialized=False,
         )
 
-    def _populate_empty_view_definitions(
+    def _maybe_populate_empty_view_definitions(
         self,
         db_name: str,
         schema_name: str,
         views_with_empty_definition: List[SnowflakeView],
     ) -> List[SnowflakeView]:
         if not views_with_empty_definition:
-            return views_with_empty_definition
+            return []
 
         view_names = [view.name for view in views_with_empty_definition]
         batches = build_prefix_batches(
@@ -627,7 +627,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 views.setdefault(schema_name, []).append(view)
 
         for schema_name, empty_views in views_with_empty_definition.items():
-            updated_views = self._populate_empty_view_definitions(
+            updated_views = self._maybe_populate_empty_view_definitions(
                 db_name, schema_name, empty_views
             )
             views.setdefault(schema_name, []).extend(updated_views)
@@ -654,7 +654,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 views.append(view)
 
         if views_with_empty_definition:
-            updated_empty_views = self._populate_empty_view_definitions(
+            updated_empty_views = self._maybe_populate_empty_view_definitions(
                 db_name, schema_name, views_with_empty_definition
             )
             views.extend(updated_empty_views)
