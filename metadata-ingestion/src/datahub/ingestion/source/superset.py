@@ -282,6 +282,7 @@ def get_filter_name(filter_obj):
 )
 @capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
+@capability(SourceCapability.TAGS, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
@@ -520,6 +521,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         dashboard_snapshot.aspects.append(owners_info)
+
+        tags = self._extract_and_map_tags(dashboard_data.get("tags", []))
+        if tags:
+            dashboard_snapshot.aspects.append(tags)
 
         return dashboard_snapshot
 
@@ -919,6 +924,11 @@ class SupersetSource(StatefulIngestionSourceBase):
             lastModified=last_modified,
         )
         chart_snapshot.aspects.append(owners_info)
+
+        tags = self._extract_and_map_tags(chart_data.get("tags", []))
+        if tags:
+            chart_snapshot.aspects.append(tags)
+
         yield MetadataWorkUnit(
             id=chart_urn, mce=MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         )
@@ -1319,6 +1329,35 @@ class SupersetSource(StatefulIngestionSourceBase):
         aspects_items.append(owners_info)
 
         return dataset_snapshot
+
+    def _extract_and_map_tags(
+        self, raw_tags: List[Dict[str, Any]]
+    ) -> Optional[GlobalTagsClass]:
+        """Extract and map Superset tags to DataHub tags.
+
+        Args:
+            raw_tags: List of tag dictionaries from Superset API
+
+        Returns:
+            GlobalTagsClass with user-defined tags, or None if no tags
+        """
+        if not raw_tags:
+            return None
+
+        user_tags = [
+            tag.get("name", "")
+            for tag in raw_tags
+            if tag.get("type") == 1  # User-defined tags only
+            and tag.get("name")
+        ]
+
+        if not user_tags:
+            return None
+
+        tag_urns = [builder.make_tag_urn(tag) for tag in user_tags]
+        return GlobalTagsClass(
+            tags=[TagAssociationClass(tag=tag_urn) for tag_urn in tag_urns]
+        )
 
     def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
         dataset_name = ""
