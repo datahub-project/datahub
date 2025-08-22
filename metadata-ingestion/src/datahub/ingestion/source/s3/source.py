@@ -1310,8 +1310,6 @@ class S3Source(StatefulIngestionSourceBase):
         s3 = self.source_config.aws_config.get_s3_resource(
             self.source_config.verify_ssl
         )
-        bucket_name = get_bucket_name(path_spec.include)
-        logger.debug(f"Scanning bucket: {bucket_name}")
 
         path_spec.sample_files = False  # Disable sampling for simple paths
 
