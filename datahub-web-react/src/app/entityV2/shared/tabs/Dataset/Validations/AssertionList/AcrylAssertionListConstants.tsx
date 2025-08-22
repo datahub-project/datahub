@@ -18,7 +18,7 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
 `;
 
 
-export const ASSERITON_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
+export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
     [AssertionType.Freshness]: "Verifies when this dataset should be updated.",
     [AssertionType.Volume]: "Verifies the row count of this dataset.",
     [AssertionType.Field]: "Verifies the validity of a column.",

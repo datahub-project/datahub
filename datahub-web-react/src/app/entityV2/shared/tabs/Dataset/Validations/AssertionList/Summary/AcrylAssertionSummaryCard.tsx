@@ -2,7 +2,7 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ASSERITON_TYPE_TO_HEADER_SUBTITLE, ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
+import { ASSERTION_TYPE_TO_HEADER_SUBTITLE, ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListConstants';
 import {
     AcrylAssertionProgressBar,
     AssertionProgressSummary,
@@ -110,7 +110,7 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
 
     const status = ASSERTION_SUMMARY_CARD_STATUSES.find((key) => group.summary[key]) || NO_RUNNING_STATE;
     const headerTitle = status ? ASSERTION_SUMMARY_CARD_HEADER_BY_STATUS[status].headerComponent : null;
-    const headerSubtitle = group.type ? ASSERITON_TYPE_TO_HEADER_SUBTITLE[group.type] : null;
+    const headerSubtitle = group.type ? ASSERTION_TYPE_TO_HEADER_SUBTITLE[group.type] : null;
 
     const handleCardClick = (type: AssertionType, event: React.MouseEvent) => {
         event.stopPropagation(); // Prevent parent click handlers from being triggered
