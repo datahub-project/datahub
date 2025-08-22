@@ -164,8 +164,17 @@ public class EntityController
       @RequestParam(value = "query", defaultValue = "*") String query,
       @RequestParam(value = "scrollId", required = false) String scrollId,
       @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
-      @RequestParam(value = "sortCriteria", required = false) List<String> sortFields,
-      @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
+      @Parameter(
+              description = "Deprecated. Please use the SortCriteria is request body.",
+              deprecated = true)
+          @Deprecated
+          @RequestParam(value = "sortCriteria", required = false)
+          List<String> sortFields,
+      @Parameter(
+              description = "Deprecated. Please use the SortCriteria is request body.",
+              deprecated = true)
+          @Deprecated
+          @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
           String sortOrder,
       @RequestParam(value = "systemMetadata", required = false, defaultValue = "false")
           Boolean withSystemMetadata,
@@ -208,15 +217,15 @@ public class EntityController
     }
 
     List<SortCriterion> sortCriteria;
-    if (!CollectionUtils.isEmpty(sortFields)) {
-      sortCriteria = new ArrayList<>();
-      sortFields.forEach(
-          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
-    } else if (entityAspectsBody.getSortCriteria() != null) {
+    if (entityAspectsBody.getSortCriteria() != null) {
       sortCriteria =
           entityAspectsBody.getSortCriteria().stream()
               .map(io.datahubproject.openapi.v3.models.SortCriterion::toRecordTemplate)
               .toList();
+    } else if (!CollectionUtils.isEmpty(sortFields)) {
+      sortCriteria = new ArrayList<>();
+      sortFields.forEach(
+          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
     } else {
       sortCriteria =
           Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
