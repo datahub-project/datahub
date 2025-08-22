@@ -2,13 +2,14 @@ import { Popover, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import type { OwnerMinimal } from '@app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import {
     getDescriptionFromType,
     getNameFromType,
 } from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { CustomAvatar } from '@app/shared/avatar';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Owner } from '@types';
 
 const TextWrapper = styled.span<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
@@ -63,7 +64,7 @@ const OwnwershipTypeDescriptionText = styled(Typography.Text)`
 
 interface Props {
     name: string;
-    owner: OwnerMinimal;
+    owner: Owner;
     hidePopOver?: boolean;
     pictureLink?: string;
     fontSize?: number;
@@ -71,7 +72,7 @@ interface Props {
 
 export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fontSize }: Props) {
     const entityRegistry = useEntityRegistry();
-    const ownerEntity = owner.owner as any;
+    const ownerEntity = owner.owner;
     const ownerEntityType = owner.owner.type;
     const ownerEntityTypeDisplayName = entityRegistry.getEntityName(ownerEntityType);
     const ownerDisplayName = entityRegistry.getDisplayName(ownerEntityType, ownerEntity);
@@ -79,10 +80,10 @@ export default function OwnerContent({ name, owner, hidePopOver, pictureLink, fo
     let ownershipTypeDescription;
     if (owner.ownershipType && owner.ownershipType.info) {
         ownershipTypeName = owner.ownershipType.info.name;
-        ownershipTypeDescription = (owner.ownershipType.info as any).description;
+        ownershipTypeDescription = owner.ownershipType.info.description;
     } else if (owner.type) {
-        ownershipTypeName = getNameFromType(owner.type as any);
-        ownershipTypeDescription = getDescriptionFromType(owner.type as any);
+        ownershipTypeName = getNameFromType(owner.type);
+        ownershipTypeDescription = getDescriptionFromType(owner.type);
     }
 
     const avatar: React.ReactNode = (

@@ -10,8 +10,9 @@ import { getNameFromType } from '@app/entity/shared/containers/profile/sidebar/O
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import type { OwnershipFieldsFragment } from '@graphql/fragments.generated';
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
-import { EntityType } from '@types';
+import { EntityType, Owner } from '@types';
 
 const OwnerTag = styled(Tag)`
     margin: 0;
@@ -21,34 +22,11 @@ const OwnerTag = styled(Tag)`
     align-items: center;
 `;
 
-// Minimal owner actor shape used by this component, compatible with GraphQL OwnershipFields fragment
-// and the full entity types. We only read fields listed here.
-type OwnerActorMinimal =
-    | {
-          __typename: 'CorpUser';
-          urn: string;
-          type: EntityType;
-          username?: string | null;
-          editableProperties?: { pictureLink?: string | null } | null;
-      }
-    | {
-          __typename: 'CorpGroup';
-          urn: string;
-          type: EntityType;
-          name?: string | null;
-          info?: { displayName?: string | null; email?: string | null; groups?: (string | null)[] | null } | null;
-      };
-
-export type OwnerMinimal = {
-    associatedUrn: string;
-    type?: any; // not used by this component; kept for compatibility with callers
-    ownershipType?: { urn?: string | null; info?: { name?: string | null } | null } | null;
-    owner: OwnerActorMinimal;
-};
+type OwnerFromFragment = NonNullable<OwnershipFieldsFragment['owners']>[number];
 
 type Props = {
     entityUrn?: string;
-    owner: OwnerMinimal;
+    owner: Owner | OwnerFromFragment;
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
@@ -69,13 +47,15 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     if (owner.owner.__typename === 'CorpUser') {
         name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner as any);
     }
-    if (owner.ownershipType && owner.ownershipType.info) {
-        ownershipTypeName = owner.ownershipType.info.name || '';
-    } else if (owner.type) {
-        ownershipTypeName = getNameFromType(owner.type as any);
+    if ('ownershipType' in owner && owner.ownershipType && owner.ownershipType.info) {
+        ownershipTypeName = owner.ownershipType.info.name;
+    } else if ('type' in owner && owner.type) {
+        ownershipTypeName = getNameFromType((owner as Owner).type);
     }
     const pictureLink =
         (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
+    const ownershipTypeUrn = owner.ownershipType?.urn;
+
     const onDelete = async () => {
         if (!entityUrn) {
             return;
@@ -85,7 +65,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 variables: {
                     input: {
                         ownerUrn: owner.owner.urn,
-                        ownershipTypeUrn: owner.ownershipType?.urn || undefined,
+                        ownershipTypeUrn,
                         resourceUrn: entityUrn,
                     },
                 },
@@ -122,14 +102,12 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
 
     return (
         <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
-            {readOnly && (
-                <OwnerContent name={name} owner={owner as any} hidePopOver={hidePopOver} pictureLink={pictureLink} />
-            )}
+            {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
                 <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`} {...linkProps}>
                     <OwnerContent
                         name={name}
-                        owner={owner as any}
+                        owner={owner}
                         hidePopOver={hidePopOver}
                         pictureLink={pictureLink}
                         fontSize={fontSize}

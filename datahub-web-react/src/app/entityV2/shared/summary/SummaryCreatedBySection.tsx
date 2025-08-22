@@ -31,11 +31,10 @@ const SectionContainer = styled.div`
 
 // Minimal shape for owner actor used here
 export type OwnerActorForSummary =
-    | { __typename: 'CorpGroup'; urn: string; type: EntityType; name?: string | null }
+    | { __typename?: 'CorpGroup'; urn: string; name?: string | null }
     | {
-          __typename: 'CorpUser';
+          __typename?: 'CorpUser';
           urn: string;
-          type: EntityType;
           username?: string | null;
           editableProperties?: { pictureLink?: string | null } | null;
       };
