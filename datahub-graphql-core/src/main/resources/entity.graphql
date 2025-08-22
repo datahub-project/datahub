@@ -2597,6 +2597,11 @@ type GlossaryTermProperties {
   Schema definition of glossary term
   """
   rawSchema: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -2722,6 +2727,11 @@ type GlossaryNodeProperties {
   Custom properties of the Glossary Node
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -11467,6 +11477,11 @@ type DomainProperties {
   Description of the Domain
   """
   description: String
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
@@ -13037,6 +13052,11 @@ type DataProductProperties {
   Custom properties of the Data Product
   """
   customProperties: [CustomPropertiesEntry!]
+
+  """
+  A Resolved Audit Stamp corresponding to the creation of this resource
+  """
+  createdOn: ResolvedAuditStamp
 }
 
 """
