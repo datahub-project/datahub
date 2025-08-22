@@ -1,4 +1,8 @@
-import { combineEntityDataWithSiblings, shouldEntityBeTreatedAsPrimary } from '@app/entity/shared/siblingUtils';
+import {
+    cleanHelper,
+    combineEntityDataWithSiblings,
+    shouldEntityBeTreatedAsPrimary,
+} from '@app/entity/shared/siblingUtils';
 import { dataset3WithLineage, dataset3WithSchema, dataset4WithLineage } from '@src/Mocks';
 
 import { EntityType, SchemaFieldDataType } from '@types';
@@ -53,7 +57,7 @@ const datasetPrimary = {
         description: 'primary description',
     },
     editableProperties: {
-        description: '',
+        description: null,
     },
     globalTags: {
         tags: [
@@ -254,6 +258,228 @@ describe('siblingUtils', () => {
 
         it('will say a un-primary entity is primary if it has no primary sibling', () => {
             expect(shouldEntityBeTreatedAsPrimary(datasetUnprimaryWithNoPrimarySiblings)).toBeTruthy();
+        });
+    });
+
+    describe('cleanHelper', () => {
+        let visited: Set<any>;
+
+        beforeEach(() => {
+            visited = new Set();
+        });
+
+        it('should return the object immediately if it has already been visited', () => {
+            const obj = { test: 'value' };
+            visited.add(obj);
+            const result = cleanHelper(obj, visited);
+            expect(result).toBe(obj);
+        });
+
+        it('should remove null properties from objects', () => {
+            const obj = {
+                validProperty: 'test',
+                nullProperty: null,
+                anotherValid: 42,
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({
+                validProperty: 'test',
+                anotherValid: 42,
+            });
+            expect(result).not.toHaveProperty('nullProperty');
+        });
+
+        it('should remove undefined properties from objects', () => {
+            const obj = {
+                validProperty: 'test',
+                undefinedProperty: undefined,
+                anotherValid: 42,
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({
+                validProperty: 'test',
+                anotherValid: 42,
+            });
+            expect(result).not.toHaveProperty('undefinedProperty');
+        });
+
+        it('should remove empty object properties', () => {
+            const obj = {
+                validProperty: 'test',
+                emptyObject: {},
+                anotherValid: 42,
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({
+                validProperty: 'test',
+                anotherValid: 42,
+            });
+            expect(result).not.toHaveProperty('emptyObject');
+        });
+
+        it('should recursively clean nested objects', () => {
+            const obj = {
+                level1: {
+                    validProp: 'test',
+                    nullProp: null,
+                    level2: {
+                        nestedValid: 'nested',
+                        nestedNull: null,
+                        emptyNested: {},
+                    },
+                },
+                topLevel: 'value',
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({
+                level1: {
+                    validProp: 'test',
+                    level2: {
+                        nestedValid: 'nested',
+                    },
+                },
+                topLevel: 'value',
+            });
+        });
+
+        it('should not modify arrays when they contain null, undefined, or empty objects', () => {
+            const obj = {
+                arrayProp: ['valid', null, undefined, {}, { validNested: 'test' }],
+                regularProp: 'test',
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result.arrayProp).toHaveLength(5);
+            expect(result.arrayProp[0]).toBe('valid');
+            expect(result.arrayProp[1]).toBe(null);
+            expect(result.arrayProp[2]).toBe(undefined);
+            expect(result.arrayProp[3]).toEqual({});
+            expect(result.arrayProp[4]).toEqual({ validNested: 'test' });
+        });
+
+        it('should still clean objects within arrays recursively', () => {
+            const obj = {
+                arrayProp: [
+                    {
+                        validProp: 'test',
+                        nullProp: null,
+                        nestedObj: {
+                            valid: 'nested',
+                            invalid: null,
+                        },
+                    },
+                ],
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result.arrayProp[0]).toEqual({
+                validProp: 'test',
+                nestedObj: {
+                    valid: 'nested',
+                },
+            });
+            expect(result.arrayProp[0]).not.toHaveProperty('nullProp');
+        });
+
+        it('should handle circular references without infinite recursion', () => {
+            const obj: any = {
+                validProp: 'test',
+                nullProp: null,
+            };
+            obj.circular = obj;
+
+            const result = cleanHelper(obj, visited);
+            expect(result.validProp).toBe('test');
+            expect(result).not.toHaveProperty('nullProp');
+            expect(result.circular).toBe(result);
+        });
+
+        it('should handle objects with non-configurable properties gracefully', () => {
+            const obj = {
+                validProp: 'test',
+                nullProp: null,
+            };
+
+            // Make a property non-configurable
+            Object.defineProperty(obj, 'nonConfigurable', {
+                value: null,
+                configurable: false,
+                enumerable: true,
+                writable: true,
+            });
+
+            const result = cleanHelper(obj, visited);
+            expect(result.validProp).toBe('test');
+            expect(result).not.toHaveProperty('nullProp');
+            // Non-configurable null property should remain
+            expect(result).toHaveProperty('nonConfigurable');
+            expect(result.nonConfigurable).toBe(null);
+        });
+
+        it('should preserve valid nested structures', () => {
+            const obj = {
+                user: {
+                    name: 'John',
+                    age: 30,
+                    preferences: {
+                        theme: 'dark',
+                        notifications: true,
+                    },
+                },
+                metadata: {
+                    created: '2023-01-01',
+                    tags: ['important', 'user'],
+                },
+            };
+
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual(obj);
+        });
+
+        it('should handle complex mixed structures', () => {
+            const obj = {
+                validString: 'test',
+                validNumber: 42,
+                validBoolean: true,
+                validArray: [1, 2, 3],
+                nullValue: null,
+                undefinedValue: undefined,
+                emptyObject: {},
+                nestedValid: {
+                    innerValid: 'nested',
+                    innerNull: null,
+                    innerArray: ['a', null, 'b'],
+                    innerEmpty: {},
+                },
+                mixedArray: [{ valid: 'item', invalid: null }, null, 'string', 42],
+            };
+
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({
+                validString: 'test',
+                validNumber: 42,
+                validBoolean: true,
+                validArray: [1, 2, 3],
+                nestedValid: {
+                    innerValid: 'nested',
+                    innerArray: ['a', null, 'b'],
+                },
+                mixedArray: [{ valid: 'item' }, null, 'string', 42],
+            });
+        });
+
+        it('should handle edge case of empty input object', () => {
+            const obj = {};
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({});
+        });
+
+        it('should handle edge case where object becomes empty after cleaning', () => {
+            const obj = {
+                nullProp: null,
+                undefinedProp: undefined,
+                emptyProp: {},
+            };
+            const result = cleanHelper(obj, visited);
+            expect(result).toEqual({});
         });
     });
 });
