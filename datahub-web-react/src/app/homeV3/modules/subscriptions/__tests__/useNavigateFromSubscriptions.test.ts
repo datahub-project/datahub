@@ -6,13 +6,9 @@ import { UserContextType } from '@app/context/userContext';
 import useNavigateFromSubscriptions from '@app/homeV3/modules/subscriptions/useNavigateFromSubscriptions';
 import * as SearchUtils from '@app/searchV2/utils/navigateToSearchUrl';
 
-import { EntityType } from '@types';
-
 const mockPush = vi.fn();
-const mockGetEntityUrl = vi.fn();
 
 const mockHistory = { push: mockPush };
-const mockEntityRegistry = { getEntityUrl: mockGetEntityUrl };
 
 vi.mock('react-router', () => ({
     useHistory: () => mockHistory,
@@ -29,10 +25,6 @@ vi.mock('@app/context/useUserContext', () => {
 
     return { useUserContext: mockUseUserContext };
 });
-
-vi.mock('@app/useEntityRegistry', () => ({
-    useEntityRegistryV2: () => mockEntityRegistry,
-}));
 
 vi.mock('@app/searchV2/utils/navigateToSearchUrl', () => ({
     navigateToSearchUrl: vi.fn(),
@@ -55,18 +47,15 @@ describe('useNavigateFromSubscriptions', () => {
                 }) as Partial<UserContextType> as UserContextType,
         );
 
-        mockGetEntityUrl.mockReset();
         mockPush.mockReset();
     });
 
     it('should navigate to subscriptions with correct URL when user exists', () => {
-        mockGetEntityUrl.mockReturnValue('/user/testUser');
         const { result } = renderHook(() => useNavigateFromSubscriptions());
 
         result.current.navigateToSubscriptions();
 
-        expect(mockGetEntityUrl).toHaveBeenCalledWith(EntityType.CorpUser, 'urn:li:corpUser:testUser');
-        expect(mockPush).toHaveBeenCalledWith('/user/testUser/subscriptions');
+        expect(mockPush).toHaveBeenCalledWith('/settings/personal-subscriptions');
     });
 
     it('should not navigate to subscriptions when user is null', () => {
@@ -83,7 +72,6 @@ describe('useNavigateFromSubscriptions', () => {
 
         // Expect no navigation call if user is not present
         expect(mockPush).not.toHaveBeenCalled();
-        expect(mockGetEntityUrl).not.toHaveBeenCalled();
     });
 
     it('should navigate to search with query "*" and history', () => {

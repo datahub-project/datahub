@@ -7,16 +7,12 @@ import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
 import { EmptyAssetsYouSubscribeTo } from '@app/homeV2/reference/sections/subscriptions/EmptyAssetsYouSubscribeTo';
 import { useGetAssetsYouSubscribeTo } from '@app/homeV2/reference/sections/subscriptions/useGetAssetsYouSubscribeTo';
 import { ReferenceSectionProps } from '@app/homeV2/reference/types';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-import { EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
 // TODO: Add group ownership into this.
 export const AssetsYouSubscribeTo = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const history = useHistory();
-    const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -27,7 +23,7 @@ export const AssetsYouSubscribeTo = ({ hideIfEmpty, trackClickInSection }: Refer
     }
 
     const navigateToUserSubscriptionsTab = () => {
-        history.push(`${entityRegistry.getEntityUrl(EntityType.CorpUser, user?.urn as string)}/subscriptions`);
+        history.push(`/settings/personal-subscriptions`);
     };
 
     return (

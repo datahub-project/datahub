@@ -3,10 +3,12 @@ import { Select, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import CreateGroupModal from '@app/identity/group/CreateGroupModal';
 import Loading from '@app/shared/Loading';
 import { getGroupOptions } from '@app/shared/subscribe/drawer/section/SelectGroupSection.utils';
 import useGroupRelationships from '@app/shared/subscribe/useGroupRelationships';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpGroup, EntityRelationshipsResult } from '@types';
@@ -42,6 +44,12 @@ export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
     const { relationships, ownedGroupSearchResults, refetch } = useGroupRelationships();
     const entityRegistry = useEntityRegistry();
 
+    const me = useUserContext();
+    const { config } = useAppConfig();
+
+    const isIdentityManagementEnabled = config?.identityManagementConfig?.enabled;
+    const canCreateGroup = (isIdentityManagementEnabled && me && me?.platformPrivileges?.manageIdentities) || false;
+
     const [isCreateGroupModalOpen, setIsCreateGroupModalOpen] = useState(false);
     const [isRefetching, setIsRefetching] = useState(false);
 
@@ -73,13 +81,19 @@ export default function SelectGroupSection({ groupUrn, setGroupUrn }: Props) {
                     }}
                 />
                 {/* ----------------------------- Option to create a group instead ----------------------------- */}
-                <NewGroupButton variant="link" onClick={() => setIsCreateGroupModalOpen(true)} disabled={isRefetching}>
-                    {isRefetching ? (
-                        [<Loading marginTop={0} height={12} />, <Text>Creating...</Text>]
-                    ) : (
-                        <Text>Create Group</Text>
-                    )}
-                </NewGroupButton>
+                {canCreateGroup && (
+                    <NewGroupButton
+                        variant="link"
+                        onClick={() => setIsCreateGroupModalOpen(true)}
+                        disabled={isRefetching}
+                    >
+                        {isRefetching ? (
+                            [<Loading marginTop={0} height={12} />, <Text>Creating...</Text>]
+                        ) : (
+                            <Text>Create Group</Text>
+                        )}
+                    </NewGroupButton>
+                )}
             </SelectGroupContainer>
 
             {isCreateGroupModalOpen && (
