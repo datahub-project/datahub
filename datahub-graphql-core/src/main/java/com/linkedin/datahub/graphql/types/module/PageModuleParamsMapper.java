@@ -68,6 +68,12 @@ public class PageModuleParamsMapper
               .collect(Collectors.toList());
 
       assetCollectionParams.setAssetUrns(assetUrnStrings);
+
+      if (params.getAssetCollectionParams().getDynamicFilterJson() != null) {
+        assetCollectionParams.setDynamicFilterJson(
+            params.getAssetCollectionParams().getDynamicFilterJson());
+      }
+
       result.setAssetCollectionParams(assetCollectionParams);
     }
 

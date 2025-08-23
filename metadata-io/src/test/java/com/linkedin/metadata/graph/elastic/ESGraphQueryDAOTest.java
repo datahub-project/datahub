@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
@@ -134,6 +135,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO graphQueryDAO =
         new ESGraphQueryDAO(
             null,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             null,
             TEST_GRAPH_SERVICE_CONFIG,
@@ -311,6 +314,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -334,6 +339,7 @@ public class ESGraphQueryDAOTest {
 
     String scrollId =
         "eyJzb3J0IjpbInVybjpsaTphc3NlcnRpb246NGU0NmJjYTQ2ZTlmN2I3OTlmN2UzZDQyYmRlYWFmMmMiXSwicGl0SWQiOm51bGwsImV4cGlyYXRpb25UaW1lIjowfQ==";
+    String keepAlive = "1m";
     int count = 10;
 
     // Set up mock behavior
@@ -342,7 +348,8 @@ public class ESGraphQueryDAOTest {
 
     // Call the method
     SearchResponse response =
-        dao.getSearchResponse(operationContext, graphFilters, sortCriteria, scrollId, count);
+        dao.getSearchResponse(
+            operationContext, graphFilters, sortCriteria, scrollId, keepAlive, count);
 
     // Verify the response
     Assert.assertEquals(response, mockSearchResponse);
@@ -372,6 +379,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -423,6 +432,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -491,6 +502,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             mockLineageRegistry,
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
@@ -631,6 +644,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             testConfig,
@@ -678,6 +693,8 @@ public class ESGraphQueryDAOTest {
     ESGraphQueryDAO dao =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             testConfig,
@@ -693,7 +710,7 @@ public class ESGraphQueryDAOTest {
 
     // Call method with a count that exceeds the limit
     int requestedCount = 50; // Exceeds our limit of 25
-    dao.getSearchResponse(operationContext, graphFilters, sortCriteria, null, requestedCount);
+    dao.getSearchResponse(operationContext, graphFilters, sortCriteria, null, null, requestedCount);
 
     // Verify that search was called with the right parameters
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
