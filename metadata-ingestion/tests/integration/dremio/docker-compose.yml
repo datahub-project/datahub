@@ -38,7 +38,7 @@ services:
   # Dremio
   dremio:
     platform: linux/x86_64
-    image: dremio/dremio-oss:latest
+    image: dremio/dremio-oss:26.0
     container_name: dremio
     ports:
       - 9047:9047

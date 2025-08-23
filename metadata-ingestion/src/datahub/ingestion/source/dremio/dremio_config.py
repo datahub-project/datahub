@@ -11,9 +11,6 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -136,7 +133,9 @@ class DremioSourceConfig(
     # Entity Filters
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for schemas to filter",
+        description="Regex patterns for Dremio containers (spaces, sources, folders) to filter in ingestion. "
+        "Specify regex to match the full container path. e.g. to match all containers in 'MySource' source, use 'MySource.*'. "
+        "To match a specific space, use '^MySpace$'. To match folders under a source, use 'MySource.folder1.*'",
     )
 
     dataset_pattern: AllowDenyPattern = Field(
@@ -148,8 +147,6 @@ class DremioSourceConfig(
         description="The usage config to use when generating usage statistics",
         default=BaseUsageConfig(),
     )
-
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     # Profiling
     profile_pattern: AllowDenyPattern = Field(
@@ -180,4 +177,15 @@ class DremioSourceConfig(
     ingest_owner: bool = Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
+    )
+
+    # View Definition Handling
+    max_view_definition_length: int = Field(
+        default=1000000,  # 1MB default limit
+        description="Maximum length of view definitions to retrieve. Large view definitions can cause Dremio OversizedAllocationException. Set to -1 for no limit.",
+    )
+
+    truncate_large_view_definitions: bool = Field(
+        default=True,
+        description="If true, truncate view definitions that exceed max_view_definition_length. If false, skip view definition entirely for large views.",
     )

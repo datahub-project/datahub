@@ -7,7 +7,7 @@ from collections import defaultdict
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import TYPE_CHECKING, Any, Deque, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 from urllib.parse import quote
 
 import requests
@@ -54,9 +54,9 @@ class DremioAPIOperations:
     def __init__(
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
+        self.config = connection_args
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
-        self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
-        self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
+        self.schema_pattern = connection_args.schema_pattern
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
@@ -248,28 +248,76 @@ class DremioAPIOperations:
         self.report.api_calls_by_method_and_path[f"{method} {url}"] += 1
 
         with PerfTimer() as timer:
-            response = self.session.request(
-                method=method,
-                url=(self.base_url + url),
-                data=data,
-                verify=self._verify,
-                timeout=self._timeout,
-            )
-            self.report.api_call_secs_by_method_and_path[f"{method} {url}"] += (
-                timer.elapsed_seconds()
-            )
-            # response.raise_for_status()  # Enabling this line, makes integration tests to fail
             try:
-                return response.json()
-            except requests.exceptions.JSONDecodeError as e:
-                logger.info(
-                    f"On {method} request to {url}, failed to parse JSON from response (status {response.status_code}): {response.text}"
+                response = self.session.request(
+                    method=method,
+                    url=(self.base_url + url),
+                    data=data,
+                    verify=self._verify,
+                    timeout=self._timeout,
                 )
-                logger.debug(
-                    f"Request curl equivalent: {make_curl_command(self.session, method, url, data)}"
+                self.report.api_call_secs_by_method_and_path[f"{method} {url}"] += (
+                    timer.elapsed_seconds()
+                )
+
+                # Check for HTTP errors
+                if response.status_code >= 400:
+                    error_msg = f"HTTP {response.status_code} error for {method} {url}"
+                    if response.status_code == 500:
+                        error_msg += " (Server Error - possibly OOM)"
+                    elif response.status_code == 503:
+                        error_msg += " (Service Unavailable)"
+                    elif response.status_code == 429:
+                        error_msg += " (Rate Limited)"
+
+                    logger.error(f"{error_msg}: {response.text}")
+                    raise DremioAPIException(f"{error_msg}: {response.text}")
+
+                # Try to parse JSON response
+                try:
+                    result = response.json()
+
+                    # Additional validation for common error patterns
+                    if isinstance(result, dict):
+                        if "errorMessage" in result:
+                            logger.error(
+                                f"API returned error: {result['errorMessage']}"
+                            )
+                            raise DremioAPIException(
+                                f"API error: {result['errorMessage']}"
+                            )
+
+                        if "error" in result:
+                            logger.error(f"API returned error: {result['error']}")
+                            raise DremioAPIException(f"API error: {result['error']}")
+
+                    return result
+
+                except requests.exceptions.JSONDecodeError as e:
+                    logger.error(
+                        f"On {method} request to {url}, failed to parse JSON from response (status {response.status_code}): {response.text[:500]}..."
+                    )
+                    logger.debug(
+                        f"Request curl equivalent: {make_curl_command(self.session, method, url, data)}"
+                    )
+                    raise DremioAPIException(
+                        f"Failed to parse JSON from response (status {response.status_code}): {response.text[:200]}..."
+                    ) from e
+
+            except requests.exceptions.Timeout as e:
+                logger.error(f"Timeout on {method} request to {url}")
+                raise DremioAPIException(f"Request timeout for {method} {url}") from e
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"Connection error on {method} request to {url}: {str(e)}")
+                raise DremioAPIException(
+                    f"Connection error for {method} {url}: {str(e)}"
+                ) from e
+            except requests.exceptions.RequestException as e:
+                logger.error(
+                    f"Request exception on {method} request to {url}: {str(e)}"
                 )
                 raise DremioAPIException(
-                    f"Failed to parse JSON from response (status {response.status_code}): {response.text}"
+                    f"Request failed for {method} {url}: {str(e)}"
                 ) from e
 
     def get(self, url: str) -> Dict:
@@ -342,12 +390,76 @@ class DremioAPIOperations:
         rows = []
 
         while True:
-            result = self.get_job_result(job_id, offset, limit)
-            rows.extend(result["rows"])
+            try:
+                result = self.get_job_result(job_id, offset, limit)
 
-            offset = offset + limit
-            if offset >= result["rowCount"]:
-                break
+                # Handle OOM scenarios where the response may not contain 'rows' key
+                if not isinstance(result, dict):
+                    self.report.failure(
+                        message="Invalid API response format",
+                        context=f"Job {job_id}: expected dict, got {type(result)}",
+                    )
+                    raise DremioAPIException(
+                        f"Invalid response format for job {job_id}"
+                    )
+
+                if "errorMessage" in result:
+                    error_msg = result["errorMessage"]
+                    self.report.failure(
+                        message="Query execution failed",
+                        context=f"Job {job_id}: {error_msg}",
+                    )
+                    raise DremioAPIException(
+                        f"Query error for job {job_id}: {error_msg}"
+                    )
+
+                # Check if 'rows' key exists (missing in OOM scenarios)
+                if "rows" not in result:
+                    self.report.failure(
+                        message="Query result missing 'rows' key - possible OOM error",
+                        context=f"Job {job_id}. Available keys: {list(result.keys())}",
+                    )
+                    raise DremioAPIException(
+                        f"Query result missing 'rows' key for job {job_id}. This may indicate an out-of-memory error on the Dremio server."
+                    )
+
+                # Check if 'rowCount' key exists
+                if "rowCount" not in result:
+                    self.report.warning(
+                        message="Query result missing 'rowCount' key",
+                        context=f"Job {job_id}. Using rows array length instead.",
+                    )
+                    total_rows = len(result.get("rows", []))
+                else:
+                    total_rows = result["rowCount"]
+
+                batch_rows = result["rows"]
+                if not isinstance(batch_rows, list):
+                    self.report.failure(
+                        message="Invalid 'rows' format in query result",
+                        context=f"Job {job_id}: expected list, got {type(batch_rows)}",
+                    )
+                    raise DremioAPIException(f"Invalid 'rows' format for job {job_id}")
+
+                rows.extend(batch_rows)
+                offset = offset + limit
+
+                # Break if we've fetched all rows or if this batch was smaller than expected
+                if offset >= total_rows or len(batch_rows) < limit:
+                    break
+
+            except DremioAPIException:
+                # Re-raise DremioAPIException without wrapping
+                raise
+            except Exception as e:
+                self.report.failure(
+                    message="Unexpected error fetching query results",
+                    context=f"Job {job_id}",
+                    exc=e,
+                )
+                raise DremioAPIException(
+                    f"Unexpected error fetching results for job {job_id}: {str(e)}"
+                ) from e
 
         return rows
 
@@ -356,7 +468,11 @@ class DremioAPIOperations:
         try:
             self.post(url=f"/job/{job_id}/cancel", data=json.dumps({}))
         except Exception as e:
-            logger.error(f"Failed to cancel query {job_id}: {str(e)}")
+            self.report.warning(
+                message="Failed to cancel query",
+                context=f"Job {job_id}",
+                exc=e,
+            )
 
     def get_job_status(self, job_id: str) -> Dict[str, Any]:
         """Check job status"""
@@ -394,7 +510,10 @@ class DremioAPIOperations:
         )
         dataset_id = dataset_response.get("id")
         if not dataset_id:
-            logger.error(f"Dataset ID not found for {schema}.{dataset}")
+            self.report.warning(
+                message="Dataset ID not found",
+                context=f"Schema: {schema}, Dataset: {dataset}",
+            )
 
         return dataset_id
 
@@ -479,27 +598,55 @@ class DremioAPIOperations:
         return dataset_list
 
     def get_pattern_condition(
-        self, patterns: Union[str, List[str]], field: str, allow: bool = True
+        self, patterns: List[str], field: str, allow: bool = True
     ) -> str:
+        """
+        Generate SQL condition for allow/deny patterns with proper case sensitivity handling.
+
+        Args:
+            patterns: List of regex patterns
+            field: SQL field name to match against
+            allow: True for allow patterns, False for deny patterns
+
+        Returns:
+            SQL WHERE condition string, or empty string if no filtering needed
+        """
         if not patterns:
             return ""
 
-        if isinstance(patterns, str):
-            patterns = [patterns.upper()]
-
-        if ".*" in patterns and allow:
+        # Handle the default "allow all" case
+        if patterns == [".*"] and allow:
             return ""
 
-        patterns = [p.upper() for p in patterns if p != ".*"]
-        if not patterns:
+        # Filter out the default "allow all" pattern if present
+        filtered_patterns = [p for p in patterns if p != ".*"]
+        if not filtered_patterns:
             return ""
 
-        operator = "REGEXP_LIKE" if allow else "NOT REGEXP_LIKE"
-        pattern_str = "|".join(f"({p})" for p in patterns)
-        return f"AND {operator}({field}, '{pattern_str}')"
+        # Build SQL conditions - use REGEXP_LIKE with case insensitive flag
+        # Note: We preserve original case in patterns since AllowDenyPattern handles case sensitivity via ignoreCase flag
+        conditions = []
+        for pattern in filtered_patterns:
+            # Escape single quotes in the pattern for SQL safety
+            escaped_pattern = pattern.replace("'", "''")
+            if self.schema_pattern.ignoreCase:
+                conditions.append(f"REGEXP_LIKE({field}, '{escaped_pattern}', 'i')")
+            else:
+                conditions.append(f"REGEXP_LIKE({field}, '{escaped_pattern}')")
+
+        if not conditions:
+            return ""
+
+        # Combine conditions with appropriate logic
+        combined_condition = " OR ".join(conditions)
+
+        if allow:
+            return f"AND ({combined_condition})"
+        else:
+            return f"AND NOT ({combined_condition})"
 
     def get_all_tables_and_columns(
-        self, containers: Deque["DremioContainer"]
+        self, containers: List["DremioContainer"]
     ) -> List[Dict]:
         if self.edition == DremioEdition.ENTERPRISE:
             query_template = DremioSQLQueries.QUERY_DATASETS_EE
@@ -508,13 +655,16 @@ class DremioAPIOperations:
         else:
             query_template = DremioSQLQueries.QUERY_DATASETS_CE
 
-        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(UPPER(TABLE_SCHEMA), ', ', '.'), '[', ''), ']', ''))"
+        # Use proper case-sensitive field reference for schema pattern matching
+        # Remove the UPPER() transformation to preserve original case for pattern matching
+        # Note: In the outer query context, we reference the column directly without table alias
+        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(TABLE_SCHEMA, ', ', '.'), '[', ''), ']', ''))"
 
         schema_condition = self.get_pattern_condition(
-            self.allow_schema_pattern, schema_field
+            self.schema_pattern.allow, schema_field
         )
         deny_schema_condition = self.get_pattern_condition(
-            self.deny_schema_pattern, schema_field, allow=False
+            self.schema_pattern.deny, schema_field, allow=False
         )
 
         all_tables_and_columns = []
@@ -526,6 +676,10 @@ class DremioAPIOperations:
                     schema_pattern=schema_condition,
                     deny_schema_pattern=deny_schema_condition,
                     container_name=schema.container_name.lower(),
+                    max_view_definition_length=self.config.max_view_definition_length,
+                    truncate_large_view_definitions=str(
+                        self.config.truncate_large_view_definitions
+                    ).lower(),
                 )
                 all_tables_and_columns.extend(
                     self.execute_query(
@@ -533,11 +687,35 @@ class DremioAPIOperations:
                     )
                 )
             except DremioAPIException as e:
-                self.report.warning(
-                    message="Container has no tables or views",
-                    context=f"{schema.subclass} {schema.container_name}",
-                    exc=e,
-                )
+                error_message = str(e)
+                context = f"{schema.subclass} {schema.container_name}"
+
+                # Check for OversizedAllocationException which indicates view definition memory issues
+                if (
+                    "OversizedAllocationException" in error_message
+                    or "Memory required for vector" in error_message
+                ):
+                    enhanced_message = (
+                        f"Dremio memory limit exceeded while retrieving datasets. "
+                        f"This is likely due to large view definitions. "
+                        f"Consider reducing max_view_definition_length (currently {self.config.max_view_definition_length}) "
+                        f"or enabling truncate_large_view_definitions (currently {self.config.truncate_large_view_definitions})"
+                    )
+
+                    self.report.warning(
+                        message=enhanced_message,
+                        context=f"{context}. Suggested fix: Reduce max_view_definition_length or enable truncation",
+                    )
+                    logger.warning(
+                        f"OversizedAllocationException for {context}. "
+                        f"Skipping this container. {enhanced_message}"
+                    )
+                else:
+                    self.report.warning(
+                        message="Container has no tables or views",
+                        context=context,
+                        exc=e,
+                    )
 
         tables = []
 
@@ -763,29 +941,35 @@ class DremioAPIOperations:
         """
         Helper method to check if a container should be included based on schema patterns.
         Used by both get_all_containers and get_containers_for_location.
+
+        This uses hierarchical matching logic to ensure we discover intermediate containers
+        that might lead to datasets matching our patterns.
         """
         path_components = path + [name] if path else [name]
         full_path = ".".join(path_components)
 
+        # Note: Unlike flat connectors (e.g., Snowflake), Dremio has hierarchical containers
+        # (Source -> Space/Folder -> Sub-folder -> Dataset). We must include intermediate
+        # containers that could lead to matching datasets, not just exact matches.
+
         # Default allow everything case
-        if self.allow_schema_pattern == [".*"] and not self.deny_schema_pattern:
+        if self.schema_pattern.allow == [".*"] and not self.schema_pattern.deny:
             self.report.report_container_scanned(full_path)
             return True
 
-        # Check deny patterns first
-        if self.deny_schema_pattern:
-            for pattern in self.deny_schema_pattern:
-                if self._check_pattern_match(
-                    pattern=pattern,
-                    paths=[full_path],
-                    allow_prefix=False,
-                ):
-                    self.report.report_container_filtered(full_path)
-                    return False
+        # Check deny patterns first - if explicitly denied, exclude
+        for pattern in self.schema_pattern.deny:
+            if self._check_pattern_match(
+                pattern=pattern,
+                paths=[full_path],
+                allow_prefix=False,
+            ):
+                self.report.report_container_filtered(full_path)
+                return False
 
-        # Check allow patterns
-        for pattern in self.allow_schema_pattern:
-            # Check if current path could potentially match this pattern
+        # Check allow patterns - include if current path could potentially match
+        for pattern in self.schema_pattern.allow:
+            # Use hierarchical matching to include intermediate containers
             if self._could_match_pattern(pattern, path_components):
                 self.report.report_container_scanned(full_path)
                 return True
@@ -816,7 +1000,7 @@ class DremioAPIOperations:
                         "id": source.get("id"),
                         "name": source.get("path")[0],
                         "path": [],
-                        "container_type": DremioEntityContainerType.SOURCE,
+                        "container_type": DremioEntityContainerType.SOURCE.value,
                         "source_type": source_resp.get("type"),
                         "root_path": source_config.get("rootPath"),
                         "database_name": db,
@@ -827,7 +1011,7 @@ class DremioAPIOperations:
                         "id": source.get("id"),
                         "name": source.get("path")[0],
                         "path": [],
-                        "container_type": DremioEntityContainerType.SPACE,
+                        "container_type": DremioEntityContainerType.SPACE.value,
                     }
             return None
 
@@ -902,7 +1086,7 @@ class DremioAPIOperations:
                                 "id": location_id,
                                 "name": folder_name,
                                 "path": folder_path,
-                                "container_type": DremioEntityContainerType.FOLDER,
+                                "container_type": DremioEntityContainerType.FOLDER.value,
                             }
                         )
 

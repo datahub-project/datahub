@@ -157,8 +157,10 @@ class DremioProfiler:
                 try:
                     metrics.extend(self._get_column_metrics(column_name, data_type))
                 except Exception as e:
-                    logger.warning(
-                        f"Error building metrics for column {column_name}: {str(e)}"
+                    self.report.warning(
+                        message="Error building metrics for column",
+                        context=f"Table: {table_name}, Column: {column_name}",
+                        exc=e,
                     )
                     # Skip this column and continue with others
 

@@ -1,12 +1,10 @@
-import itertools
 import logging
 import re
 import uuid
-from collections import deque
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Deque, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 from sqlglot import parse_one
 
@@ -16,6 +14,9 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioEdition,
     DremioEntityContainerType,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -187,8 +188,8 @@ class DremioQuery:
         try:
             parsed = parse_one(sql_query)
             return parsed.sql(comments=False)
-        except Exception as e:
-            logger.warning(e)
+        except Exception:
+            # Fall back to original query if SQL parsing fails
             return sql_query
 
 
@@ -280,33 +281,39 @@ class DremioContainer:
 
     def __init__(
         self,
-        container_name: str,
-        location_id: str,
-        path: List[str],
+        container_name: Optional[str],
+        location_id: Optional[str],
+        path: Optional[List[str]],
         api_operations: DremioAPIOperations,
     ):
+        # Only validate that we have the essential fields needed for processing
+        if not container_name or not location_id:
+            raise ValueError(
+                f"Container requires both name and location_id: name={container_name}, location_id={location_id}"
+            )
+
         self.container_name = container_name
         self.location_id = location_id
-        self.path = path
+        self.path = path or []
 
         self.description = api_operations.get_description_for_resource(
-            resource_id=location_id,
+            resource_id=self.location_id,
         )
 
 
 class DremioSourceContainer(DremioContainer):
     subclass: str = "Dremio Source"
-    dremio_source_type: str
+    dremio_source_type: Optional[str]
     root_path: Optional[str]
     database_name: Optional[str]
 
     def __init__(
         self,
-        container_name: str,
-        location_id: str,
-        path: List[str],
+        container_name: Optional[str],
+        location_id: Optional[str],
+        path: Optional[List[str]],
         api_operations: DremioAPIOperations,
-        dremio_source_type: str,
+        dremio_source_type: Optional[str],
         root_path: Optional[str] = None,
         database_name: Optional[str] = None,
     ):
@@ -333,108 +340,101 @@ class DremioCatalog:
     dremio_api: DremioAPIOperations
     edition: DremioEdition
 
-    def __init__(self, dremio_api: DremioAPIOperations):
+    def __init__(self, dremio_api: DremioAPIOperations, report: "DremioSourceReport"):
         self.dremio_api = dremio_api
         self.edition = dremio_api.edition
-        self.datasets: Deque[DremioDataset] = deque()
-        self.sources: Deque[DremioSourceContainer] = deque()
-        self.spaces: Deque[DremioSpace] = deque()
-        self.folders: Deque[DremioFolder] = deque()
-        self.glossary_terms: Deque[DremioGlossaryTerm] = deque()
-        self.queries: Deque[DremioQuery] = deque()
+        self.report = report
+        # Cache for containers to avoid re-fetching
+        self._containers_cache: Optional[List[Dict]] = None
 
-        self.datasets_populated = False
-        self.containers_populated = False
-        self.queries_populated = False
+    def get_datasets(self) -> Iterable[DremioDataset]:
+        """Generator that yields DremioDataset objects one at a time to reduce memory usage."""
+        # Get containers for dataset queries
+        containers: List[DremioContainer] = []
+        for container in self.get_containers():
+            if isinstance(container, (DremioSourceContainer, DremioSpace)):
+                containers.append(container)
 
-    def set_datasets(self) -> None:
-        if not self.datasets_populated:
-            self.set_containers()
-
-            containers: Deque[DremioContainer] = deque()
-            containers.extend(self.spaces)  # Add DremioSpace elements
-            containers.extend(self.sources)  # Add DremioSource elements
-
-            for dataset_details in self.dremio_api.get_all_tables_and_columns(
-                containers=containers
-            ):
+        # Process datasets one at a time
+        for dataset_details in self.dremio_api.get_all_tables_and_columns(
+            containers=containers
+        ):
+            try:
                 dremio_dataset = DremioDataset(
                     dataset_details=dataset_details,
                     api_operations=self.dremio_api,
                 )
-                self.datasets.append(dremio_dataset)
+                yield dremio_dataset
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to create dataset from API response",
+                    context=f"Dataset: {dataset_details.get('TABLE_NAME', 'unknown')}",
+                    exc=e,
+                )
+                continue
 
-                for glossary_term in dremio_dataset.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
+    def get_containers(self) -> Iterable[DremioContainer]:
+        """Generator that yields DremioContainer objects one at a time to reduce memory usage."""
+        if self._containers_cache is None:
+            self._containers_cache = self.dremio_api.get_all_containers()
 
-            self.datasets_populated = True
-
-    def get_datasets(self) -> Deque[DremioDataset]:
-        self.set_datasets()
-        return self.datasets
-
-    def set_containers(self) -> None:
-        if not self.containers_populated:
-            for container in self.dremio_api.get_all_containers():
+        for container in self._containers_cache:
+            try:
                 container_type = container.get("container_type")
-                if container_type == DremioEntityContainerType.SOURCE:
-                    self.sources.append(
-                        DremioSourceContainer(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                            dremio_source_type=container.get("source_type")
-                            or "unknown",
-                            root_path=container.get("root_path"),
-                            database_name=container.get("database_name"),
-                        )
+                if container_type == DremioEntityContainerType.SOURCE.value:
+                    yield DremioSourceContainer(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=[],
+                        api_operations=self.dremio_api,
+                        dremio_source_type=container.get("source_type"),
+                        root_path=container.get("root_path"),
+                        database_name=container.get("database_name"),
                     )
-                elif container_type == DremioEntityContainerType.SPACE:
-                    self.spaces.append(
-                        DremioSpace(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                        )
+                elif container_type == DremioEntityContainerType.SPACE.value:
+                    yield DremioSpace(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=[],
+                        api_operations=self.dremio_api,
                     )
-                elif container_type == DremioEntityContainerType.FOLDER:
-                    self.folders.append(
-                        DremioFolder(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=container.get("path"),
-                            api_operations=self.dremio_api,
-                        )
+                elif container_type == DremioEntityContainerType.FOLDER.value:
+                    yield DremioFolder(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=container.get("path"),
+                        api_operations=self.dremio_api,
                     )
                 else:
-                    self.spaces.append(
-                        DremioSpace(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                        )
+                    # Default to Space for unknown types
+                    yield DremioSpace(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=[],
+                        api_operations=self.dremio_api,
                     )
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to create container from API response",
+                    context=f"Container: {container.get('name', 'unknown')}",
+                    exc=e,
+                )
+                continue
 
-        logging.info("Containers retrieved from source")
+    def get_sources(self) -> Iterable[DremioSourceContainer]:
+        """Generator that yields only DremioSourceContainer objects."""
+        for container in self.get_containers():
+            if isinstance(container, DremioSourceContainer):
+                yield container
 
-        self.containers_populated = True
-
-    def get_containers(self) -> Deque:
-        self.set_containers()
-        return deque(itertools.chain(self.sources, self.spaces, self.folders))
-
-    def get_sources(self) -> Deque[DremioSourceContainer]:
-        self.set_containers()
-        return self.sources
-
-    def get_glossary_terms(self) -> Deque[DremioGlossaryTerm]:
-        self.set_datasets()
-        self.set_containers()
-        return self.glossary_terms
+    def get_glossary_terms(self) -> Iterable[DremioGlossaryTerm]:
+        """Generator that yields unique glossary terms from datasets."""
+        seen_terms = set()
+        for dataset in self.get_datasets():
+            for glossary_term in dataset.glossary_terms:
+                if glossary_term.glossary_term not in seen_terms:
+                    seen_terms.add(glossary_term.glossary_term)
+                    yield glossary_term
 
     def is_valid_query(self, query: Dict[str, Any]) -> bool:
         required_fields = [
@@ -446,18 +446,23 @@ class DremioCatalog:
         ]
         return all(query.get(field) for field in required_fields)
 
-    def get_queries(self) -> Deque[DremioQuery]:
+    def get_queries(self) -> Iterable[DremioQuery]:
+        """Generator that yields DremioQuery objects one at a time to reduce memory usage."""
         for query in self.dremio_api.extract_all_queries():
             if not self.is_valid_query(query):
                 continue
-            self.queries.append(
-                DremioQuery(
+            try:
+                yield DremioQuery(
                     job_id=query["job_id"],
                     username=query["user_name"],
                     submitted_ts=query["submitted_ts"],
                     query=query["query"],
                     queried_datasets=query["queried_datasets"],
                 )
-            )
-        self.queries_populated = True
-        return self.queries
+            except Exception as e:
+                self.report.warning(
+                    message="Failed to create query from API response",
+                    context=f"Query ID: {query.get('job_id', 'unknown')}",
+                    exc=e,
+                )
+                continue

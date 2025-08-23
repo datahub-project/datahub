@@ -3,38 +3,46 @@ from typing import Optional
 
 
 class DremioSQLQueries:
+    # Optimized query that separates table metadata from columns to avoid VIEW_DEFINITION duplication
     QUERY_DATASETS_CE = """
-    SELECT* FROM
-    (
-    SELECT
-        T.TABLE_SCHEMA,
-        T.TABLE_NAME,
-        CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
-        V.VIEW_DEFINITION,
-        C.COLUMN_NAME,
-        C.IS_NULLABLE,
-        C.DATA_TYPE,
-        C.COLUMN_SIZE
-    FROM
-        INFORMATION_SCHEMA."TABLES" T
-        LEFT JOIN INFORMATION_SCHEMA.VIEWS V ON
-        V.TABLE_CATALOG = T.TABLE_CATALOG
-        AND V.TABLE_SCHEMA = T.TABLE_SCHEMA
-        AND V.TABLE_NAME = T.TABLE_NAME
-        INNER JOIN INFORMATION_SCHEMA.COLUMNS C ON
-        C.TABLE_CATALOG = T.TABLE_CATALOG
-        AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
-        AND C.TABLE_NAME = T.TABLE_NAME
-    WHERE
-        T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
-        AND LOCATE('{container_name}', LOWER(T.TABLE_SCHEMA)) = 1
+    SELECT * FROM (
+        SELECT
+            T.TABLE_SCHEMA,
+            T.TABLE_NAME,
+            CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
+            CASE 
+                WHEN {max_view_definition_length} = -1 THEN V.VIEW_DEFINITION
+                WHEN {truncate_large_view_definitions} = true AND LENGTH(V.VIEW_DEFINITION) > {max_view_definition_length} 
+                    THEN CONCAT(SUBSTRING(V.VIEW_DEFINITION, 1, {max_view_definition_length}), '... [TRUNCATED]')
+                WHEN {truncate_large_view_definitions} = false AND LENGTH(V.VIEW_DEFINITION) > {max_view_definition_length}
+                    THEN NULL
+                ELSE V.VIEW_DEFINITION
+            END AS VIEW_DEFINITION,
+            C.COLUMN_NAME,
+            C.IS_NULLABLE,
+            C.DATA_TYPE,
+            C.COLUMN_SIZE
+        FROM
+            INFORMATION_SCHEMA."TABLES" T
+            LEFT JOIN INFORMATION_SCHEMA.VIEWS V ON
+                V.TABLE_CATALOG = T.TABLE_CATALOG
+                AND V.TABLE_SCHEMA = T.TABLE_SCHEMA
+                AND V.TABLE_NAME = T.TABLE_NAME
+            INNER JOIN INFORMATION_SCHEMA.COLUMNS C ON
+                C.TABLE_CATALOG = T.TABLE_CATALOG
+                AND C.TABLE_SCHEMA = T.TABLE_SCHEMA
+                AND C.TABLE_NAME = T.TABLE_NAME
+        WHERE
+            T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
+            AND LOCATE('{container_name}', LOWER(T.TABLE_SCHEMA)) = 1
     )
     WHERE 1=1
         {schema_pattern}
         {deny_schema_pattern}
     ORDER BY
         TABLE_SCHEMA ASC,
-        TABLE_NAME ASC
+        TABLE_NAME ASC,
+        COLUMN_NAME ASC
     """
 
     QUERY_DATASETS_EE = """
@@ -51,7 +59,14 @@ class DremioSQLQueries:
                  )) AS FULL_TABLE_PATH,
             OWNER_TYPE,
             LOCATION_ID,
-            VIEW_DEFINITION,
+            CASE 
+                WHEN {max_view_definition_length} = -1 THEN VIEW_DEFINITION
+                WHEN {truncate_large_view_definitions} = true AND LENGTH(VIEW_DEFINITION) > {max_view_definition_length} 
+                    THEN CONCAT(SUBSTRING(VIEW_DEFINITION, 1, {max_view_definition_length}), '... [TRUNCATED]')
+                WHEN {truncate_large_view_definitions} = false AND LENGTH(VIEW_DEFINITION) > {max_view_definition_length}
+                    THEN NULL
+                ELSE VIEW_DEFINITION
+            END AS VIEW_DEFINITION,
             FORMAT_TYPE,
             COLUMN_NAME,
             ORDINAL_POSITION,
@@ -170,7 +185,14 @@ class DremioSQLQueries:
                     ELSE SCHEMA_ID
                 END AS LOCATION_ID,
                 OWNER_ID,
-                SQL_DEFINITION AS VIEW_DEFINITION,
+                CASE 
+                    WHEN {max_view_definition_length} = -1 THEN SQL_DEFINITION
+                    WHEN {truncate_large_view_definitions} = true AND LENGTH(SQL_DEFINITION) > {max_view_definition_length} 
+                        THEN CONCAT(SUBSTRING(SQL_DEFINITION, 1, {max_view_definition_length}), '... [TRUNCATED]')
+                    WHEN {truncate_large_view_definitions} = false AND LENGTH(SQL_DEFINITION) > {max_view_definition_length}
+                        THEN NULL
+                    ELSE SQL_DEFINITION
+                END AS VIEW_DEFINITION,
                 '' AS FORMAT_TYPE,
                 CREATED,
                 TYPE

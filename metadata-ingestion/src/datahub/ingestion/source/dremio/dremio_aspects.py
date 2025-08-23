@@ -109,7 +109,7 @@ class SchemaFieldTypeMapper:
         :return: A tuple containing a SchemaFieldDataTypeClass instance and the native data type string.
         """
         if not data_type:
-            logger.warning("Empty data_type provided, defaulting to NullTypeClass.")
+            # Use NullTypeClass as fallback for empty data types
             type_class = NullTypeClass
             native_data_type = "NULL"
         else:
@@ -124,10 +124,8 @@ class SchemaFieldTypeMapper:
                 f"Mapped data_type '{data_type}' with size '{data_size}' to type class "
                 f"'{type_class.__name__}' and native data type '{native_data_type}'."
             )
-        except Exception as e:
-            logger.error(
-                f"Error initializing SchemaFieldDataTypeClass with type '{type_class.__name__}': {e}"
-            )
+        except Exception:
+            # Fall back to NullTypeClass if type initialization fails
             schema_field_type = SchemaFieldDataTypeClass(type=NullTypeClass())
 
         return schema_field_type, native_data_type
@@ -312,12 +310,8 @@ class DremioAspects:
             yield mcp.as_workunit()
 
         else:
-            logger.warning(
-                f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio"
-            )
-            logger.warning(
-                f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema"
-            )
+            # Note: Dataset has no columns - this is expected for datasets that haven't been queried
+            pass
 
         # Status
         status = StatusClass(removed=False)

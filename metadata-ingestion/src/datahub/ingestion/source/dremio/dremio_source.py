@@ -1,6 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from functools import partial
 from typing import Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -21,6 +22,7 @@ from datahub.ingestion.api.source import (
     SourceCapability,
     SourceReport,
 )
+from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.dremio.dremio_api import (
@@ -57,12 +59,12 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     PROFILING,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
+    SchemaMetadataClass,
     UpstreamClass,
-    UpstreamLineage,
 )
-from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
@@ -161,7 +163,7 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_api = DremioAPIOperations(self.config, self.report)
 
         # Initialize catalog
-        self.dremio_catalog = DremioCatalog(dremio_api)
+        self.dremio_catalog = DremioCatalog(dremio_api, self.report)
 
         # Initialize aspects
         self.dremio_aspects = DremioAspects(
@@ -197,7 +199,8 @@ class DremioSource(StatefulIngestionSourceBase):
         return "dremio"
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
-        dremio_sources = self.dremio_catalog.get_sources()
+        # Convert generator to list for source mapping
+        dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
@@ -211,53 +214,51 @@ class DremioSource(StatefulIngestionSourceBase):
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
+            partial(auto_workunit_reporter, self.get_report()),
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Internal method to generate workunits for Dremio metadata.
-        """
+        """Generate metadata workunits for Dremio entities using streaming approach."""
 
+        # Build source mappings for external lineage
         self.source_map = self._build_source_map()
 
         with self.report.new_stage(METADATA_EXTRACTION):
-            # Process Containers
-            containers = self.dremio_catalog.get_containers()
-            for container in containers:
+            # Process containers (spaces, sources, folders)
+            logger.info("Processing containers with streaming approach...")
+            for container in self.dremio_catalog.get_containers():
                 try:
                     yield from self.process_container(container)
-                    logger.info(
+                    logger.debug(
                         f"Dremio container {container.container_name} emitted successfully"
                     )
                 except Exception as exc:
                     self.report.num_containers_failed += 1
                     self.report.report_failure(
                         message="Failed to process Dremio container",
-                        context=f"{'.'.join(container.path)}.{container.container_name}",
+                        context=f"{'.'.join(container.path) if container.path else ''}.{container.container_name}",
                         exc=exc,
                     )
 
-            # Process Datasets
-            datasets = self.dremio_catalog.get_datasets()
-
-            for dataset_info in datasets:
+            # Process datasets (tables and views)
+            logger.info("Processing datasets with streaming approach...")
+            for dataset_info in self.dremio_catalog.get_datasets():
                 try:
                     yield from self.process_dataset(dataset_info)
-                    logger.info(
+                    logger.debug(
                         f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
                     )
                 except Exception as exc:
-                    self.report.num_datasets_failed += 1  # Increment failed datasets
+                    self.report.num_datasets_failed += 1
                     self.report.report_failure(
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
                     )
 
-            # Process Glossary Terms
-            glossary_terms = self.dremio_catalog.get_glossary_terms()
-
-            for glossary_term in glossary_terms:
+            # Process glossary terms from dataset tags
+            logger.info("Processing glossary terms with streaming approach...")
+            for glossary_term in self.dremio_catalog.get_glossary_terms():
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -267,32 +268,22 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Optionally Process Query Lineage
+            # Extract query-based lineage if enabled
             if self.config.include_query_lineage:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     self.get_query_lineage_workunits()
 
-            # Generate workunit for aggregated SQL parsing results
+            # Generate aggregated SQL parsing results (lineage, usage, etc.)
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            # Profiling
+            # Profile datasets if enabled
             if self.config.is_profiling_enabled():
-                with (
-                    self.report.new_stage(PROFILING),
-                    ThreadPoolExecutor(
-                        max_workers=self.config.profiling.max_workers
-                    ) as executor,
-                ):
-                    future_to_dataset = {
-                        executor.submit(self.generate_profiles, dataset): dataset
-                        for dataset in datasets
-                    }
-
-                    for future in as_completed(future_to_dataset):
-                        dataset_info = future_to_dataset[future]
+                with self.report.new_stage(PROFILING):
+                    logger.info("Processing profiling with streaming approach...")
+                    for dataset_info in self.dremio_catalog.get_datasets():
                         try:
-                            yield from future.result()
+                            yield from self.generate_profiles(dataset_info)
                         except Exception as exc:
                             self.report.profiling_skipped_other[
                                 dataset_info.resource_name
@@ -372,6 +363,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 )
 
         elif dataset_info.dataset_type == DremioDatasetType.TABLE:
+            # For Dremio tables, generate lineage exactly as before our changes
             dremio_source = dataset_info.path[0] if dataset_info.path else None
 
             if dremio_source:
@@ -383,6 +375,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 logger.debug(f"Upstream dataset for {dataset_urn}: {upstream_urn}")
 
                 if upstream_urn:
+                    # Generate direct lineage MCP (original behavior)
                     upstream_lineage = UpstreamLineage(
                         upstreams=[
                             UpstreamClass(
@@ -461,7 +454,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 lineage_type=DatasetLineageTypeClass.VIEW,
             )
 
-        yield MetadataWorkUnit(id=f"{dataset_urn}-upstreamLineage", mcp=mcp)
+        yield mcp.as_workunit()
 
     def get_query_lineage_workunits(self) -> None:
         """
@@ -613,7 +606,9 @@ def build_dremio_source_map(
     for source in dremio_sources:
         current_source_name = source.container_name
 
-        source_type = source.dremio_source_type.lower()
+        source_type = (
+            source.dremio_source_type.lower() if source.dremio_source_type else ""
+        )
         source_category = DremioToDataHubSourceTypeMapping.get_category(source_type)
         datahub_platform = DremioToDataHubSourceTypeMapping.get_datahub_platform(
             source_type
