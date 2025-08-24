@@ -1,7 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import LanguageIcon from '@mui/icons-material/Language';
 import { Pagination, Spin, Typography } from 'antd';
-import React, {useRef, useEffect, useState} from 'react';
+import React from 'react';
 import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
@@ -21,9 +21,10 @@ import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchRe
 
 const SearchBody = styled.div`
     height: 100%;
-    overflow-y: auto;
-    display: flex;
+    overflow: hidden;
     background-color: ${REDESIGN_COLORS.BACKGROUND};
+    display: flex;
+    flex-direction: column;
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -195,31 +196,6 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
-    const resultContainerRef = useRef<HTMLDivElement>(null);
-    const paginationInfoContainerRef = useRef<HTMLDivElement>(null);
-
-    const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
-
-    useEffect(() => {
-            const calculateHeight = () => {
-                if (!loading && resultContainerRef.current && paginationInfoContainerRef.current) {
-                    const maxHeight = document.getElementById("searchableContent").offsetHeight;
-                    const paginationHeight = paginationInfoContainerRef.current.offsetHeight;
-                    const resultContentStartPoint = resultContainerRef.current.getBoundingClientRect().top
-                     + window.scrollY;
-                    const heightFound = maxHeight - resultContentStartPoint - paginationHeight;
-                    setContainerHeight(heightFound);
-                }
-            };
-
-            calculateHeight();
-
-            // Recalculate height on loading or window resize
-            window.addEventListener('resize', calculateHeight);
-            return () => {
-                window.removeEventListener('resize', calculateHeight);
-            };
-        }, [loading, showFilters]);
 
     return (
         <>
@@ -237,7 +213,7 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
 
-                <ResultContainer ref={resultContainerRef}>
+                <ResultContainer>
                     {view && (
                         <ViewsContainer>
                             <ViewLabel>View</ViewLabel>
@@ -283,38 +259,37 @@ export const EmbeddedListSearchResults = ({
                             bordered={false}
                             entityAction={entityAction}
                             compactUserSearchCardStyle={compactUserSearchCardStyle}
-                            containerHeight={containerHeight}
                         />
                     )}
                 </ResultContainer>
-            </SearchBody>
-            <PaginationInfoContainer ref={paginationInfoContainerRef}>
-                <PaginationInfo>
-                    <b>
-                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                    </b>{' '}
-                    of <b>{totalResults}</b>
-                </PaginationInfo>
-                <StyledPagination
-                    current={page}
-                    pageSize={numResultsPerPage}
-                    total={totalResults}
-                    showLessItems
-                    onChange={onChangePage}
-                    showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                    onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                    pageSizeOptions={['10', '20', '50', '100']}
-                />
-                {applyView ? (
-                    <MatchingViewsLabel
-                        view={view}
-                        selectedViewUrn={selectedViewUrn}
-                        setSelectedViewUrn={setSelectedViewUrn}
+                <PaginationInfoContainer>
+                    <PaginationInfo>
+                        <b>
+                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                        </b>{' '}
+                        of <b>{totalResults}</b>
+                    </PaginationInfo>
+                    <StyledPagination
+                        current={page}
+                        pageSize={numResultsPerPage}
+                        total={totalResults}
+                        showLessItems
+                        onChange={onChangePage}
+                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                        pageSizeOptions={['10', '20', '50', '100']}
                     />
-                ) : (
-                    <span />
-                )}
-            </PaginationInfoContainer>
+                    {applyView ? (
+                        <MatchingViewsLabel
+                            view={view}
+                            selectedViewUrn={selectedViewUrn}
+                            setSelectedViewUrn={setSelectedViewUrn}
+                        />
+                    ) : (
+                        <span />
+                    )}
+                </PaginationInfoContainer>
+            </SearchBody>
         </>
     );
 };

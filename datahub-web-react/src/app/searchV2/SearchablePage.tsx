@@ -142,7 +142,7 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
                 </Navigation>
-                <Content id="searchableContent" $isShowNavBarRedesign={isShowNavBarRedesign} $hideSearchBar={hideSearchBar}>
+                <Content $isShowNavBarRedesign={isShowNavBarRedesign} $hideSearchBar={hideSearchBar}>
                     {children}
                 </Content>
             </Body>
