@@ -1,0 +1,31 @@
+source:
+  type: dremio
+  config:
+    # Coordinates
+    hostname: localhost
+    port: 9047
+    tls: false
+
+    # Credentials
+    authentication_method: password
+    username: admin
+    password: "2310Admin1234!@"
+
+    # Enable file-backed caching for OOM prevention
+    enable_file_backed_cache: true
+    file_backed_cache_size: 500
+    cache_eviction_batch_size: 50
+    max_containers_per_batch: 5
+    
+    # Other standard config
+    include_query_lineage: false
+    
+    schema_pattern:
+      allow:
+        - ".*"
+    
+sink:
+  type: file
+  config:
+    filename: ./dremio_mces_with_cache.json
+

@@ -36,6 +36,9 @@ class DremioSourceReport(
         default_factory=float_top_k_dict
     )
 
+    # Required by IngestionStageReport
+    ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
+
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
     def report_upstream_latency(self, start_time: datetime, end_time: datetime) -> None:

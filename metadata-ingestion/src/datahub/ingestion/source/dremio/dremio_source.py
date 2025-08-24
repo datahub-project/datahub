@@ -1,8 +1,8 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
-from functools import partial
 from typing import Dict, Iterable, List, Optional
+
+from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -22,7 +22,7 @@ from datahub.ingestion.api.source import (
     SourceCapability,
     SourceReport,
 )
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.dremio.dremio_api import (
@@ -59,12 +59,12 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     PROFILING,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
-from datahub.metadata.schema_classes import (
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
-    SchemaMetadataClass,
     UpstreamClass,
+    UpstreamLineage,
 )
+from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownQueryLineageInfo,
@@ -75,8 +75,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class DremioSourceMapEntry:
+class DremioSourceMapEntry(BaseModel):
     platform: str
     source_name: str
     dremio_source_category: str
@@ -163,11 +162,34 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_api = DremioAPIOperations(self.config, self.report)
 
         # Initialize catalog
-        self.dremio_catalog = DremioCatalog(dremio_api, self.report)
+        self.dremio_catalog = DremioCatalog(dremio_api)
 
-        # Initialize aspects
+        # Initialize optional file-backed caching for OOM prevention
+        self.file_backed_cache = None
+        self.chunked_processor = None
+        if self.config.enable_file_backed_cache:
+            try:
+                from datahub.ingestion.source.dremio.dremio_file_backed_cache import (
+                    DremioChunkedProcessor,
+                    DremioFileBackedCache,
+                )
+
+                self.file_backed_cache = DremioFileBackedCache(
+                    cache_size=self.config.file_backed_cache_size,
+                    eviction_batch_size=self.config.cache_eviction_batch_size,
+                )
+                self.chunked_processor = DremioChunkedProcessor(
+                    cache=self.file_backed_cache,
+                    max_containers_per_batch=self.config.max_containers_per_batch,
+                )
+                logger.info("File-backed caching enabled for OOM prevention")
+            except ImportError as e:
+                logger.warning(f"Failed to initialize file-backed cache: {e}")
+                self.config.enable_file_backed_cache = False
+
+        # Initialize aspects - containers always use "dremio" platform for consistency
         self.dremio_aspects = DremioAspects(
-            platform=self.get_platform(),
+            platform="dremio",  # Always use dremio platform for containers
             domain=self.config.domain,
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
@@ -177,18 +199,78 @@ class DremioSource(StatefulIngestionSourceBase):
         self.max_workers = config.max_workers
 
         self.sql_parsing_aggregator = SqlParsingAggregator(
-            platform=make_data_platform_urn(self.get_platform()),
+            platform=make_data_platform_urn(
+                "dremio"
+            ),  # Always use dremio for SQL parsing
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             graph=self.ctx.graph,
             generate_usage_statistics=True,
             generate_operations=True,
             usage_config=self.config.usage,
+            is_temp_table=self._is_temp_table,
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
         # For profiling
         self.profiler = DremioProfiler(config, self.report, dremio_api)
+
+        # Track discovered datasets for SQL aggregator filtering
+        self.discovered_datasets: set[str] = set()
+
+    def _is_temp_table(self, table_name: str) -> bool:
+        """
+        Check if a table is a temporary table that should be excluded from lineage.
+
+        In Dremio, the main temporary/ephemeral storage is in $scratch spaces.
+        """
+        table_lower = table_name.lower()
+
+        # Dremio scratch space tables - the primary temporary storage in Dremio
+        return "$scratch" in table_lower
+
+    def _is_allowed_table(self, table_name: str) -> bool:
+        """
+        Check if a table should be included in lineage based on our filtering patterns.
+
+        This ensures we only generate lineage for tables that:
+        1. Are discovered during metadata extraction
+        2. Pass our allow/deny patterns
+        3. Are not system tables (if system tables are disabled)
+        """
+        # Check if table was discovered during metadata extraction
+        if table_name not in self.discovered_datasets:
+            return False
+
+        # Parse table name to extract components
+        parts = table_name.replace("dremio.", "").split(".")
+        if len(parts) < 2:
+            return False
+
+        source_name = parts[0]
+        schema_parts = parts[1:-1] if len(parts) > 2 else []
+        table_part = parts[-1]
+
+        # Use our filter helper for consistent filtering
+        if (
+            hasattr(self.dremio_catalog.dremio_api, "filter_helper")
+            and self.dremio_catalog.dremio_api.filter_helper
+        ):
+            schema_name = (
+                ".".join([source_name] + schema_parts) if schema_parts else source_name
+            )
+            return self.dremio_catalog.dremio_api.filter_helper.should_include_dataset(
+                source_name=source_name,
+                schema_name=schema_name,
+                table_name=table_part,
+                dataset_type="table",  # Default to table for lineage purposes
+            )
+
+        # Fallback to basic pattern matching if no filter helper
+        return self.config.dataset_pattern.allowed(
+            table_name
+        ) and self.config.schema_pattern.allowed(schema_name)
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -199,8 +281,7 @@ class DremioSource(StatefulIngestionSourceBase):
         return "dremio"
 
     def _build_source_map(self) -> Dict[str, DremioSourceMapEntry]:
-        # Convert generator to list for source mapping
-        dremio_sources = list(self.dremio_catalog.get_sources())
+        dremio_sources = self.dremio_catalog.get_sources()
         source_mappings_config = self.config.source_mappings or []
 
         source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
@@ -214,40 +295,60 @@ class DremioSource(StatefulIngestionSourceBase):
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
-            partial(auto_workunit_reporter, self.get_report()),
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """Generate metadata workunits for Dremio entities using streaming approach."""
+        """
+        Internal method to generate workunits for Dremio metadata.
+        """
 
-        # Build source mappings for external lineage
         self.source_map = self._build_source_map()
 
         with self.report.new_stage(METADATA_EXTRACTION):
-            # Process containers (spaces, sources, folders)
-            logger.info("Processing containers with streaming approach...")
+            # Always use streaming approach to prevent OOM - the catalog methods are generators
+            logger.info("Using streaming processing to prevent memory pressure")
+
+            # Process Containers (streaming)
+            container_count = 0
             for container in self.dremio_catalog.get_containers():
                 try:
                     yield from self.process_container(container)
-                    logger.debug(
-                        f"Dremio container {container.container_name} emitted successfully"
-                    )
+                    container_count += 1
+                    if container_count % 10 == 0:
+                        logger.info(f"Processed {container_count} containers")
+                    else:
+                        logger.debug(
+                            f"Dremio container {container.container_name} emitted successfully"
+                        )
                 except Exception as exc:
                     self.report.num_containers_failed += 1
                     self.report.report_failure(
                         message="Failed to process Dremio container",
-                        context=f"{'.'.join(container.path) if container.path else ''}.{container.container_name}",
+                        context=f"{'.'.join(container.path)}.{container.container_name}",
                         exc=exc,
                     )
 
-            # Process datasets (tables and views)
-            logger.info("Processing datasets with streaming approach...")
+            logger.info(f"Completed processing {container_count} containers")
+
+            # Process Datasets (streaming)
+            dataset_count = 0
+            datasets_for_profiling = []  # Collect datasets for profiling if enabled
+
             for dataset_info in self.dremio_catalog.get_datasets():
                 try:
                     yield from self.process_dataset(dataset_info)
-                    logger.debug(
-                        f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
-                    )
+                    dataset_count += 1
+
+                    # Collect dataset for profiling if enabled
+                    if self.config.is_profiling_enabled():
+                        datasets_for_profiling.append(dataset_info)
+
+                    if dataset_count % 50 == 0:
+                        logger.info(f"Processed {dataset_count} datasets")
+                    else:
+                        logger.debug(
+                            f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
+                        )
                 except Exception as exc:
                     self.report.num_datasets_failed += 1
                     self.report.report_failure(
@@ -256,9 +357,12 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process glossary terms from dataset tags
-            logger.info("Processing glossary terms with streaming approach...")
-            for glossary_term in self.dremio_catalog.get_glossary_terms():
+            logger.info(f"Completed processing {dataset_count} datasets")
+
+            # Process Glossary Terms
+            glossary_terms = self.dremio_catalog.get_glossary_terms()
+
+            for glossary_term in glossary_terms:
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -268,22 +372,31 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Extract query-based lineage if enabled
+            # Optionally Process Query Lineage
             if self.config.include_query_lineage:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     self.get_query_lineage_workunits()
 
-            # Generate aggregated SQL parsing results (lineage, usage, etc.)
-            for mcp in self.sql_parsing_aggregator.gen_metadata():
-                yield mcp.as_workunit()
+            # Generate workunit for aggregated SQL parsing results
+            yield from auto_workunit(self.sql_parsing_aggregator.gen_metadata())
 
-            # Profile datasets if enabled
+            # Profiling
             if self.config.is_profiling_enabled():
-                with self.report.new_stage(PROFILING):
-                    logger.info("Processing profiling with streaming approach...")
-                    for dataset_info in self.dremio_catalog.get_datasets():
+                with (
+                    self.report.new_stage(PROFILING),
+                    ThreadPoolExecutor(
+                        max_workers=self.config.profiling.max_workers
+                    ) as executor,
+                ):
+                    future_to_dataset = {
+                        executor.submit(self.generate_profiles, dataset): dataset
+                        for dataset in datasets_for_profiling
+                    }
+
+                    for future in as_completed(future_to_dataset):
+                        dataset_info = future_to_dataset[future]
                         try:
-                            yield from self.generate_profiles(dataset_info)
+                            yield from future.result()
                         except Exception as exc:
                             self.report.profiling_skipped_other[
                                 dataset_info.resource_name
@@ -299,20 +412,120 @@ class DremioSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Process a Dremio container and generate metadata workunits.
+
+        Containers in Dremio represent organizational structures like spaces, sources,
+        and folders. This method processes each container to extract metadata and
+        generate appropriate DataHub workunits while respecting filtering patterns.
+
+        The processing follows a hierarchical filtering approach:
+        1. Containers are discovered recursively to find matching datasets
+        2. Only containers that match schema patterns are emitted as metadata
+        3. This handles Dremio's flexible hierarchy where patterns can match at any level
+
+        Note: Container URNs always use the "dremio" platform for consistency,
+        regardless of format-based platform URN settings.
+
+        Args:
+            container_info: Dremio container information including name, path, and type.
+                           Must contain container_name and path attributes.
+
+        Yields:
+            MetadataWorkUnit: Workunits containing container metadata aspects such as:
+            - ContainerProperties: Basic container information
+            - BrowsePathsV2: Navigation paths for DataHub UI
+            - DataPlatformInstance: Platform and instance information
+            - SubTypes: Container classification information
+
+        Example:
+            >>> container = DremioContainer(container_name="Analytics", path=["DataLake"])
+            >>> for workunit in source.process_container(container):
+            ...     print(workunit.id)  # "urn:li:container:..."
         """
+        # Build full container path for filtering
+        path_components = container_info.path + [container_info.container_name]
+        full_container_path = ".".join(path_components)
+
+        # Check if this container should be emitted based on schema patterns
+        # We use the same filtering logic as the API layer
+        if (
+            hasattr(self.dremio_catalog.dremio_api, "filter_helper")
+            and self.dremio_catalog.dremio_api.filter_helper
+        ):
+            # Use the filter helper for consistent filtering
+            if not self.dremio_catalog.dremio_api.filter_helper.is_schema_allowed(
+                full_container_path
+            ):
+                logger.debug(
+                    f"Container {full_container_path} excluded by schema_pattern during emission"
+                )
+                return
+        else:
+            # Fallback to basic pattern matching
+            if not self.config.schema_pattern.allowed(full_container_path):
+                logger.debug(
+                    f"Container {full_container_path} excluded by schema_pattern during emission"
+                )
+                return
+
         container_urn = self.dremio_aspects.get_container_urn(
             path=container_info.path, name=container_info.container_name
         )
 
-        yield from self.dremio_aspects.populate_container_mcp(
-            container_urn, container_info
+        yield from auto_workunit(
+            self.dremio_aspects.populate_container_mcp(container_urn, container_info)
         )
 
     def process_dataset(
         self, dataset_info: DremioDataset
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Process a Dremio dataset and generate metadata workunits.
+        Process a Dremio dataset and generate comprehensive metadata workunits.
+
+        This method is the core of dataset processing, extracting metadata from Dremio
+        datasets (tables and views) and converting it into DataHub-compatible workunits.
+        It handles both physical datasets (tables) and virtual datasets (views) with
+        appropriate lineage extraction.
+
+        The processing pipeline includes:
+        1. Platform determination (format-based or standard)
+        2. URN generation with proper platform assignment
+        3. Schema registration for SQL aggregator lineage
+        4. Metadata aspect generation (schema, properties, lineage, etc.)
+        5. View lineage extraction for virtual datasets
+
+        Args:
+            dataset_info: Complete Dremio dataset information including:
+                         - resource_name: Table/view name
+                         - path: Container hierarchy path
+                         - dataset_type: TABLE or VIEW
+                         - format_type: Storage format (for platform determination)
+                         - columns: Schema information
+                         - sql_definition: View SQL (for views)
+                         - parents: Upstream dependencies
+
+        Yields:
+            MetadataWorkUnit: Comprehensive metadata workunits including:
+            - SchemaMetadata: Column schema and data types
+            - DatasetProperties: Basic dataset information
+            - ViewProperties: View-specific metadata (for views)
+            - UpstreamLineage: Dataset dependencies and lineage
+            - DataPlatformInstance: Platform and instance information
+            - Ownership: Dataset ownership information
+            - GlobalTags: Applied tags and classifications
+            - GlossaryTerms: Business glossary associations
+
+        Raises:
+            Exception: Re-raises any processing exceptions after logging for monitoring
+
+        Example:
+            >>> dataset = DremioDataset(
+            ...     resource_name="customer_data",
+            ...     path=["DataLake", "Analytics"],
+            ...     dataset_type=DremioDatasetType.TABLE,
+            ...     format_type="DELTA"
+            ... )
+            >>> for workunit in source.process_dataset(dataset):
+            ...     print(f"Generated workunit: {workunit.id}")
         """
 
         schema_str = ".".join(dataset_info.path)
@@ -324,12 +537,18 @@ class DremioSource(StatefulIngestionSourceBase):
             self.report.report_dropped(dataset_name)
             return
 
+        # Determine platform based on format type if enabled
+        platform = self._determine_dataset_platform(dataset_info)
+
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
+            platform=make_data_platform_urn(platform),
             name=f"dremio.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+
+        # Register discovered dataset for SQL aggregator filtering
+        self.discovered_datasets.add(f"dremio.{dataset_name}")
 
         for dremio_mcp in self.dremio_aspects.populate_dataset_mcp(
             dataset_urn, dataset_info
@@ -363,7 +582,6 @@ class DremioSource(StatefulIngestionSourceBase):
                 )
 
         elif dataset_info.dataset_type == DremioDatasetType.TABLE:
-            # For Dremio tables, generate lineage exactly as before our changes
             dremio_source = dataset_info.path[0] if dataset_info.path else None
 
             if dremio_source:
@@ -375,7 +593,6 @@ class DremioSource(StatefulIngestionSourceBase):
                 logger.debug(f"Upstream dataset for {dataset_urn}: {upstream_urn}")
 
                 if upstream_urn:
-                    # Generate direct lineage MCP (original behavior)
                     upstream_lineage = UpstreamLineage(
                         upstreams=[
                             UpstreamClass(
@@ -409,8 +626,12 @@ class DremioSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
+
+        # Use format-based platform for dataset profiling
+        platform = self._determine_dataset_platform(dataset_info)
+
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=make_data_platform_urn(self.get_platform()),
+            platform=make_data_platform_urn(platform),
             name=f"dremio.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
@@ -454,7 +675,7 @@ class DremioSource(StatefulIngestionSourceBase):
                 lineage_type=DatasetLineageTypeClass.VIEW,
             )
 
-        yield mcp.as_workunit()
+        yield MetadataWorkUnit(id=f"{dataset_urn}-upstreamLineage", mcp=mcp)
 
     def get_query_lineage_workunits(self) -> None:
         """
@@ -571,6 +792,80 @@ class DremioSource(StatefulIngestionSourceBase):
             env=env,
         )
 
+    def close(self) -> None:
+        """
+        Clean up resources, including file-backed cache if enabled.
+        """
+        if self.file_backed_cache:
+            try:
+                self.file_backed_cache.close()
+                logger.info("File-backed cache cleaned up successfully")
+            except Exception as e:
+                logger.warning(f"Error cleaning up file-backed cache: {e}")
+
+    def _determine_dataset_platform(self, dataset_info: DremioDataset) -> str:
+        """
+        Determine the appropriate DataHub platform for a dataset based on its format type.
+
+        This method implements format-based platform URN generation, allowing datasets
+        to be assigned platform-specific URNs (e.g., delta-lake, iceberg) based on their
+        underlying storage format, while maintaining backward compatibility.
+
+        The platform determination follows this hierarchy:
+        1. If format-based platforms are disabled, return "dremio"
+        2. If format_type matches a configured mapping, return the mapped platform
+        3. Otherwise, fall back to the source-based platform mapping
+
+        Args:
+            dataset_info: The Dremio dataset containing format and path information.
+                         Must include format_type and path attributes.
+
+        Returns:
+            Platform name to use for the dataset URN. Examples:
+            - "delta-lake" for Delta Lake tables
+            - "iceberg" for Iceberg tables
+            - "s3" for generic S3 data
+            - "dremio" when format-based platforms are disabled
+
+        Example:
+            >>> dataset = DremioDataset(format_type="DELTA", path=["s3_source"])
+            >>> platform = source._determine_dataset_platform(dataset)
+            >>> print(platform)  # "delta-lake"
+        """
+        if not self.config.use_format_based_platform_urns:
+            return self.get_platform()
+
+        # Get the source type from the first path element (source name)
+        source_type = "DREMIO"  # Default fallback
+        if dataset_info.path:
+            source_name = dataset_info.path[0]
+            # Try to find the source type from our source map
+            mapping = self.source_map.get(source_name.lower())
+            if mapping:
+                # Get the original Dremio source type from the mapping
+                for (
+                    dremio_type,
+                    datahub_platform,
+                ) in DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING.items():
+                    if datahub_platform == mapping.platform:
+                        source_type = dremio_type
+                        break
+
+        # Use the format-based platform detection
+        platform = DremioToDataHubSourceTypeMapping.get_platform_from_format(
+            format_type=dataset_info.format_type,
+            source_type=source_type,
+            format_mapping=self.config.format_platform_mapping,
+            use_format_based_platforms=self.config.use_format_based_platform_urns,
+        )
+
+        logger.debug(
+            f"Dataset {dataset_info.resource_name} with format {dataset_info.format_type} "
+            f"mapped to platform {platform}"
+        )
+
+        return platform
+
     def get_report(self) -> SourceReport:
         """
         Get the source report.
@@ -606,9 +901,7 @@ def build_dremio_source_map(
     for source in dremio_sources:
         current_source_name = source.container_name
 
-        source_type = (
-            source.dremio_source_type.lower() if source.dremio_source_type else ""
-        )
+        source_type = (source.dremio_source_type or "").lower()
         source_category = DremioToDataHubSourceTypeMapping.get_category(source_type)
         datahub_platform = DremioToDataHubSourceTypeMapping.get_datahub_platform(
             source_type

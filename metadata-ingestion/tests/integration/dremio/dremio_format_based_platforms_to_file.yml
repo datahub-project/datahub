@@ -1,0 +1,35 @@
+source:
+  type: dremio
+  config:
+    hostname: localhost
+    port: 9047
+    tls: false
+    authentication_method: password
+    username: dremio
+    password: dremio123
+    
+    # Enable format-based platform URNs
+    use_format_based_platform_urns: true
+    format_platform_mapping:
+      delta: "delta-lake"
+      iceberg: "iceberg"
+      hudi: "hudi"
+      parquet: "s3"
+    
+    # Include all datasets for testing
+    dataset_pattern:
+      allow:
+        - ".*"
+    
+    # Disable profiling for faster test execution
+    profiling:
+      enabled: false
+    
+    # Disable usage stats for faster test execution
+    include_usage_stats: false
+    include_query_lineage: false
+
+sink:
+  type: file
+  config:
+    filename: ./test_dremio_format_based_platforms_mces.json

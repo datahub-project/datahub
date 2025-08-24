@@ -1,7 +1,9 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from pydantic import BaseModel, Field
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -19,6 +21,138 @@ from datahub.metadata.schema_classes import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class ColumnProfileStats(BaseModel):
+    """Statistics for a single column profile."""
+
+    distinct_count: Optional[int] = None
+    null_count: Optional[int] = None
+    min_value: Optional[Any] = Field(None, alias="min")
+    max_value: Optional[Any] = Field(None, alias="max")
+    mean: Optional[float] = None
+    median: Optional[float] = None
+    stdev: Optional[float] = None
+    quantiles: Optional[List[float]] = None
+    sample_values: Optional[List[str]] = None
+
+    class Config:
+        allow_population_by_field_name = True
+
+
+class TableProfileData(BaseModel):
+    """Complete profile data for a table."""
+
+    row_count: int = 0
+    column_count: int = 0
+    column_stats: Dict[str, ColumnProfileStats] = Field(default_factory=dict)
+
+    def add_column_stats(self, column_name: str, stats: ColumnProfileStats) -> None:
+        """Add column statistics to the profile."""
+        self.column_stats[column_name] = stats
+
+    def get_column_stats(self, column_name: str) -> Optional[ColumnProfileStats]:
+        """Get statistics for a specific column."""
+        return self.column_stats.get(column_name)
+
+
+class ProfileChunkResult(BaseModel):
+    """Result from profiling a chunk of columns."""
+
+    row_count: int = 0
+    column_count: int = 0
+    column_stats: Dict[str, ColumnProfileStats] = Field(default_factory=dict)
+
+    @classmethod
+    def from_query_result(
+        cls,
+        result: Dict[str, Any],
+        columns: List[Tuple[str, str]],
+        config: Optional["DremioSourceConfig"] = None,
+    ) -> "ProfileChunkResult":
+        """Create ProfileChunkResult from raw query results."""
+        chunk_result = cls(
+            row_count=int(result.get("row_count", 0)),
+            column_count=int(result.get("column_count", 0)),
+        )
+
+        for column_name, data_type in columns:
+            safe_column_name = re.sub(r"\W|^(?=\d)", "_", column_name)
+
+            # Extract column statistics from result based on config
+            stats = ColumnProfileStats()
+
+            if config is None or config.profiling.include_field_distinct_count:
+                stats.distinct_count = cls._safe_int(
+                    result.get(f"{safe_column_name}_distinct_count")
+                )
+
+            if config is None or config.profiling.include_field_null_count:
+                stats.null_count = cls._safe_int(
+                    result.get(f"{safe_column_name}_null_count")
+                )
+
+            if config is None or config.profiling.include_field_min_value:
+                stats.min_value = result.get(f"{safe_column_name}_min")
+
+            if config is None or config.profiling.include_field_max_value:
+                stats.max_value = result.get(f"{safe_column_name}_max")
+
+            # Handle numeric type statistics
+            if data_type.lower() in [
+                "int",
+                "integer",
+                "bigint",
+                "float",
+                "double",
+                "decimal",
+            ]:
+                if config is None or config.profiling.include_field_mean_value:
+                    stats.mean = cls._safe_float(result.get(f"{safe_column_name}_mean"))
+
+                if config is None or config.profiling.include_field_stddev_value:
+                    stats.stdev = cls._safe_float(
+                        result.get(f"{safe_column_name}_stdev")
+                    )
+
+                if config is None or config.profiling.include_field_median_value:
+                    stats.median = cls._safe_float(
+                        result.get(f"{safe_column_name}_median")
+                    )
+
+                if config is None or config.profiling.include_field_quantiles:
+                    q25 = cls._safe_float(
+                        result.get(f"{safe_column_name}_25th_percentile")
+                    )
+                    q75 = cls._safe_float(
+                        result.get(f"{safe_column_name}_75th_percentile")
+                    )
+                    if q25 is not None and q75 is not None:
+                        stats.quantiles = [q25, q75]
+
+            chunk_result.column_stats[column_name] = stats
+
+        return chunk_result
+
+    @staticmethod
+    def _safe_int(value: Any) -> Optional[int]:
+        """Safely convert value to int."""
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return None
+
+    @staticmethod
+    def _safe_float(value: Any) -> Optional[float]:
+        """Safely convert value to float."""
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return None
 
 
 class DremioProfiler:
@@ -74,43 +208,48 @@ class DremioProfiler:
             )
             yield mcp.as_workunit()
 
-    def populate_profile_aspect(self, profile_data: Dict) -> DatasetProfileClass:
+    def populate_profile_aspect(
+        self, profile_data: TableProfileData
+    ) -> DatasetProfileClass:
         field_profiles = [
             self._create_field_profile(field_name, field_stats)
-            for field_name, field_stats in profile_data.get("column_stats", {}).items()
+            for field_name, field_stats in profile_data.column_stats.items()
         ]
         return DatasetProfileClass(
             timestampMillis=round(time.time() * 1000),
-            rowCount=profile_data.get("row_count"),
-            columnCount=profile_data.get("column_count"),
+            rowCount=profile_data.row_count,
+            columnCount=profile_data.column_count,
             fieldProfiles=field_profiles,
         )
 
     def _create_field_profile(
-        self, field_name: str, field_stats: Dict
+        self, field_name: str, field_stats: ColumnProfileStats
     ) -> DatasetFieldProfileClass:
-        quantiles = field_stats.get("quantiles")
         return DatasetFieldProfileClass(
             fieldPath=field_name,
-            uniqueCount=field_stats.get("distinct_count"),
-            nullCount=field_stats.get("null_count"),
-            min=str(field_stats.get("min")) if field_stats.get("min") else None,
-            max=str(field_stats.get("max")) if field_stats.get("max") else None,
-            mean=str(field_stats.get("mean")) if field_stats.get("mean") else None,
-            median=str(field_stats.get("median"))
-            if field_stats.get("median")
+            uniqueCount=field_stats.distinct_count,
+            nullCount=field_stats.null_count,
+            min=str(field_stats.min_value)
+            if field_stats.min_value is not None
             else None,
-            stdev=str(field_stats.get("stdev")) if field_stats.get("stdev") else None,
+            max=str(field_stats.max_value)
+            if field_stats.max_value is not None
+            else None,
+            mean=str(field_stats.mean) if field_stats.mean is not None else None,
+            median=str(field_stats.median) if field_stats.median is not None else None,
+            stdev=str(field_stats.stdev) if field_stats.stdev is not None else None,
             quantiles=[
-                QuantileClass(quantile=str(0.25), value=str(quantiles[0])),
-                QuantileClass(quantile=str(0.75), value=str(quantiles[1])),
+                QuantileClass(quantile=str(0.25), value=str(field_stats.quantiles[0])),
+                QuantileClass(quantile=str(0.75), value=str(field_stats.quantiles[1])),
             ]
-            if quantiles
+            if field_stats.quantiles and len(field_stats.quantiles) >= 2
             else None,
-            sampleValues=field_stats.get("sample_values"),
+            sampleValues=field_stats.sample_values,
         )
 
-    def profile_table(self, table_name: str, columns: List[Tuple[str, str]]) -> Dict:
+    def profile_table(
+        self, table_name: str, columns: List[Tuple[str, str]]
+    ) -> TableProfileData:
         chunked_columns = self._chunk_columns(columns)
         profile_results = []
 
@@ -128,11 +267,18 @@ class DremioProfiler:
                 )
         return self._combine_profile_results(profile_results)
 
-    def _profile_chunk(self, table_name: str, columns: List[Tuple[str, str]]) -> Dict:
+    def _profile_chunk(
+        self, table_name: str, columns: List[Tuple[str, str]]
+    ) -> ProfileChunkResult:
         profile_sql = self._build_profile_sql(table_name, columns)
         try:
             results = self.api_operations.execute_query(profile_sql)
-            return self._parse_profile_results(results, columns)
+            if results and len(results) > 0:
+                return ProfileChunkResult.from_query_result(
+                    results[0], columns, self.config
+                )
+            else:
+                return self._create_empty_profile_result(columns)
         except DremioAPIException as e:
             raise e
 
@@ -232,77 +378,29 @@ class DremioProfiler:
 
         return metrics
 
-    def _parse_profile_results(
-        self, results: List[Dict], columns: List[Tuple[str, str]]
-    ) -> Dict:
-        profile: Dict[str, Any] = {"column_stats": {}}
-        result = results[0] if results else {}  # We expect only one row of results
-
-        profile["row_count"] = int(result.get("row_count", 0))
-
-        profile["column_count"] = int(result.get("column_count", 0))
-
-        for column_name, data_type in columns:
-            safe_column_name = re.sub(r"\W|^(?=\d)", "_", column_name)
-            column_stats: Dict[str, Any] = {}
-            if self.config.profiling.include_field_distinct_count:
-                null_distinct = result.get(f"{safe_column_name}_distinct_count", 0)
-                null_distinct = int(null_distinct) if null_distinct is not None else 0
-                column_stats["distinct_count"] = null_distinct
-
-            if self.config.profiling.include_field_null_count:
-                null_count_value = result.get(f"{safe_column_name}_null_count", 0)
-                null_count = (
-                    int(null_count_value) if null_count_value is not None else 0
-                )
-                column_stats["null_count"] = null_count
-
-            if self.config.profiling.include_field_min_value:
-                column_stats["min"] = result.get(f"{safe_column_name}_min")
-            if self.config.profiling.include_field_max_value:
-                column_stats["max"] = result.get(f"{safe_column_name}_max")
-
-            if data_type.lower() in [
-                "int",
-                "integer",
-                "bigint",
-                "float",
-                "double",
-                "decimal",
-            ]:
-                if self.config.profiling.include_field_mean_value:
-                    column_stats["mean"] = result.get(f"{safe_column_name}_mean")
-                if self.config.profiling.include_field_stddev_value:
-                    column_stats["stdev"] = result.get(f"{safe_column_name}_stdev")
-                if self.config.profiling.include_field_median_value:
-                    column_stats["median"] = result.get(f"{safe_column_name}_median")
-                if self.config.profiling.include_field_quantiles:
-                    column_stats["quantiles"] = [
-                        result.get(f"{safe_column_name}_25th_percentile"),
-                        result.get(f"{safe_column_name}_75th_percentile"),
-                    ]
-
-            profile["column_stats"][column_name] = column_stats
-
-        return profile
-
-    def _create_empty_profile_result(self, columns: List[Tuple[str, str]]) -> Dict:
-        profile: Dict[str, Any] = {"column_stats": {}}
+    def _create_empty_profile_result(
+        self, columns: List[Tuple[str, str]]
+    ) -> ProfileChunkResult:
+        result = ProfileChunkResult()
         for column_name, _ in columns:
-            profile["column_stats"][column_name] = {}
-        return profile
+            result.column_stats[column_name] = ColumnProfileStats()
+        return result
 
-    def _combine_profile_results(self, profile_results: List[Dict]) -> Dict:
-        combined_profile = {}
-        combined_profile["row_count"] = sum(
-            profile.get("row_count", 0) for profile in profile_results
-        )
-        combined_profile["column_count"] = sum(
-            profile.get("column_count", 0) for profile in profile_results
-        )
-        combined_profile["column_stats"] = {}
+    def _combine_profile_results(
+        self, profile_results: List[ProfileChunkResult]
+    ) -> TableProfileData:
+        combined_profile = TableProfileData()
 
+        # Sum up row counts and column counts
+        combined_profile.row_count = sum(
+            profile.row_count for profile in profile_results
+        )
+        combined_profile.column_count = sum(
+            profile.column_count for profile in profile_results
+        )
+
+        # Combine column statistics from all chunks
         for profile in profile_results:
-            combined_profile["column_stats"].update(profile.get("column_stats", {}))
+            combined_profile.column_stats.update(profile.column_stats)
 
         return combined_profile

@@ -1,23 +1,20 @@
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
+logger = logging.getLogger(__name__)
+
 
 class DremioSQLQueries:
-    # Optimized query that separates table metadata from columns to avoid VIEW_DEFINITION duplication
+    # Optimized query for Community Edition with intelligent view handling
     QUERY_DATASETS_CE = """
     SELECT * FROM (
         SELECT
             T.TABLE_SCHEMA,
             T.TABLE_NAME,
             CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
-            CASE 
-                WHEN {max_view_definition_length} = -1 THEN V.VIEW_DEFINITION
-                WHEN {truncate_large_view_definitions} = true AND LENGTH(V.VIEW_DEFINITION) > {max_view_definition_length} 
-                    THEN CONCAT(SUBSTRING(V.VIEW_DEFINITION, 1, {max_view_definition_length}), '... [TRUNCATED]')
-                WHEN {truncate_large_view_definitions} = false AND LENGTH(V.VIEW_DEFINITION) > {max_view_definition_length}
-                    THEN NULL
-                ELSE V.VIEW_DEFINITION
-            END AS VIEW_DEFINITION,
+            V.VIEW_DEFINITION,
+            LENGTH(V.VIEW_DEFINITION) AS VIEW_DEFINITION_LENGTH,
             C.COLUMN_NAME,
             C.IS_NULLABLE,
             C.DATA_TYPE,
@@ -35,6 +32,7 @@ class DremioSQLQueries:
         WHERE
             T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
             AND LOCATE('{container_name}', LOWER(T.TABLE_SCHEMA)) = 1
+            {system_table_filter}
     )
     WHERE 1=1
         {schema_pattern}
@@ -46,7 +44,7 @@ class DremioSQLQueries:
     """
 
     QUERY_DATASETS_EE = """
-        SELECT* FROM
+        SELECT * FROM
         (
         SELECT
             RESOURCE_ID,
@@ -59,14 +57,8 @@ class DremioSQLQueries:
                  )) AS FULL_TABLE_PATH,
             OWNER_TYPE,
             LOCATION_ID,
-            CASE 
-                WHEN {max_view_definition_length} = -1 THEN VIEW_DEFINITION
-                WHEN {truncate_large_view_definitions} = true AND LENGTH(VIEW_DEFINITION) > {max_view_definition_length} 
-                    THEN CONCAT(SUBSTRING(VIEW_DEFINITION, 1, {max_view_definition_length}), '... [TRUNCATED]')
-                WHEN {truncate_large_view_definitions} = false AND LENGTH(VIEW_DEFINITION) > {max_view_definition_length}
-                    THEN NULL
-                ELSE VIEW_DEFINITION
-            END AS VIEW_DEFINITION,
+            VIEW_DEFINITION,
+            LENGTH(VIEW_DEFINITION) AS VIEW_DEFINITION_LENGTH,
             FORMAT_TYPE,
             COLUMN_NAME,
             ORDINAL_POSITION,
@@ -270,6 +262,50 @@ class DremioSQLQueries:
         ]  # Truncate to milliseconds
 
     @staticmethod
+    def get_optimized_start_timestamp(
+        last_checkpoint: Optional[datetime] = None, default_lookback_hours: int = 24
+    ) -> str:
+        """
+        Get optimized start timestamp for stateful ingestion.
+
+        This method implements intelligent time window selection:
+        - Uses last checkpoint if available (stateful ingestion)
+        - Falls back to configurable lookback period
+        - Adds small buffer to handle clock skew and late-arriving data
+
+        Args:
+            last_checkpoint: Last successful ingestion timestamp
+            default_lookback_hours: Default lookback period in hours
+
+        Returns:
+            Formatted timestamp string for SQL queries
+        """
+        now = datetime.now()
+
+        if last_checkpoint:
+            # Use checkpoint with small buffer for late-arriving data (15 minutes)
+            buffer_minutes = 15
+            start_time = last_checkpoint - timedelta(minutes=buffer_minutes)
+
+            # Safety check: don't go back more than 7 days from checkpoint
+            max_lookback = now - timedelta(days=7)
+            if start_time < max_lookback:
+                start_time = max_lookback
+
+            logger.info(
+                f"Using stateful ingestion: checkpoint={last_checkpoint}, "
+                f"start_time={start_time} (with {buffer_minutes}min buffer)"
+            )
+        else:
+            # No checkpoint available, use default lookback
+            start_time = now - timedelta(hours=default_lookback_hours)
+            logger.info(
+                f"No checkpoint found, using {default_lookback_hours}h lookback: {start_time}"
+            )
+
+        return start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+    @staticmethod
     def _get_default_end_timestamp_millis() -> str:
         """Get default end timestamp (now) in milliseconds precision format"""
         now = datetime.now()
@@ -279,16 +315,20 @@ class DremioSQLQueries:
     def get_query_all_jobs(
         start_timestamp_millis: Optional[str] = None,
         end_timestamp_millis: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> str:
         """
-        Get query for all jobs with optional time filtering.
+        Get query for all jobs with optional time filtering and pagination.
 
         Args:
             start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 1 day ago)
             end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
+            limit: Maximum number of rows to return (for pagination)
+            offset: Number of rows to skip (for pagination)
 
         Returns:
-            SQL query string with time filtering applied
+            SQL query string with time filtering and pagination applied
         """
         if start_timestamp_millis is None:
             start_timestamp_millis = (
@@ -297,7 +337,7 @@ class DremioSQLQueries:
         if end_timestamp_millis is None:
             end_timestamp_millis = DremioSQLQueries._get_default_end_timestamp_millis()
 
-        return f"""
+        base_query = f"""
         SELECT
             job_id,
             user_name,
@@ -313,22 +353,35 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts DESC
         """
+
+        # Add pagination if specified
+        if limit is not None:
+            base_query += f"\nLIMIT {limit}"
+            if offset is not None:
+                base_query += f" OFFSET {offset}"
+
+        return base_query
 
     @staticmethod
     def get_query_all_jobs_cloud(
         start_timestamp_millis: Optional[str] = None,
         end_timestamp_millis: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> str:
         """
-        Get query for all jobs in Dremio Cloud with optional time filtering.
+        Get query for all jobs in Dremio Cloud with optional time filtering and pagination.
 
         Args:
             start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 7 days ago)
             end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
+            limit: Maximum number of rows to return (for pagination)
+            offset: Number of rows to skip (for pagination)
 
         Returns:
-            SQL query string with time filtering applied
+            SQL query string with time filtering and pagination applied
         """
         if start_timestamp_millis is None:
             start_timestamp_millis = (
@@ -337,7 +390,7 @@ class DremioSQLQueries:
         if end_timestamp_millis is None:
             end_timestamp_millis = DremioSQLQueries._get_default_end_timestamp_millis()
 
-        return f"""
+        base_query = f"""
         SELECT
             job_id,
             user_name,
@@ -353,7 +406,16 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts DESC
         """
+
+        # Add pagination if specified
+        if limit is not None:
+            base_query += f"\nLIMIT {limit}"
+            if offset is not None:
+                base_query += f" OFFSET {offset}"
+
+        return base_query
 
     QUERY_TYPES = [
         "ALTER TABLE",
@@ -378,3 +440,156 @@ class DremioSQLQueries:
     LIMIT {sample_limit}
     )
     """
+
+    # Intelligent chunking queries for large view definitions
+    @staticmethod
+    def get_view_chunk_query_ce(
+        table_schema: str, table_name: str, chunk_start: int, chunk_size: int
+    ) -> str:
+        """
+        Generate a query to fetch a specific chunk of a view definition for Community Edition.
+
+        Args:
+            table_schema: Schema name
+            table_name: Table name
+            chunk_start: Starting position (1-based)
+            chunk_size: Size of chunk to fetch
+
+        Returns:
+            SQL query to fetch the specified chunk
+        """
+        return f"""
+        SELECT
+            TABLE_SCHEMA,
+            TABLE_NAME,
+            SUBSTRING(VIEW_DEFINITION, {chunk_start}, {chunk_size}) AS VIEW_DEFINITION_CHUNK,
+            {chunk_start} AS CHUNK_START_POSITION,
+            {chunk_size} AS CHUNK_SIZE,
+            LENGTH(VIEW_DEFINITION) AS TOTAL_LENGTH
+        FROM INFORMATION_SCHEMA.VIEWS
+        WHERE TABLE_SCHEMA = '{table_schema}' 
+        AND TABLE_NAME = '{table_name}'
+        """
+
+    @staticmethod
+    def get_view_chunk_query_ee(
+        table_schema: str, table_name: str, chunk_start: int, chunk_size: int
+    ) -> str:
+        """
+        Generate a query to fetch a specific chunk of a view definition for Enterprise Edition.
+
+        Args:
+            table_schema: Schema name (path)
+            table_name: Table name
+            chunk_start: Starting position (1-based)
+            chunk_size: Size of chunk to fetch
+
+        Returns:
+            SQL query to fetch the specified chunk
+        """
+        return f"""
+        SELECT
+            PATH AS TABLE_SCHEMA,
+            VIEW_NAME AS TABLE_NAME,
+            SUBSTRING(SQL_DEFINITION, {chunk_start}, {chunk_size}) AS VIEW_DEFINITION_CHUNK,
+            {chunk_start} AS CHUNK_START_POSITION,
+            {chunk_size} AS CHUNK_SIZE,
+            LENGTH(SQL_DEFINITION) AS TOTAL_LENGTH
+        FROM SYS.VIEWS
+        WHERE CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) = '{table_schema}'
+        AND VIEW_NAME = '{table_name}'
+        """
+
+    @staticmethod
+    def get_view_chunk_query_cloud(
+        table_schema: str, table_name: str, chunk_start: int, chunk_size: int
+    ) -> str:
+        """
+        Generate a query to fetch a specific chunk of a view definition for Dremio Cloud.
+
+        Args:
+            table_schema: Schema name (path)
+            table_name: Table name
+            chunk_start: Starting position (1-based)
+            chunk_size: Size of chunk to fetch
+
+        Returns:
+            SQL query to fetch the specified chunk
+        """
+        return f"""
+        SELECT
+            PATH AS TABLE_SCHEMA,
+            VIEW_NAME AS TABLE_NAME,
+            SUBSTRING(SQL_DEFINITION, {chunk_start}, {chunk_size}) AS VIEW_DEFINITION_CHUNK,
+            {chunk_start} AS CHUNK_START_POSITION,
+            {chunk_size} AS CHUNK_SIZE,
+            LENGTH(SQL_DEFINITION) AS TOTAL_LENGTH
+        FROM SYS.PROJECT.VIEWS
+        WHERE CONCAT(REPLACE(REPLACE(REPLACE(PATH, ', ', '.'), '[', ''), ']', '')) = '{table_schema}'
+        AND VIEW_NAME = '{table_name}'
+        """
+
+    @staticmethod
+    def get_system_limits_query() -> str:
+        """
+        Generate a query to detect Dremio's single_field_size_bytes limit.
+
+        Works for Enterprise, Software, and Community editions.
+
+        Returns:
+            SQL query to fetch system configuration limits
+        """
+        return """
+        SELECT 
+            option_name,
+            option_value,
+            option_type,
+            option_scope
+        FROM sys.options 
+        WHERE LOWER(option_name) LIKE '%single%field%size%'
+           OR LOWER(option_name) LIKE '%field%size%bytes%'
+           OR LOWER(option_name) LIKE '%max%field%size%'
+        """
+
+    @staticmethod
+    def get_system_limits_query_cloud() -> str:
+        """
+        Generate a query to detect Dremio Cloud's system limits.
+
+        Returns:
+            SQL query to fetch system configuration limits for Cloud
+        """
+        return """
+        SELECT 
+            option_name,
+            option_value,
+            option_type,
+            option_scope
+        FROM sys.project.options 
+        WHERE LOWER(option_name) LIKE '%single%field%size%'
+           OR LOWER(option_name) LIKE '%field%size%bytes%'
+           OR LOWER(option_name) LIKE '%max%field%size%'
+        """
+
+    @staticmethod
+    def get_view_size_analysis_query(schema_list: str) -> str:
+        """
+        Generate a query to analyze view sizes for intelligent processing.
+
+        Args:
+            schema_list: Comma-separated list of schema names in quotes
+
+        Returns:
+            SQL query to analyze view definition sizes
+        """
+        return f"""
+        SELECT
+            TABLE_SCHEMA,
+            TABLE_NAME,
+            CONCAT(TABLE_SCHEMA, '.', TABLE_NAME) AS FULL_TABLE_PATH,
+            LENGTH(VIEW_DEFINITION) AS VIEW_DEFINITION_LENGTH,
+            SUBSTRING(VIEW_DEFINITION, 1, 100) AS VIEW_DEFINITION_PREVIEW
+        FROM INFORMATION_SCHEMA.VIEWS
+        WHERE TABLE_SCHEMA IN ({schema_list})
+        ORDER BY VIEW_DEFINITION_LENGTH DESC
+        """

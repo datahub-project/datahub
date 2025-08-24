@@ -4,7 +4,7 @@ import logging
 import re
 import warnings
 from collections import defaultdict
-from enum import Enum
+from datetime import datetime
 from itertools import product
 from time import sleep, time
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
@@ -20,9 +20,22 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
+from datahub.ingestion.source.dremio.dremio_dynamic_chunking import (
+    DremioSmartChunker,
+)
+from datahub.ingestion.source.dremio.dremio_filtering import (
+    create_dremio_filter_helper,
+)
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioColumnInfo,
+    DremioDatasetInfo,
+    DremioQueryResult,
+    DremioViewDefinition,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.str_enum import StrEnum
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.dremio.dremio_entities import DremioContainer
@@ -34,13 +47,13 @@ class DremioAPIException(Exception):
     pass
 
 
-class DremioEdition(Enum):
+class DremioEdition(StrEnum):
     CLOUD = "CLOUD"
     ENTERPRISE = "ENTERPRISE"
     COMMUNITY = "COMMUNITY"
 
 
-class DremioEntityContainerType(Enum):
+class DremioEntityContainerType(StrEnum):
     SPACE = "SPACE"
     CONTAINER = "CONTAINER"
     FOLDER = "FOLDER"
@@ -56,13 +69,17 @@ class DremioAPIOperations:
     ) -> None:
         self.config = connection_args
         self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
-        self.schema_pattern = connection_args.schema_pattern
+        self.filter_helper = create_dremio_filter_helper(connection_args)
         self._max_workers: int = connection_args.max_workers
         self.is_dremio_cloud = connection_args.is_dremio_cloud
         self.start_time = connection_args.start_time
         self.end_time = connection_args.end_time
         self.report = report
         self.session = requests.Session()
+
+        # Initialize smart chunker for intelligent view processing
+        self.smart_chunker = DremioSmartChunker(self)
+
         if connection_args.is_dremio_cloud:
             self.base_url = self._get_cloud_base_url(
                 connection_args,
@@ -391,49 +408,30 @@ class DremioAPIOperations:
 
         while True:
             try:
-                result = self.get_job_result(job_id, offset, limit)
+                raw_result = self.get_job_result(job_id, offset, limit)
 
-                # Handle OOM scenarios where the response may not contain 'rows' key
-                if not isinstance(result, dict):
-                    self.report.failure(
-                        message="Invalid API response format",
-                        context=f"Job {job_id}: expected dict, got {type(result)}",
+                # Use BaseModel for proper error handling and type safety
+                try:
+                    query_result = DremioQueryResult.from_api_response(
+                        raw_result, job_id
                     )
-                    raise DremioAPIException(
-                        f"Invalid response format for job {job_id}"
-                    )
+                except ValueError as e:
+                    # Convert ValueError to DremioAPIException with proper reporting
+                    error_msg = str(e)
+                    if "missing 'rows' key" in error_msg:
+                        self.report.failure(
+                            message="Query result missing 'rows' key - possible OOM error",
+                            context=f"Job {job_id}. Available keys: {list(raw_result.keys()) if isinstance(raw_result, dict) else 'N/A'}",
+                        )
+                    else:
+                        self.report.failure(
+                            message="Query execution failed",
+                            context=f"Job {job_id}: {error_msg}",
+                        )
+                    raise DremioAPIException(error_msg) from None
 
-                if "errorMessage" in result:
-                    error_msg = result["errorMessage"]
-                    self.report.failure(
-                        message="Query execution failed",
-                        context=f"Job {job_id}: {error_msg}",
-                    )
-                    raise DremioAPIException(
-                        f"Query error for job {job_id}: {error_msg}"
-                    )
-
-                # Check if 'rows' key exists (missing in OOM scenarios)
-                if "rows" not in result:
-                    self.report.failure(
-                        message="Query result missing 'rows' key - possible OOM error",
-                        context=f"Job {job_id}. Available keys: {list(result.keys())}",
-                    )
-                    raise DremioAPIException(
-                        f"Query result missing 'rows' key for job {job_id}. This may indicate an out-of-memory error on the Dremio server."
-                    )
-
-                # Check if 'rowCount' key exists
-                if "rowCount" not in result:
-                    self.report.warning(
-                        message="Query result missing 'rowCount' key",
-                        context=f"Job {job_id}. Using rows array length instead.",
-                    )
-                    total_rows = len(result.get("rows", []))
-                else:
-                    total_rows = result["rowCount"]
-
-                batch_rows = result["rows"]
+                total_rows = query_result.row_count
+                batch_rows = query_result.rows
                 if not isinstance(batch_rows, list):
                     self.report.failure(
                         message="Invalid 'rows' format in query result",
@@ -583,7 +581,9 @@ class DremioAPIOperations:
                         "COLUMNS": column_dictionary.get(
                             table.get("FULL_TABLE_PATH", "")
                         ),
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
+                        "VIEW_DEFINITION": self.reassemble_view_definition_chunks(
+                            table
+                        ),
                         "RESOURCE_ID": self.get_dataset_id(
                             schema=".".join(schemas.get("formatted_path")),
                             dataset=table.get("TABLE_NAME", ""),
@@ -597,126 +597,43 @@ class DremioAPIOperations:
 
         return dataset_list
 
+    # Legacy filtering methods - TODO: refactor to use DremioFilterHelper consistently
     def get_pattern_condition(
         self, patterns: List[str], field: str, allow: bool = True
     ) -> str:
-        """
-        Generate SQL condition for allow/deny patterns with proper case sensitivity handling.
-
-        Args:
-            patterns: List of regex patterns
-            field: SQL field name to match against
-            allow: True for allow patterns, False for deny patterns
-
-        Returns:
-            SQL WHERE condition string, or empty string if no filtering needed
-        """
+        """Legacy method for backward compatibility - should be refactored to use DremioFilterHelper."""
         if not patterns:
-            return ""
+            return "1=1" if allow else "1=0"
 
-        # Handle the default "allow all" case
-        if patterns == [".*"] and allow:
-            return ""
-
-        # Filter out the default "allow all" pattern if present
-        filtered_patterns = [p for p in patterns if p != ".*"]
-        if not filtered_patterns:
-            return ""
-
-        # Build SQL conditions - use REGEXP_LIKE with case insensitive flag
-        # Note: We preserve original case in patterns since AllowDenyPattern handles case sensitivity via ignoreCase flag
         conditions = []
-        for pattern in filtered_patterns:
-            # Escape single quotes in the pattern for SQL safety
-            escaped_pattern = pattern.replace("'", "''")
-            if self.schema_pattern.ignoreCase:
-                conditions.append(f"REGEXP_LIKE({field}, '{escaped_pattern}', 'i')")
+        for pattern in patterns:
+            if allow:
+                conditions.append(f"{field} REGEXP '{pattern}'")
             else:
-                conditions.append(f"REGEXP_LIKE({field}, '{escaped_pattern}')")
+                conditions.append(f"NOT ({field} REGEXP '{pattern}')")
 
-        if not conditions:
-            return ""
+        return " OR ".join(conditions) if allow else " AND ".join(conditions)
 
-        # Combine conditions with appropriate logic
-        combined_condition = " OR ".join(conditions)
-
-        if allow:
-            return f"AND ({combined_condition})"
-        else:
-            return f"AND NOT ({combined_condition})"
+    @property
+    def schema_pattern(self):
+        """Legacy property for backward compatibility."""
+        return (
+            self.filter_helper.schema_pattern
+            if hasattr(self, "filter_helper")
+            else None
+        )
 
     def get_all_tables_and_columns(
         self, containers: List["DremioContainer"]
     ) -> List[Dict]:
-        if self.edition == DremioEdition.ENTERPRISE:
-            query_template = DremioSQLQueries.QUERY_DATASETS_EE
-        elif self.edition == DremioEdition.CLOUD:
-            query_template = DremioSQLQueries.QUERY_DATASETS_CLOUD
-        else:
-            query_template = DremioSQLQueries.QUERY_DATASETS_CE
+        """
+        Retrieve all tables and columns from Dremio containers.
 
-        # Use proper case-sensitive field reference for schema pattern matching
-        # Remove the UPPER() transformation to preserve original case for pattern matching
-        # Note: In the outer query context, we reference the column directly without table alias
-        schema_field = "CONCAT(REPLACE(REPLACE(REPLACE(TABLE_SCHEMA, ', ', '.'), '[', ''), ']', ''))"
-
-        schema_condition = self.get_pattern_condition(
-            self.schema_pattern.allow, schema_field
-        )
-        deny_schema_condition = self.get_pattern_condition(
-            self.schema_pattern.deny, schema_field, allow=False
-        )
-
-        all_tables_and_columns = []
-
-        for schema in containers:
-            formatted_query = ""
-            try:
-                formatted_query = query_template.format(
-                    schema_pattern=schema_condition,
-                    deny_schema_pattern=deny_schema_condition,
-                    container_name=schema.container_name.lower(),
-                    max_view_definition_length=self.config.max_view_definition_length,
-                    truncate_large_view_definitions=str(
-                        self.config.truncate_large_view_definitions
-                    ).lower(),
-                )
-                all_tables_and_columns.extend(
-                    self.execute_query(
-                        query=formatted_query,
-                    )
-                )
-            except DremioAPIException as e:
-                error_message = str(e)
-                context = f"{schema.subclass} {schema.container_name}"
-
-                # Check for OversizedAllocationException which indicates view definition memory issues
-                if (
-                    "OversizedAllocationException" in error_message
-                    or "Memory required for vector" in error_message
-                ):
-                    enhanced_message = (
-                        f"Dremio memory limit exceeded while retrieving datasets. "
-                        f"This is likely due to large view definitions. "
-                        f"Consider reducing max_view_definition_length (currently {self.config.max_view_definition_length}) "
-                        f"or enabling truncate_large_view_definitions (currently {self.config.truncate_large_view_definitions})"
-                    )
-
-                    self.report.warning(
-                        message=enhanced_message,
-                        context=f"{context}. Suggested fix: Reduce max_view_definition_length or enable truncation",
-                    )
-                    logger.warning(
-                        f"OversizedAllocationException for {context}. "
-                        f"Skipping this container. {enhanced_message}"
-                    )
-                else:
-                    self.report.warning(
-                        message="Container has no tables or views",
-                        context=context,
-                        exc=e,
-                    )
-
+        This method now uses intelligent chunking to handle large view definitions
+        that would otherwise cause memory issues.
+        """
+        # Use the smart chunking approach for dataset retrieval
+        all_tables_and_columns = self.get_datasets_with_smart_chunking(containers)
         tables = []
 
         if self.edition == DremioEdition.COMMUNITY:
@@ -770,7 +687,9 @@ class DremioAPIOperations:
                         "TABLE_NAME": table.get("TABLE_NAME"),
                         "TABLE_SCHEMA": table.get("TABLE_SCHEMA"),
                         "COLUMNS": column_dictionary[table["FULL_TABLE_PATH"]],
-                        "VIEW_DEFINITION": table.get("VIEW_DEFINITION"),
+                        "VIEW_DEFINITION": self.reassemble_view_definition_chunks(
+                            table
+                        ),
                         "RESOURCE_ID": table.get("RESOURCE_ID"),
                         "LOCATION_ID": table.get("LOCATION_ID"),
                         "OWNER": table.get("OWNER"),
@@ -819,6 +738,29 @@ class DremioAPIOperations:
         return parents_list
 
     def extract_all_queries(self) -> List[Dict[str, Any]]:
+        """
+        Extract all queries using chunked retrieval to prevent OOM errors.
+
+        This method implements intelligent chunking by:
+        1. Using pagination to limit memory usage
+        2. Processing queries in time-based batches
+        3. Leveraging stateful ingestion checkpoints
+
+        Returns:
+            List of query dictionaries
+        """
+        # Use chunked extraction if batch size is configured
+        if (
+            hasattr(self.config, "query_batch_size")
+            and self.config.query_batch_size > 0
+        ):
+            return self._extract_queries_chunked()
+        else:
+            # Fall back to original method for backward compatibility
+            return self._extract_queries_legacy()
+
+    def _extract_queries_legacy(self) -> List[Dict[str, Any]]:
+        """Legacy method for extracting all queries at once."""
         # Convert datetime objects to string format for SQL queries
         start_timestamp_str = None
         end_timestamp_str = None
@@ -840,6 +782,163 @@ class DremioAPIOperations:
             )
 
         return self.execute_query(query=jobs_query)
+
+    def _extract_queries_chunked(self) -> List[Dict[str, Any]]:
+        """
+        Extract queries using chunked retrieval to prevent OOM errors.
+
+        This method processes queries in batches to avoid memory issues when
+        there are large numbers of queries in the specified time window.
+        It also optimizes stateful ingestion by using checkpoints when available.
+        """
+        from datetime import datetime, timedelta
+
+        all_queries = []
+        batch_size = self.config.query_batch_size
+        max_duration_hours = getattr(self.config, "max_query_duration_hours", 24)
+
+        # Determine time window with stateful ingestion optimization
+        end_time = self.end_time or datetime.now()
+
+        # Try to get last checkpoint for stateful ingestion
+        last_checkpoint = None
+        if hasattr(self, "report") and hasattr(self.report, "window_start_time"):
+            last_checkpoint = self.report.window_start_time
+
+        # Use optimized start time calculation
+        if self.start_time:
+            start_time = self.start_time
+        else:
+            # Use optimized stateful ingestion logic
+            start_timestamp_str = DremioSQLQueries.get_optimized_start_timestamp(
+                last_checkpoint=last_checkpoint,
+                default_lookback_hours=max_duration_hours,
+            )
+            start_time = datetime.strptime(start_timestamp_str, "%Y-%m-%d %H:%M:%S.%f")
+
+        logger.info(
+            f"Starting chunked query extraction: {start_time} to {end_time}, "
+            f"batch_size={batch_size}, max_duration_hours={max_duration_hours}"
+        )
+
+        # Process in time-based chunks to prevent overwhelming Dremio
+        current_start = start_time
+        batch_count = 0
+
+        while current_start < end_time:
+            # Calculate end of current batch (limited by max duration)
+            max_batch_end = current_start + timedelta(hours=max_duration_hours)
+            current_end = min(max_batch_end, end_time)
+
+            batch_count += 1
+            logger.info(
+                f"Processing query batch {batch_count}: {current_start} to {current_end}"
+            )
+
+            try:
+                batch_queries = self._extract_query_batch(
+                    start_time=current_start,
+                    end_time=current_end,
+                    batch_size=batch_size,
+                )
+
+                all_queries.extend(batch_queries)
+                logger.info(
+                    f"Batch {batch_count} retrieved {len(batch_queries)} queries"
+                )
+
+            except Exception as e:
+                logger.error(f"Error processing query batch {batch_count}: {e}")
+                if hasattr(self, "report"):
+                    self.report.report_failure(
+                        "query-batch-error",
+                        f"Failed to process query batch {batch_count}",
+                        exc=e,
+                    )
+                # Continue with next batch rather than failing completely
+
+            # Move to next time window
+            current_start = current_end
+
+        logger.info(
+            f"Chunked query extraction completed: {len(all_queries)} total queries from {batch_count} batches"
+        )
+        return all_queries
+
+    def _extract_query_batch(
+        self, start_time: datetime, end_time: datetime, batch_size: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Extract a single batch of queries with pagination.
+
+        Args:
+            start_time: Start of time window
+            end_time: End of time window
+            batch_size: Maximum number of queries per API call
+
+        Returns:
+            List of query dictionaries for this batch
+        """
+        batch_queries = []
+        offset = 0
+
+        # Convert to string format for SQL
+        start_timestamp_str = start_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        end_timestamp_str = end_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+        while True:
+            try:
+                # Get paginated query
+                if self.edition == DremioEdition.CLOUD:
+                    jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
+                        start_timestamp_millis=start_timestamp_str,
+                        end_timestamp_millis=end_timestamp_str,
+                        limit=batch_size,
+                        offset=offset,
+                    )
+                else:
+                    jobs_query = DremioSQLQueries.get_query_all_jobs(
+                        start_timestamp_millis=start_timestamp_str,
+                        end_timestamp_millis=end_timestamp_str,
+                        limit=batch_size,
+                        offset=offset,
+                    )
+
+                page_results = self.execute_query(query=jobs_query)
+
+                if not page_results:
+                    # No more results
+                    break
+
+                batch_queries.extend(page_results)
+
+                # If we got fewer results than batch_size, we've reached the end
+                if len(page_results) < batch_size:
+                    break
+
+                offset += batch_size
+
+                # Safety check to prevent infinite loops
+                if offset > 100000:  # Reasonable upper limit
+                    logger.warning(
+                        f"Query batch exceeded safety limit (offset={offset}), stopping"
+                    )
+                    break
+
+            except Exception as e:
+                logger.error(
+                    f"Error in paginated query extraction at offset {offset}: {e}"
+                )
+                # If we have some results, return them; otherwise re-raise
+                if batch_queries:
+                    logger.warning(
+                        f"Returning partial results ({len(batch_queries)} queries) due to error"
+                    )
+                    break
+                else:
+                    raise
+
+        return batch_queries
 
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """
@@ -979,9 +1078,9 @@ class DremioAPIOperations:
 
     def get_all_containers(self):
         """
-        Query the Dremio sources API and return filtered source information.
+        Query the Dremio sources API and yield filtered source information.
+        Generator to prevent memory pressure from loading all containers at once.
         """
-        containers = []
         response = self.get(url="/catalog")
 
         def process_source(source):
@@ -1015,41 +1114,29 @@ class DremioAPIOperations:
                     }
             return None
 
-        def process_source_and_containers(source):
-            container = process_source(source)
-            if not container:
-                return []
+        # Process sources sequentially to enable streaming (prevents memory pressure)
+        for source in response.get("data", []):
+            try:
+                container = process_source(source)
+                if container:
+                    # Yield the main container first
+                    yield container
 
-            # Get sub-containers
-            sub_containers = self.get_containers_for_location(
-                resource_id=container.get("id"),
-                path=[container.get("name")],
-            )
-
-            return [container] + sub_containers
-
-        # Use ThreadPoolExecutor to parallelize the processing of sources
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._max_workers
-        ) as executor:
-            future_to_source = {
-                executor.submit(process_source_and_containers, source): source
-                for source in response.get("data", [])
-            }
-
-            for future in concurrent.futures.as_completed(future_to_source):
-                source = future_to_source[future]
-                try:
-                    containers.extend(future.result())
-                except Exception as exc:
-                    logger.error(f"Error processing source: {exc}")
-                    self.report.warning(
-                        message="Failed to process source",
-                        context=f"{source}",
-                        exc=exc,
+                    # Then yield sub-containers
+                    sub_containers = self.get_containers_for_location(
+                        resource_id=container.get("id"),
+                        path=[container.get("name")],
                     )
+                    for sub_container in sub_containers:
+                        yield sub_container
 
-        return containers
+            except Exception as exc:
+                logger.error(f"Error processing source: {exc}")
+                self.report.warning(
+                    message="Failed to process source",
+                    context=f"{source}",
+                    exc=exc,
+                )
 
     def get_context_for_vds(self, resource_id: str) -> str:
         context_array = self.get(
@@ -1113,3 +1200,206 @@ class DremioAPIOperations:
             return containers
 
         return traverse_path(location_id=resource_id, entity_path=path)
+
+    def get_datasets_with_smart_chunking(
+        self, containers: List["DremioContainer"]
+    ) -> List[Dict]:
+        """
+        Retrieve datasets using intelligent chunking for large view definitions.
+
+        This method uses the DremioSmartChunker to handle large view definitions
+        that would otherwise cause memory issues.
+
+        Args:
+            containers: List of Dremio containers to process
+
+        Returns:
+            List of dataset dictionaries with properly assembled view definitions
+        """
+        try:
+            # Use smart chunker to create an optimal processing plan
+            processing_plan = self.smart_chunker.create_processing_plan(containers)
+
+            logger.info(
+                f"Smart chunker created plan: {processing_plan.total_small_views} bulk views, "
+                f"{processing_plan.total_large_views} large views requiring individual processing"
+            )
+
+            all_datasets = []
+
+            # Process bulk views (small views that can be retrieved together)
+            if processing_plan.total_small_views > 0:
+                bulk_results = self._execute_bulk_view_query(containers)
+                all_datasets.extend(bulk_results)
+
+            # Process large views individually with chunking
+            for large_view_id in processing_plan.large_view_ids:
+                try:
+                    # Parse schema and table name from view_id (format: schema.table)
+                    schema_table = large_view_id.split(".", 1)
+                    if len(schema_table) == 2:
+                        table_schema, table_name = schema_table
+                        chunked_result = (
+                            self.smart_chunker.process_large_view_individually(
+                                large_view_id, table_schema, table_name
+                            )
+                        )
+                        if chunked_result:
+                            all_datasets.append(chunked_result)
+                    else:
+                        logger.warning(f"Invalid view ID format: {large_view_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to process large view {large_view_id}: {e}")
+                    self.report.report_warning(
+                        "large-view-processing",
+                        f"Failed to process large view {large_view_id}",
+                        exc=e,
+                    )
+
+            # Log processing statistics
+            stats = self.smart_chunker.get_processing_stats()
+            logger.info(f"Smart chunker processing stats: {stats}")
+
+            return all_datasets
+
+        except Exception as e:
+            logger.error(f"Error in smart chunking workflow: {e}")
+            if hasattr(self, "report"):
+                self.report.report_failure(
+                    "smart-chunking-error",
+                    "Smart chunking workflow failed, falling back to original method",
+                    exc=e,
+                )
+            # Fall back to original method
+            logger.info("Falling back to original dataset retrieval method")
+            return self._get_datasets_fallback(containers)
+
+    def _execute_bulk_view_query(
+        self, containers: List["DremioContainer"]
+    ) -> List[Dict]:
+        """Execute the bulk query for small views that don't need chunking."""
+        if self.edition == DremioEdition.ENTERPRISE:
+            query_template = DremioSQLQueries.QUERY_DATASETS_EE
+        elif self.edition == DremioEdition.CLOUD:
+            query_template = DremioSQLQueries.QUERY_DATASETS_CLOUD
+        else:
+            query_template = DremioSQLQueries.QUERY_DATASETS_CE
+
+        all_results = []
+
+        for schema in containers:
+            try:
+                # Use filter helper for consistent filtering
+                if hasattr(self, "filter_helper") and self.filter_helper:
+                    sql_filters = self.filter_helper.generate_sql_filters(
+                        container_name=schema.container_name.lower()
+                    )
+                    formatted_query = query_template.format(
+                        schema_pattern=sql_filters["schema_pattern"],
+                        deny_schema_pattern=sql_filters["deny_schema_pattern"],
+                        system_table_filter=sql_filters["system_table_filter"],
+                        container_name=schema.container_name.lower(),
+                    )
+                else:
+                    # Fallback to allow all if no filter helper
+                    formatted_query = query_template.format(
+                        schema_pattern="",
+                        deny_schema_pattern="",
+                        system_table_filter="",
+                        container_name=schema.container_name.lower(),
+                    )
+
+                results = self.execute_query(query=formatted_query)
+                all_results.extend(results)
+
+            except DremioAPIException as e:
+                logger.warning(
+                    f"Error retrieving datasets from {schema.container_name}: {e}"
+                )
+                self.report.report_warning(
+                    "bulk-query-error",
+                    f"Error retrieving datasets from {schema.container_name}",
+                    exc=e,
+                )
+
+        return all_results
+
+    def _get_datasets_fallback(self, containers: List["DremioContainer"]) -> List[Dict]:
+        """Fallback method using the original approach."""
+        # This is the original get_all_tables_and_columns logic
+        return self._execute_bulk_view_query(containers)
+
+    def reassemble_view_definition_chunks(self, row: Dict[str, Any]) -> str:
+        """
+        Reassemble view definition chunks from Dremio query results using BaseModel.
+
+        Args:
+            row: Dictionary containing VIEW_DEFINITION_CHUNK_* columns
+
+        Returns:
+            Complete view definition string
+        """
+        view_def = DremioViewDefinition.from_chunks(row)
+
+        if view_def.chunk_count > 1:
+            logger.info(
+                f"Reassembled view definition from {view_def.chunk_count} chunks "
+                f"(total length: {view_def.total_length} chars)"
+            )
+
+        return view_def.definition
+
+    def convert_raw_data_to_datasets(
+        self, raw_data: List[Dict[str, Any]]
+    ) -> List[DremioDatasetInfo]:
+        """
+        Convert raw Dremio API data to strongly-typed BaseModel objects.
+
+        Args:
+            raw_data: List of raw dictionaries from Dremio API
+
+        Returns:
+            List of DremioDatasetInfo objects with proper type safety
+        """
+        datasets = []
+
+        # Group rows by table to collect columns
+        table_groups = defaultdict(list)
+        for row in raw_data:
+            full_path = row.get("FULL_TABLE_PATH", "")
+            if full_path:
+                table_groups[full_path].append(row)
+
+        for full_path, rows in table_groups.items():
+            if not rows:
+                continue
+
+            # Use first row for table metadata
+            table_row = rows[0]
+
+            # Create column objects from all rows
+            columns = []
+            for row in rows:
+                if row.get("COLUMN_NAME"):
+                    try:
+                        column = DremioColumnInfo(**row)
+                        columns.append(column)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create column info for {row.get('COLUMN_NAME')}: {e}"
+                        )
+
+            # Create dataset object
+            try:
+                dataset = DremioDatasetInfo.from_raw_data(table_row, columns)
+                datasets.append(dataset)
+            except Exception as e:
+                logger.warning(f"Failed to create dataset info for {full_path}: {e}")
+
+        return datasets
+
+    def cleanup_smart_chunker(self) -> None:
+        """Clean up smart chunker resources to free memory."""
+        if hasattr(self, "smart_chunker"):
+            # The smart chunker doesn't need explicit cleanup as it doesn't store state
+            logger.debug("Smart chunker cleanup completed")

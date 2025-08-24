@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
 from datahub._codegen.aspect import _Aspect
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
-    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
@@ -35,7 +35,6 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     DateTypeClass,
-    DomainsClass,
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
@@ -57,6 +56,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 namespace = uuid.NAMESPACE_DNS
@@ -138,15 +138,38 @@ class DremioAspects:
         ui_url: str,
         env: str,
         ingest_owner: bool,
-        domain: Optional[str] = None,
+        domain: Optional[Dict[str, AllowDenyPattern]] = None,
         platform_instance: Optional[str] = None,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
-        self.domain = domain
+        self.domain = domain or {}
         self.ui_url = ui_url
         self.ingest_owner = ingest_owner
+        self.domain_registry = DomainRegistry(
+            cached_domains=[domain_key for domain_key in self.domain],
+            graph=None,
+        )
+
+    def get_domain_for_dataset(self, dataset_path: str) -> Optional[str]:
+        """
+        Get the domain for a dataset based on path matching.
+
+        Args:
+            dataset_path: Full dataset path in format "source.schema.table"
+
+        Returns:
+            Domain URN if matched, None otherwise
+        """
+        for domain_key, pattern in self.domain.items():
+            if pattern.allowed(dataset_path):
+                try:
+                    return self.domain_registry.get_domain_urn(domain_key)
+                except Exception as e:
+                    logger.warning(f"Failed to resolve domain {domain_key}: {e}")
+                    return None
+        return None
 
     def get_container_key(
         self, name: Optional[str], path: Optional[List[str]]
@@ -170,16 +193,8 @@ class DremioAspects:
         return container_key.as_urn()
 
     def create_domain_aspect(self) -> Optional[_Aspect]:
-        if self.domain:
-            if self.domain.startswith("urn:li:domain:"):
-                return DomainsClass(domains=[self.domain])
-            return DomainsClass(
-                domains=[
-                    make_domain_urn(
-                        str(uuid.uuid5(namespace, self.domain)),
-                    )
-                ]
-            )
+        # This method is deprecated - domain assignment is now handled
+        # in populate_dataset_mcp using get_domain_for_dataset
         return None
 
     def populate_container_mcp(
@@ -281,6 +296,18 @@ class DremioAspects:
                 aspect=container_class,
             )
             yield mcp.as_workunit()
+
+        # Domain Assignment
+        dataset_path = ".".join(dataset.path + [dataset.resource_name])
+        domain_urn = self.get_domain_for_dataset(dataset_path)
+        if domain_urn:
+            from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+
+            domain_wu = add_domain_to_entity_wu(
+                entity_urn=dataset_urn,
+                domain_urn=domain_urn,
+            )
+            yield from domain_wu
 
         # View Definition
         if dataset.dataset_type == DremioDatasetType.VIEW:

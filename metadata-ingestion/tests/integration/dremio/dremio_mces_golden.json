@@ -15,7 +15,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -31,7 +31,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -49,7 +49,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -65,7 +65,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -85,7 +85,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -105,7 +105,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -121,7 +121,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -139,7 +139,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -155,7 +155,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -175,7 +175,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -195,7 +195,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -211,7 +211,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -227,7 +227,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -245,7 +245,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -261,7 +261,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -285,847 +285,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "s3",
-            "qualifiedName": "s3",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Source"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "mysql",
-            "qualifiedName": "mysql",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Source"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "dataCharmer",
-            "qualifiedName": "mysql.dataCharmer",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                },
-                {
-                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "metagalaxy",
-            "qualifiedName": "mysql.metagalaxy",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                },
-                {
-                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "mysql",
-            "qualifiedName": "mysql.mysql",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                },
-                {
-                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "northwind",
-            "qualifiedName": "mysql.northwind",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                },
-                {
-                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "performance_schema",
-            "qualifiedName": "mysql.performance_schema",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                },
-                {
-                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "name": "test_cases",
-            "qualifiedName": "mysql.test_cases",
-            "description": "",
-            "env": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:dremio"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Dremio Folder"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "Sources"
-                },
-                {
-                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
-                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1145,7 +305,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1161,7 +321,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1179,7 +339,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1195,7 +355,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1215,7 +375,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1235,7 +395,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1251,7 +411,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1267,7 +427,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1285,7 +445,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1301,7 +461,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1325,7 +485,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1345,7 +505,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1361,7 +521,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1377,7 +537,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1395,7 +555,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1411,7 +571,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1439,7 +599,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1459,7 +619,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1475,7 +635,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1491,7 +651,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1509,7 +669,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1525,7 +685,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1553,7 +713,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1573,7 +733,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1589,7 +749,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1605,7 +765,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1623,7 +783,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1639,7 +799,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1671,7 +831,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1691,7 +851,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1707,7 +867,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1723,7 +883,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1741,7 +901,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1757,7 +917,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1793,7 +953,847 @@
     },
     "systemMetadata": {
         "lastObserved": 1697353200000,
-        "runId": "dremio-2023_10_15-07_00_00-7zq56r",
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "s3",
+            "qualifiedName": "s3",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:63a316133b08a091e919dc8c7a828a4d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "mysql",
+            "qualifiedName": "mysql",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Source"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "dataCharmer",
+            "qualifiedName": "mysql.dataCharmer",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ba5e0b6f1fb9b5c6c535d55a464ab5c5",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                },
+                {
+                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "metagalaxy",
+            "qualifiedName": "mysql.metagalaxy",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f280657a9759203790c7755104f03e52",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                },
+                {
+                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "mysql",
+            "qualifiedName": "mysql.mysql",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:811317054d9b6934fb2df52c8ecad37f",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                },
+                {
+                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "northwind",
+            "qualifiedName": "mysql.northwind",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:cc2c44f1f32b6998c445fcd7d6d7a9e3",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                },
+                {
+                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "performance_schema",
+            "qualifiedName": "mysql.performance_schema",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c99ddc4a9bb768e6b2136f78609c520a",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                },
+                {
+                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "test_cases",
+            "qualifiedName": "mysql.test_cases",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dremio"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Dremio Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:90b7c77f3141af8db284348c2a5ce2bd",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "Sources"
+                },
+                {
+                    "id": "urn:li:container:5fc411088cb328873d6eba19ee76f09d",
+                    "urn": "urn:li:container:5fc411088cb328873d6eba19ee76f09d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "dremio-2023_10_15-07_00_00-i2baxf",
         "lastRunId": "no-run-id-provided"
     }
 }
