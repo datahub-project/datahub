@@ -27,10 +27,14 @@ source:
       - platform: s3
         source_name: samples
 
-    #Optional
+    # Optional - Filter containers (spaces, sources, folders)
     schema_pattern:
       allow:
-        - "<source_name>.<table_name>"
+        - "MySource.*" # Include all containers under MySource
+        - "^Analytics$" # Include only the Analytics space
+        - "DataLake.processed.*" # Include folders under DataLake/processed
+      deny:
+        - ".*temp.*" # Exclude any containers with 'temp' in the path
 
 sink:
   # sink configs
