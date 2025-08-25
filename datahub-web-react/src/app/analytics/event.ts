@@ -77,6 +77,8 @@ export enum EventType {
     MoveDomainEvent,
     IngestionSourceTemplateSelectedEvent,
     IngestionTestConnectionEvent,
+    IngestionExecutionResultViewedEvent,
+    IngestionSourceConfigurationImpressionEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -623,6 +625,24 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     sourceUrn?: string;
     outcome?: string;
 }
+
+export interface IngestionExecutionResultViewedEvent extends BaseEvent {
+    // TODO Actually track
+    type: EventType.IngestionExecutionResultViewedEvent;
+    executionUrn: string;
+    sourceType: string;
+    sourceUrn: string;
+    executionStatus: 'SUCCESS' | 'FAILURE' | 'CANCELLED' | 'RUNNING';
+    viewedSection: 'summary' | 'recipe' | 'logs' | 'view_all' | 'sample';
+}
+
+export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
+    // TODO Actually track
+    type: EventType.IngestionSourceConfigurationImpressionEvent;
+    sourceType: string;
+    sourceUrn: string;
+    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
+};
 
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
@@ -1236,4 +1256,6 @@ export type Event =
     | WelcomeToDataHubModalClickViewDocumentationEvent
     | ProductTourButtonClickEvent
     | IngestionSourceTemplateSelectedEvent
-    | IngestionTestConnectionEvent;
+    | IngestionTestConnectionEvent
+    | IngestionExecutionResultViewedEvent
+    | IngestionSourceConfigurationImpressionEvent;
