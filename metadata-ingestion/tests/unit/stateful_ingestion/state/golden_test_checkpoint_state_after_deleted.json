@@ -17,7 +17,7 @@
             "state": {
                 "formatVersion": "1.0",
                 "serde": "utf-8",
-                "payload": "{\"urns\": [\"urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset2,PROD)\"]}"
+                "payload": "{\"urns\":[\"urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset1,PROD)\",\"urn:li:dataset:(urn:li:dataPlatform:postgres,dummy_dataset2,PROD)\"]}"
             },
             "runId": "dummy-test-stateful-ingestion"
         }

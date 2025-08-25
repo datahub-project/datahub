@@ -8,7 +8,7 @@ import pydantic
 from ruamel.yaml import YAML
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import ConfigModel, LaxStr
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -110,7 +110,7 @@ class DataProduct(ConfigModel):
     description: Optional[str] = None
     tags: Optional[List[str]] = None
     terms: Optional[List[str]] = None
-    properties: Optional[Dict[str, str]] = None
+    properties: Optional[Dict[str, LaxStr]] = None
     external_url: Optional[str] = None
     _original_yaml_dict: Optional[dict] = None
 

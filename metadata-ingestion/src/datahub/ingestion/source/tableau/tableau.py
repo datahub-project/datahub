@@ -474,6 +474,13 @@ class TableauPageSizeConfig(ConfigModel):
         return self.database_table_page_size or self.page_size
 
 
+_IngestHiddenAssetsOptionsType = Literal["worksheet", "dashboard"]
+_IngestHiddenAssetsOptions: List[_IngestHiddenAssetsOptionsType] = [
+    "worksheet",
+    "dashboard",
+]
+
+
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
@@ -621,8 +628,8 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
-        default=["worksheet", "dashboard"],
+    ingest_hidden_assets: Union[List[_IngestHiddenAssetsOptionsType], bool] = Field(
+        _IngestHiddenAssetsOptions,
         description=(
             "When enabled, hidden worksheets and dashboards are ingested into Datahub."
             " If a dashboard or worksheet is hidden in Tableau the luid is blank."
@@ -655,6 +662,7 @@ class TableauConfig(
             values["project_pattern"] = AllowDenyPattern(
                 allow=[f"^{prj}$" for prj in projects]
             )
+            values.pop("projects")
         elif (project_pattern or project_path_pattern) and projects:
             raise ValueError(
                 "projects is deprecated. Please use project_path_pattern only."
@@ -666,7 +674,7 @@ class TableauConfig(
 
         return values
 
-    @root_validator()
+    @root_validator(skip_on_failure=True)
     def validate_config_values(cls, values: Dict) -> Dict:
         tags_for_hidden_assets = values.get("tags_for_hidden_assets")
         ingest_tags = values.get("ingest_tags")
