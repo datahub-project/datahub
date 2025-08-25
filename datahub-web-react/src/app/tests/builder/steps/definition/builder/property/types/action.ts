@@ -41,6 +41,8 @@ export enum ActionId {
     UNSET_DOMAIN = 'unset_domain',
     SET_DATA_PRODUCT = 'set_data_product',
     UNSET_DATA_PRODUCT = 'unset_data_product',
+    SET_STRUCTURED_PROPERTY = 'set_structured_property',
+    UNSET_STRUCTURED_PROPERTY = 'unset_structured_property',
     DEPRECATE = 'deprecate',
     UN_DEPRECATE = 'un_deprecate',
 }
@@ -170,6 +172,26 @@ export const ACTION_TYPES: ActionType[] = [
             mode: SelectInputMode.NONE,
         },
         entityTypes: ENTITY_GROUPS.DATA_PRODUCT_ASSIGNABLE_ASSETS, // Only specific assets can be assigned to data products
+    },
+    {
+        id: ActionId.SET_STRUCTURED_PROPERTY,
+        displayName: 'Set Structured Property',
+        description: 'Assign a value to a structured property on an asset.',
+        valueType: ValueTypeId.STRUCTURED_PROPERTY_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.SINGLE,
+        },
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS, // Structured properties can be applied to all assets
+    },
+    {
+        id: ActionId.UNSET_STRUCTURED_PROPERTY,
+        displayName: 'Remove Structured Property',
+        description: 'Remove a structured property value from an asset.',
+        valueType: ValueTypeId.STRUCTURED_PROPERTY_VALUE,
+        valueOptions: {
+            mode: SelectInputMode.SINGLE,
+        },
+        entityTypes: ENTITY_GROUPS.ALL_ASSETS, // Structured properties can be applied to all assets
     },
     {
         id: ActionId.DEPRECATE,

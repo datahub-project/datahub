@@ -14,6 +14,8 @@ import com.linkedin.metadata.test.action.dataproduct.SetDataProductAction;
 import com.linkedin.metadata.test.action.dataproduct.UnsetDataProductAction;
 import com.linkedin.metadata.test.action.domain.SetDomainAction;
 import com.linkedin.metadata.test.action.domain.UnsetDomainAction;
+import com.linkedin.metadata.test.action.structuredproperty.SetStructuredPropertyAction;
+import com.linkedin.metadata.test.action.structuredproperty.UnsetStructuredPropertyAction;
 import com.linkedin.metadata.test.action.form.AssignFormAction;
 import com.linkedin.metadata.test.action.form.SetFormPromptIncompleteAction;
 import com.linkedin.metadata.test.action.form.SubmitFormPromptAction;
@@ -57,6 +59,8 @@ public class TestActionApplierFactory {
     DomainServiceAsync domainService =
         new DomainServiceAsync(systemEntityClient, openApiClient, objectMapper);
     DataProductService dataProductService = new DataProductService(systemEntityClient, graphClient);
+    StructuredPropertyService structuredPropertyService = 
+        new StructuredPropertyService(systemEntityClient, openApiClient, objectMapper);
     FormServiceAsync formService =
         new FormServiceAsync(
             systemEntityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE);
@@ -70,6 +74,8 @@ public class TestActionApplierFactory {
     appliers.add(new UnsetDomainAction(domainService));
     appliers.add(new SetDataProductAction(dataProductService));
     appliers.add(new UnsetDataProductAction(dataProductService));
+    appliers.add(new SetStructuredPropertyAction(structuredPropertyService));
+    appliers.add(new UnsetStructuredPropertyAction(structuredPropertyService));
     appliers.add(new DeprecationAction(entityService));
     appliers.add(new UnDeprecationAction(entityService));
     appliers.add(new AssignFormAction(formService));

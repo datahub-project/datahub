@@ -13,6 +13,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
+import com.linkedin.metadata.resource.ResourceReference;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -34,9 +35,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 // todo: the value validation logic needs to be improved and merged with
 // StructuredPropertiesValidator.java.
+@Slf4j
 public class StructuredPropertyService extends BaseService {
   private static final Set<LogicalValueType> VALID_VALUE_STORED_AS_STRING =
       new HashSet<>(
@@ -161,6 +164,121 @@ public class StructuredPropertyService extends BaseService {
     this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
 
     return structuredProperties;
+  }
+
+  /**
+   * Batch sets a structured property for a given list of entities.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation
+   *
+   * @param opContext the operation context
+   * @param structuredPropertyUrn the structured property to set
+   * @param resources references to the resources to change
+   * @param propertyValueAssignments the property values to assign
+   * @param appSource optional indication of the origin for this request, used for additional
+   *     processing logic
+   */
+  public void batchSetStructuredProperty(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn structuredPropertyUrn,
+      @Nonnull List<ResourceReference> resources,
+      @Nonnull List<StructuredPropertyValueAssignment> propertyValueAssignments,
+      @Nullable String appSource) {
+    if (resources.isEmpty()) return;
+
+    try {
+      // Process each entity to set its structured property
+      for (ResourceReference resource : resources) {
+        updateEntityStructuredProperties(opContext, resource.getUrn(), propertyValueAssignments);
+      }
+      log.info("Successfully set structured property {} for {} entities", structuredPropertyUrn, resources.size());
+    } catch (Exception e) {
+      log.error("Failed to batch set structured property for entities: {}", e.getMessage(), e);
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch set structured property %s for entities %s",
+              structuredPropertyUrn,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+          e);
+    }
+  }
+
+  /**
+   * Batch unsets a structured property for a given list of entities.
+   *
+   * <p>Note that this method does not do authorization validation. It is assumed that users of this
+   * class have already authorized the operation
+   *
+   * @param opContext the operation context
+   * @param structuredPropertyUrn the structured property to unset
+   * @param resources references to the resources to change
+   * @param appSource optional indication of the origin for this request, used for additional
+   *     processing logic
+   */
+  public void batchUnsetStructuredProperty(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn structuredPropertyUrn,
+      @Nonnull List<ResourceReference> resources,
+      @Nullable String appSource) {
+    if (resources.isEmpty()) return;
+
+    try {
+      // Process each entity to unset its structured property
+      for (ResourceReference resource : resources) {
+        unsetStructuredProperty(opContext, resource.getUrn(), structuredPropertyUrn);
+      }
+      log.info("Successfully unset structured property {} for {} entities", structuredPropertyUrn, resources.size());
+    } catch (Exception e) {
+      log.error("Failed to batch unset structured property for entities: {}", e.getMessage(), e);
+      throw new RuntimeException(
+          String.format(
+              "Failed to batch unset structured property %s for entities %s",
+              structuredPropertyUrn,
+              resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
+          e);
+    }
+  }
+
+  /**
+   * Unsets a specific structured property for an entity.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the entity to update
+   * @param structuredPropertyUrn the structured property to remove
+   */
+  private void unsetStructuredProperty(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nonnull Urn structuredPropertyUrn) {
+    try {
+      // Get existing structured properties
+      final StructuredProperties structuredProperties =
+          getStructuredPropertiesOrDefault(
+              opContext,
+              entityUrn,
+              new StructuredProperties().setProperties(new StructuredPropertyValueAssignmentArray()));
+
+      // Filter out the property to be removed
+      final StructuredPropertyValueAssignmentArray filteredProperties =
+          new StructuredPropertyValueAssignmentArray(
+              structuredProperties.getProperties().stream()
+                  .filter(assignment -> !assignment.getPropertyUrn().equals(structuredPropertyUrn))
+                  .collect(Collectors.toList()));
+
+      // Update properties
+      structuredProperties.setProperties(filteredProperties);
+
+      // Ingest change proposal
+      final MetadataChangeProposal structuredPropertiesProposal =
+          AspectUtils.buildMetadataChangeProposal(
+              entityUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+
+      this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to unset structured property %s for entity %s", structuredPropertyUrn, entityUrn), e);
+    }
   }
 
   private boolean areProposedValuesValid(

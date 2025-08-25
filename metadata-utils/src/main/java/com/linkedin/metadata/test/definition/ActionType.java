@@ -27,6 +27,10 @@ public enum ActionType {
   SET_DATA_PRODUCT,
   /** Unsets data product */
   UNSET_DATA_PRODUCT,
+  /** Sets structured property */
+  SET_STRUCTURED_PROPERTY,
+  /** Unsets structured property */
+  UNSET_STRUCTURED_PROPERTY,
   /** Adds owners */
   ADD_OWNERS,
   /** Removes owners */

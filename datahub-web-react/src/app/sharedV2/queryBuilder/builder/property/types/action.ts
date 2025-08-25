@@ -14,6 +14,8 @@ export enum ActionId {
     REMOVE_GLOSSARY_TERMS = 'remove_glossary_terms',
     SET_DOMAIN = 'set_domain',
     UNSET_DOMAIN = 'unset_domain',
+    SET_STRUCTURED_PROPERTY = 'set_structured_property',
+    UNSET_STRUCTURED_PROPERTY = 'unset_structured_property',
     DEPRECATE = 'deprecate',
     UN_DEPRECATE = 'un_deprecate',
 }
