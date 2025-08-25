@@ -3,11 +3,10 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import LinkItem from '@app/entityV2/summary/links/LinkItem';
+import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { InstitutionalMemoryMetadata } from '@types';
-
-import { useLinkUtils } from './useLinkUtils';
 
 const ListContainer = styled.div`
     display: flex;
