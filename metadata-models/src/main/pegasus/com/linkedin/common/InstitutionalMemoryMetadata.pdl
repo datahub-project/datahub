@@ -19,4 +19,9 @@ record InstitutionalMemoryMetadata {
    * Audit stamp associated with creation of this record
    */
   createStamp: AuditStamp
+
+  /**
+   * Audit stamp associated with updation of this record
+   */
+  updateStamp: optional AuditStamp
 }

@@ -7,7 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.datahub.graphql.generated.RemoveLinkInput;
+import com.linkedin.datahub.graphql.generated.UpdateLinkInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LinkUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UpdateLinkResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
   private final EntityClient _entityClient;
@@ -28,11 +28,13 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final QueryContext context = environment.getContext();
-    final RemoveLinkInput input =
-        bindArgument(environment.getArgument("input"), RemoveLinkInput.class);
+    final UpdateLinkInput input =
+        bindArgument(environment.getArgument("input"), UpdateLinkInput.class);
 
+    String currentLinkUrl = input.getCurrentUrl();
+    String currentLinkLabel = input.getCurrentLabel();
     String linkUrl = input.getLinkUrl();
-    String label = input.getLabel();
+    String linkLabel = input.getLabel();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
     if (!LinkUtils.isAuthorizedToUpdateLinks(context, targetUrn)
@@ -43,23 +45,30 @@ public class RemoveLinkResolver implements DataFetcher<CompletableFuture<Boolean
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          LinkUtils.validateAddRemoveInput(
-              context.getOperationContext(), linkUrl, targetUrn, _entityService);
+          LinkUtils.validateUpdateInput(
+              context.getOperationContext(), currentLinkUrl, linkUrl, targetUrn, _entityService);
           try {
-            log.debug("Removing Link input: {}", input);
+
+            log.debug("Updating Link. input: {}", input.toString());
 
             Urn actor = CorpuserUrn.createFromString(context.getActorUrn());
-            LinkUtils.removeLink(
-                context.getOperationContext(), linkUrl, label, targetUrn, actor, _entityService);
+            LinkUtils.updateLink(
+                context.getOperationContext(),
+                currentLinkUrl,
+                currentLinkLabel,
+                linkUrl,
+                linkLabel,
+                targetUrn,
+                actor,
+                _entityService);
             return true;
           } catch (Exception e) {
             log.error(
-                "Failed to remove link from resource with input {}, {}",
+                "Failed to update link to resource with input {}, {}",
                 input.toString(),
                 e.getMessage());
             throw new RuntimeException(
-                String.format(
-                    "Failed to remove link from resource with input  %s", input.toString()),
+                String.format("Failed to update link to resource with input %s", input.toString()),
                 e);
           }
         },
