@@ -1271,3 +1271,130 @@ def test_mysql_odbc_query():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mysql,bank_demo.transaction,PROD)"
     )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_with_dsn_to_database_mapping():
+    """Test ODBC query parsing with dsn_to_database_schema mapping using database-only format (dsn: database)."""
+    # Query with unqualified table reference "transaction" instead of "bank_demo.transaction"
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};'
+        'server=10.1.10.1;database=employees;dsn=testdb01", '
+        '"SELECT transaction_id, account_id FROM transaction")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="BankTransactions",
+        full_name="BankTransactions.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test with database-only mapping: "testdb01" -> "bank_demo" (no schema)
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"testdb01": "mysql"},
+            "dsn_to_database_schema": {"testdb01": "bank_demo"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,bank_demo.transaction,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_with_dsn_to_database_schema_mapping():
+    """Test ODBC query parsing with dsn_to_database_schema mapping using database.schema format (dsn: database.schema)."""
+    # Query with unqualified table reference
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={PostgreSQL ODBC Driver};'
+        'server=pg.example.com;database=warehouse;dsn=warehouse_dsn", '
+        '"SELECT order_id, customer_id FROM orders")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="Orders",
+        full_name="Orders.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test with database.schema mapping: "warehouse_dsn" -> "warehouse.sales" (includes schema)
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "dsn_to_platform_name": {"warehouse_dsn": "postgres"},
+            "dsn_to_database_schema": {"warehouse_dsn": "warehouse.sales"},
+        }
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,warehouse.sales.orders,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_mysql_odbc_query_without_dsn_mapping():
+    """Test ODBC query parsing without dsn_to_database_schema mapping falls back to default behavior."""
+    # Query with unqualified table reference
+    odbc_query_unqualified = (
+        'let\n    Source = Odbc.Query("driver={MySQL ODBC 9.2 Unicode Driver};'
+        'server=10.1.10.1;database=employees;dsn=unmapped_dsn", '
+        '"SELECT id, name FROM users")\nin\n    Source'
+    )
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=odbc_query_unqualified,
+        name="Users",
+        full_name="Users.Table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    # Test without dsn_to_database_schema mapping
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_platform_name": {"unmapped_dsn": "mysql"}}
+    )
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    # Without dsn_to_database_schema mapping, should use table name as-is
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mysql,users,PROD)"
+    )
