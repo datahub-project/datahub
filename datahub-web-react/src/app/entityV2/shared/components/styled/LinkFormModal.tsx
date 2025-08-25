@@ -1,22 +1,7 @@
 import { Form } from 'antd';
 import React, { useCallback, useEffect, useMemo } from 'react';
-import styled from 'styled-components/macro';
 
-import { Button, Input, Modal } from '@src/alchemy-components';
-
-const FooterContainer = styled.div`
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-`;
-
-const FooterButtonsContainer = styled.div`
-    display: flex;
-    gap: 16px;
-    flex-direction: row;
-    align-items: center;
-`;
+import { Input, Modal } from '@src/alchemy-components';
 
 export interface FormData {
     url: string;
