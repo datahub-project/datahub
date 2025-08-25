@@ -887,3 +887,44 @@ def test_description_extraction():
         if field.fieldPath == "[version=2.0].[type=object].[type=array].bar"
     )
     assert array_field.description == "XYZ"
+
+
+def test_json_schema_ref_loop_in_definitions():
+    """
+    Test for issue #14358: JSON Schema Ingestion Fails on $ref Loop in Definitions
+
+    This tests the specific case where a schema has a $ref loop within the definitions
+    section, which was reported to cause infinite loops during ingestion.
+    """
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "$id": "https://schema.com/schema/1.0",
+        "type": "object",
+        "properties": {"test": {"$ref": "#/definitions/condition"}},
+        "required": ["test"],
+        "definitions": {
+            "condition": {
+                "type": "object",
+                "properties": {"condition": {"$ref": "#/definitions/condition"}},
+            }
+        },
+    }
+
+    # This should not hang or cause infinite loops
+    fields = json_schema_to_schema_fields(schema)
+
+    expected_field_paths = [
+        "[version=2.0].[type=object].[type=condition].test",
+        "[version=2.0].[type=object].[type=condition].test.[type=condition].condition",
+    ]
+    assert_field_paths_match(fields, expected_field_paths)
+    assert_fields_are_valid(fields)
+
+    # The second field should be marked as recursive
+    assert len(fields) == 2
+    assert not fields[0].recursive
+    assert fields[1].recursive
+
+    # Both should be RecordType
+    assert isinstance(fields[0].type.type, RecordTypeClass)
+    assert isinstance(fields[1].type.type, RecordTypeClass)

@@ -2,7 +2,7 @@ import { Button, colors } from '@components';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
-import { Tab } from '@app/homeV3/modules/hierarchyViewModule/components/form/sections/selectAssets/assetTypeTabs/types';
+import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
 
 const StyledButton = styled(Button)<{ $active?: boolean }>`
     width: 100%;

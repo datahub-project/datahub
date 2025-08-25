@@ -12,9 +12,14 @@ import useSelectableDomainTree from '@app/homeV3/modules/hierarchyViewModule/com
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
 import TreeView from '@app/homeV3/modules/hierarchyViewModule/treeView/TreeView';
 import { TreeNode } from '@app/homeV3/modules/hierarchyViewModule/treeView/types';
-import { getTopLevelSelectedValuesFromTree } from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
+import {
+    getOutOfTreeSelectedValues,
+    getTopLevelSelectedValuesFromTree,
+} from '@app/homeV3/modules/hierarchyViewModule/treeView/utils';
 
 const Wrapper = styled.div``;
+
+const LOAD_BATCH_SIZE = 25;
 
 export default function DomainsSelectableTreeView() {
     const form = Form.useFormInstance();
@@ -24,12 +29,23 @@ export default function DomainsSelectableTreeView() {
 
     const { parentValues, addParentValue, removeParentValue } = useParentValuesToLoadChildren();
 
-    const { tree, selectedValues, setSelectedValues, loading } = useSelectableDomainTree(initialSelectedValues);
+    const {
+        tree,
+        selectedValues,
+        setSelectedValues,
+        loading,
+        loadMoreRootNodes,
+        rootDomainsMoreLoading,
+        rootNodesTotal,
+    } = useSelectableDomainTree(initialSelectedValues, LOAD_BATCH_SIZE);
 
     const updateSelectedValues = useCallback(
         (newSelectedValues: string[]) => {
             const topLevelSelectedValues = getTopLevelSelectedValuesFromTree(newSelectedValues, tree.nodes);
-            form.setFieldValue('domainAssets', topLevelSelectedValues);
+            // add out of tree selected values as some root nodes could not be loaded yet
+            const outOfTreeSelectedValues = getOutOfTreeSelectedValues(newSelectedValues, tree.nodes);
+            const newProcessedSelectedValues = new Set([...topLevelSelectedValues, ...outOfTreeSelectedValues]);
+            form.setFieldValue('domainAssets', Array.from(newProcessedSelectedValues));
             setSelectedValues(newSelectedValues);
         },
         [form, setSelectedValues, tree],
@@ -57,7 +73,7 @@ export default function DomainsSelectableTreeView() {
 
     return (
         <Wrapper>
-            <ChildrenLoaderProvider onLoadFinished={onLoadFinished}>
+            <ChildrenLoaderProvider onLoadFinished={onLoadFinished} maxNumberOfChildrenToLoad={LOAD_BATCH_SIZE}>
                 <ChildrenLoader parentValues={parentValues} loadChildren={useChildrenDomainsLoader} />
 
                 <TreeView
@@ -70,6 +86,11 @@ export default function DomainsSelectableTreeView() {
                     updateSelectedValues={updateSelectedValues}
                     loadChildren={startLoadingOfChildren}
                     renderNodeLabel={(nodeProps) => <DomainSelectableTreeNodeRenderer {...nodeProps} />}
+                    loadRootNodes={loadMoreRootNodes}
+                    rootNodesLoading={rootDomainsMoreLoading}
+                    loadingTriggerType="infiniteScroll"
+                    rootNodesTotal={rootNodesTotal}
+                    loadBatchSize={LOAD_BATCH_SIZE}
                 />
             </ChildrenLoaderProvider>
         </Wrapper>

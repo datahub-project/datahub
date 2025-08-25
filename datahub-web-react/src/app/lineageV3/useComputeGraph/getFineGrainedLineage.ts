@@ -29,6 +29,22 @@ interface TentativeEdge {
 }
 
 /**
+ * Check if a schema field exists in a dataset's schema
+ * @param datasetUrn URN of the dataset
+ * @param fieldPath Path of the schema field to check
+ * @param nodes Map of nodes containing schema metadata
+ * @returns true if the field exists, false otherwise
+ */
+function schemaFieldExists(datasetUrn: string, fieldPath: string, nodes: NodeContext['nodes']): boolean {
+    const node = nodes.get(datasetUrn);
+    if (!node?.entity?.schemaMetadata?.fields) {
+        return false;
+    }
+
+    return node.entity.schemaMetadata.fields.some((field) => field.fieldPath === fieldPath);
+}
+
+/**
  * Piece together column-level lineage directly from aspects,
  * e.g. dataset upstreamLineage, chart inputFields, and datajob dataJobInputOutput
  *
@@ -56,8 +72,18 @@ export default function getFineGrainedLineage(
     ) {
         const upstreamRef = createColumnRef(upstreamUrn, upstreamField);
         const downstreamRef = createColumnRef(downstreamUrn, downstreamField);
+
         // Drop ghost edges and self edges
         if (!nodes.has(upstreamUrn) || !nodes.has(downstreamUrn) || upstreamRef === downstreamRef) return;
+
+        // Validate that both upstream and downstream schema fields actually exist in their datasets
+        // This prevents phantom lineage connections when fine-grained lineage references non-existent fields
+        if (
+            !schemaFieldExists(upstreamUrn, upstreamField, nodes) ||
+            !schemaFieldExists(downstreamUrn, downstreamField, nodes)
+        ) {
+            return;
+        }
 
         if (
             edges.get(createEdgeId(upstreamUrn, downstreamUrn))?.isDisplayed ||

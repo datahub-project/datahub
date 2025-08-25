@@ -122,6 +122,12 @@ public class UpsertPageModuleResolver implements DataFetcher<CompletableFuture<D
       UrnArray urnArray = new UrnArray(urns);
 
       assetCollectionParams.setAssetUrns(urnArray);
+
+      if (paramsInput.getAssetCollectionParams().getDynamicFilterJson() != null) {
+        assetCollectionParams.setDynamicFilterJson(
+            paramsInput.getAssetCollectionParams().getDynamicFilterJson());
+      }
+
       gmsParams.setAssetCollectionParams(assetCollectionParams);
     }
 
