@@ -5,7 +5,9 @@ hide_title: true
 
 # Configuring Kafka in DataHub
 
-DataHub requires Kafka to operate. Kafka is used as a durable log that can be used to store inbound
+DataHub uses Kafka as the pub-sub message queue in the backend.
+[Official Confluent Kafka Docker images](https://hub.docker.com/u/confluentinc) found in Docker Hub is used without
+any modification. Kafka is used as a durable log that can be used to store inbound
 requests to update the Metadata Graph (Metadata Change Proposal), or as a change log detailing the updates
 that have been made to the Metadata Graph (Metadata Change Log).
 
@@ -261,3 +263,15 @@ Client.
 > messages indicate that the service was passed a configuration that is not relevant to it and can be safely ignored.
 
 > Other errors: `Failed to start bean 'org.springframework.kafka.config.internalKafkaListenerEndpointRegistry'; nested exception is org.apache.kafka.common.errors.TopicAuthorizationException: Not authorized to access topics: [DataHubUsageEvent_v1]`. Please check ranger permissions or kafka broker logs.
+
+## Debugging Kafka
+
+You can install [kafkacat](https://github.com/edenhill/kafkacat) to consume and produce messaged to Kafka topics.
+For example, to consume messages on MetadataAuditEvent topic, you can run below command.
+
+```
+kafkacat -b localhost:9092 -t MetadataAuditEvent
+```
+
+However, `kafkacat` currently doesn't support Avro deserialization at this point,
+but they have an ongoing [work](https://github.com/edenhill/kafkacat/pull/151) for that.
