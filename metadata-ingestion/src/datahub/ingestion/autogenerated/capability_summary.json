@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-07-31T12:54:30.557618+00:00",
+  "generated_at": "2025-08-22T10:35:46.731910+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2334,6 +2334,12 @@
           "supported": true
         },
         {
+          "capability": "TAGS",
+          "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -3131,6 +3137,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by `domain` config to assign domain_key",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Supported by default",
           "subtype_modifier": null,
           "supported": true
         },
