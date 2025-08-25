@@ -75,6 +75,7 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    IngestionSourceTemplateSelectedEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -169,6 +170,11 @@ interface BaseEvent {
     userTitle?: string;
     /** the current server version when this event happened */
     serverVersion?: string;
+}
+
+export interface IngestionSourceTemplateSelectedEvent extends BaseEvent {
+    type: EventType.IngestionSourceTemplateSelectedEvent;
+    sourceType: string;
 }
 
 /**
@@ -613,8 +619,10 @@ export interface MoveDomainEvent extends BaseEvent {
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn?: string;
     interval?: string;
     numOwners?: number;
+    outcome?: string;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -622,6 +630,7 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     sourceType: string;
     interval?: string;
     numOwners?: number;
+    outcome?: string;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1216,4 +1225,5 @@ export type Event =
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
-    | ProductTourButtonClickEvent;
+    | ProductTourButtonClickEvent
+    | IngestionSourceTemplateSelectedEvent;

@@ -394,6 +394,7 @@ export const IngestionSourceList = ({
                         sourceType: input.type,
                         interval: input.schedule?.interval,
                         numOwners: owners?.length,
+                        outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
                         content: `Successfully updated ingestion source!`,
@@ -460,8 +461,10 @@ export const IngestionSourceList = ({
                     analytics.event({
                         type: EventType.CreateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: newSource.urn,
                         interval: input.schedule?.interval,
                         numOwners: ownersToAdd?.length,
+                        outcome: shouldRun ? 'save_and_run' : 'save',
                     });
                     message.success({
                         content: `Successfully created ingestion source!`,
