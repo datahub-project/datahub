@@ -374,11 +374,84 @@ function new_url(original: string, filepath: string): string {
   }
 }
 
+function isJsxTag(tag: string): boolean {
+  const jsxTags = [
+    "div",
+    "img",
+    "a",
+    "p",
+    "br",
+    "Tab",
+    "code",
+    "tr",
+    "td",
+    "th",
+    "table",
+    "thead",
+    "tbody",
+    "TabItem",
+    "Tabs",
+    "TabItem",
+    "Note",
+    "Warning",
+    "Info",
+    "Danger",
+    "Details",
+    "Summary",
+    "details",
+    "summary",
+    "ul",
+    "li",
+    "ol",
+    "b",
+    "i",
+    "strong",
+    "em",
+    "span",
+    "button",
+    "input",
+    "select",
+    "option",
+    "form",
+    "label",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+  ];
+  return jsxTags.includes(tag.toLowerCase());
+}
+
+function fixTabItemTags(content: string): string {
+  // Fix TabItem tags that are on the same line as content
+  return content.replace(
+    /(<TabItem[^>]*>)(\s*[^\n])/g,
+    (_, tag, content) => `${tag}\n${content}`
+  );
+}
+
+function fixHtmlTableTags(content: string): string {
+  // Fix HTML table tags to ensure proper newlines
+  return content
+    .replace(/(<\/tr>)(<tr>)/g, "$1\n$2")
+    .replace(/(<\/td>)(<td>)/g, "$1\n$2")
+    .replace(/(<\/th>)(<th>)/g, "$1\n$2");
+}
+
 function markdown_rewrite_urls(
   contents: matter.GrayMatterFile<string>,
   filepath: string
 ): void {
-  const new_content = contents.content
+  // First pass: Fix TabItem tags
+  let new_content = fixTabItemTags(contents.content);
+
+  // Second pass: Fix HTML table tags
+  new_content = fixHtmlTableTags(new_content);
+
+  // Second pass: Process URLs and variable placeholders
+  new_content = new_content
     .replace(
       // Look for the [text](url) syntax. Note that this will also capture images.
       //
@@ -397,7 +470,40 @@ function markdown_rewrite_urls(
         const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
       }
+    )
+    .replace(
+      // Handle URLs in angle brackets
+      /<(https?:\/\/[^\s>]+)>/g,
+      (_, url) => `[${url}](${url})`
+    )
+    .replace(
+      // Handle variable placeholders in URLs
+      /\]\(([^)]*?)<([A-Z_][A-Z0-9_]*|[a-z_][a-z0-9_]*)>([^)]*?)\)/g,
+      (match, prefix, variable, suffix) =>
+        `](${prefix}\`${variable}\`${suffix})`
+    )
+    .replace(
+      // Handle variable placeholders in text
+      /<([A-Z_][A-Z0-9_]*|[a-z_][a-z0-9_]*)>/g,
+      (match, variable) => {
+        // Skip if it's a JSX tag
+        const firstWord = variable.split(/[\s/>]/)[0];
+        if (isJsxTag(firstWord)) {
+          return match;
+        }
+        // Skip if it looks like an HTML tag (contains attributes or is a self-closing tag)
+        if (variable.includes(" ") || variable.includes("/")) {
+          return match;
+        }
+        return `\`${variable}\``;
+      }
+    )
+    .replace(
+      // Handle type definitions like map<string,object>
+      /<([a-z]+<[^>]+>)/g,
+      (match, content) => `\`${content}\``
     );
+
   contents.content = new_content;
 }
 

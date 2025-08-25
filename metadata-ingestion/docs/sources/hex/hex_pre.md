@@ -5,7 +5,7 @@
 Workspace name is required to fetch the data from Hex. You can find the workspace name in the URL of your Hex home page.
 
 ```
-https://app.hex.tech/<workspace_name>"
+https://app.hex.tech/`<workspace_name>`
 ```
 
 _Eg_: In https://app.hex.tech/acryl-partnership, `acryl-partnership` is the workspace name.
