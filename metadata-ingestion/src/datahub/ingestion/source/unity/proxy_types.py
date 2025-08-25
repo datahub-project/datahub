@@ -13,6 +13,7 @@ from databricks.sdk.service.catalog import (
     DataSourceFormat,
     SecurableType,
     TableType,
+    VolumeType,
 )
 from databricks.sdk.service.sql import QueryStatementType
 from databricks.sdk.service.workspace import Language
@@ -115,6 +116,23 @@ class Catalog(CommonProperty):
 class Schema(CommonProperty):
     catalog: Catalog
     owner: Optional[str]
+
+
+@dataclass
+class Volume(CommonProperty):
+    schema: Schema
+    volume_type: Optional[VolumeType]
+    storage_location: Optional[str]
+    owner: Optional[str]
+    created_at: Optional[datetime]
+    created_by: Optional[str]
+    updated_at: Optional[datetime]
+    updated_by: Optional[str]
+
+    ref: "VolumeReference" = field(init=False)
+
+    def __post_init__(self):
+        self.ref = VolumeReference.create(self)
 
 
 @dataclass
@@ -223,6 +241,64 @@ class ExternalTableReference:
         except Exception as e:
             logger.warning(f"Failed to create ExternalTableReference from {d}: {e}")
             return None
+
+
+@dataclass(frozen=True, order=True)
+class VolumeReference:
+    metastore: Optional[str]
+    catalog: str
+    schema: str
+    volume: str
+
+    @classmethod
+    def create(cls, volume: "Volume") -> "VolumeReference":
+        return cls(
+            (
+                volume.schema.catalog.metastore.id
+                if volume.schema.catalog.metastore
+                else None
+            ),
+            volume.schema.catalog.name,
+            volume.schema.name,
+            volume.name,
+        )
+
+    def __str__(self) -> str:
+        if self.metastore:
+            return f"{self.metastore}.{self.catalog}.{self.schema}.{self.volume}"
+        else:
+            return self.qualified_volume_name
+
+    @property
+    def qualified_volume_name(self) -> str:
+        return f"{self.catalog}.{self.schema}.{self.volume}"
+
+    @property
+    def volume_path(self) -> str:
+        return f"/Volumes/{self.catalog}/{self.schema}/{self.volume}"
+
+
+@dataclass(frozen=True, order=True)
+class VolumeExternalReference:
+    storage_location: str
+    name: Optional[str]
+    volume_type: Optional[VolumeType]
+    last_updated: Optional[datetime] = None
+
+    @classmethod
+    def create_from_volume(
+        cls, volume: "Volume"
+    ) -> Optional["VolumeExternalReference"]:
+        """Create VolumeExternalReference from a Volume."""
+        if not volume.storage_location:
+            return None
+
+        return cls(
+            storage_location=volume.storage_location,
+            name=volume.name,
+            volume_type=volume.volume_type,
+            last_updated=volume.updated_at,
+        )
 
 
 @dataclass(frozen=True, order=True)

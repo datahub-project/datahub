@@ -19,6 +19,7 @@ from databricks.sdk.service.catalog import (
     MetastoreInfo,
     SchemaInfo,
     TableInfo,
+    VolumeType,
 )
 from databricks.sdk.service.iam import ServicePrincipal as DatabricksServicePrincipal
 from databricks.sdk.service.sql import (
@@ -56,6 +57,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.utilities.file_backed_collections import FileBackedDict
@@ -1000,3 +1002,114 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
 
         return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
+    def get_volume_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Get volume tags using databricks-sql"""
+        logger.info(f"Fetching volume tags for catalog: `{catalog}`")
+
+        query = f"SELECT * FROM `{catalog}`.information_schema.volume_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, volume_name, tag_name, tag_value = row
+            volume_key = f"{catalog_name}.{schema_name}.{volume_name}"
+
+            if volume_key not in result_dict:
+                result_dict[volume_key] = []
+
+            result_dict[volume_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
+            )
+
+        return result_dict
+
+    def volumes(self, schema: Schema) -> Iterable[Volume]:
+        """Get volumes in a schema using Unity Catalog information_schema."""
+        if (
+            self.hive_metastore_proxy
+            and schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+        ):
+            # Volumes are not available for Hive Metastore
+            logger.info("Volumes not supported for Hive Metastore catalogs")
+            return
+
+        logger.info(f"Fetching volumes for schema: {schema.id}")
+        try:
+            query = f"""
+                SELECT 
+                    volume_catalog,
+                    volume_schema, 
+                    volume_name,
+                    volume_type,
+                    volume_owner,
+                    comment,
+                    created,
+                    created_by,
+                    last_altered,
+                    last_altered_by,
+                    storage_location
+                FROM `{schema.catalog.name}`.information_schema.volumes 
+                WHERE volume_schema = %s
+            """
+            rows = self._execute_sql_query(query, [schema.name])
+
+            for row in rows:
+                try:
+                    optional_volume = self._create_volume(schema, row)
+                    if optional_volume:
+                        yield optional_volume
+                except Exception as e:
+                    logger.warning(f"Error parsing volume: {e}")
+                    self.report.report_warning("volume-parse", str(e))
+
+        except Exception as e:
+            logger.warning(
+                f"Error getting volumes for schema {schema.id}: {e}", exc_info=True
+            )
+
+    def _create_volume(self, schema: Schema, row: Row) -> Optional[Volume]:
+        """Create Volume object from information_schema.volumes row."""
+        volume_name = row["volume_name"]
+        if not volume_name:
+            logger.warning("Volume missing name")
+            return None
+
+        try:
+            volume_type_str = row["volume_type"]
+            volume_type: Optional[VolumeType] = None
+            if volume_type_str:
+                try:
+                    volume_type = VolumeType(volume_type_str)
+                except ValueError:
+                    logger.warning(f"Unknown volume type: {volume_type_str}")
+                    volume_type = None
+
+            volume_id = f"{schema.id}.{self._escape_sequence(volume_name)}"
+
+            return Volume(
+                name=volume_name,
+                id=volume_id,
+                schema=schema,
+                volume_type=volume_type,
+                storage_location=row["storage_location"],
+                owner=row["volume_owner"],
+                created_at=(
+                    parse_ts_millis(int(row["created"].timestamp() * 1000))
+                    if row["created"]
+                    else None
+                ),
+                created_by=row["created_by"],
+                updated_at=(
+                    parse_ts_millis(int(row["last_altered"].timestamp() * 1000))
+                    if row["last_altered"]
+                    else None
+                ),
+                updated_by=row["last_altered_by"],
+                comment=row["comment"],
+            )
+        except Exception as e:
+            logger.warning(f"Error creating volume {volume_name}: {e}")
+            return None
