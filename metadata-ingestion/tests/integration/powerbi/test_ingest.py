@@ -142,7 +142,7 @@ def test_mysql_ingest(
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
-def test_mysql_odbc_ingest(
+def test_mysql_odbc_datasource_ingest(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
@@ -156,7 +156,7 @@ def test_mysql_odbc_ingest(
         pytestconfig=pytestconfig,
         override_data=read_mock_data(
             pytestconfig.rootpath
-            / "tests/integration/powerbi/mock_data/mysql_odbc_mock_response.json"
+            / "tests/integration/powerbi/mock_data/mysql_odbc_datasource_mock_response.json"
         ),
     )
 
@@ -187,10 +187,68 @@ def test_mysql_odbc_ingest(
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_mysql_odbc.json"
+    golden_file = "golden_test_mysql_odbc_datasource.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=f"{tmp_path}/powerbi_mysql_odbc_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_mysql_odbc_query_ingest(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+    register_mock_api(
+        request_mock=requests_mock,
+        pytestconfig=pytestconfig,
+        override_data=read_mock_data(
+            pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/mysql_odbc_query_mock_response.json"
+        ),
+    )
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    "client_id": "foo",
+                    "client_secret": "bar",
+                    "tenant_id": "0B0C960B-FCDF-4D0F-8C45-2E03BB59DDEB",
+                    "workspace_id_pattern": {
+                        "allow": ["64ed5cad-7c10-4684-8180-826122881108"]
+                    },
+                    "dsn_to_platform_name": {"testdb01": "mysql"},
+                    "dsn_to_database_schema": {"testdb01": "employees"},
+                    "extract_lineage": True,
+                    "extract_reports": False,
+                    "convert_urns_to_lowercase": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_mysql_odbc_query_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_mysql_odbc_query.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mysql_odbc_query_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
