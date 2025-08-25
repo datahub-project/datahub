@@ -184,7 +184,6 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
-      @RequestParam(value = "fullText", required = false, defaultValue = "false") Boolean fullText,
       @RequestParam(value = "sliceId", required = false) Integer sliceId,
       @RequestParam(value = "sliceMax", required = false) Integer sliceMax,
       @Parameter(
@@ -238,7 +237,6 @@ public class EntityController
             opContext.withSearchFlags(
                 flags ->
                     DEFAULT_SEARCH_FLAGS
-                        .setFulltext(fullText)
                         .setSkipCache(skipCache)
                         .setIncludeSoftDeleted(includeSoftDelete)
                         .setSliceOptions(

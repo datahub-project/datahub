@@ -23,7 +23,14 @@ public class SortCriterion {
     com.linkedin.metadata.query.filter.SortCriterion sortCriterion =
         new com.linkedin.metadata.query.filter.SortCriterion();
     sortCriterion.setField(this.field);
-    sortCriterion.setOrder(com.linkedin.metadata.query.filter.SortOrder.valueOf(this.order.name()));
+
+    // By default, sort in ASCENDING order.
+    sortCriterion.setOrder(com.linkedin.metadata.query.filter.SortOrder.ASCENDING);
+
+    if (this.order != null) {
+      sortCriterion.setOrder(
+          com.linkedin.metadata.query.filter.SortOrder.valueOf(this.order.name()));
+    }
 
     return sortCriterion;
   }

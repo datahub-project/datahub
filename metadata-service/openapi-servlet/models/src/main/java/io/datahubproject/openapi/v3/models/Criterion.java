@@ -46,6 +46,9 @@ public class Criterion {
       criterion.setValues(new StringArray(this.values));
     }
 
+    // By default, the condition is EQUAL.
+    criterion.setCondition(com.linkedin.metadata.query.filter.Condition.EQUAL);
+
     if (this.condition != null) {
       criterion.setCondition(
           com.linkedin.metadata.query.filter.Condition.valueOf(this.condition.name()));

@@ -50,7 +50,6 @@ public class OpenAPIV3Generator {
   private static final Set<String> TYPE_STRING_NULLABLE = Set.of(TYPE_STRING, TYPE_NULL);
   private static final Set<String> TYPE_INTEGER_NULLABLE = Set.of(TYPE_INTEGER, TYPE_NULL);
   private static final String NAME_QUERY = "query";
-  private static final String NAME_FULLTEXT = "fullText";
   private static final String NAME_SORT_ORDER = "sortOrder";
   private static final String NAME_SORT_CRITERIA = "sortCriteria";
   private static final String NAME_PATH = "path";
@@ -668,11 +667,6 @@ public class OpenAPIV3Generator {
                 .description(
                     "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
                 .schema(newSchema().types(TYPE_STRING_NULLABLE)._default("5m")),
-            new Parameter()
-                .in(NAME_QUERY)
-                .name(NAME_FULLTEXT)
-                .description("Treat query as fulltext.")
-                .schema(newSchema().type(TYPE_BOOLEAN)._default(false)),
             new Parameter()
                 .in(NAME_QUERY)
                 .name(NAME_SORT_ORDER)
@@ -1378,8 +1372,7 @@ public class OpenAPIV3Generator {
                     ._enum(Arrays.asList("ASCENDING", "DESCENDING"))
                     ._default("ASCENDING")
                     .description("Sort order (default ASCENDING)."))
-            .addRequiredItem("field")
-            .addRequiredItem("order");
+            .addRequiredItem("field");
 
     // Sort (top-level)
     return newSchema()
@@ -1404,11 +1397,6 @@ public class OpenAPIV3Generator {
             .addProperties(
                 "field", newSchema().type(TYPE_STRING).description("The name of the field"))
             .addProperties(
-                "value",
-                newSchema()
-                    .type(TYPE_STRING)
-                    .description("Single value. Mutually exclusive with `values`."))
-            .addProperties(
                 "values",
                 newSchema()
                     .type(TYPE_ARRAY)
@@ -1426,18 +1414,9 @@ public class OpenAPIV3Generator {
             .addProperties(
                 "negated",
                 newSchema()._default(false).description("Whether the condition should be negated."))
-            .addRequiredItem("field")
-            .addRequiredItem("condition");
+            .addRequiredItem("field");
 
-    // oneOf branches for Criterion
-    Schema<?> branchValue =
-        newSchema()
-            .type(TYPE_OBJECT)
-            .addRequiredItem("value")
-            .description("Branch: requires `value` only.");
-    branchValue.setNot(newSchema().type(TYPE_OBJECT).addRequiredItem("values"));
-
-    Schema<?> branchValues =
+    Schema branchValues =
         newSchema()
             .type(TYPE_OBJECT)
             .addRequiredItem("values")
@@ -1458,7 +1437,7 @@ public class OpenAPIV3Generator {
                     newSchema().type(TYPE_OBJECT).addRequiredItem("values")));
     branchExists.setNot(anyOfValueOrValues);
 
-    criterion.setOneOf(Arrays.asList(branchValue, branchValues, branchExists));
+    criterion.setOneOf(Arrays.asList(branchValues, branchExists));
 
     // ConjunctiveCriterion schema
     Schema conjunctive =
