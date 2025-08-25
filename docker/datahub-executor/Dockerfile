@@ -210,8 +210,7 @@ RUN chmod +x /tmp/build_bundled_venvs_unified.sh && \
 USER datahub
 
 # Build bundled venvs using our self-contained script
-WORKDIR /tmp
-RUN ./build_bundled_venvs_unified.sh
+RUN /tmp/build_bundled_venvs_unified.sh
 
 # Remove build scripts to reduce image size
 USER 0
