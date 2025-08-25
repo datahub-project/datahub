@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
+import com.linkedin.datahub.upgrade.system.kafka.KafkaSetup;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.inject.Named;
@@ -32,7 +33,13 @@ public class DatahubUpgradeBlockingTest extends AbstractTestNGSpringContextTests
   @Test
   public void testBuildIndicesOrder() {
     assertNotNull(blockingSystemUpgrades);
-    assertTrue(blockingSystemUpgrades.get(0) instanceof BuildIndices);
+    assertTrue(blockingSystemUpgrades.get(1) instanceof BuildIndices);
+  }
+
+  @Test
+  public void testKafkaSetupOrder() {
+    assertNotNull(blockingSystemUpgrades);
+    assertTrue(blockingSystemUpgrades.get(0) instanceof KafkaSetup);
   }
 
   @Test
