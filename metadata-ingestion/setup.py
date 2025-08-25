@@ -752,6 +752,7 @@ full_test_dev_requirements = {
             "mongodb",
             "slack",
             "mssql",
+            "mssql-odbc",
             "mysql",
             "mariadb",
             "redash",
