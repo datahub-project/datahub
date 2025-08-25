@@ -6,7 +6,7 @@ import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import CustomAvatar from '@app/shared/avatar/CustomAvatar';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { EntityType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
@@ -29,8 +29,18 @@ const SectionContainer = styled.div`
     flex-direction: column;
 `;
 
+// Minimal shape for owner actor used here
+export type OwnerActorForSummary =
+    | { __typename?: 'CorpGroup'; urn: string; name?: string | null }
+    | {
+          __typename?: 'CorpUser';
+          urn: string;
+          username?: string | null;
+          editableProperties?: { pictureLink?: string | null } | null;
+      };
+
 interface Props {
-    owner: CorpUser | CorpGroup;
+    owner: OwnerActorForSummary;
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
@@ -44,7 +54,7 @@ export default function SummaryCreatedBySection({ owner }: Props) {
         ownerName = entityRegistry.getDisplayName(EntityType.CorpUser, owner);
     }
     const ownerPictureLink =
-        (owner && owner.__typename === 'CorpUser' && owner.editableProperties?.pictureLink) || undefined;
+        owner?.__typename === 'CorpUser' ? owner.editableProperties?.pictureLink || undefined : undefined;
 
     return (
         <>

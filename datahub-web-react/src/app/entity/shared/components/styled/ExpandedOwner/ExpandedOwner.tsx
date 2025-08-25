@@ -10,6 +10,7 @@ import { getNameFromType } from '@app/entity/shared/containers/profile/sidebar/O
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+import type { OwnershipFieldsFragment } from '@graphql/fragments.generated';
 import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
 import { EntityType, Owner } from '@types';
 
@@ -21,9 +22,11 @@ const OwnerTag = styled(Tag)`
     align-items: center;
 `;
 
+type OwnerFromFragment = NonNullable<OwnershipFieldsFragment['owners']>[number];
+
 type Props = {
     entityUrn?: string;
-    owner: Owner;
+    owner: Owner | OwnerFromFragment;
     hidePopOver?: boolean | undefined;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
@@ -39,18 +42,20 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     let name = '';
     let ownershipTypeName = '';
     if (owner.owner.__typename === 'CorpGroup') {
-        name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner);
+        name = entityRegistry.getDisplayName(EntityType.CorpGroup, owner.owner as any);
     }
     if (owner.owner.__typename === 'CorpUser') {
-        name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner);
+        name = entityRegistry.getDisplayName(EntityType.CorpUser, owner.owner as any);
     }
-    if (owner.ownershipType && owner.ownershipType.info) {
+    if ('ownershipType' in owner && owner.ownershipType && owner.ownershipType.info) {
         ownershipTypeName = owner.ownershipType.info.name;
-    } else if (owner.type) {
-        ownershipTypeName = getNameFromType(owner.type);
+    } else if ('type' in owner && owner.type) {
+        ownershipTypeName = getNameFromType((owner as Owner).type);
     }
     const pictureLink =
         (owner.owner.__typename === 'CorpUser' && owner.owner.editableProperties?.pictureLink) || undefined;
+    const ownershipTypeUrn = owner.ownershipType?.urn;
+
     const onDelete = async () => {
         if (!entityUrn) {
             return;
@@ -60,7 +65,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                 variables: {
                     input: {
                         ownerUrn: owner.owner.urn,
-                        ownershipTypeUrn: owner.ownershipType?.urn,
+                        ownershipTypeUrn,
                         resourceUrn: entityUrn,
                     },
                 },

@@ -6,7 +6,7 @@ import navigateToUrl from '@app/utils/navigateToUrl';
 
 import { useGetSchemaVersionListQuery } from '@graphql/schemaBlame.generated';
 import { useGetVersionedDatasetQuery } from '@graphql/versionedDataset.generated';
-import { EditableSchemaMetadata, Schema, SemanticVersionStruct } from '@types';
+import { Schema, SemanticVersionStruct } from '@types';
 
 interface Args {
     datasetUrn?: string;
@@ -19,7 +19,7 @@ interface Return {
     versionList: SemanticVersionStruct[];
     isLatest: boolean;
     schema?: Partial<Schema>;
-    editableSchemaMetadata?: EditableSchemaMetadata;
+    editableSchemaMetadata?: any;
 }
 
 export default function useSchemaVersioning({ datasetUrn, urlParam, skip }: Args): Return {
@@ -64,7 +64,8 @@ export default function useSchemaVersioning({ datasetUrn, urlParam, skip }: Args
         selectedVersion,
         versionList,
         isLatest: selectedVersion === latestVersion,
-        schema: versionedDatasetData.data?.versionedDataset?.schema ?? undefined,
-        editableSchemaMetadata: versionedDatasetData.data?.versionedDataset?.editableSchemaMetadata ?? undefined,
+        schema: (versionedDatasetData.data?.versionedDataset?.schema as Partial<Schema>) ?? undefined,
+        editableSchemaMetadata:
+            (versionedDatasetData.data?.versionedDataset?.editableSchemaMetadata as any) ?? undefined,
     };
 }
