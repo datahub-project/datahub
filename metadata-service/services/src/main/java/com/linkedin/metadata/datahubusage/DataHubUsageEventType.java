@@ -56,6 +56,7 @@ public enum DataHubUsageEventType {
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
   INGESTION_SOURCE_TEMPLATE_SELECTED_EVENT("IngestionSourceTemplateSelectedEvent"),
+  INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
   CREATE_INGESTION_SOURCE_EVENT("CreateIngestionSourceEvent"),
   UPDATE_INGESTION_SOURCE_EVENT("UpdateIngestionSourceEvent"),
   DELETE_INGESTION_SOURCE_EVENT("DeleteIngestionSourceEvent"),

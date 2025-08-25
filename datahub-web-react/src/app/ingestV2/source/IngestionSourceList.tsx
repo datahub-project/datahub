@@ -392,6 +392,7 @@ export const IngestionSourceList = ({
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
+                        sourceUrn: focusSourceUrn,
                         interval: input.schedule?.interval,
                         numOwners: owners?.length,
                         outcome: shouldRun ? 'save_and_run' : 'save',
