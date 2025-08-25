@@ -1,20 +1,19 @@
 import { DeleteOutlined, LinkOutlined } from '@ant-design/icons';
+import { colors } from '@components';
 import { Button, List, Typography, message } from 'antd';
+import { Pencil } from 'phosphor-react';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { FormData, LinkFormModal } from '@app/entityV2/shared/components/styled/LinkFormModal';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveLinkMutation, useUpdateLinkMutation } from '@graphql/mutations.generated';
 import { InstitutionalMemoryMetadata } from '@types';
-import { LinkFormModal, FormData } from '@app/entityV2/shared/components/styled/LinkFormModal';
-import { colors } from '@components';
-import { Pencil } from 'phosphor-react';
-
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;
@@ -86,7 +85,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                 await updateLinkMutation({
                     variables: {
                         input: {
-                            currentLabel: editingMetadata.label,
+                            currentLabel: editingMetadata.label || editingMetadata.description,
                             currentUrl: editingMetadata.url,
                             resourceUrn: editingMetadata.associatedUrn || entityUrn,
                             label: formData.label,
@@ -110,8 +109,9 @@ export const LinkList = ({ refetch }: LinkListProps) => {
     const onEdit = useCallback((metadata: InstitutionalMemoryMetadata) => {
         setEditingMetadata(metadata);
         setInitialValuesOfEditForm({
-            label: metadata.label,
-            url: metadata.url,        });
+            label: metadata.label || metadata.description,
+            url: metadata.url,
+        });
         setIsEditFormModalOpened(true);
     }, []);
 

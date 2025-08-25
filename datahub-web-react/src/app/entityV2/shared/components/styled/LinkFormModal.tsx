@@ -1,7 +1,8 @@
-import { Button, Checkbox, Input, Modal, Text } from '@src/alchemy-components';
 import { Form } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import styled from 'styled-components/macro';
+
+import { Button, Input, Modal } from '@src/alchemy-components';
 
 const FooterContainer = styled.div`
     display: flex;
@@ -15,17 +16,6 @@ const FooterButtonsContainer = styled.div`
     gap: 16px;
     flex-direction: row;
     align-items: center;
-`;
-
-const FooterCheckboxContainer = styled.div`
-    display: flex;
-    gap: 4px;
-    flex-direction: row;
-    align-items: center;
-`;
-
-const FooterCheckboxLabel = styled(Text)`
-    cursor: pointer;
 `;
 
 export interface FormData {
@@ -62,18 +52,10 @@ export const LinkFormModal = ({ open, initialValues, variant, onSubmit, onCancel
             open={open}
             destroyOnClose
             onCancel={onCancelHandler}
-            footer={
-                <FooterContainer>
-                    <FooterButtonsContainer>
-                        <Button variant="text" onClick={onCancelHandler}>
-                            Cancel
-                        </Button>
-                        <Button data-testid="link-form-modal-submit-button" form="linkForm" key="submit">
-                            {submitButtonText}
-                        </Button>
-                    </FooterButtonsContainer>
-                </FooterContainer>
-            }
+            buttons={[
+                { text: 'Cancel', variant: 'outline', color: 'gray', onClick: onCancelHandler },
+                { text: submitButtonText, onClick: () => form.submit() },
+            ]}
         >
             <Form form={form} name="linkForm" onFinish={onSubmit} layout="vertical">
                 <Form.Item

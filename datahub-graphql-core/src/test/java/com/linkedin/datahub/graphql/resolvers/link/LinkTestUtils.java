@@ -133,11 +133,6 @@ public class LinkTestUtils {
                     expectedAspect.getElements().get(index);
                 Assert.assertEquals(element.getUrl(), expectedElement.getUrl());
                 Assert.assertEquals(element.getDescription(), expectedElement.getDescription());
-                if (expectedElement.getSettings() != null) {
-                  Assert.assertEquals(
-                      element.getSettings().isShowInAssetPreview(),
-                      expectedElement.getSettings().isShowInAssetPreview());
-                }
               });
     }
   }
