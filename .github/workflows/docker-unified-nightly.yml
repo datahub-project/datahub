@@ -1,0 +1,588 @@
+name: Nightly Docker Build
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *" # Run at midnight Pacific time (8 AM UTC) every day
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  DOCKER_REGISTRY: "acryldata"
+  DOCKER_CACHE: "DEPOT"
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  setup:
+    runs-on: depot-ubuntu-24.04-small
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      date_tag: ${{ steps.tag.outputs.date_tag }}
+      docker-login: ${{ steps.docker-login.outputs.docker-login }}
+      publish: ${{ steps.publish.outputs.publish }}
+      python_release_version: ${{ steps.tag.outputs.python_release_version }}
+      branch_name: ${{ steps.tag.outputs.branch_name }}
+      repository_name: ${{ steps.tag.outputs.repository_name }}
+      build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
+      test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
+      use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
+      uv_cache_key: ${{ steps.uv-cache-key.outputs.uv_cache_key }}
+      uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
+      yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
+      yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+      - name: Compute Tag
+        id: tag
+        env:
+          GITHUB_REF_FALLBACK: ${{ github.ref }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: |
+          source .github/scripts/docker_helpers.sh
+          # Get current date in YYYY-MM-DD format
+          CURRENT_DATE=$(date +%Y-%m-%d)
+          {
+            echo "tag=nightly"
+            echo "date_tag=nightly-${CURRENT_DATE}"
+            echo "python_release_version=$(get_python_docker_release_v)"
+            echo "branch_name=${GITHUB_REF#refs/heads/}"
+            echo "repository_name=${GITHUB_REPOSITORY#*/}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Check whether docker login is possible
+        id: docker-login
+        env:
+          ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        run: |
+          echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
+          echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether publishing enabled
+        id: publish
+        env:
+          ENABLE_PUBLISH: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' }}
+        run: |
+          echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
+          echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
+
+      - name: Determine runner type
+        id: set-runner
+        run: |
+          if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
+            echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
+            echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compute UV Cache Key
+        id: uv-cache-key
+        run: |
+          echo "uv_cache_key=docker-unified-nightly-${{ runner.os }}-uv-${{ hashFiles(
+            './datahub-actions/pyproject.toml',
+            './datahub-actions/setup.py',
+            './smoke-test/requirements.txt',
+            './smoke-test/pyproject.toml',
+            './metadata-ingestion/pyproject.toml',
+            './metadata-ingestion/setup.py') }}" >> "$GITHUB_OUTPUT"
+          echo "uv_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-uv-" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Yarn Cache Key
+        id: yarn-cache-key
+        run: |
+          echo "yarn_cache_key=docker-unified-nightly-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
+          echo "yarn_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
+
+  smoke_test_lint:
+    name: Lint on smoke tests
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: setup
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Run lint on smoke test
+        run: |
+          python ./.github/scripts/check_python_package.py
+          ./gradlew :smoke-test:pythonLint
+          ./gradlew :smoke-test:cypressLint
+
+  # First build images for smoke tests only
+  base_build_smoke:
+    name: Build images for smoke tests
+    runs-on: ${{ needs.setup.outputs.build_runner_type }}
+    needs: setup
+    outputs:
+      build_id: ${{ steps.capture-build-id.outputs.build_id }}
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        uses: depot/setup-action@v1
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Build images for smoke tests
+        run: |
+          ./gradlew :docker:buildImagesQuickStartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PdateTag=${{ needs.setup.outputs.date_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+
+      - name: Capture build Id
+        id: capture-build-id
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        run: |
+          pip install jq
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
+        else:
+          run: |
+            echo "build_id=local-build" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+
+      - uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+
+  smoke_test_matrix:
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: setup
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
+      python_batch_count: ${{ steps.set-batch-count.outputs.python_batch_count }}
+    steps:
+      - id: set-batch-count
+        run: |
+          if [[ "${{ needs.setup.outputs.test_runner_type }}" == "ubuntu-latest" ]]; then
+            echo "cypress_batch_count=5" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
+          else
+            echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=6" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: set-matrix
+        run: |
+          python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
+          python_matrix='{"test_strategy":"pytests","batch":"0","batch_count":"'"$python_batch_count"'"}'
+          for ((i=1;i<python_batch_count;i++)); do
+            python_matrix="$python_matrix"',{"test_strategy":"pytests","batch_count":"'"$python_batch_count"'","batch":"'"$i"'"}'
+          done
+
+          cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
+          cypress_matrix='{"test_strategy":"cypress","batch":"0","batch_count":"'"$cypress_batch_count"'"}'
+          for ((i=1;i<cypress_batch_count;i++)); do
+            cypress_matrix="$cypress_matrix"',{"test_strategy":"cypress","batch_count":"'"$cypress_batch_count"'","batch":"'"$i"'"}'
+          done
+
+          includes="$python_matrix,$cypress_matrix"
+          echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
+
+  smoke_test:
+    name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
+    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    needs: [setup, smoke_test_matrix, base_build_smoke]
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
+    if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    env:
+      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
+      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
+    steps:
+      - name: Free up disk space
+        if: ${{ !contains(needs.setup.outputs.test_runner_type, 'depot') }}
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+
+      - name: Set up Depot CLI
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        uses: depot/setup-action@v1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: pull images from depot
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build_smoke.outputs.build_id != 'local-build' }}
+        run: |
+          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build_smoke.outputs.build_id }}
+          docker images
+
+      - name: show docker images
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' || needs.base_build_smoke.outputs.build_id == 'local-build' }}
+        run: |
+          docker images
+
+      - name: run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+        run: |
+          ./smoke-test/run-quickstart.sh
+
+      - name: Disk Check
+        run: df -h . && docker images
+
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+          -H 'Content-Type: application/json' -d'{
+            "persistent": {
+              "cluster": {
+                "routing": {
+                  "allocation.disk.threshold_enabled": false
+                }
+              }
+            }
+          }'
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - name: Build datahub cli
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Smoke test
+        env:
+          RUN_QUICKSTART: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: ${{ matrix.test_strategy }}
+          BATCH_COUNT: ${{ matrix.batch_count }}
+          BATCH_NUMBER: ${{ matrix.batch }}
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./gradlew --stop
+          ./smoke-test/smoke.sh
+
+      - name: Disk Check
+        run: df -h . && docker images
+
+      - name: store logs
+        if: failure()
+        run: |
+          docker ps -a
+          TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
+          source .github/scripts/docker_logs.sh
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          path: "docker_logs/*.log"
+          retention-days: 5
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
+          path: smoke-test/tests/cypress/cypress/screenshots/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+            **/junit.*.xml
+            !**/binary/**
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ matrix.batch == '0' }}
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+
+      - uses: actions/cache/save@v4
+        if: ${{ matrix.batch == '0' }}
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+
+  # Build all images for publishing after smoke tests pass
+  base_build_publish:
+    name: Build all images for publishing
+    runs-on: ${{ needs.setup.outputs.build_runner_type }}
+    needs: [setup, smoke_test]
+    if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() }}
+    outputs:
+      build_id: ${{ steps.capture-build-id.outputs.build_id }}
+      matrix: ${{ steps.capture-build-id.outputs.matrix }}
+      has_matrix: ${{ steps.capture-build-id.outputs.has_matrix }}
+    steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/uv
+          key: ${{ needs.setup.outputs.uv_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/yarn
+          key: ${{ needs.setup.outputs.yarn_cache_key }}
+          restore-keys: |
+            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up Depot CLI
+        if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
+        uses: depot/setup-action@v1
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v4
+        with:
+          checkout-head-only: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Build all Images for publishing
+        run: |
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true -Ptag=${{ needs.setup.outputs.tag }} -PdateTag=${{ needs.setup.outputs.date_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+
+      - name: Capture build Id
+        id: capture-build-id
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        run: |
+          pip install jq
+          DEPOT_BUILD_ID=$(jq -r '.["depot.build"]?.buildID' ${{ github.workspace }}/build/build-metadata.json)
+          echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
+          echo "has_matrix=true" >> "$GITHUB_OUTPUT"
+        else:
+          run: |
+            echo "build_id=local-build" >> "$GITHUB_OUTPUT"
+            echo "matrix=[]" >> "$GITHUB_OUTPUT"
+            echo "has_matrix=false" >> "$GITHUB_OUTPUT"
+
+  scan_images:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    name: Scan images for vulnerabilities
+    runs-on: ${{ needs.setup.outputs.use_depot_cache == 'true' && 'depot-ubuntu-24.04' || 'ubuntu-latest' }}
+    needs: [setup, base_build_publish]
+    if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() && needs.base_build_publish.outputs.has_matrix == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.base_build_publish.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: acryldata/sane-checkout-action@v4
+      - id: download_image
+        name: Download images from depot
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        run: |
+          depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build_publish.outputs.build_id }} --target ${{ matrix.target}}
+          docker images
+          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
+
+      - id: get_local_image
+        name: Get local image for scanning
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        run: |
+          docker images
+          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} | head -1)" >> $GITHUB_OUTPUT
+
+      - name: Run Trivy vulnerability scanner
+        if: ${{ steps.download_image.outputs.docker_image != '' || steps.get_local_image.outputs.docker_image != '' }}
+        uses: aquasecurity/trivy-action@0.32.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ steps.download_image.outputs.docker_image || steps.get_local_image.outputs.docker_image }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  # Scan local images when Depot is not available
+  scan_local_images:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    name: Scan local images for vulnerabilities
+    runs-on: ubuntu-latest
+    needs: [setup, base_build_publish]
+    if: ${{ needs.setup.outputs.publish == 'true' && always() && !failure() && !cancelled() && needs.base_build_publish.outputs.has_matrix == 'false' }}
+    steps:
+      - name: Checkout
+        uses: acryldata/sane-checkout-action@v4
+
+      - name: Get local images for scanning
+        run: |
+          docker images
+          echo "Available images:"
+          docker images --format "table {{.Repository}}:{{.Tag}}"
+
+      - name: Run Trivy vulnerability scanner on local images
+        uses: aquasecurity/trivy-action@0.32.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: acryldata/datahub-gms:nightly
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: "trivy-results.sarif"
