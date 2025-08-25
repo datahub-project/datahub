@@ -43,6 +43,8 @@ def _get_dialect_str(platform: str) -> str:
     # Dremio is based upon drill. Not 100% compatibility
     elif platform == "dremio":
         return "drill"
+    elif platform == "timescaledb":
+        return "postgres"
     else:
         return platform
 
