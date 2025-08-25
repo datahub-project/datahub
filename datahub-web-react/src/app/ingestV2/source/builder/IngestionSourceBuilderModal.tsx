@@ -1,5 +1,6 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { Modal } from '@components';
-import { Steps } from 'antd';
+import { Spin, Steps } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -56,6 +57,7 @@ type Props = {
     onCancel: () => void;
     sourceRefetch?: () => Promise<any>;
     selectedSource?: IngestionSource;
+    loading?: boolean;
 };
 
 export const IngestionSourceBuilderModal = ({
@@ -65,6 +67,7 @@ export const IngestionSourceBuilderModal = ({
     onCancel,
     sourceRefetch,
     selectedSource,
+    loading,
 }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
@@ -127,27 +130,29 @@ export const IngestionSourceBuilderModal = ({
 
     return (
         <Modal width="64%" title={titleText} open={open} onCancel={onCancel} buttons={[]}>
-            {currentStepIndex > 0 ? (
-                <StepsContainer>
-                    <Steps current={currentStepIndex}>
-                        {Object.keys(IngestionSourceBuilderStep).map((item) => (
-                            <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
-                        ))}
-                    </Steps>
-                </StepsContainer>
-            ) : null}
-            <StepComponent
-                state={ingestionBuilderState}
-                updateState={setIngestionBuilderState}
-                isEditing={isEditing}
-                goTo={goTo}
-                prev={stepStack.length > 1 ? prev : undefined}
-                submit={submit}
-                cancel={cancel}
-                ingestionSources={ingestionSources}
-                sourceRefetch={sourceRefetch}
-                selectedSource={selectedSource}
-            />
+            <Spin spinning={loading} indicator={<LoadingOutlined />}>
+                {currentStepIndex > 0 ? (
+                    <StepsContainer>
+                        <Steps current={currentStepIndex}>
+                            {Object.keys(IngestionSourceBuilderStep).map((item) => (
+                                <Steps.Step key={item} title={IngestionSourceBuilderStepTitles[item]} />
+                            ))}
+                        </Steps>
+                    </StepsContainer>
+                ) : null}
+                <StepComponent
+                    state={ingestionBuilderState}
+                    updateState={setIngestionBuilderState}
+                    isEditing={isEditing}
+                    goTo={goTo}
+                    prev={stepStack.length > 1 ? prev : undefined}
+                    submit={submit}
+                    cancel={cancel}
+                    ingestionSources={ingestionSources}
+                    sourceRefetch={sourceRefetch}
+                    selectedSource={selectedSource}
+                />
+            </Spin>
         </Modal>
     );
 };

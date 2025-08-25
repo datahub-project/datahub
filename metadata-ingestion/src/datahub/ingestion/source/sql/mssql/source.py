@@ -1,7 +1,7 @@
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pydantic
 import sqlalchemy.dialects.mssql
@@ -27,6 +27,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
     MSSQLDataFlow,
@@ -40,7 +41,6 @@ from datahub.ingestion.source.sql.mssql.job_models import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -174,7 +174,22 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default to get lineage for stored procedures via `include_lineage` and for views via `include_view_column_lineage`",
+    subtype_modifier=[
+        SourceCapabilityModifier.STORED_PROCEDURE,
+        SourceCapabilityModifier.VIEW,
+    ],
+)
 class SQLServerSource(SQLAlchemySource):
     """
     This plugin extracts the following:
@@ -327,28 +342,6 @@ class SQLServerSource(SQLAlchemySource):
                     message="Failed to list jobs",
                     title="SQL Server Jobs Extraction",
                     context="Error occurred during database-level job extraction",
-                    exc=e,
-                )
-
-    def get_schema_level_workunits(
-        self,
-        inspector: Inspector,
-        schema: str,
-        database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-        yield from super().get_schema_level_workunits(
-            inspector=inspector,
-            schema=schema,
-            database=database,
-        )
-        if self.config.include_stored_procedures:
-            try:
-                yield from self.loop_stored_procedures(inspector, schema, self.config)
-            except Exception as e:
-                self.report.failure(
-                    message="Failed to list stored procedures",
-                    title="SQL Server Stored Procedures Extraction",
-                    context="Error occurred during schema-level stored procedure extraction",
                     exc=e,
                 )
 
@@ -620,7 +613,7 @@ class SQLServerSource(SQLAlchemySource):
         self,
         inspector: Inspector,
         schema: str,
-        sql_config: SQLServerConfig,
+        sql_config: SQLServerConfig,  # type: ignore
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data for get stored procedures as dataJob-s.
@@ -929,25 +922,25 @@ class SQLServerSource(SQLAlchemySource):
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
-        with engine.connect() as conn:
-            if self.config.database and self.config.database != "":
-                inspector = inspect(conn)
-                yield inspector
-            else:
+
+        if self.config.database and self.config.database != "":
+            inspector = inspect(engine)
+            yield inspector
+        else:
+            with engine.begin() as conn:
                 databases = conn.execute(
                     "SELECT name FROM master.sys.databases WHERE name NOT IN \
                   ('master', 'model', 'msdb', 'tempdb', 'Resource', \
                        'distribution' , 'reportserver', 'reportservertempdb'); "
-                )
-                for db in databases:
-                    if self.config.database_pattern.allowed(db["name"]):
-                        url = self.config.get_sql_alchemy_url(current_db=db["name"])
-                        with create_engine(
-                            url, **self.config.options
-                        ).connect() as conn:
-                            inspector = inspect(conn)
-                            self.current_database = db["name"]
-                            yield inspector
+                ).fetchall()
+
+            for db in databases:
+                if self.config.database_pattern.allowed(db["name"]):
+                    url = self.config.get_sql_alchemy_url(current_db=db["name"])
+                    engine = create_engine(url, **self.config.options)
+                    inspector = inspect(engine)
+                    self.current_database = db["name"]
+                    yield inspector
 
     def get_identifier(
         self, *, schema: str, entity: str, inspector: Inspector, **kwargs: Any

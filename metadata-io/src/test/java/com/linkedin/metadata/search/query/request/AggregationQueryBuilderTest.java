@@ -754,6 +754,563 @@ public class AggregationQueryBuilderTest {
     Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().get("test123"), 1);
   }
 
+  @Test
+  public void testGetFacetToDisplayNamesWithConflictingDisplayNames() {
+    // Create mock annotations with conflicting display names for the same field
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "department",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true (this was false before)
+            false,
+            Optional.of("Department"), // Display name 1
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "department",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true (this was false before)
+            false,
+            Optional.of("Division"), // Different display name for same field
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    // Create two different entity specs
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    // Use reflection to access private method getFacetToDisplayNames
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify the merged display name
+      Assert.assertEquals(displayNames.get("department"), "Department/Division");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithMultipleConflicts() {
+    // Test with three different display names for the same field
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "status",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Status"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "status",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("State"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation3 =
+        new SearchableAnnotation(
+            "status",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Condition"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    EntitySpec entitySpec3 = mock(EntitySpec.class);
+    when(entitySpec3.getName()).thenReturn("chart");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2),
+            entitySpec3, ImmutableList.of(annotation3));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify alphabetical ordering in merged display name
+      Assert.assertEquals(displayNames.get("status"), "Condition/State/Status");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithHasFieldConflicts() {
+    // Test conflicts with hasValues fields
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "owners",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            true,
+            Optional.empty(),
+            Optional.of("Has Owners"),
+            1.0,
+            Optional.of("hasOwners"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "owners",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            true,
+            Optional.empty(),
+            Optional.of("Has Owner"), // Different display name
+            1.0,
+            Optional.of("hasOwners"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify the merged display name for hasValues field
+      Assert.assertEquals(displayNames.get("hasOwners"), "Has Owner/Has Owners");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithIdenticalNames() {
+    // Test when multiple entities have the same display name for a field - should not merge
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "type",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Type"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "type",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Type"), // Same display name
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Should not merge identical names
+      Assert.assertEquals(displayNames.get("type"), "Type");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testGetFacetToDisplayNamesWithMixedFieldTypes() {
+    // Test with both regular fields and hasValues fields having conflicts
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "tags",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            true, // addHasValuesToFilters = true
+            Optional.of("Tags"),
+            Optional.of("Has Tags"),
+            1.0,
+            Optional.of("hasTags"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "tags",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            true, // addHasValuesToFilters = true
+            Optional.of("Labels"), // Different display name for regular field
+            Optional.of("Has Labels"), // Different display name for hasValues field
+            1.0,
+            Optional.of("hasTags"),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify both fields have merged display names
+      Assert.assertEquals(displayNames.get("tags"), "Labels/Tags");
+      Assert.assertEquals(displayNames.get("hasTags"), "Has Labels/Has Tags");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to invoke getFacetToDisplayNames: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testComputeDisplayNameWithConflictingNames() {
+    // Test the computeDisplayName method with conflicting display names
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "platform",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Platform"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "platform",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Data Platform"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dataFlow");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    // First, force initialization of display names by calling getFacetToDisplayNames
+    try {
+      java.lang.reflect.Method getFacetMethod =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      getFacetMethod.setAccessible(true);
+      getFacetMethod.invoke(builder);
+
+      // Now test computeDisplayName
+      java.lang.reflect.Method computeMethod =
+          AggregationQueryBuilder.class.getDeclaredMethod("computeDisplayName", String.class);
+      computeMethod.setAccessible(true);
+
+      String displayName = (String) computeMethod.invoke(builder, "platform");
+      Assert.assertEquals(displayName, "Data Platform/Platform");
+
+      // Test with a field that doesn't exist in the map
+      String unknownField = (String) computeMethod.invoke(builder, "unknownField");
+      Assert.assertEquals(unknownField, "unknownField");
+
+      // Test with a compound field name
+      String compoundField =
+          (String)
+              computeMethod.invoke(builder, "platform" + AGGREGATION_SEPARATOR_CHAR + "subfield");
+      Assert.assertEquals(
+          compoundField, "Data Platform/Platform" + AGGREGATION_SEPARATOR_CHAR + "subfield");
+
+    } catch (Exception e) {
+      Assert.fail("Failed to test computeDisplayName: " + e.getMessage());
+    }
+  }
+
+  @Test
+  public void testWarningLogForMultipleDisplayNames() {
+    // This test would verify that the warning log is generated
+    // In a real implementation, you would use a mock logger or log appender to capture the log
+    // output
+
+    SearchableAnnotation annotation1 =
+        new SearchableAnnotation(
+            "category",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Category"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation2 =
+        new SearchableAnnotation(
+            "category",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Type"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    SearchableAnnotation annotation3 =
+        new SearchableAnnotation(
+            "category",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            true, // addToFilters = true
+            false,
+            Optional.of("Classification"),
+            Optional.empty(),
+            1.0,
+            Optional.empty(),
+            Optional.empty(),
+            Collections.emptyMap(),
+            Collections.emptyList(),
+            false,
+            false,
+            Optional.empty());
+
+    EntitySpec entitySpec1 = mock(EntitySpec.class);
+    when(entitySpec1.getName()).thenReturn("dataset");
+
+    EntitySpec entitySpec2 = mock(EntitySpec.class);
+    when(entitySpec2.getName()).thenReturn("dashboard");
+
+    EntitySpec entitySpec3 = mock(EntitySpec.class);
+    when(entitySpec3.getName()).thenReturn("chart");
+
+    Map<EntitySpec, List<SearchableAnnotation>> entityAnnotations =
+        ImmutableMap.of(
+            entitySpec1, ImmutableList.of(annotation1),
+            entitySpec2, ImmutableList.of(annotation2),
+            entitySpec3, ImmutableList.of(annotation3));
+
+    SearchConfiguration config = TEST_ES_SEARCH_CONFIG.getSearch();
+    AggregationQueryBuilder builder = new AggregationQueryBuilder(config, entityAnnotations);
+
+    try {
+      // Trigger the initialization which should log the warning
+      java.lang.reflect.Method method =
+          AggregationQueryBuilder.class.getDeclaredMethod("getFacetToDisplayNames");
+      method.setAccessible(true);
+      Map<String, String> displayNames = (Map<String, String>) method.invoke(builder);
+
+      // Verify the merged result
+      Assert.assertEquals(displayNames.get("category"), "Category/Classification/Type");
+
+      // In a real test with a mock logger, you would verify:
+      // verify(mockLogger).warn("Field '{}' has multiple display names: {}", "category",
+      // Set.of("Category", "Type", "Classification"));
+
+    } catch (Exception e) {
+      Assert.fail("Failed to test warning log: " + e.getMessage());
+    }
+  }
+
   private AspectRetriever getMockAspectRetriever(Urn propertyUrn) {
     AspectRetriever mockAspectRetriever = Mockito.mock(AspectRetriever.class);
     Map<Urn, Map<String, Aspect>> mockResult = new HashMap<>();

@@ -228,13 +228,27 @@ export default class EntityRegistry {
                   ?.map((p) => (p.entity ? this.getGenericEntityProperties(p.entity.type, p.entity) : { name: p.name }))
                   .filter((p): p is GenericEntityProperties => !!p);
 
+        // Downgrade field paths in fine-grained lineages for v1/v2 compatibility
+        const rawFineGrainedLineages =
+            genericEntityProperties?.fineGrainedLineages ||
+            genericEntityProperties?.inputOutput?.fineGrainedLineages ||
+            [];
+        const fineGrainedLineages = rawFineGrainedLineages.map((lineage) => ({
+            ...lineage,
+            upstreams: lineage.upstreams?.map((upstream) => ({
+                ...upstream,
+                path: downgradeV2FieldPath(upstream.path),
+            })),
+            downstreams: lineage.downstreams?.map((downstream) => ({
+                ...downstream,
+                path: downgradeV2FieldPath(downstream.path),
+            })),
+        }));
+
         return {
             ...entity.getLineageVizConfig(data),
             containers,
-            fineGrainedLineages:
-                genericEntityProperties?.fineGrainedLineages ||
-                genericEntityProperties?.inputOutput?.fineGrainedLineages ||
-                [],
+            fineGrainedLineages,
             numDownstreamChildren:
                 (genericEntityProperties.downstream?.total || 0) - (genericEntityProperties.downstream?.filtered || 0),
             numUpstreamChildren:
@@ -245,6 +259,7 @@ export default class EntityRegistry {
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
+            // TODO: Clean up redundant values
             exists: genericEntityProperties.exists,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,
@@ -254,6 +269,7 @@ export default class EntityRegistry {
             lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
             structuredProperties: genericEntityProperties.structuredProperties ?? undefined,
             versionProperties: genericEntityProperties.versionProperties ?? undefined,
+            genericEntityProperties,
         };
     }
 
@@ -353,6 +369,35 @@ export default class EntityRegistry {
         | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.useEntityQuery;
+    }
+
+    /**
+     * Converts an EntityType enum value to camelCase string representation.
+     * e.g. EntityType.DataPlatform (DATA_PLATFORM) -> 'dataPlatform'
+     */
+    getEntityTypeAsCamelCase(type: EntityType): string {
+        return type
+            .toLowerCase()
+            .split('_')
+            .map((word, index) => (index === 0 ? word : word.charAt(0).toUpperCase() + word.slice(1)))
+            .join('');
+    }
+
+    /**
+     * Gets all search entity types converted to camelCase strings.
+     * Useful for comparing with backend data that uses camelCase entity names.
+     */
+    getSearchEntityTypesAsCamelCase(): Array<string> {
+        return this.getSearchEntityTypes().map((entityType) => this.getEntityTypeAsCamelCase(entityType));
+    }
+
+    /**
+     * Utility method to safely extract the first subtype from entity data
+     * @param data The entity data that may contain subTypes
+     * @returns The first subtype name or undefined if not available
+     */
+    getFirstSubType(data?: { subTypes?: { typeNames?: string[] | null } | null } | null): string | undefined {
+        return data?.subTypes?.typeNames?.[0];
     }
 }
 

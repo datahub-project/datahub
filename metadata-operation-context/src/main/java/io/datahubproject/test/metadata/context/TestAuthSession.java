@@ -6,6 +6,8 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import javax.annotation.Nonnull;
@@ -20,7 +22,10 @@ public class TestAuthSession implements AuthorizationSession {
         (privilege, resourceSpec) -> {
           final AuthorizationRequest request =
               new AuthorizationRequest(
-                  auth.getActor().toUrnStr(), privilege, Optional.ofNullable(resourceSpec));
+                  auth.getActor().toUrnStr(),
+                  privilege,
+                  Optional.ofNullable(resourceSpec),
+                  Collections.emptyList());
           return authorizer.authorize(request);
         });
   }
@@ -40,5 +45,13 @@ public class TestAuthSession implements AuthorizationSession {
   public AuthorizationResult authorize(
       @Nonnull String privilege, @Nullable EntitySpec resourceSpec) {
     return authFunction.apply(privilege, resourceSpec);
+  }
+
+  @Override
+  public AuthorizationResult authorize(
+      @Nonnull String privilege,
+      @Nullable EntitySpec resourceSpec,
+      @Nonnull Collection<EntitySpec> subResources) {
+    return authorize(privilege, resourceSpec);
   }
 }

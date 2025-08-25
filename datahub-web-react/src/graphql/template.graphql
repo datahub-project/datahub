@@ -1,0 +1,73 @@
+fragment PageTemplate on DataHubPageTemplate {
+    urn
+    type
+    properties {
+        rows {
+            ...PageTemplateRow
+        }
+        surface {
+            surfaceType
+        }
+        visibility {
+            scope
+        }
+    }
+}
+
+fragment PageTemplateRow on DataHubPageTemplateRow {
+    modules {
+        ...PageModule
+    }
+}
+
+fragment PageModule on DataHubPageModule {
+    urn
+    type
+    exists
+    properties {
+        name
+        type
+        visibility {
+            scope
+        }
+        params {
+            richTextParams {
+                content
+            }
+            assetCollectionParams {
+                assetUrns
+                dynamicFilterJson
+            }
+            linkParams {
+                linkUrl
+                imageUrl
+                description
+            }
+            hierarchyViewParams {
+                assetUrns
+                showRelatedEntities
+                relatedEntitiesFilterJson
+            }
+        }
+    }
+}
+
+mutation upsertPageTemplate($input: UpsertPageTemplateInput!) {
+    upsertPageTemplate(input: $input) {
+        ...PageTemplate
+    }
+}
+
+mutation upsertPageModule($input: UpsertPageModuleInput!) {
+    upsertPageModule(input: $input) {
+        urn
+    }
+}
+
+mutation deletePageModule($input: DeletePageModuleInput!) {
+    deletePageModule(input: $input)
+}
+
+mutation deletePageTemplate($input: DeletePageTemplateInput!) {
+    deletePageTemplate(input: $input)
+}

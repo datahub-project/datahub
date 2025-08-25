@@ -34,6 +34,7 @@ import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
 import com.linkedin.metadata.utils.DataPlatformInstanceUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -62,7 +63,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
@@ -85,14 +86,17 @@ import org.opensearch.search.sort.SortOrder;
 public class ESGraphQueryDAO {
 
   private final RestHighLevelClient client;
+  private final boolean pointInTimeCreationEnabled;
+  private final String elasticSearchImpl;
   private final LineageRegistry lineageRegistry;
   private final IndexConvention indexConvention;
   @Getter private final GraphServiceConfiguration graphServiceConfig;
   @Getter private final ElasticSearchConfiguration config;
+  private final MetricUtils metricUtils;
 
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
-  static final String RELATIONSHIP_TYPE = "relationshipType";
+  public static final String RELATIONSHIP_TYPE = "relationshipType";
   static final String SOURCE_TYPE = SOURCE + ".entityType";
   static final String SOURCE_URN = SOURCE + ".urn";
   static final String DESTINATION_TYPE = DESTINATION + ".entityType";
@@ -147,7 +151,8 @@ public class ESGraphQueryDAO {
         "esQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
@@ -578,6 +583,24 @@ public class ESGraphQueryDAO {
     }
   }
 
+  /**
+   * Executes a search request against the graph index. This method is exposed for use by other
+   * graph service methods that need direct search access.
+   *
+   * @param searchRequest The search request to execute
+   * @return The search response from Elasticsearch
+   * @throws ESQueryException if the search fails
+   */
+  SearchResponse executeSearch(@Nonnull SearchRequest searchRequest) {
+    try {
+      if (metricUtils != null) metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
+      return client.search(searchRequest, RequestOptions.DEFAULT);
+    } catch (Exception e) {
+      log.error("Search query failed", e);
+      throw new ESQueryException("Search query failed:", e);
+    }
+  }
+
   @VisibleForTesting
   public QueryBuilder getLineageQuery(
       @Nonnull OperationContext opContext,
@@ -811,10 +834,13 @@ public class ESGraphQueryDAO {
     index++;
     // Extract fields
     final Map<String, Object> document = hit.getSourceAsMap();
+
+    // Extract source and destination URNs using utility class
     final Urn sourceUrn =
-        UrnUtils.getUrn(((Map<String, Object>) document.get(SOURCE)).get("urn").toString());
+        UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
     final Urn destinationUrn =
-        UrnUtils.getUrn(((Map<String, Object>) document.get(DESTINATION)).get("urn").toString());
+        UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
     final String type = document.get(RELATIONSHIP_TYPE).toString();
     if (sourceUrn.equals(destinationUrn)) {
       log.debug("Skipping a self-edge of type {} on {}", type, sourceUrn);
@@ -1216,12 +1242,14 @@ public class ESGraphQueryDAO {
       @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count) {
 
     BoolQueryBuilder finalQuery =
         buildQuery(opContext, config.getSearch().getGraph(), graphFilters);
 
-    return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
+    return executeScrollSearchQuery(
+        opContext, finalQuery, sortCriteria, scrollId, keepAlive, count);
   }
 
   private SearchResponse executeScrollSearchQuery(
@@ -1229,13 +1257,16 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count) {
 
-    Object[] sort = null;
-    if (scrollId != null) {
-      SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
-      sort = searchAfterWrapper.getSort();
-    }
+    boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
+    boolean usePIT = (pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
+    String pitId =
+        usePIT
+            ? ESUtils.computePointInTime(scrollId, keepAlive, elasticSearchImpl, client, INDEX_NAME)
+            : null;
+    Object[] sort = scrollId != null ? SearchAfterWrapper.fromScrollId(scrollId).getSort() : null;
 
     SearchRequest searchRequest = new SearchRequest();
 
@@ -1244,8 +1275,10 @@ public class ESGraphQueryDAO {
     searchSourceBuilder.size(ConfigUtils.applyLimit(graphServiceConfig, count));
     searchSourceBuilder.query(query);
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, List.of(), false);
+    ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
+    ESUtils.setSliceOptions(
+        searchSourceBuilder, opContext.getSearchContext().getSearchFlags().getSliceOptions());
     searchRequest.source(searchSourceBuilder);
-    ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
     searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
 
@@ -1253,7 +1286,8 @@ public class ESGraphQueryDAO {
         "esQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(searchRequest, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);
@@ -1712,12 +1746,16 @@ public class ESGraphQueryDAO {
     for (SearchHit hit : hits) {
       Map<String, Object> document = hit.getSourceAsMap();
 
-      // Extract source and destination URNs
-      String sourceUrnStr = ((Map<String, Object>) document.get(SOURCE)).get("urn").toString();
-      String destinationUrnStr =
-          ((Map<String, Object>) document.get(DESTINATION)).get("urn").toString();
-      Urn sourceUrn = UrnUtils.getUrn(sourceUrnStr);
-      Urn destinationUrn = UrnUtils.getUrn(destinationUrnStr);
+      // Extract source and destination URNs using utility class
+      Urn sourceUrn =
+          UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, SOURCE, "source");
+      Urn destinationUrn =
+          UrnExtractionUtils.extractUrnFromNestedFieldSafely(document, DESTINATION, "destination");
+
+      // Skip if either URN extraction failed
+      if (sourceUrn == null || destinationUrn == null) {
+        continue;
+      }
 
       // Skip self-edges
       if (sourceUrn.equals(destinationUrn)) {
@@ -1846,7 +1884,8 @@ public class ESGraphQueryDAO {
         "esLineageGroupByQuery",
         () -> {
           try {
-            MetricUtils.counter(this.getClass(), SEARCH_EXECUTIONS_METRIC).inc();
+            if (metricUtils != null)
+              metricUtils.increment(this.getClass(), SEARCH_EXECUTIONS_METRIC, 1);
             return client.search(request, RequestOptions.DEFAULT);
           } catch (Exception e) {
             log.error("Search query failed", e);

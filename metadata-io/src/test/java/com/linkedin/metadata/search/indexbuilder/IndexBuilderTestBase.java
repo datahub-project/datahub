@@ -5,7 +5,6 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFI
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -181,7 +180,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
     // index one doc
     IndexRequest indexRequest =
@@ -223,7 +222,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
     // reindex
     ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
@@ -287,7 +286,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
     // reindex
     ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());

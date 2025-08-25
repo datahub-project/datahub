@@ -311,7 +311,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
         final AspectsBatch batch = AspectsBatchImpl.builder()
                 .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation())
-                .build();
+                .build(opContext);
 
         batch.getMCPItems().forEach(item ->
             log.info(

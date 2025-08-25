@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.21 AS base
+FROM alpine:3.22 AS base
 
 # Configurable repositories
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -31,7 +31,7 @@ FROM base AS prod-install
 
 COPY --chown=datahub:datahub --chmod=755 ./docker/monitoring/client-prometheus-config.yaml /datahub-frontend/
 COPY --chown=datahub:datahub --chmod=755 ./docker/datahub-frontend/start.sh /
-COPY --chown=datahub:datahub --chmod=755 ./main /datahub-frontend/
+COPY --chown=datahub:datahub --chmod=755 ./datahub-frontend/build/stage/main /datahub-frontend/
 
 FROM base AS dev-install
 # Dummy stage for development. Assumes code is built on your machine and mounted to this image.

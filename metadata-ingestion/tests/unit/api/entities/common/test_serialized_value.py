@@ -22,9 +22,10 @@ def test_base_model():
     assert serialized_resource_value.content_type == "JSON"
     # TODO: This is a bug in the code. The schema_type should not be None.
     assert serialized_resource_value.schema_type == "JSON"
+    # Keys should be sorted alphabetically
     assert (
         serialized_resource_value.blob
-        == b'{"test_string_field": "test_string_field", "test_int_field": 42, "test_dict_field": {"test_key": "test_value"}}'
+        == b'{"test_dict_field": {"test_key": "test_value"}, "test_int_field": 42, "test_string_field": "test_string_field"}'
     )
     assert serialized_resource_value.schema_ref == MyTestModel.__name__
 
@@ -66,6 +67,7 @@ def test_raw_dictionary():
 
     assert serialized_resource_value.content_type == "JSON"
     assert serialized_resource_value.schema_type is None
+    # Raw dictionaries don't use sort_keys, so they maintain original order
     assert (
         serialized_resource_value.blob
         == b'{"test_string_field": "test_string_field", "test_int_field": 42, "test_dict_field": {"test_key": "test_value"}}'

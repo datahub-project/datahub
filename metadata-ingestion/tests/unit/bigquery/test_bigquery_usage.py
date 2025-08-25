@@ -169,7 +169,6 @@ def make_usage_workunit(
     resource = BigQueryTableRef.from_string_name(TABLE_REFS[table.name])
     return MetadataChangeProposalWrapper(
         entityUrn=identifiers.gen_dataset_urn_from_raw_ref(resource),
-        aspectName=dataset_usage_statistics.get_aspect_name(),
         aspect=dataset_usage_statistics,
     ).as_workunit()
 
@@ -179,7 +178,6 @@ def make_operational_workunit(
 ) -> MetadataWorkUnit:
     return MetadataChangeProposalWrapper(
         entityUrn=resource_urn,
-        aspectName=operation.get_aspect_name(),
         aspect=operation,
     ).as_workunit()
 
@@ -1061,7 +1059,7 @@ def test_operational_stats(
             OperationClass(
                 timestampMillis=int(FROZEN_TIME.timestamp() * 1000),
                 lastUpdatedTimestamp=int(query.timestamp.timestamp() * 1000),
-                actor=f"urn:li:corpuser:{query.actor.split('@')[0]}",
+                actor=f"urn:li:corpuser:{query.actor}",
                 operationType=(
                     query.type
                     if query.type in OPERATION_STATEMENT_TYPES.values()

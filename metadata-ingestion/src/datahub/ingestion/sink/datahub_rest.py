@@ -5,6 +5,7 @@ import functools
 import logging
 import os
 import threading
+import time
 import uuid
 from enum import auto
 from typing import List, Optional, Tuple, Union
@@ -91,6 +92,7 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 @dataclasses.dataclass
 class DataHubRestSinkReport(SinkReport):
     mode: Optional[RestSinkMode] = None
+    endpoint: Optional[RestSinkEndpoint] = None
     max_threads: Optional[int] = None
     gms_version: Optional[str] = None
     pending_requests: int = 0
@@ -141,6 +143,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
 
         self.report.gms_version = gms_config.service_version
         self.report.mode = self.config.mode
+        self.report.endpoint = self.config.endpoint
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
         logger.debug("Setting gms config")
@@ -345,6 +348,17 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         return self.write_record_async(
             RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )
+
+    def flush(self) -> None:
+        """Wait for all pending records to be written."""
+        i = 0
+        while self.report.pending_requests > 0:
+            time.sleep(0.1)
+            i += 1
+            if i % 1000 == 0:
+                logger.info(
+                    f"Waiting for {self.report.pending_requests} records to be written"
+                )
 
     def close(self):
         with self.report.main_thread_blocking_timer:

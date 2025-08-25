@@ -4,12 +4,10 @@ import styled from 'styled-components';
 
 import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
 import HoverSectionContent from '@components/components/AvatarStack/HoverSectionContent';
-import { AvatarStackProps } from '@components/components/AvatarStack/types';
+import { AvatarStackProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
-
-import { EntityType } from '@types';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -26,9 +24,11 @@ const AvatarStackWithHover = ({
     showRemainingNumber = true,
     maxToShow = 4,
     entityRegistry,
+    title = 'Owners',
 }: Props) => {
-    const users = avatars.filter((avatar) => avatar.type === EntityType.CorpUser);
-    const groups = avatars.filter((avatar) => avatar.type === EntityType.CorpGroup);
+    const users = avatars?.filter((avatar) => avatar.type === AvatarType.user) || [];
+    const groups = avatars?.filter((avatar) => avatar.type === AvatarType.group) || [];
+    const roles = avatars?.filter((avatar) => avatar.type === AvatarType.role) || [];
 
     const renderTitle = (headerText, count) => (
         <HeaderContainer>
@@ -43,7 +43,7 @@ const AvatarStackWithHover = ({
         <StopPropagationWrapper>
             <StructuredPopover
                 width={280}
-                title="Owners"
+                title={title}
                 sections={[
                     ...(users.length > 0
                         ? [
@@ -68,7 +68,22 @@ const AvatarStackWithHover = ({
                                           avatars={groups}
                                           entityRegistry={entityRegistry}
                                           size={size}
-                                          isGroup
+                                          type={AvatarType.group}
+                                      />
+                                  ),
+                              },
+                          ]
+                        : []),
+                    ...(roles.length > 0
+                        ? [
+                              {
+                                  title: renderTitle('Roles', roles.length),
+                                  content: (
+                                      <HoverSectionContent
+                                          avatars={roles}
+                                          entityRegistry={entityRegistry}
+                                          size={size}
+                                          type={AvatarType.role}
                                       />
                                   ),
                               },

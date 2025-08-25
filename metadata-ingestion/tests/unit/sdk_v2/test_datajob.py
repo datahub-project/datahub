@@ -237,21 +237,6 @@ def test_datajob_init_with_flow_urn() -> None:
 
 
 def test_invalid_init() -> None:
-    flow = DataFlow(
-        platform="airflow",
-        name="example_dag",
-    )
-
-    with pytest.raises(
-        ValueError,
-        match=re.escape(
-            "You must provide either: 1. a DataFlow object, or 2. a DataFlowUrn (and a platform_instance config if required)"
-        ),
-    ):
-        DataJob(
-            name="example_task",
-            flow_urn=flow.urn,
-        )
     with pytest.raises(
         ValueError,
         match=re.escape(

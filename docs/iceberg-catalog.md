@@ -353,6 +353,19 @@ When setting up your AWS role, you'll need to configure a trust policy. Here's a
 }
 ```
 
+### Vended Credentials and Session Expiry
+
+When creating a warehouse, the session expiry duration for the vended credentials can be configured via the
+`datahub iceberg` cli by passing the `--duration_seconds` parameter. If not specified, this currently defaults to 3600
+seconds. This needs to be a minimum of 900 seconds (15 minutes).
+
+With AWS, at the time of creating the role for use with the catalog, a `MaxSessionDuration` can also be set. AWS currently
+supports values between 1 hour to 12 hours. This configuration will set the upper limit for what can be configured for the
+warehouse via `--duration_seconds` flag.
+
+See `datahub iceberg create --help` for the flags and default if not specified. This can also be updated using
+`datahub iceberg update`
+
 ### Namespace and Configuration Requirements
 
 1. **Namespace Creation**: A namespace must be created before any tables can be created within it.
@@ -496,6 +509,9 @@ Once you create tables in iceberg, each of those tables show up in DataHub as a 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-dataset-schema.png"/>
 </p>
 
+Some of the standard metadata fields are populated in the Dataset Properties. Additionally, any Iceberg `TBLPROPERTIES` set via DDL on tables or views are also shown in DatasetProperties with a prefix `TBLPROPERTIES:`
+The iceberg 'TBLPROPERTIES' can only be set via DDL and is a one way sync. Changes to iceberg `TBLPROPERTIES` properties via datahub APIs do not get written to the Iceberg table or view properties.
+
 ## Troubleshooting
 
 ### Q: How do I verify my warehouse was created successfully?
@@ -522,18 +538,15 @@ A: Check that:
 ## Known Limitations
 
 - AWS S3 only support
-- Concurrency - supports single instance of GMS
 - Multi-table transactional `/commit` is not yet supported
 - Table operation purge is not yet implemented
 - Metric collection and credential refresh mechanisms are still in development
 
 ## Future Enhancements
 
-- Improved concurrency with multiple replicas of GMS
 - Support for Iceberg multi-table transactional `/commit`
 - Additional table APIs (scan, drop table purge)
 - Azure and GCP Support
-- Namespace permissions
 - Enhanced metrics
 - Credential refresh
 - Proxy to another REST Catalog to use its capabilities while DataHub has real-time metadata updates.

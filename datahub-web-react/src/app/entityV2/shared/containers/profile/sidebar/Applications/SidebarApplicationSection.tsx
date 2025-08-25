@@ -51,8 +51,6 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     const application = entityData?.application?.application;
     const canEditApplication = !!entityData?.privileges?.canEditProperties;
 
-    console.log('application', application);
-
     if (!application && !visualConfig.application?.showSidebarSectionWhenEmpty) {
         return null;
     }

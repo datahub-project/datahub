@@ -114,15 +114,15 @@ source types vary by the platform, but generally fall into these categories:
 
 - **Information Schema**: A system Table that is exposed by the Data Warehouse which contains live information about the Databases
   and Tables stored inside the Data Warehouse, including their row count. It is usually efficient to check, but can in some cases be slightly delayed to update
-  once a change has been made to a table.
+  once a change has been made to a table. This is the optimal balance between cost and accuracy for most Data Platforms.
 
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
-  system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers.
+  system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. This issues a query to the table, which can be more expensive than Information Schema.
 
 - **DataHub Dataset Profile**: The DataHub Dataset Profile aspect is used to retrieve the latest row count information for a table.
   Using this option avoids contacting your data platform, and instead uses the DataHub Dataset Profile metadata to evaluate Volume Assertions.
-  Note if you have not configured an ingestion source through DataHub, then this may be the only option available.
+  Note if you have not configured a managed ingestion source through DataHub, then this may be the only option available. This is the cheapest option, but requires that Dataset Profiles are reported to DataHub. By default, Ingestion will report Dataset Profiles to DataHub, which can be and infrequent. You can report Dataset Profiles via the DataHub APIs for more frequent and reliable data.
 
 Volume Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
@@ -139,10 +139,12 @@ Volume Assertions also have an off switch: they can be started or stopped at any
 
 Once these are in place, you're ready to create your Volume Assertions!
 
+You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
+
 ### Steps
 
 1. Navigate to the Table that to monitor for volume
-2. Click the **Validations** tab
+2. Click the **Quality** tab
 
 <p align="left">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
@@ -201,11 +203,23 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
+## Anomaly Detection with Smart Assertions ⚡
+
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
+dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
+requiring any manual setup.
+
+You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+
+<p align="left">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/volume-smart-assertion.png"/>
+</p>
+
 ## Stopping a Volume Assertion
 
 In order to temporarily stop the evaluation of the assertion:
 
-1. Navigate to the **Validations** tab of the Table with the assertion
+1. Navigate to the **Quality** tab of the Table with the assertion
 2. Click **Volume** to open the Volume Assertion assertions
 3. Click the "Stop" button for the assertion you wish to pause.
 
@@ -218,24 +232,6 @@ To resume the assertion, simply click **Start**.
 <p align="left">
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
-
-## Smart Assertions ⚡
-
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
-requiring any manual setup.
-
-If DataHub Cloud is able to detect a pattern in the volume of a Snowflake, Redshift, BigQuery, or Databricks Table, you'll find
-a recommended Smart Assertion under the `Validations` tab on the Table profile page:
-
-<p align="left">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/smart-assertion.png"/>
-</p>
-
-In order to enable it, simply click **Turn On**. From this point forward, the Smart Assertion will check for changes on a cadence
-based on the Table history.
-
-Don't need it anymore? Smart Assertions can just as easily be turned off by clicking the three-dot "more" button and then **Stop**.
 
 ## Creating Volume Assertions via API
 
@@ -269,6 +265,36 @@ mutation upsertDatasetVolumeAssertionMonitor {
         parameters: {
           minValue: { value: "10", type: NUMBER }
           maxValue: { value: "20", type: NUMBER }
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */8 * * *"
+      }
+      evaluationParameters: { sourceType: INFORMATION_SCHEMA }
+      mode: ACTIVE
+    }
+  ) {
+    urn
+  }
+}
+```
+
+To create an AI Smart Freshness Assertion that runs every 8 hours:
+
+```graphql
+mutation upsertDatasetFreshnessAssertionMonitor {
+  upsertDatasetFreshnessAssertionMonitor(
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      inferWithAI: true
+      type: ROW_COUNT_TOTAL
+      # you can provide any value here as it will be overwritten continuously by the AI engine
+      rowCountTotal: {
+        operator: BETWEEN
+        parameters: {
+          minValue: { value: "0", type: NUMBER }
+          maxValue: { value: "0", type: NUMBER }
         }
       }
       evaluationSchedule: {

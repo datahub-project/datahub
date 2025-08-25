@@ -31,7 +31,7 @@ export default function EmptyState({ reason }: Props) {
                             No results!
                         </Text>
                         <Text size="sm" color="gray" weight="normal">
-                            Try another filters...
+                            Try clearing filters...
                         </Text>
                     </TextContainer>
                 );

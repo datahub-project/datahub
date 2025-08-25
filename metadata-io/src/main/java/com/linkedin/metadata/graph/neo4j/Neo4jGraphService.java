@@ -54,9 +54,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.time.StopWatch;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
@@ -949,6 +949,7 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
+      @Nullable String keepAlive,
       @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
@@ -1071,5 +1072,10 @@ public class Neo4jGraphService implements GraphService {
         .numResults(totalCount)
         .scrollId(nextScrollId)
         .build();
+  }
+
+  @Override
+  public List<Map<String, Object>> raw(OperationContext opContext, List<EdgeTuple> edgeTuples) {
+    return List.of();
   }
 }

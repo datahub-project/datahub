@@ -129,6 +129,7 @@ export const user1 = {
         __typename: 'CorpUserSettings',
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     properties: null,
@@ -201,6 +202,7 @@ const user2 = {
         __typename: 'CorpUserSettings',
         appearance: { __typename: 'CorpUserAppearanceSettings', showSimplifiedHomepage: false, showThemeV2: false },
         views: { __typename: 'CorpUserViewSettings', defaultView: null },
+        homePage: null,
     },
     editableInfo: null,
     info: null,
@@ -3737,6 +3739,9 @@ export const mocks = [
                         manageBusinessAttributes: true,
                         manageStructuredProperties: true,
                         viewStructuredPropertiesPage: true,
+                        manageApplications: true,
+                        manageFeatures: true,
+                        manageHomePageTemplates: true,
                     },
                 },
             },
@@ -4021,6 +4026,9 @@ export const platformPrivileges: PlatformPrivileges = {
     manageBusinessAttributes: true,
     manageStructuredProperties: true,
     viewStructuredPropertiesPage: true,
+    manageApplications: true,
+    manageFeatures: true,
+    manageHomePageTemplates: true,
 };
 
 export const DomainMock1 = {
@@ -4343,4 +4351,26 @@ export const mockFineGrainedLineages1: GenericEntityProperties = {
             ],
         },
     ],
+};
+
+export const useEntityDataFunc = () => {
+    const value = {
+        entityData: {
+            parentContainers: {
+                containers: [
+                    {
+                        properties: {
+                            name: 'name1',
+                        },
+                    },
+                    {
+                        properties: {
+                            name: 'name2',
+                        },
+                    },
+                ],
+            },
+        },
+    };
+    return value;
 };

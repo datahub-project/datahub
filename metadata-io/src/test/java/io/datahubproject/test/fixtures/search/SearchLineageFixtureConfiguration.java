@@ -145,7 +145,7 @@ public class SearchLineageFixtureConfiguration {
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
+    ESWriteDAO writeDAO = new ESWriteDAO(TEST_ES_SEARCH_CONFIG, searchClient, bulkProcessor);
 
     return new ElasticSearchService(
         indexBuilder,
@@ -193,10 +193,13 @@ public class SearchLineageFixtureConfiguration {
                 indexConvention, bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
             new ESGraphQueryDAO(
                 searchClient,
+                false,
+                ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
                 lineageRegistry,
                 indexConvention,
                 TEST_GRAPH_SERVICE_CONFIG,
-                TEST_ES_SEARCH_CONFIG),
+                TEST_ES_SEARCH_CONFIG,
+                null),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());
@@ -276,6 +279,7 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        EntityClientConfig.builder().batchGetV2Size(1).build());
+        EntityClientConfig.builder().batchGetV2Size(1).build(),
+        null);
   }
 }

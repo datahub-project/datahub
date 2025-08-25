@@ -82,10 +82,13 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     graphQueryDAO =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             graphServiceConfig,
-            testESConfig);
+            testESConfig,
+            null);
   }
 
   @Test
@@ -585,10 +588,13 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     ESGraphQueryDAO daoWithMultiPath =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
-            testESConfig);
+            testESConfig,
+            null);
 
     // Call the public method directly with exploreMultiplePaths = true
     ESGraphQueryDAO.LineageResponse resultWithMultiPaths =
@@ -618,10 +624,13 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
     ESGraphQueryDAO daoWithSinglePath =
         new ESGraphQueryDAO(
             mockClient,
+            false,
+            ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             TEST_GRAPH_SERVICE_CONFIG,
-            testSinglePathConfig);
+            testSinglePathConfig,
+            null);
 
     // Reset the mock and reconfigure it
     reset(mockClient);

@@ -1,12 +1,11 @@
 package com.linkedin.metadata.kafka.listener;
 
-import com.codahale.metrics.Histogram;
-import com.codahale.metrics.MetricRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,9 +29,6 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
 
   protected boolean fineGrainedLoggingEnabled;
   protected Map<String, Set<String>> aspectsToDrop;
-
-  private final Histogram kafkaLagStats =
-      MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Override
   public GenericKafkaListener<E, H, R> init(
@@ -60,7 +56,31 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
   @Override
   public void consume(@Nonnull final ConsumerRecord<String, R> consumerRecord) {
     try {
-      kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils -> {
+                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
+
+                // Dropwizard legacy
+                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
+
+                // Micrometer with tags
+                // TODO: include priority level when available
+                metricUtils
+                    .getRegistry()
+                    .ifPresent(
+                        meterRegistry -> {
+                          meterRegistry
+                              .timer(
+                                  MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
+                                  "topic",
+                                  consumerRecord.topic(),
+                                  "consumer.group",
+                                  consumerGroupId)
+                              .record(Duration.ofMillis(queueTimeMs));
+                        });
+              });
       final R record = consumerRecord.value();
       log.debug(
           "Got event consumer: {} key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
@@ -72,13 +92,23 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
           consumerRecord.serializedValueSize(),
           consumerRecord.timestamp());
 
-      MetricUtils.counter(this.getClass(), consumerGroupId + "_received_event_count").inc();
+      systemOperationContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(
+                      this.getClass(), consumerGroupId + "_received_event_count", 1));
 
       E event;
       try {
         event = convertRecord(record);
       } catch (Exception e) {
-        MetricUtils.counter(this.getClass(), consumerGroupId + "_conversion_failure").inc();
+        systemOperationContext
+            .getMetricUtils()
+            .ifPresent(
+                metricUtils ->
+                    metricUtils.increment(
+                        this.getClass(), consumerGroupId + "_conversion_failure", 1));
         log.error("Error deserializing message due to: ", e);
         log.error("Message: {}", record.toString());
         return;
@@ -121,20 +151,23 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
 
           // Process with each hook
           for (H hook : this.hooks) {
+            final String hookName = hook.getClass().getSimpleName();
+
             systemOperationContext.withSpan(
-                hook.getClass().getSimpleName(),
+                hookName,
                 () -> {
                   log.debug(
-                      "Invoking hook {} for event: {}",
-                      hook.getClass().getSimpleName(),
-                      getEventDisplayString(event));
+                      "Invoking hook {} for event: {}", hookName, getEventDisplayString(event));
                   try {
                     hook.invoke(event);
+                    updateMetrics(hookName, event);
                   } catch (Exception e) {
                     // Just skip this hook and continue - "at most once" processing
-                    MetricUtils.counter(
-                            this.getClass(), hook.getClass().getSimpleName() + "_failure")
-                        .inc();
+                    systemOperationContext
+                        .getMetricUtils()
+                        .ifPresent(
+                            metricUtils ->
+                                metricUtils.increment(this.getClass(), hookName + "_failure", 1));
                     log.error(
                         "Failed to execute hook with name {}",
                         hook.getClass().getCanonicalName(),
@@ -149,13 +182,17 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                 Stream.concat(
                         Stream.of(
                             MetricUtils.DROPWIZARD_NAME,
-                            MetricUtils.name(
-                                this.getClass(), hook.getClass().getSimpleName() + "_latency")),
+                            MetricUtils.name(this.getClass(), hookName + "_latency")),
                         loggingAttributes.stream())
                     .toArray(String[]::new));
           }
 
-          MetricUtils.counter(this.getClass(), consumerGroupId + "_consumed_event_count").inc();
+          systemOperationContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.increment(
+                          this.getClass(), consumerGroupId + "_consumed_event_count", 1));
           log.info(
               "Successfully completed hooks for consumer: {} event: {}",
               consumerGroupId,
@@ -206,4 +243,12 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
    * @return Display string
    */
   protected abstract String getEventDisplayString(E event);
+
+  /**
+   * Optionally update metrics
+   *
+   * @param hookName name of the hook
+   * @param event the event processed by the hook
+   */
+  protected void updateMetrics(String hookName, E event) {}
 }

@@ -60,9 +60,15 @@ services:
     profiles:
       - debug
       - debug-backend
-      - debug-backend-aws
     depends_on:
       datahub-gms-debug:
+        condition: service_healthy
+  datahub-actions-debug-aws:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-backend-aws
+    depends_on:
+      datahub-gms-debug-aws:
         condition: service_healthy
   datahub-actions-debug-postgres:
     <<: *datahub-actions-service-dev

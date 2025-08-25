@@ -1,0 +1,163 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetGenericV3%2CPROD%29",
+      "description": "Remove datasetGenericV3 if present",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Achart%3A%28looker%2CchartGenericV3%29",
+      "description": "Remove chartGenericV3 if present",
+      "method": "delete"
+    }
+  },
+
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic",
+      "method": "post",
+      "params": { "async": "false" },
+      "description": "Create Dataset & Chart through Generic-Entity endpoint",
+      "json": {
+        "dataset": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetGenericV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "name": "datasetGenericV3",
+                "qualifiedName": "entities.datasetGenericV3",
+                "customProperties": {},
+                "tags": []
+              }
+            },
+            "status": { "value": { "removed": false } }
+          }
+        ],
+        "chart": [
+          {
+            "urn": "urn:li:chart:(looker,chartGenericV3)",
+            "status":   { "value": { "removed": false } }
+          }
+        ]
+      }
+    }
+  },
+
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic",
+      "method": "patch",
+      "params": { "async": "false" },
+      "description": "Patch description on Dataset & title on Chart",
+      "json": {
+        "dataset": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetGenericV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "patch": [
+                  { "op": "add", "path": "/description", "value": "Generic description" }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/batchGet",
+      "method": "post",
+      "description": "Batch-get Dataset & Chart via Generic endpoint",
+      "params": {
+        "systemMetadata": "false"
+      },
+      "json": {
+        "dataset": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetGenericV3,PROD)",
+            "datasetProperties": {
+              "headers": {}
+            }
+          }
+        ],
+        "chart": [
+          {
+            "urn": "urn:li:chart:(looker,chartGenericV3)",
+            "status": {
+              "headers": {}
+            }
+          }
+        ]
+      }
+    },
+    "response": {
+      "json": {
+        "dataset": [
+          {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetGenericV3,PROD)",
+            "datasetProperties": {
+              "value": {
+                "name": "datasetGenericV3",
+                "qualifiedName": "entities.datasetGenericV3",
+                "customProperties": {},
+                "tags": [],
+                "description": "Generic description"
+              }
+            }
+          }
+        ],
+        "chart": [
+          {
+            "urn": "urn:li:chart:(looker,chartGenericV3)",
+            "status": {
+              "value": {
+                "removed": false
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetGenericV3%2CPROD%29",
+      "method": "get",
+      "description": "Get Dataset via Generic façade",
+      "params": { "aspects": "datasetProperties" }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetGenericV3,PROD)",
+        "datasetProperties": {
+          "value": {
+            "name": "datasetGenericV3",
+            "qualifiedName": "entities.datasetGenericV3",
+            "customProperties": {},
+            "tags": [],
+            "description": "Generic description"
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetGenericV3%2CPROD%29",
+      "description": "Remove datasetGenericV3 if present",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/generic/urn%3Ali%3Achart%3A%28looker%2CchartGenericV3%29",
+      "description": "Remove chartGenericV3 if present",
+      "method": "delete"
+    }
+  }
+]

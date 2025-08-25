@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p>DataHub Secures $35 Million Series B</p><a href="https://datahub.com/news/series-b-announcement/" target="_blank" class="button"><div>Read the announcement<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p><strong>Town Hall August 21:</strong> The Latest in DataHub Lineage</p><a href="https://events.datahub.com/august-town-hall-2025?utm_source=webinar&utm_medium=&utm_campaign=17099074-FY25-Q3-Town-Hall" target="_blank" class="button"><div>Save your spot<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
@@ -132,87 +132,6 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
-        // {
-        //   type: "dropdown",
-        //   activeBasePath: "learn",
-        //   label: "Learn",
-        //   position: "right",
-        //   items: [
-        //     {
-        //       to: "https://pages.acryl.io/webinar-governance-ai-5",
-        //       label: "Weekly Demo",
-        //     },
-        //     {
-        //       to: "/learn",
-        //       label: "Use Cases",
-        //     },
-        //     {
-        //       to: "/adoption-stories",
-        //       label: "Adoption Stories",
-        //     },
-        //     {
-        //       href: "https://medium.com/datahub-project",
-        //       label: "Blog",
-        //     },
-        //     {
-        //       href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-        //       label: "YouTube",
-        //     },
-        //   ],
-        // },
-        // {
-        //   type: "dropdown",
-        //   label: "Community",
-        //   position: "right",
-        //   items: [
-        //     {
-        //       href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
-        //       label: "Join Slack",
-        //     },
-        //     {
-        //       to: "/events",
-        //       label: "Events",
-        //     },
-        //     {
-        //       to: "/champions",
-        //       label: "Champions",
-        //     },
-        //     {
-        //       label: "Share Your Journey",
-        //       href: "/customer-stories-survey",
-        //     },
-        //   ],
-        // },
-        {
-          href: "https://datahub.com/products/why-datahub-cloud/",
-          html: `
-            <style>
-              .cloud-cta {
-                color: var(--ifm-menu-color-active);
-                font-weight: 600;
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), var(--ifm-menu-color-active));
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                background-clip: text;
-                transition: background-image 0.3s ease;
-              }
-              .cloud-cta:hover {
-                color: transparent;
-                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
-                background-size: 200% 100%;
-                -webkit-background-clip: text;
-                background-clip: text;
-                animation: gradientShift 3s ease infinite;
-              }
-              @keyframes gradientShift {
-                0%, 100% { background-position: 0% 50%; }
-                50% { background-position: 100% 50%; }
-              }
-            </style>
-            <div class='cloud-cta'>Get Cloud</div>
-          `,
-          position: "right",
-        },
         {
           type: "docsVersionDropdown",
           position: "left",
@@ -225,6 +144,14 @@ module.exports = {
             {
               type: 'html',
               value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+            },
+            {
+              value: `
+                     <a class="dropdown__link" href="https://docs-website-t9sv4w3gr-acryldata.vercel.app/docs/features">1.0.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+              type: "html",
             },
             {
               value: `
@@ -304,6 +231,18 @@ module.exports = {
           `,
           position: "right",
         },
+        {
+          href: "https://github.com/datahub-project/datahub",
+          html: `
+            <style>
+              .github-logo:hover {
+                opacity: 0.8;
+              }
+            </style>
+            <img class='github-logo' src='https://upload.wikimedia.org/wikipedia/commons/9/91/Octicons-mark-github.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
+          `,
+          position: "right",
+        },
       ],
     },
     footer: {
@@ -342,8 +281,8 @@ module.exports = {
               to: "docs/townhalls",
             },
             {
-              label: "Adoption",
-              href: "https://datahub.com/adoption-stories/",
+              label: "Customer Stories",
+              href: "https://datahub.com/resources/?2004611554=dh-stories",
             },
           ],
         },

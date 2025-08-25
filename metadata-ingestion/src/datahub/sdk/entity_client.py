@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import warnings
-from typing import TYPE_CHECKING, Union, overload
+from typing import TYPE_CHECKING, Optional, Union, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.errors import IngestionAttributionWarning, ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
@@ -133,7 +134,7 @@ class EntityClient:
 
         return entity
 
-    def create(self, entity: Entity) -> None:
+    def create(self, entity: Entity, *, emit_mode: Optional[EmitMode] = None) -> None:
         mcps = []
 
         if self._graph.exists(str(entity.urn)):
@@ -152,9 +153,12 @@ class EntityClient:
         )
         mcps.extend(entity.as_mcps(models.ChangeTypeClass.CREATE))
 
-        self._graph.emit_mcps(mcps)
+        if emit_mode:
+            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
+        else:
+            self._graph.emit_mcps(mcps)
 
-    def upsert(self, entity: Entity) -> None:
+    def upsert(self, entity: Entity, *, emit_mode: Optional[EmitMode] = None) -> None:
         if entity._prev_aspects is None and self._graph.exists(str(entity.urn)):
             warnings.warn(
                 f"The entity {entity.urn} already exists. This operation will partially overwrite the existing entity.",
@@ -164,9 +168,17 @@ class EntityClient:
             # TODO: If there are no previous aspects but the entity exists, should we delete aspects that are not present here?
 
         mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
-        self._graph.emit_mcps(mcps)
+        if emit_mode:
+            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
+        else:
+            self._graph.emit_mcps(mcps)
 
-    def update(self, entity: Union[Entity, MetadataPatchProposal]) -> None:
+    def update(
+        self,
+        entity: Union[Entity, MetadataPatchProposal],
+        *,
+        emit_mode: Optional[EmitMode] = None,
+    ) -> None:
         if isinstance(entity, MetadataPatchProposal):
             return self._update_patch(entity)
 
@@ -179,7 +191,10 @@ class EntityClient:
         # -> probably add a "mode" parameter that can be "update" (e.g. if not modified) or "update_force"
 
         mcps = entity.as_mcps(models.ChangeTypeClass.UPSERT)
-        self._graph.emit_mcps(mcps)
+        if emit_mode:
+            self._graph.emit_mcps(mcps, emit_mode=emit_mode)
+        else:
+            self._graph.emit_mcps(mcps)
 
     def _update_patch(
         self, updater: MetadataPatchProposal, check_exists: bool = True
