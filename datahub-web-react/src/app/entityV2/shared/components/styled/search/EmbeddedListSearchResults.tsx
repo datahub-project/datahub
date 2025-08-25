@@ -21,9 +21,10 @@ import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchRe
 
 const SearchBody = styled.div`
     height: 100%;
-    overflow-y: auto;
-    display: flex;
+    overflow: hidden;
     background-color: ${REDESIGN_COLORS.BACKGROUND};
+    display: flex;
+    flex-direction: column;
 `;
 
 const PaginationInfo = styled(Typography.Text)`
@@ -261,34 +262,34 @@ export const EmbeddedListSearchResults = ({
                         />
                     )}
                 </ResultContainer>
-            </SearchBody>
-            <PaginationInfoContainer>
-                <PaginationInfo>
-                    <b>
-                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                    </b>{' '}
-                    of <b>{totalResults}</b>
-                </PaginationInfo>
-                <StyledPagination
-                    current={page}
-                    pageSize={numResultsPerPage}
-                    total={totalResults}
-                    showLessItems
-                    onChange={onChangePage}
-                    showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                    onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
-                    pageSizeOptions={['10', '20', '50', '100']}
-                />
-                {applyView ? (
-                    <MatchingViewsLabel
-                        view={view}
-                        selectedViewUrn={selectedViewUrn}
-                        setSelectedViewUrn={setSelectedViewUrn}
+                <PaginationInfoContainer>
+                    <PaginationInfo>
+                        <b>
+                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
+                        </b>{' '}
+                        of <b>{totalResults}</b>
+                    </PaginationInfo>
+                    <StyledPagination
+                        current={page}
+                        pageSize={numResultsPerPage}
+                        total={totalResults}
+                        showLessItems
+                        onChange={onChangePage}
+                        showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
+                        onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
+                        pageSizeOptions={['10', '20', '50', '100']}
                     />
-                ) : (
-                    <span />
-                )}
-            </PaginationInfoContainer>
+                    {applyView ? (
+                        <MatchingViewsLabel
+                            view={view}
+                            selectedViewUrn={selectedViewUrn}
+                            setSelectedViewUrn={setSelectedViewUrn}
+                        />
+                    ) : (
+                        <span />
+                    )}
+                </PaginationInfoContainer>
+            </SearchBody>
         </>
     );
 };
