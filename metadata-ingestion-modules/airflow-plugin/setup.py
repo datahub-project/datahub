@@ -44,7 +44,7 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.30.1",
+        "apache-airflow-providers-openlineage>=1.1.0,<2.5.0",        
     },
 }
 
