@@ -388,7 +388,10 @@ class S3Source(StatefulIngestionSourceBase):
 
     def read_file_spark(self, file: str, ext: str) -> Optional[DataFrame]:
         logger.debug(f"Opening file {file} for profiling in spark")
-        file = file.replace("s3://", "s3a://")
+        if "s3://" in file:
+            # replace s3:// with s3a://, and make sure standalone bucket names always end with a slash.
+            # Spark will fail if given a path like `s3a://mybucket`, and requires it to be `s3a://mybucket/`.
+            file = f"s3a://{get_bucket_name(file)}/{get_bucket_relative_path(file)}"
 
         telemetry.telemetry_instance.ping("data_lake_file", {"extension": ext})
 
