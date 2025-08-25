@@ -1075,13 +1075,18 @@ class OdbcLineage(AbstractLineage):
                     database = parts[0]
                     schema = parts[1]
 
-        return self.parse_custom_sql(
+        logger.debug(
+            f"ODBC query processing: dsn={dsn} mapped to database={database}, schema={schema}"
+        )
+        result = self.parse_custom_sql(
             query=query,
             server=server_name,
             database=database,
             schema=schema,
             platform_pair=platform_pair,
         )
+        logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
+        return result
 
     def expression_lineage(
         self,
