@@ -1,3 +1,69 @@
+### Advanced CI/CD Integration
+
+The dbt connector supports loading artifacts from external sources. This enables advanced CI/CD workflows where dbt artifacts are stored centrally and accessed by DataHub without file transfers.
+
+#### Example CI/CD Workflow
+
+Here's a complete workflow example using GitHub Actions and S3:
+
+```yaml
+# .github/workflows/dbt-datahub.yml
+name: dbt + DataHub Integration
+on:
+  schedule:
+    - cron: "0 6 * * *" # Daily at 6 AM
+
+jobs:
+  dbt-run-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Run dbt
+        run: |
+          dbt source snapshot-freshness
+          dbt build
+          cp target/run_results.json target/run_results_backup.json
+          dbt docs generate
+          cp target/run_results_backup.json target/run_results.json
+
+      - name: Upload artifacts to S3
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 cp target/manifest.json s3://my-dbt-artifacts/manifest.json
+          aws s3 cp target/catalog.json s3://my-dbt-artifacts/catalog.json
+          aws s3 cp target/run_results.json s3://my-dbt-artifacts/run_results.json
+
+  datahub-ingestion:
+    needs: dbt-run-and-upload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run DataHub ingestion
+        run: |
+          datahub ingest -c datahub_config.yml
+```
+
+With this setup, your DataHub config simply references the S3 locations:
+
+```yaml
+# datahub_config.yml
+source:
+  type: dbt
+  config:
+    manifest_path: "s3://my-dbt-artifacts/manifest.json"
+    catalog_path: "s3://my-dbt-artifacts/catalog.json"
+    run_results_paths:
+      - "s3://my-dbt-artifacts/run_results.json"
+    target_platform: "bigquery"
+    external_connections:
+      aws_connection:
+        aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+        aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+        aws_region: "us-east-1"
+```
+
 ### dbt meta automated mappings
 
 dbt allows authors to define meta properties for datasets. Checkout this link to know more - [dbt meta](https://docs.getdbt.com/reference/resource-configs/meta). Our dbt source allows users to define

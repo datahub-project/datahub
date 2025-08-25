@@ -12,9 +12,9 @@ from pydantic.fields import Field
 from wcmatch import pathlib
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.ingestion.source.aws.s3_util import is_s3_uri
-from datahub.ingestion.source.azure.abs_utils import is_abs_uri
-from datahub.ingestion.source.gcs.gcs_utils import is_gcs_uri
+from datahub.ingestion.source.data_lake_common.object_store_client import (
+    ObjectStoreClient,
+)
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -294,10 +294,9 @@ class PathSpec(ConfigModel):
 
     @pydantic.validator("sample_files", always=True)
     def turn_off_sampling_for_non_s3(cls, v, values):
-        is_s3 = is_s3_uri(values.get("include") or "")
-        is_gcs = is_gcs_uri(values.get("include") or "")
-        is_abs = is_abs_uri(values.get("include") or "")
-        if not is_s3 and not is_gcs and not is_abs:
+        include_path = values.get("include") or ""
+        object_store = ObjectStoreClient.get_object_store_for_uri(include_path)
+        if not object_store:
             # Sampling only makes sense on s3 and gcs currently
             v = False
         return v
@@ -333,15 +332,25 @@ class PathSpec(ConfigModel):
 
     @cached_property
     def is_s3(self):
-        return is_s3_uri(self.include)
+        from datahub.ingestion.source.data_lake_common.object_store import S3ObjectStore
+
+        return S3ObjectStore.is_uri(self.include)
 
     @cached_property
     def is_gcs(self):
-        return is_gcs_uri(self.include)
+        from datahub.ingestion.source.data_lake_common.object_store import (
+            GCSObjectStore,
+        )
+
+        return GCSObjectStore.is_uri(self.include)
 
     @cached_property
     def is_abs(self):
-        return is_abs_uri(self.include)
+        from datahub.ingestion.source.data_lake_common.object_store import (
+            ABSObjectStore,
+        )
+
+        return ABSObjectStore.is_uri(self.include)
 
     @cached_property
     def compiled_include(self):

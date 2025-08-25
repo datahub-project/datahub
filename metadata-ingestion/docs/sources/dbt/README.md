@@ -1,5 +1,7 @@
 Ingesting metadata from dbt requires either using the **dbt** module or the **dbt-cloud** module.
 
+The **dbt** module supports loading artifact files from multiple sources including local files, cloud storage, Git repositories, and HTTP endpoints.
+
 ### Concept Mapping
 
 | Source Concept | DataHub Concept                                                        | Notes              |
