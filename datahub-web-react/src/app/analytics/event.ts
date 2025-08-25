@@ -75,6 +75,10 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    IngestionSourceTemplateSelectedEvent,
+    IngestionTestConnectionEvent,
+    IngestionExecutionResultViewedEvent,
+    IngestionSourceConfigurationImpressionEvent,
     CreateIngestionSourceEvent,
     UpdateIngestionSourceEvent,
     DeleteIngestionSourceEvent,
@@ -610,18 +614,52 @@ export interface MoveDomainEvent extends BaseEvent {
 
 // Managed Ingestion Events
 
+export interface IngestionSourceTemplateSelectedEvent extends BaseEvent {
+    type: EventType.IngestionSourceTemplateSelectedEvent;
+    sourceType: string;
+}
+
+export interface IngestionTestConnectionEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    outcome?: string;
+}
+
+export interface IngestionExecutionResultViewedEvent extends BaseEvent {
+    // TODO Actually track
+    type: EventType.IngestionExecutionResultViewedEvent;
+    executionUrn: string;
+    sourceType: string;
+    sourceUrn: string;
+    executionStatus: 'SUCCESS' | 'FAILURE' | 'CANCELLED' | 'RUNNING';
+    viewedSection: 'summary' | 'recipe' | 'logs' | 'view_all' | 'sample';
+}
+
+export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
+    // TODO Actually track
+    type: EventType.IngestionSourceConfigurationImpressionEvent;
+    sourceType: string;
+    sourceUrn: string;
+    viewedSection: 'SELECT_TEMPLATE' | 'DEFINE_RECIPE' | 'CREATE_SCHEDULE' | 'NAME_SOURCE';
+};
+
 export interface CreateIngestionSourceEvent extends BaseEvent {
     type: EventType.CreateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn?: string;
     interval?: string;
     numOwners?: number;
+    outcome?: string;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
     type: EventType.UpdateIngestionSourceEvent;
     sourceType: string;
+    sourceUrn: string;
     interval?: string;
     numOwners?: number;
+    outcome?: string;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -1216,4 +1254,8 @@ export type Event =
     | WelcomeToDataHubModalInteractEvent
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
-    | ProductTourButtonClickEvent;
+    | ProductTourButtonClickEvent
+    | IngestionSourceTemplateSelectedEvent
+    | IngestionTestConnectionEvent
+    | IngestionExecutionResultViewedEvent
+    | IngestionSourceConfigurationImpressionEvent;
