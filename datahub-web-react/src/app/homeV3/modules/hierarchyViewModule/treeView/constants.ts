@@ -1,1 +1,1 @@
-export const DEFAULT_NUMBER_OF_CHILDREN_TO_LOAD = 5;
+export const DEFAULT_LOAD_BATCH_SIZE = 5;

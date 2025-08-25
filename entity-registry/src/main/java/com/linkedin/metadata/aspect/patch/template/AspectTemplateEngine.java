@@ -38,7 +38,8 @@ public class AspectTemplateEngine {
               STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
               FORM_INFO_ASPECT_NAME,
               UPSTREAM_LINEAGE_ASPECT_NAME,
-              VERSION_PROPERTIES_ASPECT_NAME)
+              VERSION_PROPERTIES_ASPECT_NAME,
+              SIBLINGS_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

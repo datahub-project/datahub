@@ -421,3 +421,14 @@ export const extractDatasetNameFromUrn = (datasetUrn: string): string => {
     }
     return datasetUrn;
 };
+
+/**
+ * Utility function to safely extract the first subtype from entity data
+ * @param data The entity data that may contain subTypes
+ * @returns The first subtype name or undefined if not available
+ */
+export const getFirstSubType = (
+    data?: { subTypes?: { typeNames?: string[] | null } | null } | null,
+): string | undefined => {
+    return data?.subTypes?.typeNames?.[0];
+};

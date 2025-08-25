@@ -22,4 +22,5 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     styles?: React.CSSProperties;
     inputStyles?: React.CSSProperties;
     inputTestId?: string;
+    onClear?: () => void;
 }

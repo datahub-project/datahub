@@ -35,6 +35,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
     const { entityType } = useEntityData();
     const linkProps = useEmbeddedProfileLinkProps();
     const [removeOwnerMutation] = useRemoveOwnerMutation();
+
     let name = '';
     let ownershipTypeName = '';
     if (owner.owner.__typename === 'CorpGroup') {

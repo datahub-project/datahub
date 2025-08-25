@@ -1990,7 +1990,15 @@
               "items" : "com.linkedin.common.Urn"
             },
             "doc" : "Upstream entities in the lineage",
-            "optional" : true
+            "optional" : true,
+            "Searchable" : {
+              "/*" : {
+                "fieldName" : "fineGrainedUpstreams",
+                "fieldType" : "URN",
+                "hasValuesFieldName" : "hasFineGrainedUpstreams",
+                "queryByDefault" : false
+              }
+            }
           }, {
             "name" : "downstreamType",
             "type" : {
@@ -2427,6 +2435,7 @@
       "Searchable" : {
         "fieldName" : "upstreams",
         "fieldType" : "URN",
+        "hasValuesFieldName" : "hasUpstreams",
         "queryByDefault" : false
       }
     }, {
@@ -6196,8 +6205,23 @@
       "type" : "string",
       "doc" : "Which fieldConfiguration should be applied. The possible values\nare defined in the configuration file `search_config.yaml`",
       "optional" : true
+    }, {
+      "name" : "sliceOptions",
+      "type" : {
+        "type" : "record",
+        "name" : "SliceOptions",
+        "fields" : [ {
+          "name" : "id",
+          "type" : "int"
+        }, {
+          "name" : "max",
+          "type" : "int"
+        } ]
+      },
+      "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
+      "optional" : true
     } ]
-  }, {
+  }, "com.linkedin.metadata.query.SliceOptions", {
     "type" : "enum",
     "name" : "Condition",
     "namespace" : "com.linkedin.metadata.query.filter",

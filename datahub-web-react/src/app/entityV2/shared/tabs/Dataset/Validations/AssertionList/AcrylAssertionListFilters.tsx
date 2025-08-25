@@ -63,8 +63,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
 }) => {
     const [appliedRecommendedFilters, setAppliedRecommendedFilters] = useState([]);
 
-    const handleSearchTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const searchText = event.target.value;
+    const handleSearchTextChange = (searchText: string) => {
         handleFilterChange({
             ...selectedFilters,
             filterCriteria: { ...selectedFilters.filterCriteria, searchText },

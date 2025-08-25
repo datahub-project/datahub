@@ -14,6 +14,8 @@ query listRoles($input: ListRolesInput!) {
                 total
                 relationships {
                     entity {
+                        urn
+                        type
                         ... on CorpUser {
                             urn
                             type
@@ -32,6 +34,7 @@ query listRoles($input: ListRolesInput!) {
                                 pictureLink
                             }
                         }
+                        ...entityDisplayNameFields
                     }
                 }
             }

@@ -6,6 +6,7 @@ import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContex
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
+import analytics, { EventType } from '@src/app/analytics';
 
 import DatahubCoreLogo from '@images/datahub_core.svg?react';
 
@@ -62,6 +63,7 @@ export default function NavBarHeader({ logotype }: Props) {
         if (isHomePage && showHomepageRedesign) {
             toggle();
         }
+        analytics.event({ type: EventType.NavBarItemClick, label: 'Home' });
     }
 
     return (

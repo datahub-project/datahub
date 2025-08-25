@@ -4,7 +4,7 @@ import { getRadioBorderColor, getRadioCheckmarkColor } from '@components/compone
 import { formLabelTextStyles } from '@components/components/commonStyles';
 import { borders, colors, radius, spacing } from '@components/theme';
 
-export const RadioWrapper = styled.div<{ disabled: boolean; error: string }>(({ disabled, error }) => ({
+export const RadioWrapper = styled.div<{ disabled: boolean; error: string }>(({ disabled, error, theme }) => ({
     position: 'relative',
     margin: '20px',
     width: '20px',
@@ -19,7 +19,7 @@ export const RadioWrapper = styled.div<{ disabled: boolean; error: string }>(({ 
     cursor: !disabled ? 'pointer' : 'none',
     transition: 'border 0.3s ease, outline 0.3s ease',
     '&:hover': {
-        border: `${borders['2px']} ${!disabled && !error ? colors.violet[500] : getRadioBorderColor(disabled, error)}`,
+        border: `${borders['2px']} ${!disabled && !error ? theme.styles['primary-color'] : getRadioBorderColor(disabled, error)}`,
         outline: !disabled && !error ? `${borders['2px']} ${colors.gray[200]}` : 'none',
     },
 }));
@@ -45,7 +45,7 @@ export const Required = styled.span({
 });
 
 export const RadioHoverState = styled.div({
-    border: `${borders['2px']} ${colors.violet[500]}`,
+    border: `${borders['2px']} ${(props) => props.theme.styles['primary-color']}`,
     width: 'calc(100% - -3px)',
     height: 'calc(100% - -3px)',
     display: 'flex',

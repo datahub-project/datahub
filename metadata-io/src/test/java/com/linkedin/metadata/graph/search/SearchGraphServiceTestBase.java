@@ -68,6 +68,9 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Nonnull
   protected abstract ESIndexBuilder getIndexBuilder();
 
+  @Nonnull
+  protected abstract String getElasticSearchImplementation();
+
   private final IndexConvention _indexConvention = IndexConventionImpl.noPrefix("MD5");
   private final String _indexName = _indexConvention.getIndexName(INDEX_NAME);
   private ElasticSearchGraphService _client;
@@ -110,6 +113,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     ESGraphQueryDAO readDAO =
         new ESGraphQueryDAO(
             getSearchClient(),
+            false,
+            getElasticSearchImplementation(),
             lineageRegistry,
             _indexConvention,
             graphServiceConfig,

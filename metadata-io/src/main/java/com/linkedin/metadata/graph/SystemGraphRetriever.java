@@ -43,6 +43,7 @@ public class SystemGraphRetriever implements GraphRetriever {
             relationshipFilter),
         sortCriteria,
         scrollId,
+        null,
         count,
         startTimeMillis,
         endTimeMillis);

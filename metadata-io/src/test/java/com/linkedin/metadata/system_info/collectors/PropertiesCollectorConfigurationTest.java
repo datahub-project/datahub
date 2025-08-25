@@ -424,6 +424,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
+          "featureFlags.assetSummaryPageV1",
           "featureFlags.businessAttributeEntityEnabled",
           "featureFlags.dataContractsEnabled",
           "featureFlags.editableDatasetNameEnabled",
@@ -737,6 +738,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "platformAnalytics.usageExport.userFilters",
           "searchBar.apiVariant",
           "searchService.cache.hazelcast.serviceName",
+          "searchService.cache.hazelcast.service-dns-timeout",
+          "searchService.cache.hazelcast.kubernetes-api-retries",
+          "searchService.cache.hazelcast.resolve-not-ready-addresses",
           "searchService.cacheImplementation",
           "searchService.enableCache",
           "searchService.enableEviction",

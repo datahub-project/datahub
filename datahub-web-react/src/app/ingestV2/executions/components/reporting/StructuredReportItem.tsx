@@ -47,8 +47,9 @@ export function StructuredReportItem({ item, color, textColor, icon, defaultActi
     return (
         <StyledCard
             style={{ backgroundColor: color }}
+            onClick={toggleExpanded}
             icon={
-                <HeaderContainer onClick={toggleExpanded}>
+                <HeaderContainer>
                     {icon && <Icon icon={icon} source="phosphor" style={{ color: textColor }} size="md" />}
                     <ChevronIcon
                         icon={isExpanded ? 'CaretUp' : 'CaretDown'}
@@ -69,10 +70,10 @@ export function StructuredReportItem({ item, color, textColor, icon, defaultActi
                 </Text>
             }
             width="100%"
-            isCardClickable={false}
+            isCardClickable
         >
             {isExpanded && (
-                <Content>
+                <Content onClick={(e) => e.stopPropagation()}>
                     <StructuredReportItemContext item={item} />
                 </Content>
             )}

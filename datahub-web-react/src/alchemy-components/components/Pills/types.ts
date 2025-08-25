@@ -1,5 +1,6 @@
 import { HTMLAttributes } from 'react';
 
+import { IconSource } from '@src/alchemy-components/components/Icon/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@src/alchemy-components/theme/config';
 import { Theme } from '@src/conf/theme/types';
 
@@ -16,6 +17,7 @@ export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttribut
     color?: ColorOptions;
     rightIcon?: string;
     leftIcon?: string;
+    iconSource?: IconSource;
     customStyle?: React.CSSProperties;
     showLabel?: boolean;
     customIconRenderer?: () => void;

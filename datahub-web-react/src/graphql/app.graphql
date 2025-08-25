@@ -108,6 +108,7 @@ query appConfig {
             lineageGraphV3
             logicalModelsEnabled
             showHomepageUserRole
+            assetSummaryPageV1
         }
         chromeExtensionConfig {
             enabled

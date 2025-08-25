@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v3;
 
+import static com.github.fge.processing.ProcessingUtil.*;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.aspect.patch.GenericJsonPatch.ARRAY_PRIMARY_KEYS_FIELD;
@@ -61,6 +62,8 @@ public class OpenAPIV3Generator {
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String NAME_PIT_KEEP_ALIVE = "pitKeepAlive";
+  private static final String NAME_SLICE_ID = "sliceId";
+  private static final String NAME_SLICE_MAX = "sliceMax";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -431,7 +434,9 @@ public class OpenAPIV3Generator {
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortOrder" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION));
+            new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION),
+            new Parameter().$ref("#/components/parameters/SliceId" + MODEL_VERSION),
+            new Parameter().$ref("#/components/parameters/SliceMax" + MODEL_VERSION));
     final ApiResponse getApiResponse =
         new ApiResponse()
             .description("Success")
@@ -669,7 +674,9 @@ public class OpenAPIV3Generator {
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortOrder" + MODEL_VERSION),
-            new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION));
+            new Parameter().$ref("#/components/parameters/ScrollQuery" + MODEL_VERSION),
+            new Parameter().$ref("#/components/parameters/SliceId" + MODEL_VERSION),
+            new Parameter().$ref("#/components/parameters/SliceMax" + MODEL_VERSION));
     final ApiResponse successApiResponse =
         new ApiResponse()
             .description("Success")
@@ -1057,6 +1064,20 @@ public class OpenAPIV3Generator {
                 "Structured search query. See Elasticsearch documentation on `query_string` syntax.")
             .example("*")
             .schema(newSchema().type(TYPE_STRING)._default("*")));
+    components.addParameters(
+        "SliceId" + MODEL_VERSION,
+        new Parameter()
+            .in(NAME_QUERY)
+            .name(NAME_SLICE_ID)
+            .description("ElasticSearch slice id, 0 <= sliceId < sliceMax")
+            .schema(newSchema().type(TYPE_INTEGER).minimum(new BigDecimal(0))));
+    components.addParameters(
+        "SliceMax" + MODEL_VERSION,
+        new Parameter()
+            .in(NAME_QUERY)
+            .name(NAME_SLICE_MAX)
+            .description("ElasticSearch slice max: number of slices")
+            .schema(newSchema().type(TYPE_INTEGER).minimum(new BigDecimal(1))));
   }
 
   private static Parameter buildParameterSchema(
