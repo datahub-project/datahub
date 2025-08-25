@@ -25,6 +25,10 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_lineage_helper import (
+    IncrementalLineageConfigMixin,
+    auto_incremental_lineage,
+)
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     Source,
@@ -48,7 +52,9 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 logger = logging.getLogger(__name__)
 
 
-class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+class SqlQueriesSourceConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, IncrementalLineageConfigMixin
+):
     query_file: str = Field(description="Path to file to ingest")
 
     platform: str = Field(
@@ -109,6 +115,16 @@ class SqlQueriesSource(Source):
      used if the query can't be parsed.
     - upstream_tables (optional): string[] - Fallback list of tables the query reads from,
      used if the query can't be parsed.
+
+    ### Incremental Lineage
+    When `incremental_lineage` is enabled, this source will emit lineage as patches rather than full overwrites.
+    This allows you to add lineage edges without removing existing ones, which is useful for:
+    - Gradually building up lineage from multiple sources
+    - Preserving manually curated lineage
+    - Avoiding conflicts when multiple ingestion processes target the same datasets
+
+    Note: Incremental lineage only applies to UpstreamLineage aspects. Other aspects like queries and usage
+    statistics will still be emitted normally.
     """
 
     schema_resolver: Optional[SchemaResolver]
@@ -165,7 +181,13 @@ class SqlQueriesSource(Source):
         return self.report
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [partial(auto_workunit_reporter, self.get_report())]
+        return [
+            partial(auto_workunit_reporter, self.get_report()),
+            partial(
+                auto_incremental_lineage,
+                self.config.incremental_lineage,
+            ),
+        ]
 
     def get_workunits_internal(
         self,

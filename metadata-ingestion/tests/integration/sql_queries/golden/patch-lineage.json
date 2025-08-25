@@ -1,0 +1,1175 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478081,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459560000,
+                        "actor": "urn:li:corpuser:etl_job"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"SESSIONS\".\"USER_ID\" AS \"USER_ID\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD),user_id)/urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD),user_id)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478083,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "INSERT INTO snowflake.db.audit_log SELECT 'user_login', user_id, CURRENT_TIMESTAMP FROM snowflake.db.sessions WHERE session_date = CURRENT_DATE",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459560000,
+                "actor": "urn:li:corpuser:etl_job"
+            },
+            "lastModified": {
+                "time": 1609459560000,
+                "actor": "urn:li:corpuser:etl_job"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478084,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD),user_id)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD),user_login)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD),user_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD),current_timestamp%28%29)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478084,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478085,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478086,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459680000,
+                        "actor": "urn:li:corpuser:analytics"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/SQL: TO_DATE(\"ORDERS\".\"ORDER_DATE\") AS \"DAY\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),day)/urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),order_date)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/SQL: SUM(\"ORDERS\".\"AMOUNT\") AS \"TOTAL_AMOUNT\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),total_amount)/urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),amount)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478086,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "CREATE TABLE snowflake.db.daily_summary AS SELECT DATE(order_date) as day, COUNT(*) as order_count, SUM(amount) as total_amount FROM snowflake.db.orders GROUP BY DATE(order_date)",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459680000,
+                "actor": "urn:li:corpuser:analytics"
+            },
+            "lastModified": {
+                "time": 1609459680000,
+                "actor": "urn:li:corpuser:analytics"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478087,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),amount)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),order_date)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),day)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),order_count)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD),total_amount)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478087,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478088,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478089,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459260000,
+                        "actor": "urn:li:corpuser:jane.smith"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:1be35e6e373790296b81ce40c6504341e7ebe2cfee9b54f9a519708f46bc17ed"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.shipments,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478089,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459260000,
+                        "actor": "urn:li:corpuser:jane.smith"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.shipments,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:1be35e6e373790296b81ce40c6504341e7ebe2cfee9b54f9a519708f46bc17ed"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478089,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459260000,
+                        "actor": "urn:li:corpuser:jane.smith"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"TEMP_ORDERS\".\"USER_ID\" AS \"USER_ID\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),user_id)/urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD),user_id)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"TEMP_ORDERS\".\"PRODUCT_ID\" AS \"PRODUCT_ID\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),product_id)/urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD),product_id)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"TEMP_ORDERS\".\"ORDER_DATE\" AS \"ORDER_DATE\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),order_date)/urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD),order_date)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478090,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:1be35e6e373790296b81ce40c6504341e7ebe2cfee9b54f9a519708f46bc17ed",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "UPDATE snowflake.db.orders SET status = 'shipped' WHERE id IN (SELECT order_id FROM snowflake.db.shipments WHERE ship_date = CURRENT_DATE)",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459620000,
+                "actor": "urn:li:corpuser:fulfillment"
+            },
+            "lastModified": {
+                "time": 1609459620000,
+                "actor": "urn:li:corpuser:fulfillment"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478091,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:1be35e6e373790296b81ce40c6504341e7ebe2cfee9b54f9a519708f46bc17ed",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.shipments,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),status)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478091,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:1be35e6e373790296b81ce40c6504341e7ebe2cfee9b54f9a519708f46bc17ed",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478092,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "INSERT INTO snowflake.db.orders SELECT user_id, product_id, order_date FROM snowflake.db.temp_orders",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459260000,
+                "actor": "urn:li:corpuser:jane.smith"
+            },
+            "lastModified": {
+                "time": 1609459260000,
+                "actor": "urn:li:corpuser:jane.smith"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478092,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD),order_date)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD),product_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD),user_id)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),user_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),product_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),order_date)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478093,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478093,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478094,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459320000,
+                        "actor": "urn:li:corpuser:admin"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478094,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459320000,
+                        "actor": "urn:li:corpuser:admin"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"U\".\"ID\" AS \"ID\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),id)/urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),id)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/COPY: \"U\".\"NAME\" AS \"NAME\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),name)/urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),name)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/SQL: COUNT(\"O\".\"ID\") AS \"ORDER_COUNT\"/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),order_count)/urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),id)",
+                "value": {
+                    "confidenceScore": 0.9
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478094,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "CREATE VIEW snowflake.db.user_summary AS SELECT u.id, u.name, COUNT(o.id) as order_count FROM snowflake.db.users u LEFT JOIN snowflake.db.orders o ON u.id = o.user_id GROUP BY u.id, u.name",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459320000,
+                "actor": "urn:li:corpuser:admin"
+            },
+            "lastModified": {
+                "time": 1609459320000,
+                "actor": "urn:li:corpuser:admin"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478095,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),name)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),name)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD),order_count)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478095,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478096,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478097,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459380000,
+                        "actor": "urn:li:corpuser:system"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:f3a47d4e03efb93f608cdeb80decda81c4088d8f3b1d7d6e87ec5664d0ddc053"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1755886478097,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1609459380000,
+                        "actor": "urn:li:corpuser:system"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:f3a47d4e03efb93f608cdeb80decda81c4088d8f3b1d7d6e87ec5664d0ddc053"
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478097,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:f3a47d4e03efb93f608cdeb80decda81c4088d8f3b1d7d6e87ec5664d0ddc053",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT DISTINCT user_id FROM snowflake.db.sessions WHERE session_date >= '2021-01-01')",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1609459380000,
+                "actor": "urn:li:corpuser:system"
+            },
+            "lastModified": {
+                "time": 1609459380000,
+                "actor": "urn:li:corpuser:system"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478098,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:f3a47d4e03efb93f608cdeb80decda81c4088d8f3b1d7d6e87ec5664d0ddc053",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD),last_login)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478098,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:f3a47d4e03efb93f608cdeb80decda81c4088d8f3b1d7d6e87ec5664d0ddc053",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478098,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.sessions,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 2,
+            "totalSqlQueries": 2,
+            "topSqlQueries": [
+                "INSERT INTO snowflake.db.audit_log SELECT 'user_login', user_id, CURRENT_TIMESTAMP FROM snowflake.db.sessions WHERE session_date = CURRENT_DATE",
+                "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT DISTINCT user_id FROM snowflake.db.sessions WHERE session_date >= '2021-01-01')"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:etl_job",
+                    "count": 1
+                },
+                {
+                    "user": "urn:li:corpuser:system",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": [
+                {
+                    "fieldPath": "user_id",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478099,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 3,
+            "totalSqlQueries": 3,
+            "topSqlQueries": [
+                "CREATE TABLE snowflake.db.daily_summary AS SELECT DATE(order_date) as day, COUNT(*) as order_count, SUM(amount) as total_amount FROM snowflake.db.orders GROUP BY DATE(order_date)",
+                "UPDATE snowflake.db.orders SET status = 'shipped' WHERE id IN (SELECT order_id FROM snowflake.db.shipments WHERE ship_date = CURRENT_DATE)",
+                "CREATE VIEW snowflake.db.user_summary AS SELECT u.id, u.name, COUNT(o.id) as order_count FROM snowflake.db.users u LEFT JOIN snowflake.db.orders o ON u.id = o.user_id GROUP BY u.id, u.name"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:analytics",
+                    "count": 1
+                },
+                {
+                    "user": "urn:li:corpuser:fulfillment",
+                    "count": 1
+                },
+                {
+                    "user": "urn:li:corpuser:admin",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": [
+                {
+                    "fieldPath": "amount",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "order_date",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "id",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478100,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.shipments,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "UPDATE snowflake.db.orders SET status = 'shipped' WHERE id IN (SELECT order_id FROM snowflake.db.shipments WHERE ship_date = CURRENT_DATE)"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:fulfillment",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478101,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.temp_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 1,
+            "topSqlQueries": [
+                "INSERT INTO snowflake.db.orders SELECT user_id, product_id, order_date FROM snowflake.db.temp_orders"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:jane.smith",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": [
+                {
+                    "fieldPath": "order_date",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "product_id",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "user_id",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478101,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetUsageStatistics",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1609459200000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 2,
+            "totalSqlQueries": 2,
+            "topSqlQueries": [
+                "CREATE VIEW snowflake.db.user_summary AS SELECT u.id, u.name, COUNT(o.id) as order_count FROM snowflake.db.users u LEFT JOIN snowflake.db.orders o ON u.id = o.user_id GROUP BY u.id, u.name",
+                "UPDATE snowflake.db.users SET last_login = CURRENT_TIMESTAMP WHERE id IN (SELECT DISTINCT user_id FROM snowflake.db.sessions WHERE session_date >= '2021-01-01')"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:admin",
+                    "count": 1
+                },
+                {
+                    "user": "urn:li:corpuser:system",
+                    "count": 1
+                }
+            ],
+            "fieldCounts": [
+                {
+                    "fieldPath": "id",
+                    "count": 1
+                },
+                {
+                    "fieldPath": "name",
+                    "count": 1
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478102,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.audit_log,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1755886478103,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:etl_job",
+            "operationType": "INSERT",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1609459560000,
+            "queries": [
+                "urn:li:query:3f2c70007dcf02cfbf95b647fa8aed2c46e638b17c371f214707e489438a2453"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478103,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.daily_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1755886478103,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:analytics",
+            "operationType": "CREATE",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1609459680000,
+            "queries": [
+                "urn:li:query:43cb2badad2b8835f7486755f54c778d4d73d8caafe0a3ceed3babc8dad81f67"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478104,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1755886478104,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:fulfillment",
+            "operationType": "UPDATE",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1609459620000,
+            "queries": [
+                "urn:li:query:1be35e6e373790296b81ce40c6504341e7ebe2cfee9b54f9a519708f46bc17ed"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478104,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1755886478105,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:jane.smith",
+            "operationType": "INSERT",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1609459260000,
+            "queries": [
+                "urn:li:query:1cfc42a2716bb27fa618416438130aedfaa59279874ae462e33124070d61433c"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478105,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.user_summary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1755886478105,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:admin",
+            "operationType": "CREATE",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1609459320000,
+            "queries": [
+                "urn:li:query:d0bbe413da3060e9fddc8ba3aa139f657e62bf9bbcfa2b5969e1fc305e773ee2"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478106,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake.db.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1755886478106,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:system",
+            "operationType": "UPDATE",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1609459380000,
+            "queries": [
+                "urn:li:query:f3a47d4e03efb93f608cdeb80decda81c4088d8f3b1d7d6e87ec5664d0ddc053"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1755886478106,
+        "runId": "sql-queries-2025_08_22-19_14_37-8w0qx7",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
