@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
+// import UserRecommendationsSection from '@app/identity/user/UserRecommendationsSection';
 import { mapRoleIcon } from '@app/identity/user/UserUtils';
 import { checkIsSsoConfigured } from '@app/settingsV2/platform/sso/utils';
 import { PageRoutes } from '@conf/Global';
@@ -210,6 +211,8 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                     Copy an invite link to send to your users. When they join, users will be automatically assigned to
                     the selected role.
                 </ModalSectionFooter>
+
+                {/* <UserRecommendationsSection recommendedUsers={recommendedUsers} inviteLink={inviteLink} /> */}
 
                 {isSsoConfigured ? (
                     <>

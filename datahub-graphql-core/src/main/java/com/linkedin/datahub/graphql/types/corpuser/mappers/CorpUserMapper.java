@@ -33,9 +33,11 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.identity.CorpUserCredentials;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.identity.CorpUserInvitationStatus;
 import com.linkedin.identity.CorpUserSettings;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.key.CorpUserKey;
+import com.linkedin.metadata.search.features.CorpUserUsageFeatures;
 import com.linkedin.structured.StructuredProperties;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -109,6 +111,19 @@ public class CorpUserMapper {
     mappingHelper.mapToResult(
         ORIGIN_ASPECT_NAME,
         (entity, dataMap) -> entity.setAssetOrigin(OriginMapper.map(context, new Origin(dataMap))));
+    // acryl
+    mappingHelper.mapToResult(
+        CORP_USER_USAGE_FEATURES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setUsageFeatures(
+                CorpUserUsageFeaturesMapper.map(context, new CorpUserUsageFeatures(dataMap))));
+    // acryl
+    mappingHelper.mapToResult(
+        CORP_USER_INVITATION_STATUS_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setInvitationStatus(
+                CorpUserInvitationStatusMapper.map(
+                    context, new CorpUserInvitationStatus(dataMap))));
 
     mapCorpUserSettings(
         result, aspectMap.getOrDefault(CORP_USER_SETTINGS_ASPECT_NAME, null), featureFlags);

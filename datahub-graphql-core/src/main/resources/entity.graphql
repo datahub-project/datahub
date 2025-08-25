@@ -4167,6 +4167,21 @@ type IntMapEntry {
 }
 
 """
+An entry in a float string map represented as a tuple
+"""
+type FloatMapEntry {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value for the map entry
+  """
+  value: Float
+}
+
+"""
 An entry in a custom properties map represented as a tuple
 """
 type CustomPropertiesEntry {
@@ -4438,6 +4453,16 @@ type CorpUser implements Entity {
   Carries information about where an entity originated from.
   """
   assetOrigin: Origin
+
+  """
+  Usage features and metrics for this user across various platforms
+  """
+  usageFeatures: CorpUserUsageFeatures
+
+  """
+  Invitation status for this user
+  """
+  invitationStatus: CorpUserInvitationStatus
 }
 
 """
@@ -4786,6 +4811,93 @@ input CorpUserUpdateInput {
   The user's persona urn"
   """
   personaUrn: String
+}
+
+"""
+Usage features and metrics for a corp user across various platforms and datasets.
+This data helps admins identify active users for invitation purposes.
+"""
+type CorpUserUsageFeatures {
+  """
+  Total number of queries executed by the user in the last 30 days
+  """
+  userUsageTotalPast30Days: Long
+
+  """
+  Map of platform names to total usage counts for the user in the past 30 days
+  """
+  userPlatformUsageTotalsPast30Days: [FloatMapEntry!]
+
+  """
+  Map of platform names to percentile rankings for the user's usage compared to other users
+  """
+  userPlatformUsagePercentilePast30Days: [FloatMapEntry!]
+
+  """
+  Platform usage total percentile for ranking users across all platforms
+  """
+  userUsagePercentilePast30Days: Float
+
+  """
+  Map of dataset URNs to usage scores representing the user's top datasets by usage
+  """
+  userTopDatasetsByUsage: [FloatMapEntry!]
+}
+
+"""
+Invitation status information for a corp user, tracking whether they have been invited
+to join the DataHub platform and the current state of that invitation.
+"""
+type CorpUserInvitationStatus {
+  """
+  The current status of the invitation
+  """
+  status: InvitationStatus!
+
+  """
+  When the invitation was first created
+  """
+  created: AuditStamp!
+
+  """
+  When the invitation status was last updated
+  """
+  lastUpdated: AuditStamp!
+
+  """
+  The role URN associated with this invitation (optional)
+  """
+  role: String
+
+  """
+  The unique token used to track this invitation
+  """
+  invitationToken: String!
+}
+
+"""
+Status values for user invitations
+"""
+enum InvitationStatus {
+  """
+  Invitation has been sent to the user but not yet accepted
+  """
+  SENT
+
+  """
+  User has accepted the invitation and joined
+  """
+  ACCEPTED
+
+  """
+  Invitation has been revoked by an administrator
+  """
+  REVOKED
+
+  """
+  User suggestion has been dismissed by an administrator
+  """
+  SUGGESTION_DISMISSED
 }
 
 """

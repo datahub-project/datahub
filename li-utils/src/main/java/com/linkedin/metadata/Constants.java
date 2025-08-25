@@ -167,6 +167,8 @@ public class Constants {
   public static final String ROLE_MEMBERSHIP_ASPECT_NAME = "roleMembership";
 
   public static final String CORP_USER_SETTINGS_ASPECT_NAME = "corpUserSettings";
+  public static final String CORP_USER_USAGE_FEATURES_ASPECT_NAME = "corpUserUsageFeatures";
+  public static final String CORP_USER_INVITATION_STATUS_ASPECT_NAME = "corpUserInvitationStatus";
   public static final String CORP_USER_STATUS_LAST_MODIFIED_FIELD_NAME = "statusLastModifiedAt";
 
   // Group
