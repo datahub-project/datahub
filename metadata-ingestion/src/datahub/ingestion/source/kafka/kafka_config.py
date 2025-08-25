@@ -1,19 +1,83 @@
 from typing import Dict, Optional
 
-from pydantic import Field
+from pydantic import Field, PositiveInt
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+
+class SchemalessFallback(ConfigModel):
+    """Configuration for schema-less fallback."""
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable automatic fallback to schema-less processing for topics not found in the schema registry.",
+    )
+
+    sample_timeout_seconds: float = Field(
+        default=2.0,
+        description="Maximum time to spend sampling messages from a single topic (in seconds).",
+    )
+    sample_strategy: str = Field(
+        default="hybrid",
+        description="Sampling strategy: 'earliest' (scan from beginning), 'latest' (recent messages only), or 'hybrid' (try latest first, fallback to earliest).",
+    )
+
+
+class ProfilerConfig(GEProfilingConfig):
+    """
+    Kafka-specific profiling configuration that extends GEProfilingConfig.
+
+    Inherits ALL standard profiling functionality from GEProfilingConfig including:
+    - operation_config.lower_freq_profile_enabled: Whether to do profiling at lower frequency
+    - operation_config.profile_day_of_week: Day of week to run profiling (0=Monday, 6=Sunday)
+    - operation_config.profile_date_of_month: Date of month to run profiling (1-31)
+    - All include_field_* flags (null_count, distinct_count, min/max/mean/median/stddev, etc.)
+    - turn_off_expensive_profiling_metrics, field_sample_values_limit, max_number_of_fields_to_profile
+    - report_dropped_profiles, catch_exceptions, tags_to_ignore_sampling
+    - profile_nested_fields (useful for complex JSON/Avro), query_combiner_enabled
+
+    Additional Kafka-specific profiling options:
+    """
+
+    max_sample_time_seconds: PositiveInt = Field(
+        default=60,
+        description="Maximum time to spend sampling messages in seconds",
+    )
+    sampling_strategy: str = Field(
+        default="latest",
+        description="Strategy for sampling messages: 'latest' (from end of topic), 'random' (random offsets), 'stratified' (evenly distributed), 'full' (entire topic, respects sample_size)",
+    )
+    batch_size: PositiveInt = Field(
+        default=100,
+        description="Number of messages to fetch in a single batch (for more efficient reading)",
+    )
+
+    # Override sample_size from base class with Kafka-appropriate default
+    sample_size: int = Field(
+        default=1000,
+        description="Number of messages to sample for profiling. Higher values provide more accurate statistics but take longer to process.",
+    )
+
+    # Inherits max_workers from GEProfilingConfig - controls profiling and schema inference parallelization
+
+    # Kafka-specific field for handling complex nested JSON/Avro structures
+    flatten_max_depth: int = Field(
+        default=5,
+        description="Maximum recursion depth when flattening nested JSON structures. Lower values prevent recursion errors but may truncate deeply nested data.",
+    )
 
 
 class KafkaSourceConfig(
@@ -45,6 +109,7 @@ class KafkaSourceConfig(
         default=True,
         description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
     )
+
     meta_mapping: Dict = Field(
         default={},
         description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
@@ -64,6 +129,10 @@ class KafkaSourceConfig(
         default=False,
         description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
     )
+    schemaless_fallback: SchemalessFallback = Field(
+        default=SchemalessFallback(),
+        description="Settings for schema-less fallback when topics are not found in schema registry",
+    )
     disable_topic_record_naming_strategy: bool = Field(
         default=False,
         description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
@@ -76,3 +145,13 @@ class KafkaSourceConfig(
         default=None,
         description="Base URL for external platform (e.g. Aiven) where topics can be viewed. The topic name will be appended to this base URL.",
     )
+    profiling: ProfilerConfig = Field(
+        default=ProfilerConfig(),
+        description="Settings for message sampling and profiling",
+    )
+
+    def is_profiling_enabled(self) -> bool:
+        """Check if profiling is enabled, respecting operation_config like SQL connectors."""
+        return self.profiling.enabled and is_profiling_enabled(
+            self.profiling.operation_config
+        )

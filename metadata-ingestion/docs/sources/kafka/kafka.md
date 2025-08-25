@@ -241,3 +241,323 @@ config:
 ```
 
 The underlying implementation is similar to [dbt meta mapping](https://docs.datahub.com/docs/generated/ingestion/sources/dbt#dbt-meta-automated-mappings), which has more detailed examples that can be used for reference.
+
+### Data Profiling
+
+The Kafka source supports comprehensive data profiling of message content to generate field-level statistics and sample values. Profiling analyzes message samples from Kafka topics to provide insights into data quality and distribution.
+
+#### Schema-less Topic Support
+
+DataHub can automatically fall back to schema-less processing for topics not found in the schema registry:
+
+```yaml
+source:
+  type: kafka
+  config:
+    # ... other config ...
+
+    # Configure schema-less fallback
+    schemaless_fallback:
+      enabled: true # Enable automatic fallback (disabled by default)
+      max_workers: 20 # Parallel processing for multiple topics (default: 5 * CPU cores)
+      sample_timeout_seconds: 2.0 # Timeout per topic
+      sample_strategy: "hybrid" # "earliest", "latest", or "hybrid"
+```
+
+When `schemaless_fallback.enabled` is true:
+
+- Topics without schema registry entries will automatically have their schema inferred from message data
+- DataHub will sample a few messages from the topic to determine field names and types
+- This allows ingestion to succeed even for topics that don't use the schema registry
+- The inferred schema will include field descriptions showing sample values
+
+#### Performance Tuning
+
+For better performance when using schema-less fallback, you can tune the sampling behavior:
+
+```yaml
+source:
+  type: kafka
+  config:
+    # ... other config ...
+
+    schemaless_fallback:
+      enabled: true
+      max_workers: 10 # Parallel processing (default: 5 * CPU cores)
+      sample_timeout_seconds: 1.0 # Limit time per topic (default: 2.0)
+      sample_strategy: "latest" # Sampling strategy (default: "hybrid")
+```
+
+**Performance Benefits:**
+
+- **Caching**: Inferred schemas are automatically cached (60 minute TTL) to avoid re-sampling
+- **Timeouts**: Configurable limits prevent hanging on slow/empty topics
+- **Parallel Processing**: Multiple topics processed simultaneously using ThreadPoolExecutor
+- **Auto-scaling**: Worker count automatically scales based on CPU cores and topic count
+- **Hybrid Sampling**: Tries recent messages first (fast), falls back to historical data if needed
+- **Optimized Consumer**: Fast Kafka consumer settings for quick message sampling
+
+#### Configuration Examples for Different Scenarios
+
+**High-Performance Setup (Many topics, powerful machine)**:
+
+```yaml
+schemaless_fallback:
+  enabled: true
+  max_workers: 20 # Higher parallelism
+  sample_timeout_seconds: 1.0
+  sample_strategy: "latest" # Fastest - recent messages only
+```
+
+**Resource-Constrained Setup (Limited CPU/memory)**:
+
+```yaml
+schemaless_fallback:
+  enabled: true
+  max_workers: 2 # Lower parallelism
+  sample_timeout_seconds: 2.0
+  sample_strategy: "hybrid"
+```
+
+**Conservative Setup (Prioritize accuracy over speed)**:
+
+```yaml
+schemaless_fallback:
+  enabled: true
+  max_workers: 5
+  sample_timeout_seconds: 5.0
+  sample_strategy: "earliest" # Most comprehensive - scan from beginning
+```
+
+#### Sampling Strategies
+
+DataHub supports three sampling strategies for schema inference:
+
+- **`hybrid` (default)**: Tries `latest` first for speed, falls back to `earliest` if no recent messages found. Best of both worlds.
+- **`latest`**: Only reads recent messages. Fastest but may fail on quiet topics.
+- **`earliest`**: Scans from the beginning of topic history. Most comprehensive but slower on large topics.
+
+**Strategy Performance Comparison**:
+| Strategy | Speed | Coverage | Best For |
+|----------|-------|----------|----------|
+| `latest` | ⚡⚡⚡ | 🔍 | Active topics, speed priority |
+| `hybrid` | ⚡⚡ | 🔍🔍🔍 | **Recommended - balanced** |
+| `earliest` | ⚡ | 🔍🔍🔍 | Comprehensive analysis |
+
+If you prefer the old behavior (warnings for missing schemas), set `enable_schemaless_fallback: false`.
+
+#### Basic Profiling Configuration
+
+To enable profiling, add the `profiling` section to your configuration:
+
+```yaml
+source:
+  type: "kafka"
+  config:
+    # ...connection block
+    profiling:
+      enabled: true
+      sample_size: 1000
+      max_sample_time_seconds: 60
+```
+
+#### Advanced Profiling Configuration
+
+The Kafka source supports all standard Great Expectations profiling features plus Kafka-specific optimizations:
+
+```yaml
+source:
+  type: "kafka"
+  config:
+    # ...connection block
+    profiling:
+      # Basic settings
+      enabled: true
+      sample_size: 1000 # Number of messages to sample per topic
+      max_sample_time_seconds: 60 # Maximum time to spend sampling each topic
+
+      # Sampling strategy
+      sampling_strategy: "latest" # Options: latest, random, stratified, full
+
+      # Performance settings
+      max_workers: 4 # Parallel profiling workers
+      batch_size: 100 # Messages per batch for efficient reading
+
+      # Field-level profiling controls
+      include_field_null_count: true
+      include_field_distinct_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: false # Expensive, disabled by default
+      include_field_distinct_value_frequencies: false # Expensive
+      include_field_histogram: false # Expensive
+      include_field_sample_values: true
+
+      # Performance optimization
+      turn_off_expensive_profiling_metrics: false
+      field_sample_values_limit: 20
+      max_number_of_fields_to_profile: 100
+
+      # Complex data handling
+      flatten_max_depth: 5 # Max recursion depth for nested JSON/Avro
+
+      # Scheduling (optional)
+      operation_config:
+        lower_freq_profile_enabled: false # Enable scheduled profiling
+        profile_day_of_week: 1 # Monday=0, Sunday=6
+        profile_date_of_month: 15 # Run on 15th of each month
+```
+
+#### Sampling Strategies
+
+The Kafka source provides multiple sampling strategies optimized for different use cases:
+
+- **`latest`** (default): Samples the most recent messages from the end of each partition
+- **`random`**: Samples messages from random offsets across partitions
+- **`stratified`**: Evenly distributes samples across the topic timeline
+- **`full`**: Processes the entire topic (respects `sample_size` limit)
+
+#### Performance Considerations
+
+For high-throughput topics, consider these optimizations:
+
+```yaml
+profiling:
+  enabled: true
+  # Reduce sample size for faster processing
+  sample_size: 500
+  max_sample_time_seconds: 30
+
+  # Use latest strategy for best performance
+  sampling_strategy: "latest"
+
+  # Enable expensive metrics only when needed
+  turn_off_expensive_profiling_metrics: true
+  max_number_of_fields_to_profile: 50
+
+  # Increase parallelization
+  max_workers: 8
+  batch_size: 200
+```
+
+#### Scheduled Profiling
+
+You can configure profiling to run only on specific days or dates to reduce resource usage:
+
+```yaml
+profiling:
+  enabled: true
+  operation_config:
+    lower_freq_profile_enabled: true
+    profile_day_of_week: 0 # Run only on Mondays
+    # OR
+    profile_date_of_month: 1 # Run only on 1st of each month
+```
+
+#### Handling Complex Data
+
+The Kafka source automatically handles nested JSON and Avro structures by flattening them into individual fields. For deeply nested data, you can control the recursion depth:
+
+```yaml
+profiling:
+  enabled: true
+  flatten_max_depth: 3 # Prevent stack overflow on deep nesting
+```
+
+This is particularly useful for topics with complex nested messages or potential circular references.
+
+## Troubleshooting
+
+### Schema Parsing Errors
+
+DataHub automatically handles schema parsing errors gracefully and continues processing. Common issues and solutions:
+
+#### Avro Binary Encoding Errors
+
+**Error:** `avro.errors.InvalidAvroBinaryEncoding: Read 0 bytes, expected 1 bytes`
+
+**Solution:** Enable schemaless fallback to automatically infer schemas:
+
+```yaml
+source:
+  type: kafka
+  config:
+    schemaless_fallback:
+      enabled: true # Automatically infer schemas when parsing fails
+      sample_strategy: "hybrid" # Try latest messages first, fallback to earliest
+```
+
+#### Protobuf Duplicate Symbol Errors
+
+**Error:** `Couldn't build proto file into descriptor pool: duplicate symbol`
+
+**Solution:** DataHub logs warnings and continues processing. Topics with schema conflicts will use inferred schemas if schemaless fallback is enabled.
+
+#### Schema Registry Connection Issues
+
+If schema registry is unavailable, enable schemaless fallback:
+
+```yaml
+source:
+  type: kafka
+  config:
+    connection:
+      schema_registry_url: "http://localhost:8081"
+    schemaless_fallback:
+      enabled: true # Fallback when registry is unavailable
+```
+
+### Performance Optimization
+
+For large Kafka clusters with many topics:
+
+> **Note:** The `profiling.max_workers` setting controls parallelization for both profiling and schema inference operations, following DataHub's standard configuration patterns.
+
+```yaml
+source:
+  type: kafka
+  config:
+    # Filter topics to reduce processing time
+    topic_patterns:
+      allow: ["prod_.*", "analytics_.*"]
+      deny: [".*_temp", ".*_test"]
+
+    # Optimize profiling (also controls schema inference parallelization)
+    profiling:
+      enabled: true
+      max_workers: 20 # Controls both profiling AND schema inference parallelization
+      sample_size: 100 # Reduce sample size for faster processing
+
+    # Optimize schema inference
+    schemaless_fallback:
+      enabled: true
+      sample_timeout_seconds: 1.0 # Faster sampling
+```
+
+### Common Configuration Issues
+
+#### Missing Topic Metadata
+
+Ensure proper Kafka permissions:
+
+```bash
+# For Confluent Cloud, ensure ACLs allow DESCRIBE operations
+Topic Name = *
+Permission = ALLOW
+Operation = DESCRIBE
+Pattern Type = LITERAL
+```
+
+#### Memory Issues with Large Topics
+
+For topics with large messages or high volume:
+
+```yaml
+profiling:
+  enabled: true
+  sample_size: 50 # Reduce memory usage
+  flatten_max_depth: 2 # Prevent deep recursion
+```
