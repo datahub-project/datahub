@@ -118,6 +118,29 @@ def list_folders_path(
         yield DirEntry(name=folder, path=f"{s3_uri}{folder}")
 
 
+def list_objects_recursive_path(
+    s3_uri: str, *, startswith: str, aws_config: Optional[AwsConnectionConfig]
+) -> Iterable["ObjectSummary"]:
+    """
+    Given an S3 URI to a folder or bucket, return all objects underneath that URI, optionally
+    filtering by startswith.
+    """
+
+    if not is_s3_uri(s3_uri):
+        raise ValueError("Not a s3 URI: " + s3_uri)
+    if aws_config is None:
+        raise ValueError("aws_config not set. Cannot browse s3")
+    if startswith and "/" in startswith:
+        raise ValueError(f"startswith contains forward slash: {repr(startswith)}")
+
+    if not s3_uri.endswith("/"):
+        s3_uri += "/"
+
+    bucket_name = get_bucket_name(s3_uri)
+    prefix = get_bucket_relative_path(s3_uri) + startswith
+    return list_objects_recursive(bucket_name, prefix, aws_config)
+
+
 def list_folders(
     bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
 ) -> Iterable[str]:

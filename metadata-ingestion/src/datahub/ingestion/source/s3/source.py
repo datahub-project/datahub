@@ -39,6 +39,7 @@ from datahub.ingestion.source.aws.s3_boto_utils import (
     list_folders,
     list_folders_path,
     list_objects_recursive,
+    list_objects_recursive_path,
 )
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
@@ -1312,11 +1313,16 @@ class S3Source(StatefulIngestionSourceBase):
         path_spec.sample_files = False  # Disable sampling for simple paths
 
         # Extract the prefix from the path spec (stops at first wildcard)
-        prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
+        prefix = self.get_prefix(path_spec.include)
+
+        basename_startswith = prefix.split("/")[-1]
+        dirname = prefix.removesuffix(basename_startswith)
 
         # Iterate through all objects in the bucket matching the prefix
-        for obj in list_objects_recursive(
-            bucket_name, prefix, self.source_config.aws_config
+        for obj in list_objects_recursive_path(
+            dirname,
+            startswith=basename_startswith,
+            aws_config=self.source_config.aws_config,
         ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
