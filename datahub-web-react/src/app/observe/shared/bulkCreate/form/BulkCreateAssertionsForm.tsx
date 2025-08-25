@@ -1,5 +1,5 @@
-import { Button } from '@components';
-import { Divider, message } from 'antd';
+import { Button, Text, colors } from '@components';
+import { Alert, Divider, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -29,6 +29,12 @@ const ActionButtons = styled.div`
     justify-content: flex-end;
 `;
 
+const FooterActionsWrapper = styled.div`
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+`;
+
 const Body = styled.div`
     flex: 1;
     display: flex;
@@ -36,6 +42,20 @@ const Body = styled.div`
     max-height: 75vh;
     overflow-y: auto;
     padding: 16px 0;
+`;
+
+const StyledSchemaAlertMessage = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+`;
+
+const StyledSchemaAlert = styled(Alert)`
+    background-color: ${colors.white};
+    border-radius: 12px;
+    border: none;
+    padding: 0;
+    margin-top: 0;
 `;
 
 type Steps = 'asset_selection' | 'assertion_configuration' | 'subscription_configuration';
@@ -148,39 +168,58 @@ export const BulkCreateAssertionsForm = ({ onSubmit }: Props) => {
 
             <Divider style={{ marginTop: 0 }} />
 
-            <ActionButtons>
-                {step !== 'asset_selection' && (
-                    <Button onClick={onPrevStep} variant="text">
-                        Back
-                    </Button>
+            <FooterActionsWrapper>
+                {step === 'assertion_configuration' ? (
+                    <StyledSchemaAlert
+                        message={
+                            <StyledSchemaAlertMessage>
+                                <Text size="md" color="gray" colorLevel={600}>
+                                    <strong>For Schema Change Alerts</strong> press &quot;
+                                    {freshnessAssertionEnabled || volumeAssertionEnabled ? 'Next' : 'Skip'}
+                                    &quot;
+                                </Text>
+                            </StyledSchemaAlertMessage>
+                        }
+                        type="info"
+                        showIcon={false}
+                    />
+                ) : (
+                    <div />
                 )}
-                {step === 'asset_selection' && (
-                    <Button
-                        onClick={() => {
-                            if (isPlatformSelected) {
+                <ActionButtons>
+                    {step !== 'asset_selection' && (
+                        <Button onClick={onPrevStep} variant="text">
+                            Back
+                        </Button>
+                    )}
+                    {step === 'asset_selection' && (
+                        <Button
+                            onClick={() => {
+                                if (isPlatformSelected) {
+                                    onNextStep();
+                                } else {
+                                    message.warn('Please select a platform to continue.');
+                                }
+                            }}
+                        >
+                            Next
+                        </Button>
+                    )}
+                    {step === 'assertion_configuration' && (
+                        <Button
+                            onClick={() => {
                                 onNextStep();
-                            } else {
-                                message.warn('Please select a platform to continue.');
-                            }
-                        }}
-                    >
-                        Next
-                    </Button>
-                )}
-                {step === 'assertion_configuration' && (
-                    <Button
-                        onClick={() => {
-                            onNextStep();
-                        }}
-                        variant={freshnessAssertionEnabled || volumeAssertionEnabled ? 'filled' : 'secondary'}
-                    >
-                        {freshnessAssertionEnabled || volumeAssertionEnabled ? 'Next' : 'Skip'}
-                    </Button>
-                )}
-                {step === 'subscription_configuration' && (
-                    <CreateButton onClick={onCreateAssertions}>Bulk Create</CreateButton>
-                )}
-            </ActionButtons>
+                            }}
+                            variant={freshnessAssertionEnabled || volumeAssertionEnabled ? 'filled' : 'secondary'}
+                        >
+                            {freshnessAssertionEnabled || volumeAssertionEnabled ? 'Next' : 'Skip'}
+                        </Button>
+                    )}
+                    {step === 'subscription_configuration' && (
+                        <CreateButton onClick={onCreateAssertions}>Bulk Create</CreateButton>
+                    )}
+                </ActionButtons>
+            </FooterActionsWrapper>
         </Wrapper>
     );
 };
