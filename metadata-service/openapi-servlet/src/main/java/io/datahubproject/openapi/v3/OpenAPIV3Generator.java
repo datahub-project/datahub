@@ -1416,29 +1416,6 @@ public class OpenAPIV3Generator {
                 newSchema()._default(false).description("Whether the condition should be negated."))
             .addRequiredItem("field");
 
-    Schema branchValues =
-        newSchema()
-            .type(TYPE_OBJECT)
-            .addRequiredItem("values")
-            .description("Branch: requires `values` only.");
-    branchValues.setNot(newSchema().type(TYPE_OBJECT).addRequiredItem("value"));
-
-    Schema branchExists =
-        newSchema()
-            .type(TYPE_OBJECT)
-            .description("Branch: `EXISTS` condition without `value`/`values`.");
-    branchExists.addProperties(
-        "condition", newSchema().type(TYPE_STRING)._enum(Collections.singletonList("EXISTS")));
-    Schema anyOfValueOrValues =
-        newSchema()
-            .anyOf(
-                Arrays.asList(
-                    newSchema().type(TYPE_OBJECT).addRequiredItem("value"),
-                    newSchema().type(TYPE_OBJECT).addRequiredItem("values")));
-    branchExists.setNot(anyOfValueOrValues);
-
-    criterion.setOneOf(Arrays.asList(branchValues, branchExists));
-
     // ConjunctiveCriterion schema
     Schema conjunctive =
         newSchema()
