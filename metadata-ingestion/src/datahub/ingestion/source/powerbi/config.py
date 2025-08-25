@@ -8,7 +8,7 @@ from pydantic import validator
 from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.api.incremental_lineage_helper import (
@@ -288,11 +288,25 @@ class PowerBiProfilingConfig(ConfigModel):
     )
 
 
+class PowerBiEnvironment(ConfigEnum):
+    """
+    PowerBI environment options
+    """
+
+    COMMERCIAL = "commercial"  # Commercial PowerBI environment
+    GOVERNMENT = "government"  # Government PowerBI environment
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
     platform_name: str = pydantic.Field(
         default=Constant.PLATFORM_NAME, hidden_from_docs=True
+    )
+
+    environment: PowerBiEnvironment = pydantic.Field(
+        default=PowerBiEnvironment.COMMERCIAL,
+        description="PowerBI environment to connect to. Options: 'commercial' (default) for commercial PowerBI, 'government' for PowerBI Government Community Cloud (GCC)",
     )
 
     platform_urn: str = pydantic.Field(
