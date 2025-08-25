@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Iterable, Optional, Union
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -12,8 +12,13 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import ObjectSummary
+
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
+
+LIST_OBJECTS_PAGE_SIZE = 1000
 
 
 def get_s3_tags(
@@ -138,3 +143,14 @@ def list_buckets(
     for page in paginator.paginate(Prefix=prefix):
         for o in page.get("Buckets", []):
             yield str(o.get("Name"))
+
+
+def list_objects_recursive(
+    bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
+) -> Iterable["ObjectSummary"]:
+    if aws_config is None:
+        raise ValueError("aws_config not set. Cannot browse s3")
+    s3_resource = aws_config.get_s3_resource()
+    bucket = s3_resource.Bucket(bucket_name)
+    for obj in bucket.objects.filter(Prefix=prefix).page_size(LIST_OBJECTS_PAGE_SIZE):
+        yield obj

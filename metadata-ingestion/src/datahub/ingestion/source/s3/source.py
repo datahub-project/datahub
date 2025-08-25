@@ -38,6 +38,7 @@ from datahub.ingestion.source.aws.s3_boto_utils import (
     get_s3_tags,
     list_folders,
     list_folders_path,
+    list_objects_recursive,
 )
 from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
@@ -87,8 +88,6 @@ if TYPE_CHECKING:
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
-
-PAGE_SIZE = 1000
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
@@ -948,7 +947,9 @@ class S3Source(StatefulIngestionSourceBase):
         # Instead of loading all objects into memory, we'll accumulate folder data incrementally
         folder_data: Dict[str, FolderInfo] = {}  # dirname -> FolderInfo
 
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+        for obj in list_objects_recursive(
+            bucket.name, prefix, self.source_config.aws_config
+        ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
             if not _is_allowed_path(path_spec, s3_path):
@@ -1306,7 +1307,6 @@ class S3Source(StatefulIngestionSourceBase):
             self.source_config.verify_ssl
         )
         bucket_name = get_bucket_name(path_spec.include)
-        bucket = s3.Bucket(bucket_name)
         logger.debug(f"Scanning bucket: {bucket_name}")
 
         path_spec.sample_files = False  # Disable sampling for simple paths
@@ -1315,7 +1315,9 @@ class S3Source(StatefulIngestionSourceBase):
         prefix = self.get_prefix(get_bucket_relative_path(path_spec.include))
 
         # Iterate through all objects in the bucket matching the prefix
-        for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
+        for obj in list_objects_recursive(
+            bucket_name, prefix, self.source_config.aws_config
+        ):
             s3_path = self.create_s3_path(obj.bucket_name, obj.key)
 
             # Get content type if configured
