@@ -12,6 +12,7 @@ import EntitySubtitle from '@app/searchV2/autoCompleteV2/components/subtitle/Ent
 import { VARIANT_STYLES } from '@app/searchV2/autoCompleteV2/constants';
 import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
+import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { Text } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
@@ -131,6 +132,8 @@ export default function AutoCompleteEntityItem({
 }: EntityAutocompleteItemProps) {
     const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
+    const linkProps = useGetModalLinkProps();
+
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const displayType = getEntityDisplayType(entity, entityRegistry);
     const variantProps = VARIANT_STYLES.get(variant ?? 'default');
@@ -140,7 +143,7 @@ export default function AutoCompleteEntityItem({
         : DisplayNameHoverFromContainer;
 
     const displayNameContent = variantProps?.nameCanBeHovered ? (
-        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)}>
+        <Link to={entityRegistry.getEntityUrl(entity.type, entity.urn)} {...linkProps}>
             <DisplayNameHoverComponent
                 displayName={displayName}
                 highlight={query}

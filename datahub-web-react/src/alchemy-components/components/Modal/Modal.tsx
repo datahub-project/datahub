@@ -3,6 +3,8 @@ import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { ModalContext } from '@app/sharedV2/modals/ModalContext';
+
 const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     font-family: ${typography.fonts.body};
 
@@ -125,7 +127,7 @@ export function Modal({
             }
             {...props}
         >
-            {children}
+            <ModalContext.Provider value={{ isInsideModal: true }}>{children}</ModalContext.Provider>
         </StyledModal>
     );
 }
