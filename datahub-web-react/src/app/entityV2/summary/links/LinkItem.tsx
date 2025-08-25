@@ -5,7 +5,6 @@ import styled from 'styled-components';
 import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
 
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
-import { useLinkUtils } from '@app/entityV2/summary/links/useLinkUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -39,11 +38,12 @@ const StyledIcon = styled(Icon)`
 
 type Props = {
     link: InstitutionalMemoryMetadata;
+    setSelectedLink: (link: InstitutionalMemoryMetadata | null) => void;
+    setShowConfirmDelete: (show: boolean) => void;
 };
 
-export default function LinkItem({ link }: Props) {
+export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete }: Props) {
     const entityRegistry = useEntityRegistryV2();
-    const { handleDeleteLink } = useLinkUtils();
     const createdBy = link.actor;
 
     return (
@@ -68,7 +68,8 @@ export default function LinkItem({ link }: Props) {
                         size="md"
                         onClick={(e) => {
                             e.preventDefault();
-                            handleDeleteLink(link);
+                            setSelectedLink(link);
+                            setShowConfirmDelete(true);
                         }}
                     />
                 </RightSection>
