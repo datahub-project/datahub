@@ -3,25 +3,28 @@ import logging
 import unittest.mock
 from typing import TYPE_CHECKING, Optional
 
-from airflow.models.operator import Operator
-from airflow.providers.openlineage.extractors.manager import (
-    ExtractorManager,
-    OperatorLineage,
+from airflow.providers.openlineage.extractors import (
+    BaseExtractor as BaseExtractor,
+    OperatorLineage as OperatorLineage,
 )
-from openlineage.airflow.extractors import (
-    BaseExtractor as OLBaseExtractor,
-    # ExtractorManager as OLExtractorManager,
-    TaskMetadata as OLTaskMetadata,
-)
-from openlineage.airflow.extractors.snowflake_extractor import OLSnowflakeExtractor
-from openlineage.airflow.extractors.sql_extractor import OLSqlExtractor
-from openlineage.airflow.utils import get_operator_class, try_import_from_string
-from openlineage.client.facet import (
-    ExtractionError,
-    ExtractionErrorRunFacet,
-    SqlJobFacet,
-)
+from airflow.providers.openlineage.extractors.bash import BaseExtractor
+from airflow.providers.openlineage.extractors.manager import ExtractorManager
+from airflow.providers.openlineage.extractors.python import PythonExtractor
+from airflow.providers.openlineage.utils.utils import try_import_from_string
 
+# from openlineage.airflow.extractors import (
+#     BaseExtractor as OLBaseExtractor,
+#     # ExtractorManager as OLExtractorManager,
+#     TaskMetadata as OLTaskMetadata,
+# )
+# from openlineage.airflow.extractors.snowflake_extractor import OLSnowflakeExtractor
+# from openlineage.airflow.extractors.sql_extractor import OLSqlExtractor
+# from openlineage.airflow.utils import get_operator_class, try_import_from_string
+# from openlineage.client.facet import (
+#     ExtractionError,
+#     ExtractionErrorRunFacet,
+#     SqlJobFacet,
+# )
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
@@ -34,6 +37,7 @@ from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
+    from airflow.models.operator import Operator
 
     from datahub.ingestion.graph.client import DataHubGraph
 
@@ -41,12 +45,13 @@ logger = logging.getLogger(__name__)
 _DATAHUB_GRAPH_CONTEXT_KEY = "datahub_graph"
 SQL_PARSING_RESULT_KEY = "datahub_sql"
 
+def _iter_extractor_types() -> Iterator[type[BaseExtractor]]:
+    if PythonExtractor is not None:
+        yield PythonExtractor
+    if BaseExtractor is not None:
+        yield BaseExtractor
 
 class ExtractorManager(ExtractorManager):
-    # TODO: On Airflow 2.7, the OLExtractorManager is part of the built-in Airflow API.
-    # When available, we should use that instead. The same goe for most of the OL
-    # extractors.
-
     def __init__(self):
         super().__init__()
 
@@ -63,11 +68,11 @@ class ExtractorManager(ExtractorManager):
             "SqliteOperator",
         ]
         for operator in _sql_operator_overrides:
-            self.task_to_extractor.extractors[operator] = GenericSqlExtractor
+            self.extractors[operator_class] = GenericSqlExtractor
 
-        self.task_to_extractor.extractors["AthenaOperator"] = AthenaOperatorExtractor
+        self.extractors["AthenaOperator"] = AthenaOperatorExtractor
 
-        self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (
+        self.extractors["BigQueryInsertJobOperator"] = (
             BigQueryInsertJobOperatorExtractor
         )
 
