@@ -18,6 +18,11 @@ pytestmark = pytest.mark.integration_batch_2
 
 FROZEN_TIME = "2024-07-12 12:00:00"
 
+# Expected dashboards that should be provisioned during the test setup
+# If new dashboards are added to the test setup, they should be listed here
+# to ensure provisioning is complete before running ingestion tests
+EXPECTED_DASHBOARDS = {"Test Integration Dashboard"}
+
 logger = logging.getLogger(__name__)
 
 
@@ -106,6 +111,13 @@ class GrafanaClient:
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/grafana"
+
+
+@pytest.fixture(scope="module")
+def grafana_provisioning_complete(loaded_grafana):
+    """Ensure all Grafana entities are provisioned before running tests"""
+    verify_grafana_entities_provisioned(timeout=180)
+    return True
 
 
 @pytest.fixture(scope="module")
@@ -273,9 +285,59 @@ def verify_grafana_fully_ready(
     logging.warning(f"Grafana may not be fully ready after {timeout}s timeout")
 
 
+def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
+    """Wait for Grafana entities to be provisioned before running ingestion tests
+
+    This function can be extended in the future to validate other entity types
+    like data sources, folders, etc.
+    """
+    base_url = "http://localhost:3000"
+
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3, backoff_factor=1, status_forcelist=[500, 502, 503, 504]
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+
+    end_time = time.time() + timeout
+
+    while time.time() < end_time:
+        try:
+            # Check if the expected dashboards exist
+            dashboards_url = f"{base_url}/api/search"
+            resp = session.get(dashboards_url, auth=("admin", "admin"), timeout=15)
+
+            if resp.status_code == 200:
+                dashboards = resp.json()
+                found_dashboards = {dashboard.get("title") for dashboard in dashboards}
+
+                if found_dashboards == EXPECTED_DASHBOARDS:
+                    logging.info(
+                        f"All expected dashboards provisioned: {EXPECTED_DASHBOARDS}"
+                    )
+                    return
+
+                logging.debug(
+                    f"Expected dashboards: {EXPECTED_DASHBOARDS}, Found: {found_dashboards}"
+                )
+
+        except Exception as e:
+            logging.debug(f"Entity provisioning check failed: {e}")
+
+        time.sleep(3)
+
+    logging.warning(f"Entity provisioning may not be complete after {timeout}s timeout")
+
+
 @freeze_time(FROZEN_TIME)
 def test_grafana_basic_ingest(
-    loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
+    loaded_grafana,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    test_api_key,
+    grafana_provisioning_complete,
 ):
     """Test ingestion with lineage enabled"""
 
@@ -314,7 +376,12 @@ def test_grafana_basic_ingest(
 
 @freeze_time(FROZEN_TIME)
 def test_grafana_ingest(
-    loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
+    loaded_grafana,
+    pytestconfig,
+    tmp_path,
+    test_resources_dir,
+    test_api_key,
+    grafana_provisioning_complete,
 ):
     """Test ingestion with lineage enabled"""
 
