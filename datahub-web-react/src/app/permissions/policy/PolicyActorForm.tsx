@@ -43,6 +43,14 @@ const OwnershipWrapper = styled.div`
     margin-top: 12px;
 `;
 
+const StyledTag = styled(Tag)`
+    padding: '0px 7px 0px 7px';
+    marginright: 3;
+    display: 'flex';
+    justifycontent: 'start';
+    alignitems: 'center';
+`;
+
 /**
  * Component used to construct the "actors" portion of a DataHub
  * access Policy by populating an ActorFilter object.
@@ -205,33 +213,15 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     const groupSearchResults = groupSearchData?.search?.searchResults;
 
     // Select dropdown values.
-    const usersSelectValue = actors.allUsers ? ['All'] : actors.users || [];
-    const groupsSelectValue = actors.allGroups ? ['All'] : actors.groups || [];
+    const usersSelectUrns = actors.allUsers ? ['All'] : actors.users || [];
+    const groupsSelectUrns = actors.allGroups ? ['All'] : actors.groups || [];
     const ownershipTypesSelectValue = actors.resourceOwnersTypes || [];
+    const usersSelectValues = actors.resolvedUsers?.filter((u) => usersSelectUrns.includes(u.urn)) || [];
+    const groupsSelectValues = actors.resolvedGroups?.filter((g) => groupsSelectUrns.includes(g.urn)) || [];
 
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { label, closable, onClose, value } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={onClose}
-                style={{
-                    padding: value === 'All' ? '0px 7px 0px 7px' : '0px 7px 0px 0px',
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                }}
-            >
-                {label}
-            </Tag>
-        );
+    const onPreventMouseDown = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
     };
 
     return (
@@ -287,14 +277,22 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 </Typography.Paragraph>
                 <Select
                     data-testid="users"
-                    value={usersSelectValue}
+                    value={usersSelectUrns}
                     mode="multiple"
                     filterOption={false}
                     placeholder="Search for users..."
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
-                    tagRender={tagRender}
+                    tagRender={(tagProps) => {
+                        const { closable, onClose, value } = tagProps;
+                        const selectedItem = usersSelectValues?.find((u) => u?.urn === value) || {};
+                        return (
+                            <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                {entityRegistry.getDisplayName(EntityType.CorpUser, selectedItem)}
+                            </StyledTag>
+                        );
+                    }}
                 >
                     {userSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
@@ -309,14 +307,22 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 </Typography.Paragraph>
                 <Select
                     data-testid="groups"
-                    value={groupsSelectValue}
+                    value={groupsSelectUrns}
                     mode="multiple"
                     placeholder="Search for groups..."
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
                     filterOption={false}
-                    tagRender={tagRender}
+                    tagRender={(tagProps) => {
+                        const { closable, onClose, value } = tagProps;
+                        const selectedItem = groupsSelectValues?.find((u) => u?.urn === value) || {};
+                        return (
+                            <StyledTag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                                {entityRegistry.getDisplayName(EntityType.CorpGroup, selectedItem)}
+                            </StyledTag>
+                        );
+                    }}
                 >
                     {groupSearchResults?.map((result) => (
                         <Select.Option value={result.entity.urn}>{renderSearchResult(result)}</Select.Option>
