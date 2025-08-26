@@ -1,17 +1,13 @@
-import { Checkbox, Loader, SearchBar, Text } from '@components';
-import React, { useState } from 'react';
+import { Text } from '@components';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
-import EntityItem from '@app/homeV3/module/components/EntityItem';
-import AssetFilters from '@app/homeV3/modules/assetCollection/AssetFilters';
-import EmptySection from '@app/homeV3/modules/assetCollection/EmptySection';
-import useGetAssetResults from '@app/homeV3/modules/assetCollection/useGetAssetResults';
-import { LoaderContainer } from '@app/homeV3/styledComponents';
-import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
-import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-
-import { DataHubPageModuleType, Entity } from '@types';
+import DynamicSelectAssetsTab from '@app/homeV3/modules/assetCollection/DynamicSelectAssetsTab';
+import ManualSelectAssetsTab from '@app/homeV3/modules/assetCollection/ManualSelectAssetsTab';
+import { SELECT_ASSET_TYPE_DYNAMIC, SELECT_ASSET_TYPE_MANUAL } from '@app/homeV3/modules/assetCollection/constants';
+import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
+import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
+import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 const AssetsSection = styled.div`
     display: flex;
@@ -19,99 +15,56 @@ const AssetsSection = styled.div`
     gap: 8px;
 `;
 
-const ItemDetailsContainer = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
-const ResultsContainer = styled.div`
-    margin: 0 -16px 0 -8px;
-    position: relative;
-    max-height: 300px;
-    padding-right: 8px;
-`;
-
-const ScrollableResultsContainer = styled.div`
-    max-height: inherit;
-    overflow-y: auto;
-`;
-
 type Props = {
+    selectAssetType: string;
+    setSelectAssetType: (newSelectAssetType: string) => void;
     selectedAssetUrns: string[];
     setSelectedAssetUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    dynamicFilter: LogicalPredicate | null | undefined;
+    setDynamicFilter: (newDynamicFilter: LogicalPredicate | null | undefined) => void;
 };
 
-const SelectAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
-    const entityRegistry = useEntityRegistryV2();
-
-    const [searchQuery, setSearchQuery] = useState<string | undefined>();
-    const { appliedFilters, updateFieldFilters } = useAppliedFilters();
-    const { entities, loading } = useGetAssetResults({ searchQuery, appliedFilters });
-
-    const handleSearchChange = (value: string) => {
-        setSearchQuery(value);
-    };
-
-    const handleCheckboxChange = (urn: string) => {
-        setSelectedAssetUrns((prev) => (prev.includes(urn) ? prev.filter((u) => u !== urn) : [...prev, urn]));
-    };
-
-    const customDetailsRenderer = (entity: Entity) => {
-        const displayType = getEntityDisplayType(entity, entityRegistry);
-
-        return (
-            <ItemDetailsContainer>
-                <Text color="gray" size="sm">
-                    {displayType}
-                </Text>
-                <Checkbox
-                    size="xs"
-                    isChecked={selectedAssetUrns?.includes(entity.urn)}
-                    onCheckboxChange={() => handleCheckboxChange(entity.urn)}
-                    data-testid="asset-selection-checkbox"
+const SelectAssetsSection = ({
+    selectAssetType,
+    setSelectAssetType,
+    selectedAssetUrns,
+    setSelectedAssetUrns,
+    dynamicFilter,
+    setDynamicFilter,
+}: Props) => {
+    const tabs: Tab[] = [
+        {
+            key: SELECT_ASSET_TYPE_MANUAL,
+            label: 'Select Assets',
+            content: (
+                <ManualSelectAssetsTab
+                    selectedAssetUrns={selectedAssetUrns}
+                    setSelectedAssetUrns={setSelectedAssetUrns}
                 />
-            </ItemDetailsContainer>
-        );
-    };
+            ),
+        },
+        {
+            key: SELECT_ASSET_TYPE_DYNAMIC,
+            label: 'Dynamic Filter',
+            content: <DynamicSelectAssetsTab dynamicFilter={dynamicFilter} setDynamicFilter={setDynamicFilter} />,
+        },
+    ];
 
-    let content;
-    if (loading) {
-        content = (
-            <LoaderContainer>
-                <Loader />
-            </LoaderContainer>
-        );
-    } else if (entities && entities.length > 0) {
-        content = entities?.map((entity) => (
-            <EntityItem
-                entity={entity}
-                key={entity.urn}
-                customDetailsRenderer={customDetailsRenderer}
-                moduleType={DataHubPageModuleType.AssetCollection}
-                padding="8px 0 8px 8px"
-                navigateOnlyOnNameClick
-            />
-        ));
-    } else {
-        content = <EmptySection />;
-    }
+    const onTabChanged = useCallback(
+        (newActiveTabKey: string) => {
+            if (newActiveTabKey === SELECT_ASSET_TYPE_MANUAL || newActiveTabKey === SELECT_ASSET_TYPE_DYNAMIC) {
+                setSelectAssetType?.(newActiveTabKey);
+            }
+        },
+        [setSelectAssetType],
+    );
 
     return (
         <AssetsSection>
             <Text color="gray" weight="bold">
                 Search and Select Assets
             </Text>
-            <SearchBar value={searchQuery} onChange={handleSearchChange} />
-            <AssetFilters
-                searchQuery={searchQuery}
-                appliedFilters={appliedFilters}
-                updateFieldFilters={updateFieldFilters}
-            />
-            <ResultsContainer>
-                <ScrollableResultsContainer data-testid="select-assets-search-results">
-                    {content}
-                </ScrollableResultsContainer>
-            </ResultsContainer>
+            <ButtonTabs tabs={tabs} onTabClick={onTabChanged} defaultKey={selectAssetType} />
         </AssetsSection>
     );
 };

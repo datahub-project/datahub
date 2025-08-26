@@ -45,3 +45,4 @@ export * from './components/Tooltip';
 export * from './components/Utils';
 export * from './components/WhiskerChart';
 export * from './components/InfiniteScrollList';
+export * from './components/Editor';

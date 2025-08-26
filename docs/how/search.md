@@ -172,7 +172,7 @@ If you want to:
   - `/q downstreamCountFeature:<3`
   - The advantage of `upstreamCountFeature` over `hasUpstreams` is that it considers whether the upstreams and downstreams are valid URNs.
   - The disadvantage of `upstreamCountFeature` over `hasUpstreams` is that these are updated once a day and are not real-time like `hasUpstreams`.
-  - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.RetryClaude can make mistakes. Please double-check responses.
+  - The reason `upstreamCountFeature` is useful is that after lineage is emitted once it will probably not change drastically for most of the tables. So this information will be almost up-to-date for all tables with a lag of around 24 hours.
   - These 2 filters will be supported starting from release `0.3.14.x` of DataHub Cloud.
   - These are DataHub Cloud _only_ filters.
 
