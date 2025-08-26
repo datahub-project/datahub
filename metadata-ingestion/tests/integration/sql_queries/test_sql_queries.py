@@ -14,6 +14,8 @@ from tests.test_helpers.docker_helpers import wait_for_port
 IGNORE_PATHS = [
     # Ignore auditStamp timestamps in upstreamLineage aspects
     r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['auditStamp'\]\['time'\]",
+    # Ignore auditStamp timestamps in patch lineage format
+    r"root\[\d+\]\['aspect'\]\[\d+\]\['value'\]\['auditStamp'\]\['time'\]",
 ]
 
 
@@ -29,7 +31,7 @@ def check_mockserver_health():
 @pytest.fixture(scope="module", autouse=True)
 def docker_datahub_service(docker_compose_runner, pytestconfig):
     """Start Docker mock DataHub service for all tests."""
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/sql-queries"
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sql_queries"
 
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "datahub-mock", cleanup=True
@@ -68,12 +70,16 @@ def docker_datahub_service(docker_compose_runner, pytestconfig):
             "input/hex-origin.yml",
             "golden/hex-origin.json",
         ),
+        (
+            "input/patch-lineage.yml",
+            "golden/patch-lineage.json",
+        ),
     ],
 )
 def test_sql_queries_ingestion(tmp_path, pytestconfig, recipe_file, golden_file):
     """Test SQL queries ingestion with different recipes and golden files."""
     test_resources_dir: pathlib.Path = (
-        pytestconfig.rootpath / "tests/integration/sql-queries"
+        pytestconfig.rootpath / "tests/integration/sql_queries"
     )
 
     # Load recipe
