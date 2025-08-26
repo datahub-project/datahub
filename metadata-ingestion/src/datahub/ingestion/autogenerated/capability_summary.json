@@ -1,5 +1,5 @@
 {
-  "generated_at": "2025-08-26T04:27:09.672087+00:00",
+  "generated_at": "2025-08-26T19:07:59.455473+00:00",
   "generated_by": "metadata-ingestion/scripts/capability_summary.py",
   "plugin_details": {
     "abs": {
@@ -2543,7 +2543,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default. ",
+          "description": "Disabled by default.",
           "subtype_modifier": null,
           "supported": true
         },
