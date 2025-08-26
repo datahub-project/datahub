@@ -1,13 +1,11 @@
-import itertools
 import logging
 import re
 import uuid
-from collections import deque
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Deque, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
+from pydantic import BaseModel, Field
 from sqlglot import parse_one
 
 from datahub.emitter.mce_builder import make_term_urn
@@ -16,6 +14,9 @@ from datahub.ingestion.source.dremio.dremio_api import (
     DremioEdition,
     DremioEntityContainerType,
 )
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +73,7 @@ QUERY_TYPES = {
 }
 
 
-@dataclass
-class DremioContainerResponse:
+class DremioContainerResponse(BaseModel):
     container_type: str
     name: str
     id: str
@@ -88,24 +88,22 @@ class DremioDatasetType(Enum):
     TABLE = "Table"
 
 
-class DremioGlossaryTerm:
+class DremioGlossaryTerm(BaseModel):
     urn: str
     glossary_term: str
 
-    def __init__(self, glossary_term: str):
-        self.urn = self.set_glossary_term(
-            glossary_term=glossary_term,
-        )
-        self.glossary_term = glossary_term
+    @classmethod
+    def from_term(cls, glossary_term: str) -> "DremioGlossaryTerm":
+        namespace = uuid.NAMESPACE_DNS
+        urn = make_term_urn(term=str(uuid.uuid5(namespace, glossary_term)))
+        return cls(urn=urn, glossary_term=glossary_term)
 
     def set_glossary_term(self, glossary_term: str) -> str:
         namespace = uuid.NAMESPACE_DNS
-
         return make_term_urn(term=str(uuid.uuid5(namespace, glossary_term)))
 
 
-@dataclass
-class DremioDatasetColumn:
+class DremioDatasetColumn(BaseModel):
     name: str
     ordinal_position: int
     data_type: str
@@ -113,44 +111,70 @@ class DremioDatasetColumn:
     is_nullable: bool
 
 
-class DremioQuery:
-    query_without_comments: str
-    query_type: str
-    query_subtype: str
-    affected_dataset: str
+class DremioQuery(BaseModel):
+    """Represents a Dremio query with parsed metadata."""
 
-    def __init__(
-        self,
-        job_id: str,
-        username: str,
-        submitted_ts: str,
-        query: str,
-        queried_datasets: str,
-        affected_datasets: Optional[str] = None,
-    ):
-        self.job_id = job_id
-        self.username = username
-        self.submitted_ts = self._get_submitted_ts(submitted_ts)
-        self.query = self._get_query(query)
-        self.query_without_comments = self.get_raw_query(query)
+    job_id: str
+    username: str
+    submitted_ts: datetime
+    query: str
+    queried_datasets: List[str]
+    affected_datasets: Optional[str] = None
+
+    # Computed fields
+    query_without_comments: str = Field(default="")
+    query_type: str = Field(default="")
+    query_subtype: str = Field(default="")
+    affected_dataset: str = Field(default="")
+
+    class Config:
+        # Allow extra fields for backward compatibility
+        extra = "allow"
+
+    def __init__(self, **data):
+        # Handle raw input transformation
+        if "submitted_ts" in data and isinstance(data["submitted_ts"], str):
+            data["submitted_ts"] = self._parse_timestamp(data["submitted_ts"])
+
+        if "query" in data:
+            data["query"] = self._clean_query(data["query"])
+
+        if "queried_datasets" in data and isinstance(data["queried_datasets"], str):
+            data["queried_datasets"] = self._parse_queried_datasets(
+                data["queried_datasets"]
+            )
+
+        super().__init__(**data)
+
+        # Set computed fields after initialization
+        self.query_without_comments = self.get_raw_query(self.query)
         self.query_type = self._get_query_type()
         self.query_subtype = self._get_query_subtype()
-        self.queried_datasets = self._get_queried_datasets(queried_datasets)
-        if affected_datasets:
-            self.affected_dataset = affected_datasets
+
+        if self.affected_datasets:
+            self.affected_dataset = self.affected_datasets
         else:
             self.affected_dataset = self._get_affected_tables()
 
-    def get(self, attr):
-        return getattr(self, attr, None)
-
-    def _get_submitted_ts(self, timestamp: str) -> datetime:
+    @staticmethod
+    def _parse_timestamp(timestamp: str) -> datetime:
+        """Parse timestamp string to datetime object."""
         return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
-    def _get_query(self, query: str) -> str:
+    @staticmethod
+    def _clean_query(query: str) -> str:
+        """Clean query string."""
         return str(query).replace("'", "'")
 
+    @staticmethod
+    def _parse_queried_datasets(queried_datasets: str) -> List[str]:
+        """Parse queried datasets string to list."""
+        return list(
+            {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")}
+        )
+
     def _get_query_type(self) -> str:
+        """Determine the query type based on the first operator."""
         query_operator = re.split(
             pattern=r"\s+",
             string=self.query_without_comments.strip(),
@@ -164,6 +188,7 @@ class DremioQuery:
         return "DDL"
 
     def _get_query_subtype(self) -> str:
+        """Determine the query subtype based on the operator."""
         for query_operator in (
             QUERY_TYPES["SELECT"] + QUERY_TYPES["DML"] + QUERY_TYPES["DDL"]
         ):
@@ -171,28 +196,26 @@ class DremioQuery:
                 return query_operator
         return "UNDEFINED"
 
-    def _get_queried_datasets(self, queried_datasets: str) -> List[str]:
-        return list(
-            {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")}
-        )
-
     def _get_affected_tables(self) -> str:
-        # TO DO
-        # for manipulation_operator in _data_manipulation_queries:
-        #     if self.query_without_comments.upper().startswith(manipulation_operator):
-
+        """Get affected tables from the query (placeholder implementation)."""
+        # TODO: Implement proper affected tables extraction
         return ""
 
     def get_raw_query(self, sql_query: str) -> str:
+        """Get query without comments using SQL parsing."""
         try:
             parsed = parse_one(sql_query)
             return parsed.sql(comments=False)
-        except Exception as e:
-            logger.warning(e)
+        except Exception:
+            # Fall back to original query if SQL parsing fails
             return sql_query
 
+    def get(self, attr: str) -> Any:
+        """Backward compatibility method for attribute access."""
+        return getattr(self, attr, None)
 
-class DremioDataset:
+
+class DremioDataset(BaseModel):
     resource_id: str
     resource_name: str
     path: List[str]
@@ -209,19 +232,20 @@ class DremioDataset:
     format_type: Optional[str]
     glossary_terms: List[DremioGlossaryTerm] = []
 
-    def __init__(
-        self,
+    @classmethod
+    def from_dataset_details(
+        cls,
         dataset_details: Dict[str, Any],
         api_operations: DremioAPIOperations,
-    ):
-        self.glossary_terms: List[DremioGlossaryTerm] = []
-        self.resource_id = dataset_details.get("RESOURCE_ID", "")
-        self.resource_name = dataset_details.get("TABLE_NAME", "")
-        self.path = dataset_details.get("TABLE_SCHEMA", "")[1:-1].split(", ")[:-1]
-        self.location_id = dataset_details.get("LOCATION_ID", "")
-        # self.columns = dataset_details.get("COLUMNS", [])
+    ) -> "DremioDataset":
+        glossary_terms: List[DremioGlossaryTerm] = []
+        resource_id = dataset_details.get("RESOURCE_ID", "")
+        resource_name = dataset_details.get("TABLE_NAME", "")
+        path = dataset_details.get("TABLE_SCHEMA", "")[1:-1].split(", ")[:-1]
+        location_id = dataset_details.get("LOCATION_ID", "")
+
         # Initialize DremioDatasetColumn instances for each column
-        self.columns = [
+        columns = [
             DremioDatasetColumn(
                 name=col.get("name"),
                 ordinal_position=col.get("ordinal_position"),
@@ -232,93 +256,134 @@ class DremioDataset:
             for col in dataset_details.get("COLUMNS", [])
         ]
 
-        self.sql_definition = dataset_details.get("VIEW_DEFINITION")
+        sql_definition = dataset_details.get("VIEW_DEFINITION")
 
-        if self.sql_definition:
-            self.dataset_type = DremioDatasetType.VIEW
-            self.default_schema = api_operations.get_context_for_vds(
-                resource_id=self.resource_id
-            )
+        if sql_definition:
+            dataset_type = DremioDatasetType.VIEW
+            default_schema = api_operations.get_context_for_vds(resource_id=resource_id)
         else:
-            self.dataset_type = DremioDatasetType.TABLE
+            dataset_type = DremioDatasetType.TABLE
+            default_schema = None
 
-        self.owner = dataset_details.get("OWNER")
-        self.owner_type = dataset_details.get("OWNER_TYPE")
+        owner = dataset_details.get("OWNER")
+        owner_type = dataset_details.get("OWNER_TYPE")
 
         if api_operations.edition in (
             DremioEdition.ENTERPRISE,
             DremioEdition.CLOUD,
         ):
-            self.created = dataset_details.get("CREATED", "")
-            self.format_type = dataset_details.get("FORMAT_TYPE")
+            created = dataset_details.get("CREATED", "")
+            format_type = dataset_details.get("FORMAT_TYPE")
+        else:
+            created = ""
+            format_type = None
 
-        self.description = api_operations.get_description_for_resource(
-            resource_id=self.resource_id
+        description = api_operations.get_description_for_resource(
+            resource_id=resource_id
         )
 
-        glossary_terms = api_operations.get_tags_for_resource(
-            resource_id=self.resource_id
+        glossary_terms_data = api_operations.get_tags_for_resource(
+            resource_id=resource_id
         )
-        if glossary_terms is not None:
-            for glossary_term in glossary_terms:
-                self.glossary_terms.append(
-                    DremioGlossaryTerm(glossary_term=glossary_term)
-                )
+        if glossary_terms_data is not None:
+            for glossary_term in glossary_terms_data:
+                glossary_terms.append(DremioGlossaryTerm.from_term(glossary_term))
 
-        if self.sql_definition and api_operations.edition == DremioEdition.ENTERPRISE:
-            self.parents = api_operations.get_view_parents(
-                dataset_id=self.resource_id,
+        # Get parents for views in Enterprise edition
+        parents = None
+        if sql_definition and api_operations.edition == DremioEdition.ENTERPRISE:
+            parents = api_operations.get_view_parents(
+                dataset_id=resource_id,
             )
 
+        return cls(
+            resource_id=resource_id,
+            resource_name=resource_name,
+            path=path,
+            location_id=location_id,
+            columns=columns,
+            sql_definition=sql_definition,
+            dataset_type=dataset_type,
+            default_schema=default_schema,
+            owner=owner,
+            owner_type=owner_type,
+            created=created,
+            parents=parents,
+            description=description,
+            format_type=format_type,
+            glossary_terms=glossary_terms,
+        )
 
-class DremioContainer:
+
+class DremioContainer(BaseModel):
     subclass: str = "Dremio Container"
     container_name: str
     location_id: str
     path: List[str]
     description: Optional[str]
 
-    def __init__(
-        self,
-        container_name: str,
-        location_id: str,
-        path: List[str],
+    @classmethod
+    def from_container_details(
+        cls,
+        container_name: Optional[str],
+        location_id: Optional[str],
+        path: Optional[List[str]],
         api_operations: DremioAPIOperations,
-    ):
-        self.container_name = container_name
-        self.location_id = location_id
-        self.path = path
+    ) -> "DremioContainer":
+        # Only validate that we have the essential fields needed for processing
+        if not container_name or not location_id:
+            raise ValueError(
+                f"Container requires both name and location_id: name={container_name}, location_id={location_id}"
+            )
 
-        self.description = api_operations.get_description_for_resource(
+        description = api_operations.get_description_for_resource(
             resource_id=location_id,
+        )
+
+        return cls(
+            container_name=container_name,
+            location_id=location_id,
+            path=path or [],
+            description=description,
         )
 
 
 class DremioSourceContainer(DremioContainer):
     subclass: str = "Dremio Source"
-    dremio_source_type: str
-    root_path: Optional[str]
-    database_name: Optional[str]
+    dremio_source_type: Optional[str] = None
+    root_path: Optional[str] = None
+    database_name: Optional[str] = None
 
-    def __init__(
-        self,
-        container_name: str,
-        location_id: str,
-        path: List[str],
+    @classmethod
+    def from_source_details(
+        cls,
+        container_name: Optional[str],
+        location_id: Optional[str],
+        path: Optional[List[str]],
         api_operations: DremioAPIOperations,
-        dremio_source_type: str,
+        dremio_source_type: Optional[str],
         root_path: Optional[str] = None,
         database_name: Optional[str] = None,
-    ):
-        super().__init__(
+    ) -> "DremioSourceContainer":
+        # Only validate that we have the essential fields needed for processing
+        if not container_name or not location_id:
+            raise ValueError(
+                f"Container requires both name and location_id: name={container_name}, location_id={location_id}"
+            )
+
+        description = api_operations.get_description_for_resource(
+            resource_id=location_id,
+        )
+
+        return cls(
             container_name=container_name,
             location_id=location_id,
-            path=path,
-            api_operations=api_operations,
+            path=path or [],
+            description=description,
+            dremio_source_type=dremio_source_type,
+            root_path=root_path,
+            database_name=database_name,
         )
-        self.dremio_source_type = dremio_source_type
-        self.root_path = root_path
-        self.database_name = database_name
 
 
 class DremioSpace(DremioContainer):
@@ -333,108 +398,105 @@ class DremioCatalog:
     dremio_api: DremioAPIOperations
     edition: DremioEdition
 
-    def __init__(self, dremio_api: DremioAPIOperations):
+    def __init__(
+        self,
+        dremio_api: DremioAPIOperations,
+        report: Optional["DremioSourceReport"] = None,
+    ):
         self.dremio_api = dremio_api
         self.edition = dremio_api.edition
-        self.datasets: Deque[DremioDataset] = deque()
-        self.sources: Deque[DremioSourceContainer] = deque()
-        self.spaces: Deque[DremioSpace] = deque()
-        self.folders: Deque[DremioFolder] = deque()
-        self.glossary_terms: Deque[DremioGlossaryTerm] = deque()
-        self.queries: Deque[DremioQuery] = deque()
+        self.report = report
+        # Cache for containers to avoid re-fetching
+        self._containers_cache: Optional[List[Dict]] = None
 
-        self.datasets_populated = False
-        self.containers_populated = False
-        self.queries_populated = False
+    def get_datasets(self) -> Iterable[DremioDataset]:
+        """Generator that yields DremioDataset objects one at a time to reduce memory usage."""
+        # Get containers for dataset queries
+        containers: List[DremioContainer] = []
+        for container in self.get_containers():
+            if isinstance(container, (DremioSourceContainer, DremioSpace)):
+                containers.append(container)
 
-    def set_datasets(self) -> None:
-        if not self.datasets_populated:
-            self.set_containers()
-
-            containers: Deque[DremioContainer] = deque()
-            containers.extend(self.spaces)  # Add DremioSpace elements
-            containers.extend(self.sources)  # Add DremioSource elements
-
-            for dataset_details in self.dremio_api.get_all_tables_and_columns(
-                containers=containers
-            ):
-                dremio_dataset = DremioDataset(
+        # Process datasets one at a time
+        for dataset_details in self.dremio_api.get_all_tables_and_columns(
+            containers=containers
+        ):
+            try:
+                dremio_dataset = DremioDataset.from_dataset_details(
                     dataset_details=dataset_details,
                     api_operations=self.dremio_api,
                 )
-                self.datasets.append(dremio_dataset)
+                yield dremio_dataset
+            except Exception as e:
+                if self.report:
+                    self.report.warning(
+                        message="Failed to create dataset from API response",
+                        context=f"Dataset: {dataset_details.get('TABLE_NAME', 'unknown')}",
+                        exc=e,
+                    )
+                continue
 
-                for glossary_term in dremio_dataset.glossary_terms:
-                    if glossary_term not in self.glossary_terms:
-                        self.glossary_terms.append(glossary_term)
-
-            self.datasets_populated = True
-
-    def get_datasets(self) -> Deque[DremioDataset]:
-        self.set_datasets()
-        return self.datasets
-
-    def set_containers(self) -> None:
-        if not self.containers_populated:
-            for container in self.dremio_api.get_all_containers():
+    def get_containers(self) -> Iterable[DremioContainer]:
+        """Generator that yields DremioContainer objects one at a time to reduce memory usage."""
+        # Stream containers directly from API without caching to prevent OOM
+        for container in self.dremio_api.get_all_containers():
+            try:
                 container_type = container.get("container_type")
-                if container_type == DremioEntityContainerType.SOURCE:
-                    self.sources.append(
-                        DremioSourceContainer(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                            dremio_source_type=container.get("source_type")
-                            or "unknown",
-                            root_path=container.get("root_path"),
-                            database_name=container.get("database_name"),
-                        )
+                if container_type == DremioEntityContainerType.SOURCE.value:
+                    yield DremioSourceContainer.from_source_details(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=[],
+                        api_operations=self.dremio_api,
+                        dremio_source_type=container.get("source_type"),
+                        root_path=container.get("root_path"),
+                        database_name=container.get("database_name"),
                     )
-                elif container_type == DremioEntityContainerType.SPACE:
-                    self.spaces.append(
-                        DremioSpace(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                        )
+                elif container_type == DremioEntityContainerType.SPACE.value:
+                    yield DremioSpace.from_container_details(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=[],
+                        api_operations=self.dremio_api,
                     )
-                elif container_type == DremioEntityContainerType.FOLDER:
-                    self.folders.append(
-                        DremioFolder(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=container.get("path"),
-                            api_operations=self.dremio_api,
-                        )
+                elif container_type == DremioEntityContainerType.FOLDER.value:
+                    yield DremioFolder.from_container_details(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=container.get("path"),
+                        api_operations=self.dremio_api,
                     )
                 else:
-                    self.spaces.append(
-                        DremioSpace(
-                            container_name=container.get("name"),
-                            location_id=container.get("id"),
-                            path=[],
-                            api_operations=self.dremio_api,
-                        )
+                    # Default to Space for unknown types
+                    yield DremioSpace.from_container_details(
+                        container_name=container.get("name"),
+                        location_id=container.get("id"),
+                        path=[],
+                        api_operations=self.dremio_api,
                     )
+            except Exception as e:
+                if self.report:
+                    self.report.warning(
+                        message="Failed to create container from API response",
+                        context=f"Container: {container.get('name', 'unknown')}",
+                        exc=e,
+                    )
+                continue
 
-        logging.info("Containers retrieved from source")
+    def get_sources(self) -> Iterable[DremioSourceContainer]:
+        """Generator that yields only DremioSourceContainer objects."""
+        for container in self.get_containers():
+            if isinstance(container, DremioSourceContainer):
+                yield container
 
-        self.containers_populated = True
-
-    def get_containers(self) -> Deque:
-        self.set_containers()
-        return deque(itertools.chain(self.sources, self.spaces, self.folders))
-
-    def get_sources(self) -> Deque[DremioSourceContainer]:
-        self.set_containers()
-        return self.sources
-
-    def get_glossary_terms(self) -> Deque[DremioGlossaryTerm]:
-        self.set_datasets()
-        self.set_containers()
-        return self.glossary_terms
+    def get_glossary_terms(self) -> Iterable[DremioGlossaryTerm]:
+        """Generator that yields unique glossary terms from datasets."""
+        seen_terms = set()
+        for dataset in self.get_datasets():
+            for glossary_term in dataset.glossary_terms:
+                if glossary_term.glossary_term not in seen_terms:
+                    seen_terms.add(glossary_term.glossary_term)
+                    yield glossary_term
 
     def is_valid_query(self, query: Dict[str, Any]) -> bool:
         required_fields = [
@@ -446,18 +508,24 @@ class DremioCatalog:
         ]
         return all(query.get(field) for field in required_fields)
 
-    def get_queries(self) -> Deque[DremioQuery]:
+    def get_queries(self) -> Iterable[DremioQuery]:
+        """Generator that yields DremioQuery objects one at a time to reduce memory usage."""
         for query in self.dremio_api.extract_all_queries():
             if not self.is_valid_query(query):
                 continue
-            self.queries.append(
-                DremioQuery(
+            try:
+                yield DremioQuery(
                     job_id=query["job_id"],
                     username=query["user_name"],
                     submitted_ts=query["submitted_ts"],
                     query=query["query"],
                     queried_datasets=query["queried_datasets"],
                 )
-            )
-        self.queries_populated = True
-        return self.queries
+            except Exception as e:
+                if self.report:
+                    self.report.warning(
+                        message="Failed to create query from API response",
+                        context=f"Query ID: {query.get('job_id', 'unknown')}",
+                        exc=e,
+                    )
+                continue
